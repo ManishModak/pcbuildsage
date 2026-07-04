@@ -1,0 +1,17 @@
+{
+  "$schema": "../schemas/persona.schema.json",
+  "persona_name": "Frame Chaser",
+  "description": "Maximum FPS per unit of currency.",
+  "budget_weights": {
+    "gpu": 0.42,
+    "cpu": 0.2,
+    "motherboard": 0.08,
+    "ram": 0.07,
+    "storage": 0.07,
+    "psu": 0.07,
+    "case": 0.05,
+    "cooler": 0.04
+  },
+  "priorities": ["raw performance", "stock or budget cooling acceptable", "basic case acceptable"],
+  "tone": "enthusiastic, benchmark-focused"
+}

@@ -1,0 +1,327 @@
+{
+  "$schema": "../schemas/registry.schema.json",
+  "corsair-cv450": {
+    "brand": "Corsair",
+    "model": "Corsair CV450",
+    "wattage": 450,
+    "efficiency": "80+ Bronze",
+    "form_factor": "ATX",
+    "aliases": [
+      "Corsair CV450",
+      "Corsair 450W",
+      "CV450"
+    ]
+  },
+  "cooler-master-mwe-450-v2": {
+    "brand": "Cooler Master",
+    "model": "Cooler Master MWE 450 V2",
+    "wattage": 450,
+    "efficiency": "80+ Bronze",
+    "form_factor": "ATX",
+    "aliases": [
+      "MWE 450 V2",
+      "Cooler Master MWE 450 V2",
+      "Cooler Master 450W"
+    ]
+  },
+  "evga-500-w1": {
+    "brand": "EVGA",
+    "model": "EVGA 500 W1",
+    "wattage": 500,
+    "efficiency": "80+",
+    "form_factor": "ATX",
+    "aliases": [
+      "EVGA 500W",
+      "EVGA 500 W1",
+      "500 W1"
+    ]
+  },
+  "thermaltake-smart-500w": {
+    "brand": "Thermaltake",
+    "model": "Thermaltake Smart 500W",
+    "wattage": 500,
+    "efficiency": "80+",
+    "form_factor": "ATX",
+    "aliases": [
+      "Thermaltake Smart 500W",
+      "Thermaltake 500W",
+      "Smart 500W"
+    ]
+  },
+  "corsair-rm550x": {
+    "brand": "Corsair",
+    "model": "Corsair RM550x",
+    "wattage": 550,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "Corsair 550W",
+      "Corsair RM550x",
+      "RM550x"
+    ]
+  },
+  "seasonic-focus-gx-550": {
+    "brand": "Seasonic",
+    "model": "Seasonic Focus GX-550",
+    "wattage": 550,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "Focus GX-550",
+      "Seasonic Focus GX-550",
+      "Seasonic 550W"
+    ]
+  },
+  "corsair-rm650x": {
+    "brand": "Corsair",
+    "model": "Corsair RM650x",
+    "wattage": 650,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "Corsair 650W",
+      "RM650x",
+      "Corsair RM650x"
+    ]
+  },
+  "evga-supernova-650-g6": {
+    "brand": "EVGA",
+    "model": "EVGA SuperNOVA 650 G6",
+    "wattage": 650,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "EVGA SuperNOVA 650 G6",
+      "SuperNOVA 650 G6",
+      "EVGA 650W"
+    ]
+  },
+  "seasonic-focus-gx-650": {
+    "brand": "Seasonic",
+    "model": "Seasonic Focus GX-650",
+    "wattage": 650,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "Focus GX-650",
+      "Seasonic Focus GX-650",
+      "Seasonic 650W"
+    ]
+  },
+  "be-quiet-straight-power-11-650w": {
+    "brand": "be quiet!",
+    "model": "be quiet! Straight Power 11 650W",
+    "wattage": 650,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "be quiet! Straight Power 11 650W",
+      "be quiet! 650W",
+      "Straight Power 11 650W"
+    ]
+  },
+  "corsair-rm750x": {
+    "brand": "Corsair",
+    "model": "Corsair RM750x",
+    "wattage": 750,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "Corsair RM750x",
+      "Corsair 750W",
+      "RM750x"
+    ]
+  },
+  "evga-supernova-750-g6": {
+    "brand": "EVGA",
+    "model": "EVGA SuperNOVA 750 G6",
+    "wattage": 750,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "SuperNOVA 750 G6",
+      "EVGA 750W",
+      "EVGA SuperNOVA 750 G6"
+    ]
+  },
+  "seasonic-focus-gx-750": {
+    "brand": "Seasonic",
+    "model": "Seasonic Focus GX-750",
+    "wattage": 750,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "Seasonic 750W",
+      "Focus GX-750",
+      "Seasonic Focus GX-750"
+    ]
+  },
+  "msi-mpg-a750gf": {
+    "brand": "MSI",
+    "model": "MSI MPG A750GF",
+    "wattage": 750,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "MSI MPG A750GF",
+      "MPG A750GF",
+      "MSI 750W"
+    ]
+  },
+  "asus-rog-strix-750g": {
+    "brand": "ASUS",
+    "model": "ASUS ROG Strix 750G",
+    "wattage": 750,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "ASUS ROG Strix 750G",
+      "ASUS 750W",
+      "ROG Strix 750G"
+    ]
+  },
+  "corsair-rm850x": {
+    "brand": "Corsair",
+    "model": "Corsair RM850x",
+    "wattage": 850,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "Corsair 850W",
+      "Corsair RM850x",
+      "RM850x"
+    ]
+  },
+  "evga-supernova-850-g6": {
+    "brand": "EVGA",
+    "model": "EVGA SuperNOVA 850 G6",
+    "wattage": 850,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "EVGA 850W",
+      "SuperNOVA 850 G6",
+      "EVGA SuperNOVA 850 G6"
+    ]
+  },
+  "seasonic-focus-px-850": {
+    "brand": "Seasonic",
+    "model": "Seasonic Focus PX-850",
+    "wattage": 850,
+    "efficiency": "80+ Platinum",
+    "form_factor": "ATX",
+    "aliases": [
+      "Seasonic Focus PX-850",
+      "Focus PX-850",
+      "Seasonic 850W"
+    ]
+  },
+  "be-quiet-dark-power-pro-12-850w": {
+    "brand": "be quiet!",
+    "model": "be quiet! Dark Power Pro 12 850W",
+    "wattage": 850,
+    "efficiency": "80+ Titanium",
+    "form_factor": "ATX",
+    "aliases": [
+      "be quiet! 850W",
+      "Dark Power Pro 12 850W",
+      "be quiet! Dark Power Pro 12 850W"
+    ]
+  },
+  "corsair-rm1000x": {
+    "brand": "Corsair",
+    "model": "Corsair RM1000x",
+    "wattage": 1000,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "Corsair 1000W",
+      "Corsair RM1000x",
+      "RM1000x"
+    ]
+  },
+  "evga-supernova-1000-g6": {
+    "brand": "EVGA",
+    "model": "EVGA SuperNOVA 1000 G6",
+    "wattage": 1000,
+    "efficiency": "80+ Gold",
+    "form_factor": "ATX",
+    "aliases": [
+      "EVGA SuperNOVA 1000 G6",
+      "SuperNOVA 1000 G6",
+      "EVGA 1000W"
+    ]
+  },
+  "seasonic-prime-tx-1000": {
+    "brand": "Seasonic",
+    "model": "Seasonic Prime TX-1000",
+    "wattage": 1000,
+    "efficiency": "80+ Titanium",
+    "form_factor": "ATX",
+    "aliases": [
+      "Prime TX-1000",
+      "Seasonic Prime TX-1000",
+      "Seasonic 1000W"
+    ]
+  },
+  "corsair-hx1200": {
+    "brand": "Corsair",
+    "model": "Corsair HX1200",
+    "wattage": 1200,
+    "efficiency": "80+ Platinum",
+    "form_factor": "ATX",
+    "aliases": [
+      "Corsair 1200W",
+      "HX1200",
+      "Corsair HX1200"
+    ]
+  },
+  "evga-supernova-1200-p2": {
+    "brand": "EVGA",
+    "model": "EVGA SuperNOVA 1200 P2",
+    "wattage": 1200,
+    "efficiency": "80+ Platinum",
+    "form_factor": "ATX",
+    "aliases": [
+      "EVGA SuperNOVA 1200 P2",
+      "EVGA 1200W",
+      "SuperNOVA 1200 P2"
+    ]
+  },
+  "seasonic-prime-tx-1300": {
+    "brand": "Seasonic",
+    "model": "Seasonic Prime TX-1300",
+    "wattage": 1300,
+    "efficiency": "80+ Titanium",
+    "form_factor": "ATX",
+    "aliases": [
+      "Prime TX-1300",
+      "Seasonic 1300W",
+      "Seasonic Prime TX-1300"
+    ]
+  },
+  "corsair-ax1600i": {
+    "brand": "Corsair",
+    "model": "Corsair AX1600i",
+    "wattage": 1600,
+    "efficiency": "80+ Titanium",
+    "form_factor": "ATX",
+    "aliases": [
+      "AX1600i",
+      "Corsair AX1600i",
+      "Corsair 1600W"
+    ]
+  },
+  "evga-supernova-1600-t2": {
+    "brand": "EVGA",
+    "model": "EVGA SuperNOVA 1600 T2",
+    "wattage": 1600,
+    "efficiency": "80+ Titanium",
+    "form_factor": "ATX",
+    "aliases": [
+      "EVGA SuperNOVA 1600 T2",
+      "SuperNOVA 1600 T2",
+      "EVGA 1600W"
+    ]
+  }
+}

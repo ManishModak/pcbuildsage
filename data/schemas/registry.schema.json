@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcbuildsage.local/schemas/registry.schema.json",
+  "title": "PCBuildSage Component Registry",
+  "type": "object",
+  "minProperties": 1,
+  "properties": {
+    "$schema": { "type": "string" }
+  },
+  "patternProperties": {
+    "^(?!\\$schema$)[a-z0-9][a-z0-9-]*$": { "$ref": "#/$defs/component" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "component": {
+      "type": "object",
+      "required": ["brand", "model", "aliases"],
+      "properties": {
+        "brand": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "aliases": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "socket": { "type": "string", "enum": ["LGA 1700", "AM5", "AM4", "LGA 1200", "LGA 1151"] },
+        "tdp_w": { "type": "number", "minimum": 0 },
+        "ddr": { "type": "string", "enum": ["DDR3", "DDR4", "DDR5"] },
+        "igpu": { "type": "boolean" },
+        "boost_clock_ghz": { "type": "number" },
+        "cores": { "type": "integer", "minimum": 1 },
+        "length_mm": { "type": "number", "minimum": 0 },
+        "recommended_psu_w": { "type": "number", "minimum": 0 },
+        "vram_gb": { "type": "number", "minimum": 0 },
+        "slot_width": { "type": "number", "minimum": 0 },
+        "chipset": { "type": "string" },
+        "form_factor": { "type": "string" },
+        "form_factors": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "m2_slots": { "type": "integer", "minimum": 0 },
+        "max_gpu_length_mm": { "type": "number", "minimum": 0 },
+        "max_cooler_height_mm": { "type": "number", "minimum": 0 },
+        "height_mm": { "type": "number", "minimum": 0 },
+        "sockets": { "type": "array", "minItems": 1, "items": { "type": "string", "enum": ["LGA 1700", "AM5", "AM4", "LGA 1200", "LGA 1151"] } },
+        "tdp_rating_w": { "type": "number", "minimum": 0 },
+        "wattage": { "type": "number", "minimum": 0 },
+        "efficiency": { "type": "string", "enum": ["80+", "80+ Bronze", "80+ Silver", "80+ Gold", "80+ Platinum", "80+ Titanium"] },
+        "speed": { "type": "string", "pattern": "^\\d+MHz$" },
+        "capacity": { "type": "string", "pattern": "^\\d+GB$" },
+        "sources": { "type": "array", "items": { "type": "string", "format": "uri" } },
+        "confidence": { "enum": ["high", "medium", "low"] },
+        "researched_at": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

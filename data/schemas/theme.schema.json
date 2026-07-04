@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcbuildsage.local/schemas/theme.schema.json",
+  "title": "PCBuildSage Theme",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "theme_name", "mode", "tokens", "ansi"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "theme_name": { "type": "string", "minLength": 1 },
+    "mode": { "enum": ["dark", "light"] },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["--bg", "--surface", "--surface-raised", "--border", "--text", "--text-secondary", "--text-muted", "--accent", "--on-accent", "--ok", "--blocking", "--warn", "--unverified"],
+      "properties": {
+        "--bg": { "$ref": "#/$defs/hex" },
+        "--surface": { "$ref": "#/$defs/hex" },
+        "--surface-raised": { "$ref": "#/$defs/hex" },
+        "--border": { "$ref": "#/$defs/hex" },
+        "--text": { "$ref": "#/$defs/hex" },
+        "--text-secondary": { "$ref": "#/$defs/hex" },
+        "--text-muted": { "$ref": "#/$defs/hex" },
+        "--accent": { "$ref": "#/$defs/hex" },
+        "--on-accent": { "$ref": "#/$defs/hex" },
+        "--ok": { "$ref": "#/$defs/hex" },
+        "--blocking": { "$ref": "#/$defs/hex" },
+        "--warn": { "$ref": "#/$defs/hex" },
+        "--unverified": { "$ref": "#/$defs/hex" }
+      }
+    },
+    "ansi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accent", "ok", "blocking", "warn", "unverified", "muted"],
+      "properties": {
+        "accent": { "$ref": "#/$defs/ansi" },
+        "ok": { "$ref": "#/$defs/ansi" },
+        "blocking": { "$ref": "#/$defs/ansi" },
+        "warn": { "$ref": "#/$defs/ansi" },
+        "unverified": { "$ref": "#/$defs/ansi" },
+        "muted": { "$ref": "#/$defs/ansi" }
+      }
+    }
+  },
+  "$defs": {
+    "hex": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+    "ansi": { "type": "integer", "minimum": 0, "maximum": 255 }
+  }
+}

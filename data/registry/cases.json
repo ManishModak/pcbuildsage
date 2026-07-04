@@ -1,0 +1,219 @@
+{
+  "$schema": "../schemas/registry.schema.json",
+  "corsair-4000d-airflow": {
+    "brand": "Corsair",
+    "model": "Corsair 4000D Airflow",
+    "max_gpu_length_mm": 350,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Corsair 4000D Airflow",
+      "4000D Airflow"
+    ]
+  },
+  "nzxt-h510": {
+    "brand": "NZXT",
+    "model": "NZXT H510",
+    "max_gpu_length_mm": 350,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "NZXT H510",
+      "H510"
+    ]
+  },
+  "cooler-master-masterbox-mb511": {
+    "brand": "Cooler Master",
+    "model": "Cooler Master MasterBox MB511",
+    "max_gpu_length_mm": 350,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Cooler Master MasterBox MB511",
+      "MasterBox MB511"
+    ]
+  },
+  "phanteks-eclipse-p400a": {
+    "brand": "Phanteks",
+    "model": "Phanteks Eclipse P400A",
+    "max_gpu_length_mm": 350,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Eclipse P400A",
+      "Phanteks Eclipse P400A"
+    ]
+  },
+  "corsair-7000d-airflow": {
+    "brand": "Corsair",
+    "model": "Corsair 7000D Airflow",
+    "max_gpu_length_mm": 450,
+    "max_cooler_height_mm": 180,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Corsair 7000D Airflow",
+      "7000D Airflow"
+    ]
+  },
+  "be-quiet-dark-base-pro-900": {
+    "brand": "be quiet!",
+    "model": "be quiet! Dark Base Pro 900",
+    "max_gpu_length_mm": 450,
+    "max_cooler_height_mm": 180,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Dark Base Pro 900",
+      "be quiet! Dark Base Pro 900"
+    ]
+  },
+  "phanteks-enthoo-pro-2": {
+    "brand": "Phanteks",
+    "model": "Phanteks Enthoo Pro 2",
+    "max_gpu_length_mm": 450,
+    "max_cooler_height_mm": 180,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Phanteks Enthoo Pro 2",
+      "Enthoo Pro 2"
+    ]
+  },
+  "cooler-master-masterbox-q300l": {
+    "brand": "Cooler Master",
+    "model": "Cooler Master MasterBox Q300L",
+    "max_gpu_length_mm": 320,
+    "max_cooler_height_mm": 155,
+    "form_factors": [
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "MasterBox Q300L",
+      "Cooler Master MasterBox Q300L"
+    ]
+  },
+  "thermaltake-versa-h18": {
+    "brand": "Thermaltake",
+    "model": "Thermaltake Versa H18",
+    "max_gpu_length_mm": 320,
+    "max_cooler_height_mm": 155,
+    "form_factors": [
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Thermaltake Versa H18",
+      "Versa H18"
+    ]
+  },
+  "fractal-design-focus-g-mini": {
+    "brand": "Fractal Design",
+    "model": "Fractal Design Focus G Mini",
+    "max_gpu_length_mm": 320,
+    "max_cooler_height_mm": 155,
+    "form_factors": [
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Fractal Design Focus G Mini",
+      "Focus G Mini"
+    ]
+  },
+  "nzxt-h1": {
+    "brand": "NZXT",
+    "model": "NZXT H1",
+    "max_gpu_length_mm": 280,
+    "max_cooler_height_mm": 130,
+    "form_factors": [
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "NZXT H1",
+      "H1"
+    ]
+  },
+  "cooler-master-nr200": {
+    "brand": "Cooler Master",
+    "model": "Cooler Master NR200",
+    "max_gpu_length_mm": 280,
+    "max_cooler_height_mm": 130,
+    "form_factors": [
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Cooler Master NR200",
+      "NR200"
+    ]
+  },
+  "ssupd-meshlicious": {
+    "brand": "SSUPD",
+    "model": "SSUPD Meshlicious",
+    "max_gpu_length_mm": 280,
+    "max_cooler_height_mm": 130,
+    "form_factors": [
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "SSUPD Meshlicious",
+      "Meshlicious"
+    ]
+  },
+  "thermaltake-core-v21": {
+    "brand": "Thermaltake",
+    "model": "Thermaltake Core V21",
+    "max_gpu_length_mm": 350,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Thermaltake Core V21",
+      "Core V21"
+    ]
+  },
+  "fractal-design-node-804": {
+    "brand": "Fractal Design",
+    "model": "Fractal Design Node 804",
+    "max_gpu_length_mm": 350,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Fractal Design Node 804",
+      "Node 804"
+    ]
+  }
+}

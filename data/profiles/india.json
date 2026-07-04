@@ -1,0 +1,73 @@
+{
+  "$schema": "../schemas/profile.schema.json",
+  "schema_version": 1,
+  "profile_name": "India Tech Stores",
+  "country_code": "IN",
+  "default_currency": "INR",
+  "sites": [
+    {
+      "site_name": "Kryptronix",
+      "base_url": "https://kryptronix.in/",
+      "scraping_type": "category",
+      "browser_config": {
+        "headless": true,
+        "js_rendering": true,
+        "wait_for_selector": "li.product",
+        "scroll_down": true,
+        "timeout_ms": 30000
+      },
+      "categories": {
+        "gpu": {
+          "path": "product-category/components/graphics-card/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "cpu": {
+          "path": "product-category/components/processors/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        }
+      },
+      "selectors": {
+        "product_container": "li.product",
+        "title": "h3.woocommerce-loop-product__title",
+        "price": "span.price ins span.woocommerce-Price-amount, span.price span.woocommerce-Price-amount",
+        "url": "a.woocommerce-LoopProduct-link",
+        "image": "img.attachment-woocommerce_thumbnail",
+        "out_of_stock": ".out-of-stock"
+      }
+    },
+    {
+      "site_name": "MDComputers",
+      "base_url": "https://mdcomputers.in/",
+      "scraping_type": "category",
+      "browser_config": {
+        "headless": true,
+        "js_rendering": true,
+        "wait_for_selector": ".product-layout",
+        "scroll_down": true,
+        "timeout_ms": 30000
+      },
+      "categories": {
+        "gpu": {
+          "path": "graphics-card",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "cpu": {
+          "path": "processor",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        }
+      },
+      "selectors": {
+        "product_container": ".product-layout",
+        "title": ".caption h4 a",
+        "price": ".price",
+        "url": ".caption h4 a",
+        "image": ".image img",
+        "out_of_stock": ".stock-status.out-of-stock"
+      }
+    }
+  ]
+}

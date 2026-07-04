@@ -1,0 +1,1026 @@
+{
+  "$schema": "../schemas/registry.schema.json",
+  "intel-core-i9-14900k": {
+    "brand": "Intel",
+    "model": "Intel Core i9-14900K",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Core i9-14900K",
+      "Intel Core i9-14900K",
+      "i9-14900K",
+      "14900K"
+    ]
+  },
+  "intel-core-i9-14900kf": {
+    "brand": "Intel",
+    "model": "Intel Core i9-14900KF",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "Core i9-14900KF",
+      "i9-14900KF",
+      "14900KF",
+      "Intel Core i9-14900KF"
+    ]
+  },
+  "intel-core-i9-14900": {
+    "brand": "Intel",
+    "model": "Intel Core i9-14900",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "14900",
+      "Core i9-14900",
+      "Intel Core i9-14900",
+      "i9-14900"
+    ]
+  },
+  "intel-core-i7-14700k": {
+    "brand": "Intel",
+    "model": "Intel Core i7-14700K",
+    "socket": "LGA 1700",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Core i7-14700K",
+      "14700K",
+      "i7-14700K",
+      "Intel Core i7-14700K"
+    ]
+  },
+  "intel-core-i7-14700kf": {
+    "brand": "Intel",
+    "model": "Intel Core i7-14700KF",
+    "socket": "LGA 1700",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "14700KF",
+      "i7-14700KF",
+      "Core i7-14700KF",
+      "Intel Core i7-14700KF"
+    ]
+  },
+  "intel-core-i7-14700": {
+    "brand": "Intel",
+    "model": "Intel Core i7-14700",
+    "socket": "LGA 1700",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Intel Core i7-14700",
+      "14700",
+      "i7-14700",
+      "Core i7-14700"
+    ]
+  },
+  "intel-core-i5-14600k": {
+    "brand": "Intel",
+    "model": "Intel Core i5-14600K",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "14600K",
+      "i5-14600K",
+      "Intel Core i5-14600K",
+      "Core i5-14600K"
+    ]
+  },
+  "intel-core-i5-14600kf": {
+    "brand": "Intel",
+    "model": "Intel Core i5-14600KF",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "14600KF",
+      "i5-14600KF",
+      "Core i5-14600KF",
+      "Intel Core i5-14600KF"
+    ]
+  },
+  "intel-core-i5-14600": {
+    "brand": "Intel",
+    "model": "Intel Core i5-14600",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "14600",
+      "i5-14600",
+      "Core i5-14600",
+      "Intel Core i5-14600"
+    ]
+  },
+  "intel-core-i5-14500": {
+    "brand": "Intel",
+    "model": "Intel Core i5-14500",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Intel Core i5-14500",
+      "Core i5-14500",
+      "i5-14500",
+      "14500"
+    ]
+  },
+  "intel-core-i5-14400": {
+    "brand": "Intel",
+    "model": "Intel Core i5-14400",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "14400",
+      "Core i5-14400",
+      "Intel Core i5-14400",
+      "i5-14400"
+    ]
+  },
+  "intel-core-i5-14400f": {
+    "brand": "Intel",
+    "model": "Intel Core i5-14400F",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "Intel Core i5-14400F",
+      "i5-14400F",
+      "14400F",
+      "Core i5-14400F"
+    ]
+  },
+  "intel-core-i3-14100": {
+    "brand": "Intel",
+    "model": "Intel Core i3-14100",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Intel Core i3-14100",
+      "i3-14100",
+      "Core i3-14100",
+      "14100"
+    ]
+  },
+  "intel-core-i3-14100f": {
+    "brand": "Intel",
+    "model": "Intel Core i3-14100F",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "i3-14100F",
+      "Intel Core i3-14100F",
+      "14100F",
+      "Core i3-14100F"
+    ]
+  },
+  "intel-core-i9-13900k": {
+    "brand": "Intel",
+    "model": "Intel Core i9-13900K",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Core i9-13900K",
+      "i9-13900K",
+      "Intel Core i9-13900K",
+      "13900K"
+    ]
+  },
+  "intel-core-i9-13900kf": {
+    "brand": "Intel",
+    "model": "Intel Core i9-13900KF",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "Intel Core i9-13900KF",
+      "Core i9-13900KF",
+      "13900KF",
+      "i9-13900KF"
+    ]
+  },
+  "intel-core-i9-13900": {
+    "brand": "Intel",
+    "model": "Intel Core i9-13900",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Intel Core i9-13900",
+      "Core i9-13900",
+      "i9-13900",
+      "13900"
+    ]
+  },
+  "intel-core-i7-13700k": {
+    "brand": "Intel",
+    "model": "Intel Core i7-13700K",
+    "socket": "LGA 1700",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "i7-13700K",
+      "13700K",
+      "Intel Core i7-13700K",
+      "Core i7-13700K"
+    ]
+  },
+  "intel-core-i7-13700kf": {
+    "brand": "Intel",
+    "model": "Intel Core i7-13700KF",
+    "socket": "LGA 1700",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "i7-13700KF",
+      "13700KF",
+      "Intel Core i7-13700KF",
+      "Core i7-13700KF"
+    ]
+  },
+  "intel-core-i7-13700": {
+    "brand": "Intel",
+    "model": "Intel Core i7-13700",
+    "socket": "LGA 1700",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "i7-13700",
+      "13700",
+      "Intel Core i7-13700",
+      "Core i7-13700"
+    ]
+  },
+  "intel-core-i5-13600k": {
+    "brand": "Intel",
+    "model": "Intel Core i5-13600K",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Core i5-13600K",
+      "13600K",
+      "i5-13600K",
+      "Intel Core i5-13600K"
+    ]
+  },
+  "intel-core-i5-13600kf": {
+    "brand": "Intel",
+    "model": "Intel Core i5-13600KF",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "i5-13600KF",
+      "Intel Core i5-13600KF",
+      "Core i5-13600KF",
+      "13600KF"
+    ]
+  },
+  "intel-core-i5-13600": {
+    "brand": "Intel",
+    "model": "Intel Core i5-13600",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "i5-13600",
+      "Core i5-13600",
+      "Intel Core i5-13600",
+      "13600"
+    ]
+  },
+  "intel-core-i5-13500": {
+    "brand": "Intel",
+    "model": "Intel Core i5-13500",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Intel Core i5-13500",
+      "i5-13500",
+      "Core i5-13500",
+      "13500"
+    ]
+  },
+  "intel-core-i5-13400": {
+    "brand": "Intel",
+    "model": "Intel Core i5-13400",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "13400",
+      "Intel Core i5-13400",
+      "i5-13400",
+      "Core i5-13400"
+    ]
+  },
+  "intel-core-i5-13400f": {
+    "brand": "Intel",
+    "model": "Intel Core i5-13400F",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "i5-13400F",
+      "13400F",
+      "Core i5-13400F",
+      "Intel Core i5-13400F"
+    ]
+  },
+  "intel-core-i3-13100": {
+    "brand": "Intel",
+    "model": "Intel Core i3-13100",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "i3-13100",
+      "Intel Core i3-13100",
+      "Core i3-13100",
+      "13100"
+    ]
+  },
+  "intel-core-i3-13100f": {
+    "brand": "Intel",
+    "model": "Intel Core i3-13100F",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "Core i3-13100F",
+      "Intel Core i3-13100F",
+      "i3-13100F",
+      "13100F"
+    ]
+  },
+  "intel-core-i9-12900k": {
+    "brand": "Intel",
+    "model": "Intel Core i9-12900K",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Core i9-12900K",
+      "Intel Core i9-12900K",
+      "12900K",
+      "i9-12900K"
+    ]
+  },
+  "intel-core-i9-12900kf": {
+    "brand": "Intel",
+    "model": "Intel Core i9-12900KF",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "Intel Core i9-12900KF",
+      "i9-12900KF",
+      "Core i9-12900KF",
+      "12900KF"
+    ]
+  },
+  "intel-core-i9-12900": {
+    "brand": "Intel",
+    "model": "Intel Core i9-12900",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "i9-12900",
+      "12900",
+      "Intel Core i9-12900",
+      "Core i9-12900"
+    ]
+  },
+  "intel-core-i7-12700k": {
+    "brand": "Intel",
+    "model": "Intel Core i7-12700K",
+    "socket": "LGA 1700",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "i7-12700K",
+      "12700K",
+      "Intel Core i7-12700K",
+      "Core i7-12700K"
+    ]
+  },
+  "intel-core-i7-12700kf": {
+    "brand": "Intel",
+    "model": "Intel Core i7-12700KF",
+    "socket": "LGA 1700",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "12700KF",
+      "Core i7-12700KF",
+      "Intel Core i7-12700KF",
+      "i7-12700KF"
+    ]
+  },
+  "intel-core-i7-12700": {
+    "brand": "Intel",
+    "model": "Intel Core i7-12700",
+    "socket": "LGA 1700",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "i7-12700",
+      "12700",
+      "Intel Core i7-12700",
+      "Core i7-12700"
+    ]
+  },
+  "intel-core-i5-12600k": {
+    "brand": "Intel",
+    "model": "Intel Core i5-12600K",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Core i5-12600K",
+      "12600K",
+      "Intel Core i5-12600K",
+      "i5-12600K"
+    ]
+  },
+  "intel-core-i5-12600kf": {
+    "brand": "Intel",
+    "model": "Intel Core i5-12600KF",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "i5-12600KF",
+      "Intel Core i5-12600KF",
+      "Core i5-12600KF",
+      "12600KF"
+    ]
+  },
+  "intel-core-i5-12600": {
+    "brand": "Intel",
+    "model": "Intel Core i5-12600",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Core i5-12600",
+      "Intel Core i5-12600",
+      "i5-12600",
+      "12600"
+    ]
+  },
+  "intel-core-i5-12500": {
+    "brand": "Intel",
+    "model": "Intel Core i5-12500",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Intel Core i5-12500",
+      "12500",
+      "i5-12500",
+      "Core i5-12500"
+    ]
+  },
+  "intel-core-i5-12400": {
+    "brand": "Intel",
+    "model": "Intel Core i5-12400",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "12400",
+      "Core i5-12400",
+      "Intel Core i5-12400",
+      "i5-12400"
+    ]
+  },
+  "intel-core-i5-12400f": {
+    "brand": "Intel",
+    "model": "Intel Core i5-12400F",
+    "socket": "LGA 1700",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "12400F",
+      "i5-12400F",
+      "Core i5-12400F",
+      "Intel Core i5-12400F"
+    ]
+  },
+  "intel-core-i3-12100": {
+    "brand": "Intel",
+    "model": "Intel Core i3-12100",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "12100",
+      "i3-12100",
+      "Intel Core i3-12100",
+      "Core i3-12100"
+    ]
+  },
+  "intel-core-i3-12100f": {
+    "brand": "Intel",
+    "model": "Intel Core i3-12100F",
+    "socket": "LGA 1700",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "12100F",
+      "Intel Core i3-12100F",
+      "Core i3-12100F",
+      "i3-12100F"
+    ]
+  },
+  "amd-ryzen-9-9900x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 9 9900X",
+    "socket": "AM5",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "9 9900X",
+      "Ryzen 9 9900X",
+      "9900X",
+      "R9 9900X",
+      "AMD Ryzen 9 9900X"
+    ]
+  },
+  "amd-ryzen-7-9800x3d": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 9800X3D",
+    "socket": "AM5",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "AMD Ryzen 7 9800X3D",
+      "R7 9800X3D",
+      "Ryzen 7 9800X3D",
+      "9800X3D",
+      "7 9800X3D"
+    ]
+  },
+  "amd-ryzen-7-9700x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 9700X",
+    "socket": "AM5",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "R7 9700X",
+      "7 9700X",
+      "AMD Ryzen 7 9700X",
+      "Ryzen 7 9700X",
+      "9700X"
+    ]
+  },
+  "amd-ryzen-5-9600x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 5 9600X",
+    "socket": "AM5",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "AMD Ryzen 5 9600X",
+      "Ryzen 5 9600X",
+      "R5 9600X",
+      "5 9600X",
+      "9600X"
+    ]
+  },
+  "amd-ryzen-9-7950x3d": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 9 7950X3D",
+    "socket": "AM5",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "R9 7950X3D",
+      "7950X3D",
+      "Ryzen 9 7950X3D",
+      "9 7950X3D",
+      "AMD Ryzen 9 7950X3D"
+    ]
+  },
+  "amd-ryzen-9-7950x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 9 7950X",
+    "socket": "AM5",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "7950X",
+      "R9 7950X",
+      "9 7950X",
+      "Ryzen 9 7950X",
+      "AMD Ryzen 9 7950X"
+    ]
+  },
+  "amd-ryzen-9-7900x3d": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 9 7900X3D",
+    "socket": "AM5",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "R9 7900X3D",
+      "Ryzen 9 7900X3D",
+      "9 7900X3D",
+      "7900X3D",
+      "AMD Ryzen 9 7900X3D"
+    ]
+  },
+  "amd-ryzen-9-7900x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 9 7900X",
+    "socket": "AM5",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "R9 7900X",
+      "AMD Ryzen 9 7900X",
+      "7900X",
+      "Ryzen 9 7900X",
+      "9 7900X"
+    ]
+  },
+  "amd-ryzen-9-7900": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 9 7900",
+    "socket": "AM5",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "9 7900",
+      "Ryzen 9 7900",
+      "AMD Ryzen 9 7900",
+      "R9 7900",
+      "7900"
+    ]
+  },
+  "amd-ryzen-7-7800x3d": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 7800X3D",
+    "socket": "AM5",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "7800X3D",
+      "7 7800X3D",
+      "R7 7800X3D",
+      "Ryzen 7 7800X3D",
+      "AMD Ryzen 7 7800X3D"
+    ]
+  },
+  "amd-ryzen-7-7700x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 7700X",
+    "socket": "AM5",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "Ryzen 7 7700X",
+      "7 7700X",
+      "AMD Ryzen 7 7700X",
+      "R7 7700X",
+      "7700X"
+    ]
+  },
+  "amd-ryzen-7-7700": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 7700",
+    "socket": "AM5",
+    "tdp_w": 105,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "7 7700",
+      "Ryzen 7 7700",
+      "R7 7700",
+      "7700",
+      "AMD Ryzen 7 7700"
+    ]
+  },
+  "amd-ryzen-5-7600x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 5 7600X",
+    "socket": "AM5",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "R5 7600X",
+      "5 7600X",
+      "Ryzen 5 7600X",
+      "AMD Ryzen 5 7600X",
+      "7600X"
+    ]
+  },
+  "amd-ryzen-5-7600": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 5 7600",
+    "socket": "AM5",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "aliases": [
+      "AMD Ryzen 5 7600",
+      "7600",
+      "Ryzen 5 7600",
+      "5 7600",
+      "R5 7600"
+    ]
+  },
+  "amd-ryzen-5-7500f": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 5 7500F",
+    "socket": "AM5",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": false,
+    "aliases": [
+      "AMD Ryzen 5 7500F",
+      "7500F",
+      "R5 7500F",
+      "5 7500F",
+      "Ryzen 5 7500F"
+    ]
+  },
+  "amd-ryzen-9-5950x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 9 5950X",
+    "socket": "AM4",
+    "tdp_w": 125,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "AMD Ryzen 9 5950X",
+      "5950X",
+      "9 5950X",
+      "R9 5950X",
+      "Ryzen 9 5950X"
+    ]
+  },
+  "amd-ryzen-9-5900x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 9 5900X",
+    "socket": "AM4",
+    "tdp_w": 125,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "Ryzen 9 5900X",
+      "R9 5900X",
+      "5900X",
+      "9 5900X",
+      "AMD Ryzen 9 5900X"
+    ]
+  },
+  "amd-ryzen-9-5900": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 9 5900",
+    "socket": "AM4",
+    "tdp_w": 125,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "5900",
+      "Ryzen 9 5900",
+      "AMD Ryzen 9 5900",
+      "R9 5900",
+      "9 5900"
+    ]
+  },
+  "amd-ryzen-7-5800x3d": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 5800X3D",
+    "socket": "AM4",
+    "tdp_w": 105,
+    "ddr": "DDR4",
+    "igpu": false,
+    "aliases": [
+      "AMD Ryzen 7 5800X3D",
+      "Ryzen 7 5800X3D",
+      "7 5800X3D",
+      "R7 5800X3D",
+      "5800X3D"
+    ]
+  },
+  "amd-ryzen-7-5800x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 5800X",
+    "socket": "AM4",
+    "tdp_w": 105,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "5800X",
+      "R7 5800X",
+      "7 5800X",
+      "Ryzen 7 5800X",
+      "AMD Ryzen 7 5800X"
+    ]
+  },
+  "amd-ryzen-7-5800": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 5800",
+    "socket": "AM4",
+    "tdp_w": 105,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "R7 5800",
+      "7 5800",
+      "Ryzen 7 5800",
+      "AMD Ryzen 7 5800",
+      "5800"
+    ]
+  },
+  "amd-ryzen-7-5700x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 5700X",
+    "socket": "AM4",
+    "tdp_w": 105,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "AMD Ryzen 7 5700X",
+      "R7 5700X",
+      "Ryzen 7 5700X",
+      "7 5700X",
+      "5700X"
+    ]
+  },
+  "amd-ryzen-7-5700g": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 5700G",
+    "socket": "AM4",
+    "tdp_w": 105,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "5700G",
+      "AMD Ryzen 7 5700G",
+      "7 5700G",
+      "R7 5700G",
+      "Ryzen 7 5700G"
+    ]
+  },
+  "amd-ryzen-7-5700": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 5700",
+    "socket": "AM4",
+    "tdp_w": 105,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "AMD Ryzen 7 5700",
+      "7 5700",
+      "5700",
+      "R7 5700",
+      "Ryzen 7 5700"
+    ]
+  },
+  "amd-ryzen-5-5600x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 5 5600X",
+    "socket": "AM4",
+    "tdp_w": 65,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "AMD Ryzen 5 5600X",
+      "5600X",
+      "Ryzen 5 5600X",
+      "5 5600X",
+      "R5 5600X"
+    ]
+  },
+  "amd-ryzen-5-5600": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 5 5600",
+    "socket": "AM4",
+    "tdp_w": 65,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "AMD Ryzen 5 5600",
+      "Ryzen 5 5600",
+      "5600",
+      "5 5600",
+      "R5 5600"
+    ]
+  },
+  "amd-ryzen-5-5600g": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 5 5600G",
+    "socket": "AM4",
+    "tdp_w": 65,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "Ryzen 5 5600G",
+      "5600G",
+      "5 5600G",
+      "R5 5600G",
+      "AMD Ryzen 5 5600G"
+    ]
+  },
+  "amd-ryzen-5-5500": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 5 5500",
+    "socket": "AM4",
+    "tdp_w": 65,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "5500",
+      "Ryzen 5 5500",
+      "R5 5500",
+      "5 5500",
+      "AMD Ryzen 5 5500"
+    ]
+  },
+  "amd-ryzen-3-5100": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 3 5100",
+    "socket": "AM4",
+    "tdp_w": 125,
+    "ddr": "DDR4",
+    "igpu": true,
+    "aliases": [
+      "5100",
+      "Ryzen 3 5100",
+      "3 5100",
+      "AMD Ryzen 3 5100",
+      "R3 5100"
+    ]
+  }
+}

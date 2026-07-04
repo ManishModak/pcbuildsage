@@ -1,0 +1,258 @@
+{
+  "$schema": "../schemas/registry.schema.json",
+  "asus-rog-strix-z790-e-gaming-wifi": {
+    "brand": "ASUS",
+    "model": "ASUS ROG Strix Z790-E Gaming WiFi",
+    "socket": "LGA 1700",
+    "chipset": "Z790",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 3,
+    "aliases": [
+      "ASUS Z790",
+      "ROG Strix Z790-E Gaming WiFi",
+      "Z790 ROG Strix Z790-E Gaming WiFi",
+      "ASUS ROG Strix Z790-E Gaming WiFi"
+    ]
+  },
+  "asus-tuf-gaming-z790-plus-wifi": {
+    "brand": "ASUS",
+    "model": "ASUS TUF Gaming Z790-Plus WiFi",
+    "socket": "LGA 1700",
+    "chipset": "Z790",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 3,
+    "aliases": [
+      "ASUS TUF Gaming Z790-Plus WiFi",
+      "ASUS Z790",
+      "Z790 TUF Gaming Z790-Plus WiFi",
+      "TUF Gaming Z790-Plus WiFi"
+    ]
+  },
+  "msi-mag-z790-tomahawk-wifi": {
+    "brand": "MSI",
+    "model": "MSI MAG Z790 Tomahawk WiFi",
+    "socket": "LGA 1700",
+    "chipset": "Z790",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 3,
+    "aliases": [
+      "MAG Z790 Tomahawk WiFi",
+      "MSI MAG Z790 Tomahawk WiFi",
+      "MSI Z790",
+      "Z790 MAG Z790 Tomahawk WiFi"
+    ]
+  },
+  "gigabyte-z790-aorus-elite-ax": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte Z790 Aorus Elite AX",
+    "socket": "LGA 1700",
+    "chipset": "Z790",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 3,
+    "aliases": [
+      "Gigabyte Z790",
+      "Z790 Z790 Aorus Elite AX",
+      "Z790 Aorus Elite AX",
+      "Gigabyte Z790 Aorus Elite AX"
+    ]
+  },
+  "asrock-z790-taichi": {
+    "brand": "ASRock",
+    "model": "ASRock Z790 Taichi",
+    "socket": "LGA 1700",
+    "chipset": "Z790",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 3,
+    "aliases": [
+      "ASRock Z790 Taichi",
+      "Z790 Taichi",
+      "ASRock Z790",
+      "Z790 Z790 Taichi"
+    ]
+  },
+  "asus-tuf-gaming-b760m-plus-wifi": {
+    "brand": "ASUS",
+    "model": "ASUS TUF Gaming B760M-Plus WiFi",
+    "socket": "LGA 1700",
+    "chipset": "B760",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 2,
+    "aliases": [
+      "ASUS TUF Gaming B760M-Plus WiFi",
+      "TUF Gaming B760M-Plus WiFi",
+      "B760 TUF Gaming B760M-Plus WiFi",
+      "ASUS B760"
+    ]
+  },
+  "msi-pro-b760m-a-wifi": {
+    "brand": "MSI",
+    "model": "MSI PRO B760M-A WiFi",
+    "socket": "LGA 1700",
+    "chipset": "B760",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 2,
+    "aliases": [
+      "MSI PRO B760M-A WiFi",
+      "PRO B760M-A WiFi",
+      "MSI B760",
+      "B760 PRO B760M-A WiFi"
+    ]
+  },
+  "gigabyte-b760m-aorus-elite-ax": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte B760M Aorus Elite AX",
+    "socket": "LGA 1700",
+    "chipset": "B760",
+    "ddr": "DDR5",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "aliases": [
+      "Gigabyte B760M Aorus Elite AX",
+      "B760M Aorus Elite AX",
+      "Gigabyte B760",
+      "B760 B760M Aorus Elite AX"
+    ]
+  },
+  "asus-rog-strix-x670e-e-gaming-wifi": {
+    "brand": "ASUS",
+    "model": "ASUS ROG Strix X670E-E Gaming WiFi",
+    "socket": "AM5",
+    "chipset": "X670E",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 3,
+    "aliases": [
+      "ROG Strix X670E-E Gaming WiFi",
+      "ASUS ROG Strix X670E-E Gaming WiFi",
+      "X670E ROG Strix X670E-E Gaming WiFi",
+      "ASUS X670E"
+    ]
+  },
+  "msi-mpg-x670e-carbon-wifi": {
+    "brand": "MSI",
+    "model": "MSI MPG X670E Carbon WiFi",
+    "socket": "AM5",
+    "chipset": "X670E",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 3,
+    "aliases": [
+      "MSI MPG X670E Carbon WiFi",
+      "MPG X670E Carbon WiFi",
+      "X670E MPG X670E Carbon WiFi",
+      "MSI X670E"
+    ]
+  },
+  "gigabyte-x670e-aorus-elite-ax": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte X670E Aorus Elite AX",
+    "socket": "AM5",
+    "chipset": "X670E",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 3,
+    "aliases": [
+      "X670E X670E Aorus Elite AX",
+      "Gigabyte X670E",
+      "X670E Aorus Elite AX",
+      "Gigabyte X670E Aorus Elite AX"
+    ]
+  },
+  "asrock-x670e-taichi": {
+    "brand": "ASRock",
+    "model": "ASRock X670E Taichi",
+    "socket": "AM5",
+    "chipset": "X670E",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 3,
+    "aliases": [
+      "X670E Taichi",
+      "ASRock X670E",
+      "X670E X670E Taichi",
+      "ASRock X670E Taichi"
+    ]
+  },
+  "asus-tuf-gaming-b650-plus-wifi": {
+    "brand": "ASUS",
+    "model": "ASUS TUF Gaming B650-Plus WiFi",
+    "socket": "AM5",
+    "chipset": "B650",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 2,
+    "aliases": [
+      "ASUS B650",
+      "B650 TUF Gaming B650-Plus WiFi",
+      "TUF Gaming B650-Plus WiFi",
+      "ASUS TUF Gaming B650-Plus WiFi"
+    ]
+  },
+  "asus-rog-strix-b650-a-gaming-wifi": {
+    "brand": "ASUS",
+    "model": "ASUS ROG Strix B650-A Gaming WiFi",
+    "socket": "AM5",
+    "chipset": "B650",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 2,
+    "aliases": [
+      "ASUS ROG Strix B650-A Gaming WiFi",
+      "ROG Strix B650-A Gaming WiFi",
+      "ASUS B650",
+      "B650 ROG Strix B650-A Gaming WiFi"
+    ]
+  },
+  "msi-mag-b650-tomahawk-wifi": {
+    "brand": "MSI",
+    "model": "MSI MAG B650 Tomahawk WiFi",
+    "socket": "AM5",
+    "chipset": "B650",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 2,
+    "aliases": [
+      "MAG B650 Tomahawk WiFi",
+      "MSI MAG B650 Tomahawk WiFi",
+      "B650 MAG B650 Tomahawk WiFi",
+      "MSI B650"
+    ]
+  },
+  "gigabyte-b650-aorus-elite-ax": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte B650 Aorus Elite AX",
+    "socket": "AM5",
+    "chipset": "B650",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 2,
+    "aliases": [
+      "B650 Aorus Elite AX",
+      "B650 B650 Aorus Elite AX",
+      "Gigabyte B650",
+      "Gigabyte B650 Aorus Elite AX"
+    ]
+  },
+  "asrock-b650m-pro-rs": {
+    "brand": "ASRock",
+    "model": "ASRock B650M Pro RS",
+    "socket": "AM5",
+    "chipset": "B650",
+    "ddr": "DDR5",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "aliases": [
+      "B650M Pro RS",
+      "B650 B650M Pro RS",
+      "ASRock B650M Pro RS",
+      "ASRock B650"
+    ]
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "$schema": "../schemas/registry.schema.json",
+  "crucial-pro-32gb-ddr5-5600": {
+    "brand": "Crucial",
+    "model": "Crucial Pro 32GB DDR5-5600",
+    "ddr": "DDR5",
+    "speed": "5600MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Crucial 32GB 2x16GB",
+      "Crucial DDR5 32GB",
+      "Crucial Pro 32GB DDR5-5600"
+    ]
+  },
+  "corsair-vengeance-32gb-ddr5-6000": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance 32GB DDR5-6000",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Corsair Vengeance 32GB DDR5-6000",
+      "Corsair DDR5 32GB",
+      "Vengeance 32GB DDR5-6000",
+      "Corsair 32GB 2x16GB"
+    ]
+  },
+  "kingston-fury-beast-32gb-ddr5-6000": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 32GB DDR5-6000",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Kingston 32GB 2x16GB",
+      "Fury Beast 32GB DDR5-6000",
+      "Kingston DDR5 32GB",
+      "Kingston Fury Beast 32GB DDR5-6000"
+    ]
+  },
+  "g-skill-trident-z5-rgb-32gb-ddr5-6000": {
+    "brand": "G.Skill",
+    "model": "G.Skill Trident Z5 RGB 32GB DDR5-6000",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Trident Z5 RGB 32GB DDR5-6000",
+      "G.Skill 32GB 2x16GB",
+      "G.Skill DDR5 32GB",
+      "Trident Z5 RGB 32GB DDR5-6000"
+    ]
+  },
+  "g-skill-trident-z5-rgb-32gb-ddr5-6400": {
+    "brand": "G.Skill",
+    "model": "G.Skill Trident Z5 RGB 32GB DDR5-6400",
+    "ddr": "DDR5",
+    "speed": "6400MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Trident Z5 RGB 32GB DDR5-6400",
+      "Trident Z5 RGB 32GB DDR5-6400",
+      "G.Skill DDR5 32GB",
+      "G.Skill 32GB 2x16GB"
+    ]
+  },
+  "g-skill-ripjaws-v-16gb-ddr4-3200": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws V 16GB DDR4-3200",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "G.Skill Ripjaws V 16GB DDR4-3200",
+      "G.Skill DDR4 16GB",
+      "G.Skill 16GB 2x8GB",
+      "Ripjaws V 16GB DDR4-3200"
+    ]
+  },
+  "crucial-16gb-ddr4-3200": {
+    "brand": "Crucial",
+    "model": "Crucial 16GB DDR4-3200",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Crucial DDR4 16GB",
+      "Crucial 16GB 2x8GB",
+      "Crucial 16GB DDR4-3200",
+      "16GB DDR4-3200"
+    ]
+  },
+  "corsair-vengeance-16gb-ddr4-3600": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance 16GB DDR4-3600",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Corsair Vengeance 16GB DDR4-3600",
+      "Corsair 16GB 2x8GB",
+      "Corsair DDR4 16GB",
+      "Vengeance 16GB DDR4-3600"
+    ]
+  },
+  "kingston-fury-beast-16gb-ddr4-3600": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 16GB DDR4-3600",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Kingston 16GB 2x8GB",
+      "Kingston Fury Beast 16GB DDR4-3600",
+      "Fury Beast 16GB DDR4-3600",
+      "Kingston DDR4 16GB"
+    ]
+  }
+}

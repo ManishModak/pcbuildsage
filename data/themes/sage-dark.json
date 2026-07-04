@@ -1,0 +1,29 @@
+{
+  "$schema": "../schemas/theme.schema.json",
+  "schema_version": 1,
+  "theme_name": "sage-dark",
+  "mode": "dark",
+  "tokens": {
+    "--bg": "#0E1210",
+    "--surface": "#161B18",
+    "--surface-raised": "#1D2420",
+    "--border": "#2A332E",
+    "--text": "#E8EDE9",
+    "--text-secondary": "#9DAAA2",
+    "--text-muted": "#67736B",
+    "--accent": "#7DC383",
+    "--on-accent": "#0B130D",
+    "--ok": "#7DC383",
+    "--blocking": "#E5735F",
+    "--warn": "#E0B25D",
+    "--unverified": "#B195E8"
+  },
+  "ansi": {
+    "accent": 114,
+    "ok": 114,
+    "blocking": 167,
+    "warn": 173,
+    "unverified": 139,
+    "muted": 244
+  }
+}

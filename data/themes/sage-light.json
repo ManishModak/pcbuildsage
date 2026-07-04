@@ -1,0 +1,29 @@
+{
+  "$schema": "../schemas/theme.schema.json",
+  "schema_version": 1,
+  "theme_name": "sage-light",
+  "mode": "light",
+  "tokens": {
+    "--bg": "#FAFBF9",
+    "--surface": "#FFFFFF",
+    "--surface-raised": "#F1F4F0",
+    "--border": "#DDE4DE",
+    "--text": "#1B221D",
+    "--text-secondary": "#4E5A52",
+    "--text-muted": "#6D766F",
+    "--accent": "#2F6B3C",
+    "--on-accent": "#FFFFFF",
+    "--ok": "#2F6B3C",
+    "--blocking": "#B8452F",
+    "--warn": "#8F6710",
+    "--unverified": "#6D4FB8"
+  },
+  "ansi": {
+    "accent": 29,
+    "ok": 29,
+    "blocking": 124,
+    "warn": 94,
+    "unverified": 61,
+    "muted": 244
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcbuildsage.local/schemas/profile.schema.json",
+  "title": "PCBuildSage Scraper Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "profile_name", "country_code", "default_currency", "sites"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "profile_name": { "type": "string", "minLength": 1 },
+    "country_code": { "type": "string", "pattern": "^[A-Z]{2}$" },
+    "default_currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+    "sites": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/site" }
+    }
+  },
+  "$defs": {
+    "site": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["site_name", "base_url", "scraping_type", "browser_config", "categories", "selectors"],
+      "properties": {
+        "site_name": { "type": "string", "minLength": 1 },
+        "base_url": { "type": "string", "format": "uri" },
+        "scraping_type": { "enum": ["category", "search"] },
+        "browser_config": { "$ref": "#/$defs/browserConfig" },
+        "categories": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/category" }
+        },
+        "selectors": { "$ref": "#/$defs/selectors" },
+        "max_llm_calls_per_site": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "browserConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["headless", "js_rendering", "timeout_ms"],
+      "properties": {
+        "headless": { "type": "boolean" },
+        "js_rendering": { "type": "boolean" },
+        "wait_for_selector": { "type": "string" },
+        "scroll_down": { "type": "boolean" },
+        "timeout_ms": { "type": "integer", "minimum": 1000 }
+      }
+    },
+    "category": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "max_pages"],
+      "properties": {
+        "path": { "type": "string" },
+        "pagination_pattern": { "type": "string", "pattern": ".*\\{page\\}.*" },
+        "search_pattern": { "type": "string", "pattern": ".*\\{query\\}.*" },
+        "max_pages": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "selectors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product_container", "title", "price", "url"],
+      "properties": {
+        "product_container": { "type": "string" },
+        "title": { "type": "string" },
+        "price": { "type": "string" },
+        "url": { "type": "string" },
+        "image": { "type": "string" },
+        "out_of_stock": { "type": "string" }
+      }
+    }
+  }
+}

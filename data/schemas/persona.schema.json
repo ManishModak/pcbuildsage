@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcbuildsage.local/schemas/persona.schema.json",
+  "title": "PCBuildSage Build Persona",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "persona_name", "description", "budget_weights", "priorities", "tone"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "persona_name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "budget_weights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu", "cpu", "motherboard", "ram", "storage", "psu", "case", "cooler"],
+      "properties": {
+        "gpu": { "type": "number", "minimum": 0, "maximum": 1 },
+        "cpu": { "type": "number", "minimum": 0, "maximum": 1 },
+        "motherboard": { "type": "number", "minimum": 0, "maximum": 1 },
+        "ram": { "type": "number", "minimum": 0, "maximum": 1 },
+        "storage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "psu": { "type": "number", "minimum": 0, "maximum": 1 },
+        "case": { "type": "number", "minimum": 0, "maximum": 1 },
+        "cooler": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "priorities": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "tone": { "type": "string", "minLength": 1 }
+  }
+}

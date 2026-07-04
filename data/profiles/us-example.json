@@ -1,0 +1,41 @@
+{
+  "$schema": "../schemas/profile.schema.json",
+  "schema_version": 1,
+  "profile_name": "US Retailer Example",
+  "country_code": "US",
+  "default_currency": "USD",
+  "sites": [
+    {
+      "site_name": "Example Parts Store",
+      "base_url": "https://example.com/",
+      "scraping_type": "category",
+      "browser_config": {
+        "headless": true,
+        "js_rendering": false,
+        "wait_for_selector": ".product-card",
+        "scroll_down": false,
+        "timeout_ms": 20000
+      },
+      "categories": {
+        "gpu": {
+          "path": "components/graphics-cards",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 5
+        },
+        "cpu": {
+          "path": "components/processors",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 5
+        }
+      },
+      "selectors": {
+        "product_container": ".product-card",
+        "title": ".product-title",
+        "price": ".product-price",
+        "url": "a.product-link",
+        "image": "img.product-image",
+        "out_of_stock": ".sold-out"
+      }
+    }
+  ]
+}
