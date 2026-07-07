@@ -9,18 +9,21 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "node node_modules/vitest/dist/cli.js run",
     "init-db": "tsx scripts/init-db.ts",
-    "validate:data": "tsx scripts/validate-data.ts",
+    "validate:data": "node --import tsx scripts/validate-data.ts",
     "export-research": "tsx scripts/export-research.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.0",
+    "@ai-sdk/openai-compatible": "^3.0.5",
     "@clack/prompts": "^0.11.0",
     "ai": "^6.0.0",
     "better-sqlite3": "^12.0.0",
     "next": "^16.2.9",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
@@ -35,6 +38,7 @@
     "eslint-config-next": "^16.2.9",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.20.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.10"
   }
 }

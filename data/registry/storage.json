@@ -1,0 +1,64 @@
+{
+  "$schema": "../schemas/registry.schema.json",
+  "samsung-990-pro-2tb": {
+    "brand": "Samsung",
+    "model": "Samsung 990 Pro 2TB",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": ["990 Pro 2TB", "Samsung 990 Pro 2TB", "990 pro 2tb", "990Pro 2TB"]
+  },
+  "samsung-990-pro-1tb": {
+    "brand": "Samsung",
+    "model": "Samsung 990 Pro 1TB",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": ["990 Pro 1TB", "Samsung 990 Pro 1TB", "990 pro 1tb", "990Pro 1TB"]
+  },
+  "wd-black-sn850x-2tb": {
+    "brand": "Western Digital",
+    "model": "WD_BLACK SN850X 2TB",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": ["SN850X 2TB", "WD Black SN850X 2TB", "WD_BLACK SN850X 2TB", "sn850x 2tb"]
+  },
+  "crucial-t700-2tb": {
+    "brand": "Crucial",
+    "model": "Crucial T700 2TB",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 5,
+    "aliases": ["T700 2TB", "Crucial T700 2TB", "t700 2tb"]
+  },
+  "crucial-p3-plus-1tb": {
+    "brand": "Crucial",
+    "model": "Crucial P3 Plus 1TB",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": ["P3 Plus 1TB", "Crucial P3 Plus 1TB", "p3 plus 1tb"]
+  },
+  "samsung-870-evo-1tb": {
+    "brand": "Samsung",
+    "model": "Samsung 870 EVO 1TB",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 1000,
+    "aliases": ["870 EVO 1TB", "Samsung 870 EVO 1TB", "870 evo 1tb"]
+  },
+  "crucial-mx500-1tb": {
+    "brand": "Crucial",
+    "model": "Crucial MX500 1TB",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 1000,
+    "aliases": ["MX500 1TB", "Crucial MX500 1TB", "mx500 1tb"]
+  }
+}

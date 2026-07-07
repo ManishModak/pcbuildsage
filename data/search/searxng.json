@@ -1,0 +1,8 @@
+{
+  "$schema": "../schemas/search.schema.json",
+  "name": "SearXNG",
+  "provider": "searxng",
+  "base_url": "http://localhost:8080",
+  "requires_key": false,
+  "result_limit": 5
+}

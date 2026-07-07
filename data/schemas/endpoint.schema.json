@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcbuildsage.local/schemas/endpoint.schema.json",
+  "title": "PCBuildSage Local Backend Preset",
+  "description": "A named preset for a local OpenAI-compatible serving backend (llama.cpp, vLLM, SGLang, LM Studio, TGI, ...). Data over code: every such backend speaks /v1, so presets prefill base_url/port and tool-enablement notes instead of adding per-backend code paths.",
+  "type": "object",
+  "required": ["name", "provider_class", "base_url", "requires_key", "model_list_style"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string", "minLength": 1, "description": "Human-facing preset name shown in the provider picker." },
+    "provider_class": { "type": "string", "const": "openai-compatible", "description": "All local backends are reached through the single openai-compatible provider class." },
+    "base_url": { "type": "string", "format": "uri", "description": "Default OpenAI-style base URL, e.g. http://localhost:8080/v1." },
+    "default_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "requires_key": { "type": "boolean", "description": "false for keyless local servers; a dummy key is sent only if the server rejects an empty header." },
+    "model_list_style": { "type": "string", "enum": ["openai", "ollama"], "description": "Which listing endpoint to hit for model discovery: OpenAI /v1/models or Ollama /api/tags." },
+    "tool_support_notes": { "type": "string", "description": "How to enable tool calling on this backend (surfaced when the tool-capability probe fails)." },
+    "launch_flags": { "type": "string", "description": "Optional exact launch-flag hint to enable tool calling." }
+  }
+}

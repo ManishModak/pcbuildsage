@@ -1,0 +1,7 @@
+{
+  "$schema": "../schemas/search.schema.json",
+  "name": "DuckDuckGo Instant Answer",
+  "provider": "duckduckgo",
+  "requires_key": false,
+  "result_limit": 5
+}

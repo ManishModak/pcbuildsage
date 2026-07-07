@@ -1,0 +1,11 @@
+{
+  "$schema": "../schemas/endpoint.schema.json",
+  "name": "llama.cpp",
+  "provider_class": "openai-compatible",
+  "base_url": "http://localhost:8080/v1",
+  "default_port": 8080,
+  "requires_key": false,
+  "model_list_style": "openai",
+  "tool_support_notes": "Launch the server with a tool-capable chat template and --jinja so tool calling is available.",
+  "launch_flags": "--jinja"
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcbuildsage.local/schemas/search.schema.json",
+  "title": "PCBuildSage Search Provider Preset",
+  "type": "object",
+  "required": ["name", "provider", "requires_key"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string", "minLength": 1 },
+    "provider": { "type": "string", "enum": ["duckduckgo", "searxng"] },
+    "base_url": { "type": "string", "format": "uri" },
+    "requires_key": { "type": "boolean", "const": false },
+    "result_limit": { "type": "integer", "minimum": 1, "maximum": 20 }
+  }
+}

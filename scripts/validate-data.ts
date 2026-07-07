@@ -37,6 +37,16 @@ const targets: ValidationTarget[] = [
     name: "personalities",
     schemaPath: "data/schemas/personality.schema.json",
     dataDir: "data/personalities"
+  },
+  {
+    name: "endpoints",
+    schemaPath: "data/schemas/endpoint.schema.json",
+    dataDir: "data/endpoints"
+  },
+  {
+    name: "search",
+    schemaPath: "data/schemas/search.schema.json",
+    dataDir: "data/search"
   }
 ];
 
@@ -75,9 +85,10 @@ for (const target of targets) {
 
     // Custom semantic validations
     if (target.name === "personas") {
-      const persona = data.value as any;
+      const persona = data.value as Record<string, unknown>;
       if (persona.budget_weights) {
-        const sum = Object.values(persona.budget_weights).reduce((a: number, b: number) => a + b, 0);
+        const budgetWeights = persona.budget_weights as Record<string, number>;
+        const sum = Object.values(budgetWeights).reduce((a, b) => a + b, 0);
         if (Math.abs(sum - 1.0) > 0.001) {
           hasErrors = true;
           console.error(`${filePath} invalid: budget_weights must sum to 1.0 (found ${sum.toFixed(4)})`);
@@ -87,9 +98,9 @@ for (const target of targets) {
     }
 
     if (target.name === "themes") {
-      const theme = data.value as any;
+      const theme = data.value as Record<string, unknown>;
       if (theme.tokens) {
-        const tokens = theme.tokens;
+        const tokens = theme.tokens as Record<string, string>;
         const bg = tokens["--bg"];
         const surface = tokens["--surface"];
         
@@ -104,11 +115,18 @@ for (const target of targets) {
         let themeHasErrors = false;
         for (const check of checks) {
           if (check.fg && check.bg) {
-            const ratio = getContrastRatio(check.fg, check.bg);
-            if (ratio < check.threshold) {
+            try {
+              const ratio = getContrastRatio(check.fg, check.bg);
+              if (ratio < check.threshold) {
+                themeHasErrors = true;
+                hasErrors = true;
+                console.error(`${filePath} invalid: WCAG contrast check failed for ${check.name}. Ratio is ${ratio.toFixed(2)}:1 (minimum ${check.threshold}:1 required).`);
+              }
+            } catch (err) {
               themeHasErrors = true;
               hasErrors = true;
-              console.error(`${filePath} invalid: WCAG contrast check failed for ${check.name}. Ratio is ${ratio.toFixed(2)}:1 (minimum ${check.threshold}:1 required).`);
+              const msg = err instanceof Error ? err.message : String(err);
+              console.error(`${filePath} invalid: WCAG contrast check failed for ${check.name}. Error parsing colors: ${msg}`);
             }
           }
         }
@@ -169,7 +187,9 @@ function getContrastRatio(hex1: string, hex2: string): number {
 
 function getRelativeLuminance(hex: string): number {
   const rgb = hexToRgb(hex);
-  if (!rgb) return 0;
+  if (!rgb) {
+    throw new Error(`Invalid hex color: "${hex}"`);
+  }
   const r = adjustColorChannel(rgb.r);
   const g = adjustColorChannel(rgb.g);
   const b = adjustColorChannel(rgb.b);

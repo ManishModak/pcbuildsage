@@ -13,7 +13,8 @@
       "ROG Strix Z790-E Gaming WiFi",
       "Z790 ROG Strix Z790-E Gaming WiFi",
       "ASUS ROG Strix Z790-E Gaming WiFi"
-    ]
+    ],
+    "sata_ports": 4
   },
   "asus-tuf-gaming-z790-plus-wifi": {
     "brand": "ASUS",
@@ -28,7 +29,8 @@
       "ASUS Z790",
       "Z790 TUF Gaming Z790-Plus WiFi",
       "TUF Gaming Z790-Plus WiFi"
-    ]
+    ],
+    "sata_ports": 4
   },
   "msi-mag-z790-tomahawk-wifi": {
     "brand": "MSI",
@@ -43,7 +45,8 @@
       "MSI MAG Z790 Tomahawk WiFi",
       "MSI Z790",
       "Z790 MAG Z790 Tomahawk WiFi"
-    ]
+    ],
+    "sata_ports": 7
   },
   "gigabyte-z790-aorus-elite-ax": {
     "brand": "Gigabyte",
@@ -58,7 +61,8 @@
       "Z790 Z790 Aorus Elite AX",
       "Z790 Aorus Elite AX",
       "Gigabyte Z790 Aorus Elite AX"
-    ]
+    ],
+    "sata_ports": 4
   },
   "asrock-z790-taichi": {
     "brand": "ASRock",
@@ -73,7 +77,8 @@
       "Z790 Taichi",
       "ASRock Z790",
       "Z790 Z790 Taichi"
-    ]
+    ],
+    "sata_ports": 8
   },
   "asus-tuf-gaming-b760m-plus-wifi": {
     "brand": "ASUS",
@@ -88,7 +93,8 @@
       "TUF Gaming B760M-Plus WiFi",
       "B760 TUF Gaming B760M-Plus WiFi",
       "ASUS B760"
-    ]
+    ],
+    "sata_ports": 4
   },
   "msi-pro-b760m-a-wifi": {
     "brand": "MSI",
@@ -103,7 +109,8 @@
       "PRO B760M-A WiFi",
       "MSI B760",
       "B760 PRO B760M-A WiFi"
-    ]
+    ],
+    "sata_ports": 4
   },
   "gigabyte-b760m-aorus-elite-ax": {
     "brand": "Gigabyte",
@@ -118,7 +125,8 @@
       "B760M Aorus Elite AX",
       "Gigabyte B760",
       "B760 B760M Aorus Elite AX"
-    ]
+    ],
+    "sata_ports": 4
   },
   "asus-rog-strix-x670e-e-gaming-wifi": {
     "brand": "ASUS",
@@ -133,7 +141,8 @@
       "ASUS ROG Strix X670E-E Gaming WiFi",
       "X670E ROG Strix X670E-E Gaming WiFi",
       "ASUS X670E"
-    ]
+    ],
+    "sata_ports": 4
   },
   "msi-mpg-x670e-carbon-wifi": {
     "brand": "MSI",
@@ -148,7 +157,8 @@
       "MPG X670E Carbon WiFi",
       "X670E MPG X670E Carbon WiFi",
       "MSI X670E"
-    ]
+    ],
+    "sata_ports": 6
   },
   "gigabyte-x670e-aorus-elite-ax": {
     "brand": "Gigabyte",
@@ -163,7 +173,8 @@
       "Gigabyte X670E",
       "X670E Aorus Elite AX",
       "Gigabyte X670E Aorus Elite AX"
-    ]
+    ],
+    "sata_ports": 4
   },
   "asrock-x670e-taichi": {
     "brand": "ASRock",
@@ -178,7 +189,8 @@
       "ASRock X670E",
       "X670E X670E Taichi",
       "ASRock X670E Taichi"
-    ]
+    ],
+    "sata_ports": 8
   },
   "asus-tuf-gaming-b650-plus-wifi": {
     "brand": "ASUS",
@@ -193,7 +205,8 @@
       "B650 TUF Gaming B650-Plus WiFi",
       "TUF Gaming B650-Plus WiFi",
       "ASUS TUF Gaming B650-Plus WiFi"
-    ]
+    ],
+    "sata_ports": 4
   },
   "asus-rog-strix-b650-a-gaming-wifi": {
     "brand": "ASUS",
@@ -208,7 +221,8 @@
       "ROG Strix B650-A Gaming WiFi",
       "ASUS B650",
       "B650 ROG Strix B650-A Gaming WiFi"
-    ]
+    ],
+    "sata_ports": 4
   },
   "msi-mag-b650-tomahawk-wifi": {
     "brand": "MSI",
@@ -223,7 +237,8 @@
       "MSI MAG B650 Tomahawk WiFi",
       "B650 MAG B650 Tomahawk WiFi",
       "MSI B650"
-    ]
+    ],
+    "sata_ports": 6
   },
   "gigabyte-b650-aorus-elite-ax": {
     "brand": "Gigabyte",
@@ -238,7 +253,8 @@
       "B650 B650 Aorus Elite AX",
       "Gigabyte B650",
       "Gigabyte B650 Aorus Elite AX"
-    ]
+    ],
+    "sata_ports": 4
   },
   "asrock-b650m-pro-rs": {
     "brand": "ASRock",
@@ -253,6 +269,7 @@
       "B650 B650M Pro RS",
       "ASRock B650M Pro RS",
       "ASRock B650"
-    ]
+    ],
+    "sata_ports": 4
   }
 }

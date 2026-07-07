@@ -1,0 +1,11 @@
+{
+  "$schema": "../schemas/endpoint.schema.json",
+  "name": "vLLM",
+  "provider_class": "openai-compatible",
+  "base_url": "http://localhost:8000/v1",
+  "default_port": 8000,
+  "requires_key": false,
+  "model_list_style": "openai",
+  "tool_support_notes": "Start vLLM with automatic tool choice enabled and a parser matching the model's chat template.",
+  "launch_flags": "--enable-auto-tool-choice --tool-call-parser <hermes|llama3_json|mistral|...>"
+}

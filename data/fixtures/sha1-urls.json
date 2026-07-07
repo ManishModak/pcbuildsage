@@ -1,0 +1,34 @@
+[
+  {
+    "url": "https://example.com/product/rtx-4070",
+    "sha1": "9d7f2342630a37d894f68031af30cb8b88430755"
+  },
+  {
+    "url": "https://mdcomputers.in/nvidia-geforce-rtx-4070-super",
+    "sha1": "e86ba128ca3ddac446ba6e5a0fb91ababd0215b9"
+  },
+  {
+    "url": "https://www.vedantcomputers.com/amd-ryzen-7-7800x3d?sort=price",
+    "sha1": "b1421d5c7465be58aa1b7712c5393df047586877"
+  },
+  {
+    "url": "https://example.com/path with spaces/item",
+    "sha1": "94d14f7af4ef78919e717d42d1b777400a949c77"
+  },
+  {
+    "url": "https://example.in/gpu/ग्राफिक्स-कार्ड-rtx",
+    "sha1": "110fbfab4b0415653c54d387eb532dea25b7136b"
+  },
+  {
+    "url": "https://例え.jp/商品/ssd-1tb",
+    "sha1": "1931251dfd07cd35dc5449708e9089257ded45be"
+  },
+  {
+    "url": "https://example.com/product?id=42&currency=₹",
+    "sha1": "653960e6b57b4f6faf94c24f4b1d4a74c71b1fe9"
+  },
+  {
+    "url": "http://localhost:8080/",
+    "sha1": "f03346eb3a99be025979045e8fa1a281c5159611"
+  }
+]

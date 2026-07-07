@@ -1,0 +1,10 @@
+{
+  "$schema": "../schemas/endpoint.schema.json",
+  "name": "LM Studio",
+  "provider_class": "openai-compatible",
+  "base_url": "http://localhost:1234/v1",
+  "default_port": 1234,
+  "requires_key": false,
+  "model_list_style": "openai",
+  "tool_support_notes": "Enable tool use for the loaded model in LM Studio; most instruct models expose it by default."
+}
