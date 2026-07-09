@@ -1,6 +1,6 @@
-import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { loadJsonPresets } from "./json-presets";
 
 export const personaSchema = z.object({
   $schema: z.string(),
@@ -18,10 +18,11 @@ export function loadPersonas(dir = path.join(process.cwd(), "data", "personas"))
   const resolvedDir = path.resolve(dir);
   const cached = cachedPersonas.get(resolvedDir);
   if (cached) return cached;
-  const personas = readdirSync(resolvedDir)
-    .filter((file) => file.endsWith(".json"))
-    .sort()
-    .map((file) => ({ id: file.replace(/\.json$/, ""), ...personaSchema.parse(JSON.parse(readFileSync(path.join(resolvedDir, file), "utf8"))) }));
+  const personas = loadJsonPresets(resolvedDir, personaSchema, {
+    collectionLabel: "personas",
+    invalidLabel: "persona",
+    includeId: true
+  });
   cachedPersonas.set(resolvedDir, personas);
   return personas;
 }

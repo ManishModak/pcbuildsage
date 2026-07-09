@@ -123,6 +123,13 @@ def search_terms_for_category(category: str, limit: int = 100) -> list[str]:
     return terms or [category]
 
 
+def write_products(db_path: str, products: list[ScrapedProduct], scraped_at: str, site: SiteConfig, category: CategoryConfig, run_started_at: str) -> int:
+    with ProductStore(db_path) as store:
+        written = store.upsert_products(products, scraped_at=scraped_at)
+        store.sweep_stale_stock(site.site_name, category.name, run_started_at)
+        return written
+
+
 async def run_test_profile(args: argparse.Namespace, emitter: EventEmitter) -> int:
     work, _profile = build_work(args.test_profile, args)
     crawler = ScraperCrawler(delay_ms=args.delay_ms, llm_enabled=False)
@@ -152,6 +159,8 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
     work, _profile = build_work(args.profile, args)
     estimate = format_duration(estimate_seconds(work, args.delay_ms))
     emitter.logger.info("Estimated crawl time: %s (%d site/category jobs)", estimate, len(work))
+    with ProductStore(args.db):
+        pass
 
     llm_client = None
     if not args.no_llm_fallback:
@@ -213,9 +222,7 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
                     for raw in raw_products
                     if (product := make_product(raw, site, category.name, matcher, scraped_at)) is not None
                 ]
-                with ProductStore(args.db) as store:
-                    written = store.upsert_products(products, scraped_at=scraped_at)
-                    store.sweep_stale_stock(site.site_name, category.name, run_started_at)
+                written = await asyncio.to_thread(write_products, args.db, products, scraped_at, site, category, run_started_at)
                 emitter.progress(site=site.site_name, category=category.name, percent=100, products_seen=len(products))
                 return written
             except Exception as exc:

@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadEndpointPresets } from "../endpoints";
-import { loadSearchPresets } from "../web-search";
+import { createSearchClient, loadSearchPresets } from "../web-search";
 
 let tempDir: string | undefined;
 
@@ -59,5 +59,39 @@ describe("preset loading", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     expect(loadSearchPresets(path.join(os.tmpdir(), "pcbuildsage-missing-search"))).toEqual([]);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("Skipping search presets"));
+  });
+});
+
+describe("keyed search clients", () => {
+  it("uses Exa's x-api-key header and numResults body field", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ results: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createSearchClient({ provider: "exa", apiKey: "exa-key" }).search("gpu", { limit: 7 });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("https://api.exa.ai/search"),
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": "exa-key" },
+        body: JSON.stringify({ query: "gpu", numResults: 7 })
+      })
+    );
+  });
+
+  it("keeps Tavily's bearer auth and max_results body field", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ results: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createSearchClient({ provider: "tavily", apiKey: "tavily-key" }).search("gpu", { limit: 7 });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("https://api.tavily.com/search"),
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer tavily-key" },
+        body: JSON.stringify({ query: "gpu", max_results: 7 })
+      })
+    );
   });
 });

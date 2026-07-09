@@ -83,6 +83,29 @@ describe("validateBuild", () => {
     expect(cpuMismatch.issues).toContainEqual(expect.objectContaining({ severity: "blocking", rule: "ddr" }));
   });
 
+  it("blocks CPU and motherboard DDR mismatches when RAM is not selected", () => {
+    const cpu = makeResolved("cpu-ddr5", "cpu", base.cpu.spec);
+    const motherboard = makeResolved("mobo-ddr4", "motherboard", { ...base.motherboard.spec, ddr: "DDR4" });
+    const result = validateBuild(
+      { cpu: cpu.key, motherboard: motherboard.key },
+      { resolve: (part) => part === cpu.key ? cpu : part === motherboard.key ? motherboard : undefined }
+    );
+
+    expect(result.issues).toContainEqual(expect.objectContaining({ severity: "blocking", rule: "ddr", components: [cpu.key, motherboard.key] }));
+  });
+
+  it("requests only CPU DDR research for CPU and motherboard comparison without RAM", () => {
+    const cpu = makeResolved("cpu-no-ddr", "cpu", { ...base.cpu.spec, ddr: undefined });
+    const motherboard = makeResolved("mobo-ddr5", "motherboard", base.motherboard.spec);
+    const result = validateBuild(
+      { cpu: cpu.key, motherboard: motherboard.key },
+      { resolve: (part) => part === cpu.key ? cpu : part === motherboard.key ? motherboard : undefined }
+    );
+
+    expect(result.issues).toContainEqual(expect.objectContaining({ severity: "needs_research", detail: expect.stringContaining("\"ddr\"") }));
+    expect(result.issues).not.toContainEqual(expect.objectContaining({ components: ["ram-ddr5"] }));
+  });
+
   it("requests research when DDR fields are missing", () => {
     const result = run({ ram: makeResolved("ram-no-ddr", "ram", { ...base.ram.spec, ddr: undefined }) });
     expect(result.issues).toContainEqual(expect.objectContaining({ severity: "needs_research", rule: "spec_resolution" }));

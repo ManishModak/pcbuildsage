@@ -17,7 +17,7 @@ export function normalizeBaseUrl(input: string, provider: "ollama" | "openai-com
   const url = new URL(value);
   if (provider === "ollama") return `${url.origin}${url.pathname === "/" ? "" : url.pathname}`.replace(/\/+$/, "");
   const pathname = url.pathname.replace(/\/+$/, "");
-  url.pathname = pathname.endsWith("/v1") || pathname === "/v1" ? pathname : `${pathname}/v1`;
+  url.pathname = pathname === "" || pathname === "/" ? "/v1" : pathname;
   return url.toString().replace(/\/+$/, "");
 }
 
@@ -141,15 +141,16 @@ function statusFromError(error: unknown): number | undefined {
   return undefined;
 }
 
-function resolveApiKey(entry: LLMChainEntry, envKey: string): string | undefined {
+export function resolveApiKey(entry: LLMChainEntry, envKey: string): string | undefined {
   if (entry.keySource === "none") return undefined;
   return entry.apiKey ?? process.env[envKey];
 }
 
-function keyEnv(provider: LLMProvider): string {
+export function keyEnv(provider: LLMProvider): string {
   if (provider === "openrouter") return "OPENROUTER_API_KEY";
   if (provider === "gemini") return "GEMINI_API_KEY";
-  return `${provider.toUpperCase().replace("-", "_")}_API_KEY`;
+  if (provider === "ollama") return "OLLAMA_API_KEY";
+  return "OPENAI_COMPATIBLE_API_KEY";
 }
 
 function defaultBaseUrl(provider: LLMProvider): string {

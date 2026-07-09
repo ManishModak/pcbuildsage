@@ -1,7 +1,7 @@
-import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import type { SearchProvider } from "./config-types";
+import { loadJsonPresets } from "./json-presets";
 
 export type SearchResult = { title: string; url: string; snippet: string };
 export type SearchResponse = { results: SearchResult[]; provider: SearchProvider; grounded: boolean };
@@ -34,27 +34,10 @@ export function createSearchClient(config: { provider: SearchProvider; apiKey?: 
 }
 
 export function loadSearchPresets(dir = path.join(process.cwd(), "data", "search")): SearchPreset[] {
-  let files: string[];
-  try {
-    files = readdirSync(dir);
-  } catch (error) {
-    console.warn(`Skipping search presets in ${dir}: ${error instanceof Error ? error.message : String(error)}`);
-    return [];
-  }
-  return files
-    .filter((file) => file.endsWith(".json"))
-    .sort()
-    .flatMap((file) => {
-      const filePath = path.join(dir, file);
-      try {
-        const parsed = searchPresetSchema.safeParse(JSON.parse(readFileSync(filePath, "utf8")));
-        if (parsed.success) return [parsed.data];
-        console.warn(`Skipping invalid search preset ${filePath}: ${parsed.error.message}`);
-      } catch (error) {
-        console.warn(`Skipping invalid search preset ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
-      }
-      return [];
-    });
+  return loadJsonPresets(dir, searchPresetSchema, {
+    collectionLabel: "search presets",
+    invalidLabel: "search preset"
+  });
 }
 
 async function searxng(query: string, baseUrl = process.env.SEARXNG_BASE_URL ?? "http://localhost:8080", limit = 5): Promise<SearchResponse> {
@@ -87,7 +70,9 @@ async function keyedSearch(query: string, provider: Exclude<SearchProvider, "non
   const init: RequestInit =
     provider === "brave"
       ? { headers: { "X-Subscription-Token": apiKey } }
-      : { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify({ query, max_results: limit }) };
+      : provider === "exa"
+        ? { method: "POST", headers: { "Content-Type": "application/json", "x-api-key": apiKey }, body: JSON.stringify({ query, numResults: limit }) }
+        : { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify({ query, max_results: limit }) };
   const response = await fetch(url, init);
   const json = (await response.json()) as { web?: { results?: Array<{ title?: string; url?: string; description?: string; snippet?: string; text?: string }> }; results?: Array<{ title?: string; url?: string; description?: string; snippet?: string; text?: string }> };
   const raw = provider === "brave" ? json.web?.results : json.results;

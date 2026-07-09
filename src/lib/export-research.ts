@@ -11,6 +11,9 @@ export function exportResearch(options: { dbPath?: string; outputDir?: string } 
   for (const row of rows) {
     const specs = JSON.parse(row.specs) as Record<string, unknown>;
     const category = row.category;
+    if (!/^[a-z0-9_-]+$/i.test(category)) {
+      throw new Error(`Invalid registry research category "${category}".`);
+    }
     const bucket = grouped.get(category) ?? { $schema: "../../schemas/registry.schema.json" };
     bucket[row.key] = {
       ...specs,

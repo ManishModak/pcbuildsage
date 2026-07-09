@@ -1,11 +1,11 @@
 import type { LLMChainEntry } from "./config-types";
-import { normalizeBaseUrl } from "./llm-client";
+import { keyEnv, normalizeBaseUrl, resolveApiKey } from "./llm-client";
 
 export type DiscoveredModel = { id: string; name?: string };
 
 export async function discoverModels(entry: LLMChainEntry, fetchImpl: typeof fetch = fetch): Promise<DiscoveredModel[]> {
   if (entry.provider === "gemini") {
-    const key = entry.apiKey ?? process.env.GEMINI_API_KEY;
+    const key = resolveApiKey(entry, keyEnv(entry.provider));
     const url = new URL("https://generativelanguage.googleapis.com/v1beta/models");
     if (key) url.searchParams.set("key", key);
     const json = await getJson<{ models?: Array<{ name: string; displayName?: string }> }>(url.toString(), fetchImpl);
@@ -17,7 +17,7 @@ export async function discoverModels(entry: LLMChainEntry, fetchImpl: typeof fet
     return (json.models ?? []).map((model) => ({ id: model.model ?? model.name, name: model.name }));
   }
   const base = normalizeBaseUrl(entry.baseUrl ?? (entry.provider === "openrouter" ? "https://openrouter.ai/api/v1" : "http://localhost:8000/v1"));
-  const json = await getJson<{ data?: Array<{ id: string; name?: string }> }>(`${base}/models`, fetchImpl, entry.apiKey ?? process.env.OPENROUTER_API_KEY);
+  const json = await getJson<{ data?: Array<{ id: string; name?: string }> }>(`${base}/models`, fetchImpl, resolveApiKey(entry, keyEnv(entry.provider)));
   return (json.data ?? []).map((model) => ({ id: model.id, name: model.name }));
 }
 

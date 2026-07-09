@@ -89,11 +89,20 @@ function checkSocket(cpu: ResolvedSpec | undefined, motherboard: ResolvedSpec | 
 }
 
 function checkDdr(cpu: ResolvedSpec | undefined, motherboard: ResolvedSpec | undefined, ram: ResolvedSpec | undefined, issues: BuildIssue[]) {
-  if (!motherboard || !ram) return;
+  if (!motherboard) return;
   const boardDdr = stringSpec(motherboard, "ddr", issues);
-  const ramDdr = stringSpec(ram, "ddr", issues);
   const cpuDdr = cpu ? stringSpec(cpu, "ddr", issues) : undefined;
-  if (!boardDdr || !ramDdr || (cpu && !cpuDdr)) return;
+  if (!boardDdr || (cpu && !cpuDdr)) return;
+  if (cpu && cpuDdr && canonicalize(cpuDdr) !== canonicalize(boardDdr)) {
+    issues.push(blocking("ddr", [cpu.key, motherboard.key], `CPU-supported memory ${cpuDdr} does not match motherboard ${boardDdr}.`));
+    return;
+  }
+  if (!ram) {
+    confidenceGate("ddr", [cpu, motherboard].filter(Boolean) as ResolvedSpec[], issues, `DDR match uses low-confidence researched specs for ${lowNames([cpu, motherboard])}.`);
+    return;
+  }
+  const ramDdr = stringSpec(ram, "ddr", issues);
+  if (!ramDdr) return;
   if (canonicalize(boardDdr) !== canonicalize(ramDdr)) {
     issues.push(blocking("ddr", [motherboard.key, ram.key], `RAM ${ramDdr} does not match motherboard ${boardDdr}.`));
     return;

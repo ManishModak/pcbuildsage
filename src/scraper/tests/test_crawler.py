@@ -90,6 +90,29 @@ def test_crawl_search_uses_llm_fallback_after_selector_failures() -> None:
     assert len(llm_client.calls) == 1
 
 
+def test_crawl_search_buffers_early_selector_failures_for_llm_fallback() -> None:
+    fetcher = FakeFetcher([
+        "<div class='product'><a href='/broken-one'>View</a></div>",
+        "<div class='product'><a href='/broken-two'>View</a></div>",
+    ])
+    llm_client = FakeLLMClient()
+    crawler = ScraperCrawler(
+        fetcher=fetcher,
+        delay_ms=0,
+        selector_failure_threshold=2,
+        llm_client=llm_client,
+        llm_enabled=True,
+    )
+
+    products = asyncio.run(crawler.crawl_search(site_config(), category_config(), ["one", "two"], term_limit=2))
+
+    assert [product.title for product in products] == ["Recovered GPU"]
+    assert len(llm_client.calls) == 1
+    assert len(llm_client.calls[0]) == 2
+    assert "broken-one" in llm_client.calls[0][0]
+    assert "broken-two" in llm_client.calls[0][1]
+
+
 def test_crawl4ai_fetcher_caches_crawlers_by_headless_config(monkeypatch) -> None:
     opened_headless: list[bool] = []
     closed_headless: list[bool] = []

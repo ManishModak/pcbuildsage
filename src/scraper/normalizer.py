@@ -10,9 +10,8 @@ from .config import REPO_ROOT
 
 
 MARKETING_PATTERNS = [
-    r"\b(desktop\s+processor|processor|graphics\s+card|graphic\s+card|gaming|oc|edition|dual|triple|fan|rgb|gddr6x?|ddr[45])\b",
+    r"\b(desktop\s+processor|processor|graphics\s+card|graphic\s+card|gaming|oc|edition|dual|triple|fan|rgb|gddr6x?)\b",
     r"\b(with\s+wraith\s+\w+|boxed|tray|bulk|retail)\b",
-    r"\b\d+\s*gb\b",
 ]
 
 BRAND_CANONICAL = {

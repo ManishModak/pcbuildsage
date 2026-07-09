@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 from urllib.parse import quote, urljoin
 
@@ -12,6 +12,12 @@ from .models import BrowserConfig, CategoryConfig, RawProduct, SiteConfig
 
 class CrawlError(RuntimeError):
     """Raised when crawling or fallback extraction cannot continue."""
+
+
+@dataclass
+class ExtractionFallbackState:
+    selector_failures: int = 0
+    failed_products: list[RawProduct] = field(default_factory=list)
 
 
 class Crawl4AIFetcher:
@@ -129,21 +135,27 @@ class ScraperCrawler:
             and self.llm_calls < self.max_llm_calls
         )
 
-    def _apply_extraction_fallback(
+    async def _apply_extraction_fallback(
         self,
         site: SiteConfig,
         raw_products: list[RawProduct],
-        cumulative_selector_failures: int,
-    ) -> tuple[list[RawProduct], int]:
+        fallback_state: ExtractionFallbackState,
+    ) -> tuple[list[RawProduct], ExtractionFallbackState]:
         failed = [product for product in raw_products if not product.title or not product.price_text or not product.url]
-        cumulative_selector_failures = cumulative_selector_failures + len(failed) if failed else 0
-        if not self._should_invoke_llm(failed, cumulative_selector_failures):
-            return raw_products, cumulative_selector_failures
+        valid_products = [product for product in raw_products if product not in failed]
+        if failed:
+            fallback_state.selector_failures += len(failed)
+            fallback_state.failed_products.extend(failed)
+        if not self._should_invoke_llm(fallback_state.failed_products, fallback_state.selector_failures):
+            return valid_products, fallback_state
 
         self.llm_calls += 1
-        fallback = raw_from_llm_payload(self.llm_client.extract_products([item.source_html for item in failed]), site.base_url)
+        payload = await asyncio.to_thread(self.llm_client.extract_products, [item.source_html for item in fallback_state.failed_products])
+        fallback = raw_from_llm_payload(payload, site.base_url)
         if fallback:
-            return [product for product in raw_products if product not in failed] + fallback, 0
+            fallback_state.selector_failures = 0
+            fallback_state.failed_products.clear()
+            return valid_products + fallback, fallback_state
         raise CrawlError(f"{site.site_name}: selector and LLM extraction both failed")
 
     async def crawl_category(
@@ -154,14 +166,14 @@ class ScraperCrawler:
         on_page: Callable[[int, list[RawProduct], str], None] | None = None,
     ) -> list[RawProduct]:
         products: list[RawProduct] = []
-        cumulative_selector_failures = 0
+        fallback_state = ExtractionFallbackState()
         for page in range(1, page_limit + 1):
             url = category_page_url(site, category, page)
             html = await self.fetcher.fetch(url, site)
             raw_products = extract_products(html, site.selectors, site.base_url)
             if not raw_products:
                 break
-            raw_products, cumulative_selector_failures = self._apply_extraction_fallback(site, raw_products, cumulative_selector_failures)
+            raw_products, fallback_state = await self._apply_extraction_fallback(site, raw_products, fallback_state)
             products.extend(raw_products)
             if on_page:
                 on_page(page, raw_products, html)
@@ -178,13 +190,13 @@ class ScraperCrawler:
         on_page: Callable[[int, list[RawProduct], str], None] | None = None,
     ) -> list[RawProduct]:
         products: list[RawProduct] = []
-        cumulative_selector_failures = 0
+        fallback_state = ExtractionFallbackState()
         one_page_site = replace(site, scraping_type="category")
         limited_terms = terms[:term_limit]
         for index, term in enumerate(limited_terms, start=1):
             html = await self.fetcher.fetch(search_page_url(site, category, term), one_page_site)
             raw_products = extract_products(html, site.selectors, site.base_url)
-            raw_products, cumulative_selector_failures = self._apply_extraction_fallback(site, raw_products, cumulative_selector_failures)
+            raw_products, fallback_state = await self._apply_extraction_fallback(site, raw_products, fallback_state)
             products.extend(raw_products)
             if on_page:
                 on_page(index, raw_products, html)

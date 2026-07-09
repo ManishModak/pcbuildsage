@@ -1,13 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseLlmChain, resolveConfig } from "../config";
 import { createLanguageModel, isFallbackable, normalizeBaseUrl } from "../llm-client";
+import { discoverModels } from "../model-discovery";
 
 const openAiState = vi.hoisted(() => ({
-  configs: [] as Array<{ baseURL?: string }>
+  configs: [] as Array<{ baseURL?: string; apiKey?: string }>
 }));
 
 vi.mock("@ai-sdk/openai-compatible", () => ({
-  createOpenAICompatible: (config: { baseURL?: string }) => {
+  createOpenAICompatible: (config: { baseURL?: string; apiKey?: string }) => {
     openAiState.configs.push(config);
     return (model: string) => ({ model, config });
   }
@@ -16,6 +17,10 @@ vi.mock("@ai-sdk/openai-compatible", () => ({
 vi.mock("@ai-sdk/google", () => ({
   createGoogleGenerativeAI: () => (model: string) => ({ model })
 }));
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("isFallbackable", () => {
   it("does not fall back on auth failures", () => {
@@ -41,6 +46,11 @@ describe("normalizeBaseUrl", () => {
 
   it("preserves existing v1 paths", () => {
     expect(normalizeBaseUrl("http://localhost:8000/v1")).toBe("http://localhost:8000/v1");
+  });
+
+  it("respects non-root OpenAI-compatible proxy paths", () => {
+    expect(normalizeBaseUrl("https://host/my-proxy")).toBe("https://host/my-proxy");
+    expect(normalizeBaseUrl("https://host/api/v1")).toBe("https://host/api/v1");
   });
 
   it("creates Ollama models with exactly one v1 path when base URL omits it", () => {
@@ -83,5 +93,42 @@ describe("parseLlmChain", () => {
   it("rejects invalid country and currency codes", () => {
     expect(() => resolveConfig({ countryCode: "IN;ignore" })).toThrow(/Invalid countryCode/);
     expect(() => resolveConfig({ currency: "inr" })).toThrow(/Invalid currency/);
+  });
+});
+
+describe("discoverModels", () => {
+  it("uses provider-specific environment keys for OpenAI-compatible discovery", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "openrouter-key");
+    vi.stubEnv("OPENAI_COMPATIBLE_API_KEY", "compatible-key");
+    const fetchMock = vi.fn(async () => Response.json({ data: [] }));
+
+    await discoverModels({ provider: "openai-compatible", model: "test", baseUrl: "https://llm.example/v1", keySource: "env" }, fetchMock);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://llm.example/v1/models",
+      { headers: { Authorization: "Bearer compatible-key" } }
+    );
+  });
+
+  it("uses OpenRouter's key only for OpenRouter discovery", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "openrouter-key");
+    vi.stubEnv("OPENAI_COMPATIBLE_API_KEY", "compatible-key");
+    const fetchMock = vi.fn(async () => Response.json({ data: [] }));
+
+    await discoverModels({ provider: "openrouter", model: "test", keySource: "env" }, fetchMock);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://openrouter.ai/api/v1/models",
+      { headers: { Authorization: "Bearer openrouter-key" } }
+    );
+  });
+
+  it("sends no Authorization header when keySource is none", async () => {
+    vi.stubEnv("OPENAI_COMPATIBLE_API_KEY", "compatible-key");
+    const fetchMock = vi.fn(async () => Response.json({ data: [] }));
+
+    await discoverModels({ provider: "openai-compatible", model: "test", baseUrl: "https://llm.example/v1", keySource: "none" }, fetchMock);
+
+    expect(fetchMock).toHaveBeenCalledWith("https://llm.example/v1/models", { headers: undefined });
   });
 });
