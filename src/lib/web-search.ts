@@ -1,11 +1,16 @@
 import path from "node:path";
+import { promisify } from "node:util";
+import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { z } from "zod";
 import type { SearchProvider } from "./config-types";
 import { loadJsonPresets } from "./json-presets";
 
+const execFilePromise = promisify(execFile);
+
 export type SearchResult = { title: string; url: string; snippet: string };
 export type SearchResponse = { results: SearchResult[]; provider: SearchProvider; grounded: boolean };
-export type SearchClient = { search(query: string, options?: { limit?: number }): Promise<SearchResponse> };
+export type SearchClient = { search(query: string, options?: { limit?: number; crawlEnabled?: boolean }): Promise<SearchResponse> };
 
 export const searchPresetSchema = z.object({
   $schema: z.string().optional(),
@@ -17,6 +22,32 @@ export const searchPresetSchema = z.object({
 });
 export type SearchPreset = z.infer<typeof searchPresetSchema>;
 
+function getPythonCommand(): string {
+  const cwd = process.cwd();
+  const venvBinPath = path.join(cwd, ".venv", "bin", "python");
+  const venvScriptsPath = path.join(cwd, ".venv", "Scripts", "python.exe");
+
+  if (existsSync(venvBinPath)) {
+    return venvBinPath;
+  }
+  if (existsSync(venvScriptsPath)) {
+    return venvScriptsPath;
+  }
+  return "python3";
+}
+
+async function crawlPage(url: string): Promise<string> {
+  const pythonCmd = getPythonCommand();
+  const scriptPath = path.join(process.cwd(), "src", "scraper", "crawl_page.py");
+  try {
+    const { stdout } = await execFilePromise(pythonCmd, [scriptPath, url]);
+    return stdout.trim();
+  } catch (error) {
+    console.error("Crawl error:", error);
+    return "";
+  }
+}
+
 export function createSearchClient(config: { provider: SearchProvider; apiKey?: string; baseUrl?: string }): SearchClient {
   return {
     async search(query, options = {}) {
@@ -26,9 +57,29 @@ export function createSearchClient(config: { provider: SearchProvider; apiKey?: 
       if (!config.apiKey && ["exa", "tavily", "brave"].includes(config.provider)) {
         return { results: [], provider: config.provider, grounded: false };
       }
-      if (config.provider === "searxng") return searxng(query, config.baseUrl, options.limit);
-      if (config.provider === "duckduckgo") return duckduckgo(query, options.limit);
-      return keyedSearch(query, config.provider, config.apiKey!, options.limit);
+
+      let response: SearchResponse;
+      if (config.provider === "searxng") {
+        response = await searxng(query, config.baseUrl, options.limit);
+      } else if (config.provider === "duckduckgo") {
+        response = await duckduckgo(query, options.limit);
+      } else {
+        response = await keyedSearch(query, config.provider, config.apiKey!, options.limit);
+      }
+
+      if (options.crawlEnabled && response.results.length > 0) {
+        const topResult = response.results[0];
+        try {
+          const crawledContent = await crawlPage(topResult.url);
+          if (crawledContent) {
+            topResult.snippet = crawledContent;
+          }
+        } catch (err) {
+          console.error(`Crawling failed for ${topResult.url}:`, err);
+        }
+      }
+
+      return response;
     }
   };
 }

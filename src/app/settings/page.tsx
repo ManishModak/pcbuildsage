@@ -1,7 +1,6 @@
 "use client";
 
 import { useApp } from "../../components/app/app-provider";
-import { AppShell } from "../../components/app/app-shell";
 import { SettingsView } from "../../components/settings/settings-view";
 import { Spinner } from "../../components/ui/primitives";
 
@@ -16,9 +15,7 @@ export default function SettingsPage() {
     );
   }
 
-  return (
-    <AppShell showSettings={false}>
-      <SettingsView />
-    </AppShell>
-  );
+  // SettingsView is a self-contained full-screen layout (own sidebar + header),
+  // so it renders directly — wrapping it in AppShell would stack a second top bar.
+  return <SettingsView />;
 }

@@ -45,7 +45,7 @@ export function resolveConfig(uiOrFlags: ConfigInput = {}, savedConfig: ConfigIn
     ROLES.map((role) => [role, parseLlmChain(source(roleInput[role], roleEnv[role], llmChain))])
   ) as RoleChains;
 
-  const searchProvider = source<SearchProvider>("searchProvider", "SEARCH_PROVIDER", "none");
+  const searchProvider = source<SearchProvider>("searchProvider", "SEARCH_PROVIDER", "duckduckgo");
   const countryCode = validateCode("countryCode", source("countryCode", "PCBUILDSAGE_COUNTRY", "IN"), /^[A-Z]{2}$/);
   const currency = validateCode("currency", source("currency", "PCBUILDSAGE_CURRENCY", "INR"), /^[A-Z]{3}$/);
   return {
@@ -63,7 +63,8 @@ export function resolveConfig(uiOrFlags: ConfigInput = {}, savedConfig: ConfigIn
     search: {
       provider: searchProvider,
       baseUrl: source<string | undefined>("searchBaseUrl", "SEARXNG_BASE_URL", undefined),
-      apiKey: source<string | undefined>("searchApiKey", providerKeyEnv(searchProvider), undefined)
+      apiKey: source<string | undefined>("searchApiKey", providerKeyEnv(searchProvider), undefined),
+      crawlEnabled: coerceBool(source("crawlEnabled", "PCBUILDSAGE_SEARCH_CRAWL", "false"))
     }
   };
 }

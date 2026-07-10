@@ -23,6 +23,8 @@ export type PingResult = {
   hint?: string;
 };
 
+export type SearchProvider = "exa" | "tavily" | "brave" | "searxng" | "duckduckgo" | "gemini-native" | "none";
+
 export type ClientConfig = {
   onboarded: boolean;
   theme: string;
@@ -35,6 +37,9 @@ export type ClientConfig = {
   freeformConsultEnabled: boolean;
   chatChain: ChainEntry[];
   subagentChain: ChainEntry[] | null;
+  searchProvider: SearchProvider;
+  searchBaseUrl?: string;
+  crawlEnabled: boolean;
 };
 
 export type StatusResponse = {
@@ -156,4 +161,14 @@ export type ProductRow = {
   specs?: Record<string, unknown> | null;
 };
 
-export type ChatMetadata = { provider: string; model: string; fallbackIndex: number };
+export type ChatMetadata = { provider: string; model: string; fallbackIndex: number; primaryError?: string };
+
+// Chat session history (persisted conversations). Summaries are the light
+// list shape (no messages blob); the full record's messages are typed as
+// ChatUIMessage[] where they are consumed (see api.ts / chat-sidebar).
+export type SessionSummary = {
+  id: string;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+};

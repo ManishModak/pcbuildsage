@@ -47,6 +47,15 @@ class ProductStore:
             CREATE INDEX IF NOT EXISTS idx_products_lookup ON products(country_code, category, price_minor);
             CREATE INDEX IF NOT EXISTS idx_products_norm ON products(normalized_name);
             CREATE INDEX IF NOT EXISTS idx_products_retailer_sweep ON products(retailer, category, last_scraped);
+
+            CREATE TABLE IF NOT EXISTS logs (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              timestamp TEXT NOT NULL,
+              level TEXT NOT NULL,
+              component TEXT NOT NULL,
+              message TEXT NOT NULL,
+              details TEXT
+            );
             """
         )
         current_version = self.conn.execute("PRAGMA user_version").fetchone()[0]
@@ -150,3 +159,45 @@ class ProductStore:
             (retailer, category, threshold_iso),
         ).fetchone()
         return row is not None
+
+
+def write_db_log(db_path: str | Path, level: str, component: str, message: str, details: dict | list | str | None = None) -> None:
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=5000;")
+        
+        # Ensure schema initialized
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS logs (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              timestamp TEXT NOT NULL,
+              level TEXT NOT NULL,
+              component TEXT NOT NULL,
+              message TEXT NOT NULL,
+              details TEXT
+            );
+            """
+        )
+        
+        details_str = json.dumps(details, ensure_ascii=False) if details is not None else None
+        
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO logs (timestamp, level, component, message, details)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (utc_now_iso(), level, component, message, details_str)
+            )
+            conn.execute(
+                """
+                DELETE FROM logs WHERE id IN (
+                  SELECT id FROM logs ORDER BY id DESC LIMIT -1 OFFSET 1000
+                )
+                """
+            )
+        conn.close()
+    except Exception:
+        pass

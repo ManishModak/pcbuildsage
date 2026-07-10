@@ -32,6 +32,10 @@ describe("isFallbackable", () => {
     expect(isFallbackable({ statusCode: 429 })).toBe(true);
     expect(isFallbackable({ status: 503 })).toBe(true);
     expect(isFallbackable(new Error("connect ECONNREFUSED 127.0.0.1"))).toBe(true);
+    expect(isFallbackable(new Error("Rate limit exceeded: free-models-per-day"))).toBe(true);
+    expect(isFallbackable(new Error("Quota exceeded for this period"))).toBe(true);
+    expect(isFallbackable(new Error("Too many requests"))).toBe(true);
+    expect(isFallbackable(new Error("API returned 502 Bad Gateway"))).toBe(true);
   });
 });
 

@@ -107,7 +107,43 @@ export function initializeSchema(db: Database.Database): void {
       confidence TEXT NOT NULL CHECK (confidence IN ('high', 'medium', 'low')),
       researched_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp TEXT NOT NULL,
+      level TEXT NOT NULL,
+      component TEXT NOT NULL,
+      message TEXT NOT NULL,
+      details TEXT
+    );
   `);
 
   db.pragma(`user_version = ${DATABASE_SCHEMA_VERSION}`);
+}
+
+export function writeDbLog(
+  dbPath = DEFAULT_DB_PATH,
+  level: "INFO" | "WARN" | "ERROR" | "DEBUG",
+  component: string,
+  message: string,
+  details?: Record<string, any> | null
+): void {
+  try {
+    const db = getDb(dbPath);
+    const detailsStr = details ? JSON.stringify(details) : null;
+    const now = new Date().toISOString();
+    
+    db.prepare(
+      `INSERT INTO logs (timestamp, level, component, message, details)
+       VALUES (?, ?, ?, ?, ?)`
+    ).run(now, level, component, message, detailsStr);
+    
+    db.prepare(
+      `DELETE FROM logs WHERE id IN (
+        SELECT id FROM logs ORDER BY id DESC LIMIT -1 OFFSET 1000
+      )`
+    ).run();
+  } catch (error) {
+    console.error("Failed to write to DB logs:", error);
+  }
 }

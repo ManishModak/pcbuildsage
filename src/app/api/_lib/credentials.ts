@@ -31,7 +31,8 @@ const configInputSchema = z.object({
   scraperLlmChain: z.union([z.string(), z.array(llmEntrySchema)]).optional(),
   searchProvider: z.enum(["exa", "tavily", "brave", "searxng", "duckduckgo", "gemini-native", "none"]).optional(),
   searchBaseUrl: z.string().optional(),
-  searchApiKey: z.string().optional()
+  searchApiKey: z.string().optional(),
+  crawlEnabled: z.boolean().optional()
 });
 
 export function buildAppConfig(headers: Headers, bodyConfig: unknown = {}): AppConfig {

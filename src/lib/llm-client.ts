@@ -1,4 +1,4 @@
-import { generateText, streamText, tool, type AsyncIterableStream, type LanguageModel, type ModelMessage, type StopCondition, type StreamTextOnFinishCallback, type StreamTextOnStepFinishCallback, type StreamTextResult, type TextStreamPart, type ToolSet } from "ai";
+import { generateText, streamText, tool, type AsyncIterableStream, type LanguageModel, type ModelMessage, type StopCondition, type StreamTextResult, type TextStreamPart, type ToolSet } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { z } from "zod";
@@ -8,6 +8,7 @@ export type ServedText<T = unknown> = T & {
   provider: LLMProvider;
   model: string;
   fallbackIndex: number;
+  errors?: unknown[];
 };
 
 export function normalizeBaseUrl(input: string, provider: "ollama" | "openai-compatible" = "openai-compatible"): string {
@@ -73,12 +74,13 @@ export async function streamTextWithFallback(args: {
   system?: string;
   messages: ModelMessage[];
   tools?: ToolSet;
+  maxSteps?: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   stopWhen?: StopCondition<any> | Array<StopCondition<any>>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onStepFinish?: StreamTextOnStepFinishCallback<any>;
+  onStepFinish?: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onFinish?: StreamTextOnFinishCallback<any>;
+  onFinish?: any;
 }) {
   if (!args.chain.length) throw new Error("LLM chain is empty.");
   const errors: unknown[] = [];
@@ -90,7 +92,7 @@ export async function streamTextWithFallback(args: {
         maxRetries: 0
       });
       const started = await probeStarted(result);
-      return withServedStreams(result, started.fullStream, entry, index);
+      return withServedStreams(result, started.fullStream, entry, index, errors);
     } catch (error) {
       if (!isFallbackable(error)) throw error;
       errors.push(error);
@@ -129,7 +131,22 @@ export function isFallbackable(error: unknown): boolean {
   if (status === 401 || status === 403) return false;
   if (status === 429 || (status !== undefined && status >= 500)) return true;
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-  return ["timeout", "timed out", "network", "fetch failed", "econnreset", "enotfound", "econnrefused"].some((needle) => message.includes(needle));
+  return [
+    "timeout",
+    "timed out",
+    "network",
+    "fetch failed",
+    "econnreset",
+    "enotfound",
+    "econnrefused",
+    "429",
+    "rate limit",
+    "too many requests",
+    "quota exceeded",
+    "502",
+    "503",
+    "504"
+  ].some((needle) => message.includes(needle));
 }
 
 function statusFromError(error: unknown): number | undefined {
@@ -160,16 +177,39 @@ function defaultBaseUrl(provider: LLMProvider): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function probeStarted(result: StreamTextResult<ToolSet, any>): Promise<{ fullStream: AsyncIterableStream<TextStreamPart<ToolSet>> }> {
+async function probeStarted(result: StreamTextResult<ToolSet, any, any>): Promise<{ fullStream: AsyncIterableStream<TextStreamPart<ToolSet>> }> {
   const iterator = result.fullStream[Symbol.asyncIterator]();
-  const first = await iterator.next();
-  if (first.done) {
-    return { fullStream: iterableToStream(async function* () {}) };
+  const buffer: TextStreamPart<ToolSet>[] = [];
+
+  while (true) {
+    const next = await iterator.next();
+    if (next.done) {
+      break;
+    }
+    const part = next.value;
+    buffer.push(part);
+
+    if (part.type === "error") {
+      throw part.error;
+    }
+
+    if (
+      part.type === "text-delta" ||
+      part.type === "tool-call" ||
+      part.type === "reasoning-delta" ||
+      part.type === "finish" ||
+      part.type === "finish-step" ||
+      part.type === "tool-result"
+    ) {
+      break;
+    }
   }
-  if (first.value.type === "error") throw first.value.error;
+
   return {
     fullStream: iterableToStream(async function* () {
-      yield first.value;
+      for (const item of buffer) {
+        yield item;
+      }
       while (true) {
         const next = await iterator.next();
         if (next.done) break;
@@ -182,7 +222,13 @@ async function probeStarted(result: StreamTextResult<ToolSet, any>): Promise<{ f
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function withServedStreams(result: StreamTextResult<ToolSet, any>, fullStream: AsyncIterableStream<TextStreamPart<ToolSet>>, entry: LLMChainEntry, fallbackIndex: number) {
+function withServedStreams(
+  result: StreamTextResult<ToolSet, any, any>,
+  fullStream: AsyncIterableStream<TextStreamPart<ToolSet>>,
+  entry: LLMChainEntry,
+  fallbackIndex: number,
+  errors?: unknown[]
+) {
   const [fullForResult, fullForText] = fullStream.tee();
   const textStream = fullForText.pipeThrough(new TransformStream<TextStreamPart<ToolSet>, string>({
     transform(part, controller) {
@@ -195,7 +241,8 @@ function withServedStreams(result: StreamTextResult<ToolSet, any>, fullStream: A
     textStream: { value: textStream, enumerable: true },
     provider: { value: entry.provider, enumerable: true },
     model: { value: entry.model, enumerable: true },
-    fallbackIndex: { value: fallbackIndex, enumerable: true }
+    fallbackIndex: { value: fallbackIndex, enumerable: true },
+    errors: { value: errors, enumerable: true }
   });
   return served;
 }

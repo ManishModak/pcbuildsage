@@ -96,10 +96,41 @@ export async function searchProducts(input: SearchProductsInput, scope: { dbPath
       specs: registry?.spec ?? null
     }));
 
+  // Category coverage baseline: how many products exist in this category within
+  // scope, ignoring price/brand/registry filters. This lets the model tell an
+  // empty catalog category ("give up") apart from an over-tight filter ("adjust").
+  const baseline = input.category ? categoryBaseline(db, scope, input.category) : null;
+
   if (!results.length) {
+    if (baseline && baseline.total === 0) {
+      return {
+        results: [],
+        category_total: 0,
+        hint: `No ${input.category} products exist in the catalog for ${scope.countryCode}/${scope.currency}. Do not retry with different prices or filters. Tell the user this component category is currently unavailable and do not invent products.`
+      };
+    }
+    if (baseline) {
+      return {
+        results: [],
+        category_total: baseline.total,
+        category_price_range_minor: { min: baseline.min_price, max: baseline.max_price },
+        hint: `${baseline.total} ${input.category} products exist but none match these filters. Prices range ${baseline.min_price}-${baseline.max_price} in integer minor units. Adjust price bounds into that range or relax brand/spec filters.`
+      };
+    }
     return { results: [], hint: "try widening the price range, removing the brand filter, or relaxing registry spec filters" };
   }
-  return { results, scope: { country_code: scope.countryCode, currency: scope.currency } };
+  return {
+    results,
+    scope: { country_code: scope.countryCode, currency: scope.currency },
+    ...(baseline ? { category_total: baseline.total } : {})
+  };
+}
+
+function categoryBaseline(db: Database.Database, scope: { countryCode: string; currency: string }, category: string) {
+  const row = db
+    .prepare("SELECT COUNT(*) AS total, MIN(price_minor) AS min_price, MAX(price_minor) AS max_price FROM products WHERE country_code = ? AND currency = ? AND category = ?")
+    .get(scope.countryCode, scope.currency, category) as { total: number; min_price: number | null; max_price: number | null };
+  return row;
 }
 
 function resolveProductSpec(product: Product, db: Database.Database) {

@@ -21,6 +21,37 @@
   --color-warn: var(--warn);
   --color-unverified: var(--unverified);
 
+  /* shadcn / animate-ui token bridge — maps shadcn's base + --sidebar* color
+   * roles onto the existing Workbench palette (no new colors introduced).
+   * Note: --color-accent and --color-border already exist above; the sidebar
+   * uses --sidebar-accent for hover/active, so menu hovers land on the raised
+   * surface (neutral), never the green brand --accent. */
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--on-accent);
+  --color-secondary: var(--surface-raised);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface-raised);
+  --color-muted-foreground: var(--text-muted);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--blocking);
+  --color-destructive-foreground: var(--on-accent);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+  --color-sidebar: var(--surface);
+  --color-sidebar-foreground: var(--text);
+  --color-sidebar-primary: var(--accent);
+  --color-sidebar-primary-foreground: var(--on-accent);
+  --color-sidebar-accent: var(--surface-raised);
+  --color-sidebar-accent-foreground: var(--text);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-ring: var(--accent);
+
   --radius-card: 10px;
   --radius-btn: 8px;
   --radius-chip: 6px;

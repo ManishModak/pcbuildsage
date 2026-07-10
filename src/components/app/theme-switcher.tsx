@@ -5,15 +5,19 @@ import { Check, Moon, Palette, Sun } from "lucide-react";
 import { cn } from "../ui/cn";
 import { Icon } from "../ui/icon";
 import { IconButton } from "../ui/primitives";
+import { SidebarMenuButton } from "@/components/animate-ui/components/radix/sidebar";
 import { useApp } from "./app-provider";
 
-// Compact theme picker in the app shell. Switching swaps the CSS variable set
-// on <html> with no reload (see applyTheme).
-export function ThemeSwitcher() {
+// Compact theme picker. In the app shell header it's an icon button whose menu
+// opens downward; in the sidebar footer (`variant="sidebar"`) it's a labeled
+// menu row whose menu opens upward. Switching swaps the CSS variable set on
+// <html> with no reload (see applyTheme).
+export function ThemeSwitcher({ variant = "bar" }: { variant?: "bar" | "sidebar" }) {
   const { config, themes, setTheme } = useApp();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const inSidebar = variant === "sidebar";
 
   useEffect(() => {
     if (!open) return;
@@ -37,19 +41,34 @@ export function ThemeSwitcher() {
   }, [open]);
 
   return (
-    <div className="relative" ref={ref}>
-      <IconButton
-        ref={triggerRef}
-        icon={Palette}
-        label="Change theme"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((prev) => !prev)}
-      />
+    <div className={cn("relative", inSidebar && "w-full")} ref={ref}>
+      {inSidebar ? (
+        <SidebarMenuButton
+          tooltip="Theme"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((prev) => !prev)}
+        >
+          <Icon icon={Palette} size={16} />
+          <span>Theme</span>
+        </SidebarMenuButton>
+      ) : (
+        <IconButton
+          ref={triggerRef}
+          icon={Palette}
+          label="Change theme"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((prev) => !prev)}
+        />
+      )}
       {open ? (
         <div
           role="menu"
-          className="pcbs-fade-in absolute right-0 top-12 z-40 w-52 rounded-card border border-border bg-surface-raised p-1 shadow-xl"
+          className={cn(
+            "pcbs-fade-in absolute z-40 w-52 rounded-card border border-border bg-surface-raised p-1 shadow-xl",
+            inSidebar ? "bottom-full left-0 mb-2" : "right-0 top-12"
+          )}
           style={{ boxShadow: "0 20px 48px -18px rgba(0,0,0,0.5)" }}
         >
           {themes.length === 0 ? (

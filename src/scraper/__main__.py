@@ -8,7 +8,7 @@ from dataclasses import replace
 
 from .config import ProfileError, REPO_ROOT, filter_sites, load_profile, resolve_categories
 from .crawler import CrawlError, ScraperCrawler, category_page_url
-from .db import ProductStore, utc_now_iso
+from .db import ProductStore, utc_now_iso, write_db_log
 from .extractor import selector_hit_rates
 from .llm_client import LLMClient, resolve_llm_config
 from .models import CategoryConfig, RawProduct, ScrapedProduct, SiteConfig
@@ -168,6 +168,18 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
     with ProductStore(args.db):
         pass
 
+    config_details = {
+        "profile": args.profile,
+        "categories": args.categories,
+        "sites": args.sites,
+        "quick": args.quick,
+        "max_pages": args.max_pages,
+        "no_llm_fallback": args.no_llm_fallback,
+        "concurrency": args.concurrency,
+        "delay_ms": args.delay_ms,
+    }
+    write_db_log(args.db, "INFO", "scraper", f"Scrape started for profile {args.profile}", config_details)
+
     llm_client = None
     if not args.no_llm_fallback:
         llm_client = LLMClient(resolve_llm_config(args.llm_provider, args.llm_model))
@@ -176,6 +188,7 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
         llm_client=llm_client,
         llm_enabled=not args.no_llm_fallback,
         max_llm_calls=args.max_llm_calls,
+        db_path=args.db,
     )
     matcher = RegistryMatcher()
     semaphore = asyncio.Semaphore(max(1, args.concurrency))
@@ -186,10 +199,12 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
         async with semaphore:
             run_started_at = utc_now_iso()
             emitter.emit("site_started", site=site.site_name, category=category.name)
+            write_db_log(args.db, "INFO", "scraper", f"Job started: {site.site_name}/{category.name}")
             if args.skip_fresh:
                 with ProductStore(args.db) as store:
                     if store.was_scraped_since(site.site_name, category.name, args.skip_fresh):
                         emitter.progress(site=site.site_name, category=category.name, percent=100, skipped=True)
+                        write_db_log(args.db, "INFO", "scraper", f"Job skipped (scraped recently): {site.site_name}/{category.name}")
                         return 0
             try:
                 if site.scraping_type == "search":
@@ -230,14 +245,22 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
                 ]
                 written = await asyncio.to_thread(write_products, args.db, products, scraped_at, site, category, run_started_at)
                 emitter.progress(site=site.site_name, category=category.name, percent=100, products_seen=len(products))
+                write_db_log(args.db, "INFO", "scraper", f"Job completed: {site.site_name}/{category.name}. Found {len(products)} products, wrote {written} to DB.")
                 return written
             except Exception as exc:
+                import traceback
+                error_details = {
+                    "error": str(exc),
+                    "traceback": traceback.format_exc()
+                }
+                write_db_log(args.db, "ERROR", "scraper", f"Job failed: {site.site_name}/{category.name}", error_details)
                 emitter.emit("site_failed", site=site.site_name, category=category.name, error=str(exc))
                 return 0
 
     async with crawler.fetcher:
         results = await asyncio.gather(*(run_job(site, category, limit) for site, category, limit in work))
     total_written = sum(results)
+    write_db_log(args.db, "INFO", "scraper", f"Scrape finished for profile {args.profile}. Total products written: {total_written}")
     emitter.emit("done", products_written=total_written)
     return 0
 

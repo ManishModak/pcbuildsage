@@ -40,6 +40,7 @@ export type AppConfig = {
     provider: SearchProvider;
     baseUrl?: string;
     apiKey?: string;
+    crawlEnabled: boolean;
   };
 };
 
@@ -52,5 +53,6 @@ export type ConfigInput = Partial<
     searchProvider: SearchProvider;
     searchBaseUrl: string;
     searchApiKey: string;
+    crawlEnabled: boolean;
   }
 >;

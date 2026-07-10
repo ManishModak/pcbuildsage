@@ -4,6 +4,7 @@ import type { Product } from "../db-types";
 interface MockDb {
   prepare: (sql: string) => {
     all: (...params: unknown[]) => Product[];
+    get: (...params: unknown[]) => unknown;
   };
 }
 
@@ -63,6 +64,19 @@ function resetDb() {
         const offset = Number(params[index++]);
         state.offsets.push(offset);
         return rows.sort((a, b) => (a.price_minor ?? 0) - (b.price_minor ?? 0)).slice(offset, offset + limit);
+      },
+      get: (...params: unknown[]) => {
+        // Category baseline COUNT/MIN/MAX query: (country, currency, category)
+        const [country, currency, category] = params;
+        const rows = state.rows.filter(
+          (row) => row.country_code === country && row.currency === currency && row.category === category
+        );
+        const prices = rows.map((row) => row.price_minor).filter((price): price is number => price !== null);
+        return {
+          total: rows.length,
+          min_price: prices.length ? Math.min(...prices) : null,
+          max_price: prices.length ? Math.max(...prices) : null
+        };
       }
     })
   };
@@ -97,6 +111,51 @@ describe("searchProducts", () => {
     await expect(searchProducts({ category: "gpu", price_max: 1, sort_by: "price", order: "asc", limit: 20 }, { dbPath, countryCode: "IN", currency: "INR" })).resolves.toEqual(
       expect.objectContaining({ results: [], hint: expect.any(String) })
     );
+  });
+
+  it("reports category_total 0 and a do-not-retry hint for an empty category", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    addProduct({ id: "gpu-1", price_minor: 460000, category: "gpu" });
+
+    const result = await searchProducts(
+      { category: "motherboard", sort_by: "price", order: "asc", limit: 20 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    expect(result).toMatchObject({ results: [], category_total: 0 });
+    expect((result as { hint: string }).hint).toMatch(/do not retry/i);
+    expect(result).not.toHaveProperty("category_price_range_minor");
+  });
+
+  it("reports the true category price range when filters exclude every match", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    addProduct({ id: "gpu-cheap", price_minor: 460000, category: "gpu" });
+    addProduct({ id: "gpu-dear", price_minor: 5499900, category: "gpu" });
+
+    const result = await searchProducts(
+      { category: "gpu", price_max: 1, sort_by: "price", order: "asc", limit: 20 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    expect(result).toMatchObject({
+      results: [],
+      category_total: 2,
+      category_price_range_minor: { min: 460000, max: 5499900 }
+    });
+  });
+
+  it("includes category_total on a successful search", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    addProduct({ id: "gpu-1", price_minor: 460000, category: "gpu" });
+    addProduct({ id: "gpu-2", price_minor: 999900, category: "gpu" });
+
+    const result = await searchProducts(
+      { category: "gpu", sort_by: "price", order: "asc", limit: 20 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    expect(result).toMatchObject({ category_total: 2 });
+    expect((result as { results: unknown[] }).results).toHaveLength(2);
   });
 
   it("filters by registry specs after reading product registry keys", async () => {

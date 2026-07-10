@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import path from "node:path";
@@ -18,6 +19,10 @@ import { runScraper, runTestProfile, type ScrapeRunConfig } from "./scrape";
 import { STATUS_GLYPHS, banner, createPalette, listThemes, type Palette } from "./theme";
 import { onboarding, ensureNotCanceled } from "./onboarding";
 import { downloadSeed } from "../lib/seed-download-helper";
+
+// One conversation id per CLI process run, threaded into the debug log so
+// interleaved chat.jsonl / logs entries can be filtered per conversation.
+const CLI_SESSION_ID = randomUUID();
 
 type Runtime = {
   saved: CliConfig;
@@ -310,10 +315,10 @@ async function searchCommand(parsed: ParsedArgs, runtime: Runtime): Promise<numb
 
 async function streamAssistant(configInput: CliConfig, messages: ChatMessage[], palette: Palette): Promise<string> {
   const config = resolveConfig(configInput);
-  const result = await streamChat(config, messages);
+  const result = await streamChat(config, messages, CLI_SESSION_ID);
   if (result.fallbackIndex > 0) {
     const message = `Failover: using ${result.provider}:${result.model}`;
-    appendChatLog({ role: "system", content: message, provider: result.provider, modelId: result.model });
+    appendChatLog({ role: "system", content: message, session_id: CLI_SESSION_ID, provider: result.provider, modelId: result.model });
     console.log(palette.warn(`${STATUS_GLYPHS.warn} ${message}`));
   }
   let content = "";
@@ -333,7 +338,7 @@ async function streamAssistant(configInput: CliConfig, messages: ChatMessage[], 
 
 async function collectAssistant(configInput: CliConfig, messages: ChatMessage[]): Promise<string> {
   const config = resolveConfig(configInput);
-  const result = await streamChat(config, messages);
+  const result = await streamChat(config, messages, CLI_SESSION_ID);
   let content = "";
   for await (const part of result.textStream) content += part;
   return content;

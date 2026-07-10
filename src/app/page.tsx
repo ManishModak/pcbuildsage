@@ -2,7 +2,7 @@
 
 import { useApp } from "../components/app/app-provider";
 import { AppShell } from "../components/app/app-shell";
-import { ChatView } from "../components/chat/chat-view";
+import { ChatWorkspace } from "../components/chat/chat-workspace";
 import { Wizard } from "../components/wizard/wizard";
 import { Spinner } from "../components/ui/primitives";
 
@@ -25,9 +25,5 @@ export default function Home() {
     );
   }
 
-  return (
-    <AppShell showSettings={true}>
-      <ChatView config={config} />
-    </AppShell>
-  );
+  return <ChatWorkspace config={config} />;
 }

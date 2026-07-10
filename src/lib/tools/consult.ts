@@ -37,7 +37,11 @@ const freeformSchema = z.object({
   sources: z.array(z.string().url()).default([])
 });
 
-type ConsultInput = z.infer<typeof consultInputSchema>;
+export type ConsultInput =
+  | { mode: "component_specs"; name: string; category: string }
+  | { mode: "build_audit"; parts: Record<string, string> }
+  | { mode: "freeform"; question: string; context?: string };
+
 type ConsultDeps = {
   searchClient?: SearchClient;
   generateText?: typeof generateTextWithFallback;
@@ -45,29 +49,21 @@ type ConsultDeps = {
   now?: () => Date;
 };
 
-export const consultInputSchema = z.discriminatedUnion("mode", [
-  z.object({
-    mode: z.literal("component_specs").describe("Research facts for one unknown component."),
-    name: z.string().describe("Exact component name to research."),
-    category: z.string().describe("Component category, such as cpu, gpu, motherboard, ram, storage, psu, case, or cooler.")
-  }),
-  z.object({
-    mode: z.literal("build_audit").describe("Run an advisory final-build audit that can only add warnings or needs_verification."),
-    parts: partMapSchema.describe("Final build parts keyed by category.")
-  }),
-  z.object({
-    mode: z.literal("freeform").describe("Ask an uncached advisory hardware question. Never feeds deterministic rules."),
-    question: z.string().describe("Question to answer."),
-    context: z.string().optional().describe("Relevant build context.")
-  })
-]);
+export const consultInputSchema = z.object({
+  mode: z.enum(["component_specs", "build_audit", "freeform"]).describe("The operation mode: component_specs (research specs for a component), build_audit (audit build parts), or freeform (ask a general hardware question)."),
+  name: z.string().optional().describe("Used in component_specs: exact component name to research."),
+  category: z.string().optional().describe("Used in component_specs: component category."),
+  parts: partMapSchema.optional().describe("Used in build_audit: final build parts keyed by category."),
+  question: z.string().optional().describe("Used in freeform: question to answer."),
+  context: z.string().optional().describe("Used in freeform: relevant build context.")
+});
 
 export function createConsultTool(config: AppConfig) {
   return tool({
     description:
       "Use consult only for Tier 2 advisory work. Use component_specs when validate_build reports needs_research; use build_audit once on a final build; do not use it to clear Tier 1 blocking failures. Example: {\"mode\":\"component_specs\",\"name\":\"Ryzen 7 9700X\",\"category\":\"cpu\"}.",
     inputSchema: consultInputSchema,
-    execute: async (input) => consult(input, config)
+    execute: async (input) => consult(input as ConsultInput, config)
   });
 }
 
@@ -83,7 +79,7 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
       logConsult(input, result, { provider: "cache", model: "registry_research", logPath: deps.logPath });
       return result;
     }
-    const grounded = await safeSearch(search, `${input.name} ${input.category} official specifications`);
+    const grounded = await safeSearch(search, `${input.name} ${input.category} official specifications`, config.search.crawlEnabled);
     const llm = await runStructuredSubagent({
       input,
       config,
@@ -119,7 +115,7 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
     });
     const fresh = pairs.filter((pair) => !cached.some((item) => item.pair === pair));
     const freshResults = await Promise.all(fresh.map(async (pair) => {
-      const grounded = await safeSearch(search, `${pair} PC compatibility BIOS QVL connector known issues`);
+      const grounded = await safeSearch(search, `${pair} PC compatibility BIOS QVL connector known issues`, config.search.crawlEnabled);
       const llm = await runStructuredSubagent({
         input,
         config,
@@ -150,7 +146,7 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
     return result;
   }
   if (!config.freeformConsultEnabled) return { error: "freeform consult is disabled", hint: "enable PCBUILDSAGE_CONSULT_FREEFORM or use component_specs/build_audit" };
-  const grounded = await safeSearch(search, input.question);
+  const grounded = await safeSearch(search, input.question, config.search.crawlEnabled);
   const llm = await runStructuredSubagent({
     input,
     config,
@@ -179,9 +175,9 @@ function buildAuditPairs(parts: Record<string, string>) {
   ].filter((pair): pair is string => Boolean(pair));
 }
 
-async function safeSearch(search: SearchClient, query: string): Promise<SearchResponse> {
+async function safeSearch(search: SearchClient, query: string, crawlEnabled?: boolean): Promise<SearchResponse> {
   try {
-    return await search.search(query, { limit: 5 });
+    return await search.search(query, { limit: 5, crawlEnabled });
   } catch {
     return { provider: "none", grounded: false, results: [] };
   }

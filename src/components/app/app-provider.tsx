@@ -12,6 +12,8 @@ type AppContextValue = {
   ready: boolean;
   updateConfig: (patch: Partial<ClientConfig> | ((prev: ClientConfig) => ClientConfig)) => void;
   setTheme: (name: string) => void;
+  headerSuffix: ReactNode;
+  setHeaderSuffix: (suffix: ReactNode) => void;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -20,6 +22,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // null = not yet hydrated from localStorage.
   const [storedConfig, setConfig] = useState<ClientConfig | null>(null);
   const [themes, setThemes] = useState<ThemeFile[]>([]);
+  const [headerSuffix, setHeaderSuffix] = useState<ReactNode>(null);
   const config = storedConfig ?? DEFAULT_CONFIG;
   const ready = storedConfig !== null;
 
@@ -83,8 +86,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AppContextValue>(
-    () => ({ config, themes, ready, updateConfig, setTheme }),
-    [config, themes, ready, updateConfig, setTheme]
+    () => ({ config, themes, ready, updateConfig, setTheme, headerSuffix, setHeaderSuffix }),
+    [config, themes, ready, updateConfig, setTheme, headerSuffix]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

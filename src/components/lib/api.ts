@@ -7,9 +7,11 @@ import type {
   Personality,
   PingResult,
   ProfileSummary,
+  SessionSummary,
   StatusResponse,
   ThemeFile
 } from "./types";
+import type { ChatUIMessage } from "../chat/message";
 
 async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { headers: { accept: "application/json" } });
@@ -199,4 +201,47 @@ export async function exportResearch(): Promise<{ files: string[] }> {
   const response = await fetch("/api/export-research", { method: "POST" });
   if (!response.ok) throw new Error(`Export failed: HTTP ${response.status}`);
   return (await response.json()) as { files: string[] };
+}
+
+// --- Chat session history ---------------------------------------------------
+
+export type SessionDetail = {
+  id: string;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+  country_code: string | null;
+  currency: string | null;
+  messages: ChatUIMessage[];
+  build_state: unknown | null;
+};
+
+export type SaveSessionRequest = {
+  id: string;
+  messages: ChatUIMessage[];
+  title?: string;
+  countryCode?: string;
+  currency?: string;
+};
+
+export async function fetchSessions(): Promise<SessionSummary[]> {
+  const data = await getJson<{ sessions: SessionSummary[] }>("/api/sessions");
+  return data.sessions;
+}
+
+export async function fetchSession(id: string): Promise<SessionDetail | null> {
+  const data = await getJson<{ session: SessionDetail | null }>(`/api/sessions/${id}`);
+  return data.session;
+}
+
+export async function saveSession(input: SaveSessionRequest): Promise<void> {
+  await fetch("/api/sessions", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input)
+  });
+}
+
+export async function deleteSession(id: string): Promise<void> {
+  await fetch(`/api/sessions/${id}`, { method: "DELETE" });
 }

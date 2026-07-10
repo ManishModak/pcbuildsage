@@ -1,4 +1,4 @@
-import type { ChainEntry, ClientConfig, ScrapeRunConfig } from "./types";
+import type { ChainEntry, ClientConfig, ScrapeRunConfig, SearchProvider } from "./types";
 
 const CONFIG_KEY = "pcbuildsage:config";
 const SCRAPE_KEY = "pcbuildsage:lastScrape";
@@ -15,7 +15,9 @@ export const DEFAULT_CONFIG: ClientConfig = {
   auditVisible: true,
   freeformConsultEnabled: false,
   chatChain: [],
-  subagentChain: null
+  subagentChain: null,
+  searchProvider: "duckduckgo",
+  crawlEnabled: false
 };
 
 export function validateConfig(parsed: unknown): ClientConfig {
@@ -67,6 +69,19 @@ export function validateConfig(parsed: unknown): ClientConfig {
     config.subagentChain = null;
   }
 
+  const VALID_PROVIDERS: SearchProvider[] = ["exa", "tavily", "brave", "searxng", "duckduckgo", "gemini-native", "none"];
+  if (typeof obj.searchProvider === "string" && VALID_PROVIDERS.includes(obj.searchProvider as SearchProvider)) {
+    config.searchProvider = obj.searchProvider as SearchProvider;
+  }
+  if (typeof obj.searchBaseUrl === "string") {
+    config.searchBaseUrl = obj.searchBaseUrl;
+  } else if (obj.searchBaseUrl === undefined || obj.searchBaseUrl === null) {
+    config.searchBaseUrl = undefined;
+  }
+  if (typeof obj.crawlEnabled === "boolean") {
+    config.crawlEnabled = obj.crawlEnabled;
+  }
+
   return config;
 }
 
@@ -111,7 +126,7 @@ export function saveLastScrape(config: Partial<ScrapeRunConfig>): void {
 
 // UI-entered API keys are write-only: stored so chat works across sessions, but
 // never read back into any input. They travel to the server only as headers.
-type KeyMap = Partial<Record<string, string>>;
+export type KeyMap = Partial<Record<string, string>>;
 
 export function saveUiKey(provider: string, key: string): void {
   if (typeof window === "undefined") return;
@@ -128,7 +143,7 @@ export function hasUiKey(provider: string): boolean {
   return Boolean(readKeyMap()[provider]);
 }
 
-export function apiKeyHeaders(chain: ChainEntry[]): Record<string, string> {
+export function apiKeyHeaders(chain: ChainEntry[], config?: ClientConfig): Record<string, string> {
   const map = readKeyMap();
   const headers: Record<string, string> = {};
   for (const entry of chain) {
@@ -137,10 +152,18 @@ export function apiKeyHeaders(chain: ChainEntry[]): Record<string, string> {
       if (key) headers[`x-pcbuildsage-api-key-${entry.provider}`] = key;
     }
   }
+  if (config && config.searchProvider) {
+    if (["exa", "tavily", "brave"].includes(config.searchProvider)) {
+      const key = map[config.searchProvider];
+      if (key) {
+        headers[`x-pcbuildsage-api-key-${config.searchProvider}`] = key;
+      }
+    }
+  }
   return headers;
 }
 
-function readKeyMap(): KeyMap {
+export function readKeyMap(): KeyMap {
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem(KEYS_KEY);

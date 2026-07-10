@@ -33,8 +33,9 @@ export function ScrapeProgress({
   const failures = rows.filter((row) => row.status === "failed");
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="overflow-hidden rounded-card border border-border bg-surface">
+    <div className="grid gap-4 md:grid-cols-2">
+      {/* Left Column: Scrape progress table */}
+      <div className="overflow-hidden rounded-card border border-border bg-surface h-fit">
         <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
           <span className="flex items-center gap-2 text-sm text-text">
             <Icon icon={Terminal} size={16} className="text-text-secondary" />
@@ -54,55 +55,62 @@ export function ScrapeProgress({
         </ul>
       </div>
 
-      {failures.length ? (
-        <div
-          className="flex flex-col gap-2 rounded-card border px-4 py-3"
-          style={{ borderColor: "color-mix(in srgb, var(--warn) 45%, transparent)" }}
-        >
-          <p className="flex items-center gap-2 text-caption font-medium" style={{ color: "var(--warn)" }}>
-            <Icon icon={TriangleAlert} size={14} />
-            {failures.length} {failures.length === 1 ? "site" : "sites"} failed — data from the others is still saved.
-          </p>
-          {failures.map((row) => (
-            <div key={row.key} className="flex flex-wrap items-center gap-2 text-caption text-text-secondary">
-              <span className="font-mono text-text">{row.site}{row.category ? `/${row.category}` : ""}</span>
-              <span className="truncate">{row.error}</span>
-              <button
-                type="button"
-                onClick={() => setShowLog(true)}
-                className="text-accent hover:underline"
-              >
-                view log
-              </button>
-              <span className="text-text-muted">·</span>
-              <a
-                href="https://github.com/pcbuildsage/pcbuildsage/issues/new"
-                target="_blank"
-                rel="noreferrer"
-                className="text-accent hover:underline"
-              >
-                this profile may need a fix — open an issue
-              </a>
+      {/* Right Column: Failures and Raw logs */}
+      <div className="flex flex-col gap-4">
+        {failures.length ? (
+          <div
+            className="flex flex-col gap-2 rounded-card border px-4 py-3 h-fit"
+            style={{ borderColor: "color-mix(in srgb, var(--warn) 45%, transparent)" }}
+          >
+            <p className="flex items-center gap-2 text-caption font-medium" style={{ color: "var(--warn)" }}>
+              <Icon icon={TriangleAlert} size={14} />
+              {failures.length} {failures.length === 1 ? "site" : "sites"} failed — data from the others is still saved.
+            </p>
+            <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
+              {failures.map((row) => (
+                <div key={row.key} className="flex flex-col gap-1 text-caption text-text-secondary border-b border-border/50 pb-2 last:border-0 last:pb-0">
+                  <div className="flex flex-wrap items-center gap-2 font-mono text-text">
+                    <span>{row.site}{row.category ? `/${row.category}` : ""}</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowLog(true)}
+                      className="text-accent hover:underline font-sans text-caption"
+                    >
+                      view log
+                    </button>
+                    <span className="text-text-muted font-sans">·</span>
+                    <a
+                      href="https://github.com/pcbuildsage/pcbuildsage/issues/new"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-accent hover:underline font-sans text-caption"
+                    >
+                      open issue
+                    </a>
+                  </div>
+                  <span className="text-caption text-text-muted line-clamp-2">{row.error}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="overflow-hidden rounded-card border border-border bg-surface">
-        <button
-          type="button"
-          aria-expanded={showLog}
-          onClick={() => setShowLog((prev) => !prev)}
-          className="flex w-full items-center justify-between px-4 py-2.5 text-caption text-text-secondary hover:text-text"
-        >
-          <span>Raw log ({logs.length} lines)</span>
-          <span className="font-mono">{showLog ? "hide" : "show"}</span>
-        </button>
-        {showLog ? (
-          <pre className="max-h-56 overflow-auto border-t border-border bg-bg px-4 py-3 font-mono text-caption text-text-secondary">
-            {logs.length ? logs.join("") : "No output yet."}
-          </pre>
+          </div>
         ) : null}
+
+        <div className="overflow-hidden rounded-card border border-border bg-surface h-fit">
+          <button
+            type="button"
+            aria-expanded={showLog}
+            onClick={() => setShowLog((prev) => !prev)}
+            className="flex w-full items-center justify-between px-4 py-2.5 text-caption text-text-secondary hover:text-text"
+          >
+            <span>Raw log ({logs.length} lines)</span>
+            <span className="font-mono">{showLog ? "hide" : "show"}</span>
+          </button>
+          {showLog ? (
+            <pre className="max-h-80 overflow-auto border-t border-border bg-bg px-4 py-3 font-mono text-caption text-text-secondary">
+              {logs.length ? logs.join("") : "No output yet."}
+            </pre>
+          ) : null}
+        </div>
       </div>
     </div>
   );

@@ -4,6 +4,8 @@ out/
 dist/
 data/products.db
 data/products.db-*
+data/sessions.db
+data/sessions.db-*
 logs/*
 !logs/.gitkeep
 .env

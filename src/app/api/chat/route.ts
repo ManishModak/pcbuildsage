@@ -14,6 +14,7 @@ const messageSchema = z.object({
 
 const chatRequestSchema = z.object({
   messages: z.array(messageSchema),
+  sessionId: z.string().optional(),
   config: z.unknown().optional()
 });
 
@@ -21,15 +22,22 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const body = chatRequestSchema.parse(await readJson(request));
     const config = buildAppConfig(request.headers, body.config ?? {});
-    const result = await streamChat(config, body.messages.map(toChatMessage));
-    return result.toUIMessageStreamResponse<UIMessage<{ provider: string; model: string; fallbackIndex: number }>>({
+    
+    const result = await streamChat(config, body.messages.map(toChatMessage), body.sessionId);
+    return result.toUIMessageStreamResponse<UIMessage<{ provider: string; model: string; fallbackIndex: number; primaryError?: string }>>({
       messageMetadata: () => ({
         provider: result.provider,
         model: result.model,
-        fallbackIndex: result.fallbackIndex
-      })
+        fallbackIndex: result.fallbackIndex,
+        primaryError: result.errors?.[0] instanceof Error ? result.errors[0].message : (result.errors?.[0] ? String(result.errors[0]) : undefined)
+      }),
+      onError: (error: any) => {
+        console.error("POST /api/chat: Stream Error:", error);
+        return error instanceof Error ? error.message : String(error);
+      }
     });
   } catch (error) {
+    console.error("POST /api/chat: Initialization Error:", error);
     if (error instanceof z.ZodError || error instanceof Error && error.message.includes("Request body")) return badRequest(error);
     return serverError(error);
   }

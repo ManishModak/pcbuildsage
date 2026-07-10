@@ -51,7 +51,7 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 sm:py-12 md:flex-row md:gap-10">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:py-12 md:flex-row md:gap-10">
       <Stepper step={step} onJump={(index) => index < step && go(index)} />
 
       <div className="min-w-0 flex-1">
