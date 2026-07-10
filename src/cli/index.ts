@@ -17,6 +17,7 @@ import { getConfigValue, hasCliConfig, isSensitiveConfigKey, readCliConfig, setC
 import { runScraper, runTestProfile, type ScrapeRunConfig } from "./scrape";
 import { STATUS_GLYPHS, banner, createPalette, listThemes, type Palette } from "./theme";
 import { onboarding, ensureNotCanceled } from "./onboarding";
+import { downloadSeed } from "../lib/seed-download-helper";
 
 type Runtime = {
   saved: CliConfig;
@@ -122,7 +123,7 @@ async function runSubcommand(parsed: ParsedArgs, runtime: Runtime): Promise<numb
     case "export-research":
       return exportResearchCommand(parsed, runtime);
     case "seed":
-      return seedCommand(parsed);
+      return seedCommand(parsed, runtime);
     case "provider":
       return simpleSetCommand("llmChain", parsed, runtime, "provider chain");
     case "persona":
@@ -255,10 +256,20 @@ async function exportResearchCommand(parsed: ParsedArgs, runtime: Runtime): Prom
   return 0;
 }
 
-async function seedCommand(parsed: ParsedArgs): Promise<number> {
+async function seedCommand(parsed: ParsedArgs, runtime: Runtime): Promise<number> {
   const country = (stringFlag(parsed.flags, "country") ?? parsed.positionals[0])?.toUpperCase();
   if (!country || !/^[A-Z]{2}$/.test(country)) throw new Error("seed requires --country <ISO-2>.");
-  console.log(JSON.stringify({ country, available: false, message: "Seed download artifacts are planned for Plan 7." }));
+  const dbPath = stringFlag(parsed.flags, "db") ?? runtime.saved.dbPath ?? "data/products.db";
+  const jsonMode = booleanFlag(parsed.flags, "json");
+  if (!jsonMode) console.log(`Downloading community seed dataset for ${country}...`);
+  await downloadSeed(country, {
+    dbPath,
+    onProgress(percent, message) {
+      if (!jsonMode) process.stdout.write(`\rProgress: [${percent}%] ${message}`);
+    }
+  });
+  if (jsonMode) console.log(JSON.stringify({ ok: true, country, dbPath }));
+  else console.log(`\nSeed database for ${country} downloaded successfully.`);
   return 0;
 }
 

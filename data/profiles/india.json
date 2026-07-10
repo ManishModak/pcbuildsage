@@ -18,12 +18,17 @@
       },
       "categories": {
         "gpu": {
-          "path": "product-category/components/graphics-card/",
+          "path": "product-category/graphic-cards/",
           "pagination_pattern": "page/{page}/",
           "max_pages": 20
         },
         "cpu": {
-          "path": "product-category/components/processors/",
+          "path": "product-category/processor/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "storage": {
+          "path": "product-category/internal-ssd/",
           "pagination_pattern": "page/{page}/",
           "max_pages": 20
         }
@@ -44,29 +49,34 @@
       "browser_config": {
         "headless": true,
         "js_rendering": true,
-        "wait_for_selector": ".product-layout",
+        "wait_for_selector": ".product-grid-item",
         "scroll_down": true,
         "timeout_ms": 30000
       },
       "categories": {
         "gpu": {
-          "path": "graphics-card",
+          "path": "catalog/graphics-card",
           "pagination_pattern": "?page={page}",
           "max_pages": 20
         },
         "cpu": {
-          "path": "processor",
+          "path": "catalog/processor",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "storage": {
+          "path": "catalog/storage",
           "pagination_pattern": "?page={page}",
           "max_pages": 20
         }
       },
       "selectors": {
-        "product_container": ".product-layout",
-        "title": ".caption h4 a",
-        "price": ".price",
-        "url": ".caption h4 a",
-        "image": ".image img",
-        "out_of_stock": ".stock-status.out-of-stock"
+        "product_container": ".product-grid-item",
+        "title": ".product-entities-title a",
+        "price": ".price span.ins, .price span.amount",
+        "url": ".product-entities-title a",
+        "image": ".product-image-link img",
+        "out_of_stock": ".out-of-stock"
       }
     }
   ]

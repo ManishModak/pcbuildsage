@@ -5,7 +5,6 @@ import asyncio
 import json
 import sys
 from dataclasses import replace
-from pathlib import Path
 
 from .config import ProfileError, REPO_ROOT, filter_sites, load_profile, resolve_categories
 from .crawler import CrawlError, ScraperCrawler, category_page_url
@@ -115,7 +114,14 @@ def search_terms_for_category(category: str, limit: int = 100) -> list[str]:
         for key, entry in data.items():
             if key == "$schema" or not isinstance(entry, dict):
                 continue
-            for term in [entry.get("model"), *entry.get("aliases", [])]:
+            aliases = entry.get("aliases")
+            if isinstance(aliases, list):
+                alias_terms = aliases
+            elif isinstance(aliases, str):
+                alias_terms = [aliases]
+            else:
+                alias_terms = []
+            for term in [entry.get("model"), *alias_terms]:
                 if isinstance(term, str) and term and term not in terms:
                     terms.append(term)
                 if len(terms) >= limit:

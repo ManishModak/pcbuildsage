@@ -20,6 +20,7 @@ const configInputSchema = z.object({
   countryCode: z.string().regex(/^[A-Z]{2}$/).optional(),
   currency: z.string().regex(/^[A-Z]{3}$/).optional(),
   persona: z.string().optional(),
+  personas: z.array(z.string()).optional(),
   personality: z.string().optional(),
   theme: z.string().optional(),
   tier2Enabled: z.boolean().optional(),

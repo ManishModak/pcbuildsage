@@ -91,7 +91,7 @@ export async function POST(request: Request): Promise<Response> {
         terminate = () => {
           if (child.exitCode !== null || child.killed) return;
           if (activeScrape?.id === id) activeScrape.status = "terminating";
-          child.kill("SIGTERM");
+          child.kill("SIGINT");
           termTimer = setTimeout(() => {
             if (child.exitCode === null && !child.killed) child.kill("SIGKILL");
           }, 3000);

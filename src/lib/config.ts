@@ -54,6 +54,7 @@ export function resolveConfig(uiOrFlags: ConfigInput = {}, savedConfig: ConfigIn
     countryCode,
     currency,
     persona: source("persona", "PCBUILDSAGE_PERSONA", "balanced-showpiece"),
+    personas: normalizePersonaList(source<string[] | string | undefined>("personas", "PCBUILDSAGE_PERSONAS", undefined)),
     personality: source("personality", "PCBUILDSAGE_PERSONALITY", "helpful-consultant"),
     theme: source("theme", "PCBUILDSAGE_THEME", "sage-dark"),
     tier2Enabled: coerceBool(source("tier2Enabled", "PCBUILDSAGE_TIER2", "true")),
@@ -65,6 +66,13 @@ export function resolveConfig(uiOrFlags: ConfigInput = {}, savedConfig: ConfigIn
       apiKey: source<string | undefined>("searchApiKey", providerKeyEnv(searchProvider), undefined)
     }
   };
+}
+
+function normalizePersonaList(value: string[] | string | undefined): string[] | undefined {
+  if (value === undefined) return undefined;
+  const list = Array.isArray(value) ? value : value.split(",").map((item) => item.trim());
+  const filtered = list.filter(Boolean);
+  return filtered.length > 0 ? filtered : undefined;
 }
 
 function hydrateEntry(entry: LLMChainEntry): LLMChainEntry {

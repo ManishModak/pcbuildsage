@@ -1,49 +1,190 @@
 @import "tailwindcss";
 
+/*
+ * PCBuildSage design system — "The Workbench".
+ * Tailwind color utilities map to semantic CSS variables (--bg, --surface, …)
+ * that live in :root. A theme is just a set of values for those variables, so
+ * switching themes = swapping the variable set (no restyle, no rebuild).
+ */
 @theme {
-  --color-bg: #0e1210;
-  --color-surface: #161b18;
-  --color-surface-raised: #1d2420;
-  --color-border: #2a332e;
-  --color-text: #e8ede9;
-  --color-text-secondary: #9daaa2;
-  --color-text-muted: #67736b;
-  --color-accent: #7dc383;
-  --color-on-accent: #0b130d;
-  --color-ok: #7dc383;
-  --color-blocking: #e5735f;
-  --color-warn: #e0b25d;
-  --color-unverified: #b195e8;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-ok: var(--ok);
+  --color-blocking: var(--blocking);
+  --color-warn: var(--warn);
+  --color-unverified: var(--unverified);
+
+  --radius-card: 10px;
+  --radius-btn: 8px;
+  --radius-chip: 6px;
+  --radius-pill: 999px;
+
+  --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-jb), "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* Type scale: 13 / 14 / 16 / 18 / 22 / 28 / 36 (body 16px min) */
+  --text-caption: 13px;
+  --text-caption--line-height: 1.5;
+  --text-sm: 14px;
+  --text-sm--line-height: 1.5;
+  --text-base: 16px;
+  --text-base--line-height: 1.6;
+  --text-lg: 18px;
+  --text-lg--line-height: 1.5;
+  --text-xl: 22px;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 28px;
+  --text-2xl--line-height: 1.2;
+  --text-3xl: 36px;
+  --text-3xl--line-height: 1.2;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
 }
 
+/* Sage-dark defaults — first paint is correct before JS runs. */
 :root {
+  --bg: #0e1210;
+  --surface: #161b18;
+  --surface-raised: #1d2420;
+  --border: #2a332e;
+  --text: #e8ede9;
+  --text-secondary: #9daaa2;
+  --text-muted: #67736b;
+  --accent: #7dc383;
+  --on-accent: #0b130d;
+  --ok: #7dc383;
+  --blocking: #e5735f;
+  --warn: #e0b25d;
+  --unverified: #b195e8;
+
   color-scheme: dark;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: Inter, Geist, system-ui, sans-serif;
+}
+
+:root[data-theme-mode="light"] {
+  color-scheme: light;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   min-height: 100dvh;
   margin: 0;
-  background: var(--color-bg);
-}
-
-main {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 48px 20px;
-}
-
-h1 {
-  margin: 0 0 12px;
-  font-size: 36px;
-  line-height: 1.2;
-  font-weight: 650;
-}
-
-p {
-  color: var(--color-text-secondary);
+  background: var(--bg);
+  color: var(--text);
   font-size: 16px;
   line-height: 1.6;
+}
+
+/* Every number the user compares is monospaced with tabular figures. */
+.font-mono,
+[class*="font-mono"],
+code,
+kbd {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "cv01" 1;
+}
+
+/* Focus rings: 2px accent outline, 2px offset — never removed. */
+:where(a, button, input, textarea, select, summary, [role="button"], [role="tab"], [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+  color: var(--text);
+}
+
+/* Restrained, token-driven scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+@keyframes pcbs-slide-in-left {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes pcbs-slide-in-right {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes pcbs-modal-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes pcbs-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pcbs-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pcbs-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+.pcbs-slide-forward { animation: pcbs-slide-in-left 200ms var(--ease-out); }
+.pcbs-slide-back { animation: pcbs-slide-in-right 200ms var(--ease-out); }
+.pcbs-modal-in { animation: pcbs-modal-in 180ms var(--ease-out); }
+.pcbs-fade-in { animation: pcbs-fade-in 160ms var(--ease-out); }
+.pcbs-spin { animation: pcbs-spin 800ms linear infinite; }
+
+/* Native <dialog> modal (src/components/ui/dialog.tsx). Resets UA chrome,
+ * centers in the viewport, replays the entrance animation on every open
+ * (the [open] attribute toggling restarts it), and paints the scrim on the
+ * top-layer ::backdrop. */
+dialog.pcbs-dialog {
+  margin: auto;
+  padding: 0;
+  max-width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  color: inherit;
+}
+dialog.pcbs-dialog[open] {
+  animation: pcbs-modal-in 180ms var(--ease-out);
+}
+dialog.pcbs-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  animation: pcbs-fade-in 160ms var(--ease-out);
+}
+/* Modal <dialog> makes the page inert but not unscrollable — lock it. */
+body:has(dialog.pcbs-dialog[open]) {
+  overflow: hidden;
+}
+
+/* Motion is purposeful only — reduced motion snaps everything; progress bars
+ * still fill because they are driven by width/state, not by animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
