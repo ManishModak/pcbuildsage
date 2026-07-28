@@ -19,7 +19,7 @@ export type BuildComponent = {
   categoryLabel: string;
   name: string;
   registryKey?: string;
-  priceMinor: number | null;
+  price: number | null;
   currency: string;
   retailer?: string;
   url?: string;
@@ -28,6 +28,8 @@ export type BuildComponent = {
 };
 
 export type DerivedBuild = {
+  /** Model-supplied name for the tradeoff this build makes, when it proposed several. */
+  label?: string;
   components: BuildComponent[];
   currency: string;
   validation: ValidationResult | null;
@@ -57,9 +59,10 @@ export function deriveBuild(parts: ToolPart[], fallbackCurrency: string): Derive
     .find((part) => part.type === "tool-validate_build" && part.state === "output-available");
   if (!validatePart) return null;
 
-  const input = validatePart.input as { parts?: Record<string, unknown> } | undefined;
+  const input = validatePart.input as { parts?: Record<string, unknown>; label?: string } | undefined;
   if (!input?.parts) return null;
   const validation = (validatePart.output as ValidationResult | undefined) ?? null;
+  const label = typeof input.label === "string" && input.label.trim() ? input.label.trim() : undefined;
 
   // Index every product row seen in this message for price/retailer lookup.
   const products: ProductRow[] = [];
@@ -96,7 +99,7 @@ export function deriveBuild(parts: ToolPart[], fallbackCurrency: string): Derive
       categoryLabel: CATEGORY_LABELS[category] ?? category,
       name: product?.name ?? label.name,
       registryKey: label.key,
-      priceMinor: product?.price_minor ?? null,
+      price: product?.price ?? null,
       currency: product?.currency ?? currency,
       retailer: product?.retailer,
       url: product?.url,
@@ -109,12 +112,12 @@ export function deriveBuild(parts: ToolPart[], fallbackCurrency: string): Derive
     (a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category)
   );
 
-  return { components, currency, validation };
+  return { label, components, currency, validation };
 }
 
 /**
  * Derive every distinct build proposed in a message (deduped by part set,
- * latest verdict wins). Multiple distinct builds render as persona pill tabs.
+ * latest verdict wins). Multiple distinct builds render as labelled pill tabs.
  */
 export function deriveBuilds(parts: ToolPart[], fallbackCurrency: string): DerivedBuild[] {
   const validateParts = parts.filter(

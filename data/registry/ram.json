@@ -10,7 +10,12 @@
       "Crucial 32GB 2x16GB",
       "Crucial DDR5 32GB",
       "Crucial Pro 32GB DDR5-5600"
-    ]
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr5/cp2k16g56c46u5"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:34:06Z"
   },
   "corsair-vengeance-32gb-ddr5-6000": {
     "brand": "Corsair",
@@ -23,7 +28,12 @@
       "Corsair DDR5 32GB",
       "Vengeance 32GB DDR5-6000",
       "Corsair 32GB 2x16GB"
-    ]
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk32gx5m2b6000c30/vengeance-32gb-2x16gb-ddr5-dram-6000mt-s-c30-memory-kit-black-cmk32gx5m2b6000c30"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:34:06Z"
   },
   "kingston-fury-beast-32gb-ddr5-6000": {
     "brand": "Kingston",
@@ -36,7 +46,13 @@
       "Fury Beast 32GB DDR5-6000",
       "Kingston DDR5 32GB",
       "Kingston Fury Beast 32GB DDR5-6000"
-    ]
+    ],
+    "sources": [
+      "https://www.kingston.com/datasheets/KF560C30BBEK2-32.pdf",
+      "https://www.kingston.com/datasheets/KF560C30BBEAK2-32.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:34:06Z"
   },
   "g-skill-trident-z5-rgb-32gb-ddr5-6000": {
     "brand": "G.Skill",
@@ -49,7 +65,13 @@
       "G.Skill 32GB 2x16GB",
       "G.Skill DDR5 32GB",
       "Trident Z5 RGB 32GB DDR5-6000"
-    ]
+    ],
+    "sources": [
+      "https://www.gskill.com/specification/165/374/1649235161/F5-6000J3040F16GX2-TZ5RK-F5-6000J3040F16GA2-TZ5RK-Specification",
+      "https://www.gskill.com/specification/165/374/1640229752/F5-6000J3636F16GX2-TZ5RK-F5-6000J3636F16GA2-TZ5RK-Specification"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:34:06Z"
   },
   "g-skill-trident-z5-rgb-32gb-ddr5-6400": {
     "brand": "G.Skill",
@@ -62,7 +84,12 @@
       "Trident Z5 RGB 32GB DDR5-6400",
       "G.Skill DDR5 32GB",
       "G.Skill 32GB 2x16GB"
-    ]
+    ],
+    "sources": [
+      "https://www.newegg.com/g-skill-trident-z5-rgb-series-32gb-ddr5-6400-cas-latency-cl32-desktop-memory-black/p/N82E16820374358"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:34:06Z"
   },
   "g-skill-ripjaws-v-16gb-ddr4-3200": {
     "brand": "G.Skill",
@@ -75,7 +102,12 @@
       "G.Skill DDR4 16GB",
       "G.Skill 16GB 2x8GB",
       "Ripjaws V 16GB DDR4-3200"
-    ]
+    ],
+    "sources": [
+      "https://www.newegg.com/g-skill-ripjaws-v-series-16gb-ddr4-3200-cas-latency-cl16-desktop-memory-black/p/N82E16820231902"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:34:06Z"
   },
   "crucial-16gb-ddr4-3200": {
     "brand": "Crucial",
@@ -88,7 +120,12 @@
       "Crucial 16GB 2x8GB",
       "Crucial 16GB DDR4-3200",
       "16GB DDR4-3200"
-    ]
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr4/ct8g4dfra32a"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:34:06Z"
   },
   "corsair-vengeance-16gb-ddr4-3600": {
     "brand": "Corsair",
@@ -101,7 +138,12 @@
       "Corsair 16GB 2x8GB",
       "Corsair DDR4 16GB",
       "Vengeance 16GB DDR4-3600"
-    ]
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk16gx4m2d3600c18/vengeancea-lpx-16gb-2-x-8gb-ddr4-dram-3600mhz-c18-memory-kit-black-cmk16gx4m2d3600c18"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:34:06Z"
   },
   "kingston-fury-beast-16gb-ddr4-3600": {
     "brand": "Kingston",
@@ -114,6 +156,11 @@
       "Kingston Fury Beast 16GB DDR4-3600",
       "Fury Beast 16GB DDR4-3600",
       "Kingston DDR4 16GB"
-    ]
+    ],
+    "sources": [
+      "https://www.kingston.com/dataSheets/KF436C18BB_16.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:34:06Z"
   }
 }

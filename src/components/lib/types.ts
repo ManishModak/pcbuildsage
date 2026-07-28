@@ -31,7 +31,6 @@ export type ClientConfig = {
   countryCode: string;
   currency: string;
   personality: string;
-  personas: string[];
   tier2Enabled: boolean;
   auditVisible: boolean;
   freeformConsultEnabled: boolean;
@@ -43,7 +42,12 @@ export type ClientConfig = {
 };
 
 export type StatusResponse = {
-  database: { path: string; exists: boolean; rowCounts: Array<{ countryCode: string; count: number }> };
+  database: {
+    path: string;
+    exists: boolean;
+    rowCounts: Array<{ countryCode: string; count: number; lastScraped?: string | null }>;
+    lastScraped?: string | null;
+  };
   python: { ok: boolean; command?: string; args: string[]; label?: string; error?: string };
 };
 
@@ -68,15 +72,6 @@ export type ThemeFile = {
   theme_name?: string;
   mode?: "dark" | "light";
   tokens: Record<string, string>;
-};
-
-export type Persona = {
-  id: string;
-  persona_name: string;
-  description: string;
-  priorities: string[];
-  tone: string;
-  budget_weights: Record<string, number>;
 };
 
 export type Personality = {
@@ -151,7 +146,7 @@ export type ProductRow = {
   id: string;
   name: string;
   category: string;
-  price_minor: number | null;
+  price: number | null;
   currency: string;
   country_code: string;
   retailer: string;
@@ -169,6 +164,6 @@ export type ChatMetadata = { provider: string; model: string; fallbackIndex: num
 export type SessionSummary = {
   id: string;
   title: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at: Date;
 };

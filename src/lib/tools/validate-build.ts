@@ -14,6 +14,12 @@ const partSchema = z.union([
 ]);
 
 export const validateBuildInputSchema = z.object({
+  label: z
+    .string()
+    .optional()
+    .describe(
+      "Short label naming the tradeoff this build makes, e.g. 'Max frames now' or 'Room to upgrade'. Supply it when proposing several builds side by side so each can be titled; omit it for a single build."
+    ),
   parts: z
     .object({
       cpu: partSchema.optional().describe("Selected CPU."),
@@ -31,7 +37,7 @@ export const validateBuildInputSchema = z.object({
 export function createValidateBuildTool() {
   return tool({
     description:
-      "Use validate_build before locking a component choice and on the final build. It is deterministic Tier 1 compatibility authority; do not use it for price search or advisory web research. Example: {\"parts\":{\"cpu\":\"amd-ryzen-7-9700x\",\"motherboard\":\"msi-b650-a\",\"ram\":\"corsair-vengeance-32gb-ddr5-6000\"}}.",
+      "Use validate_build before locking a component choice and on the final build. It is deterministic Tier 1 compatibility authority; do not use it for price search or advisory web research. When proposing several builds side by side, pass a short label for each so the interface can title them. Example: {\"label\":\"Max frames now\",\"parts\":{\"cpu\":\"amd-ryzen-7-9700x\",\"motherboard\":\"msi-b650-a\",\"ram\":\"corsair-vengeance-32gb-ddr5-6000\"}}.",
     inputSchema: validateBuildInputSchema,
     execute: async ({ parts }: { parts: BuildParts }) => validateBuild(parts)
   });

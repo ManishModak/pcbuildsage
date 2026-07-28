@@ -12,7 +12,13 @@
       "Intel Core i9-14900K",
       "i9-14900K",
       "14900K"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i9-14900kf": {
     "brand": "Intel",
@@ -26,13 +32,19 @@
       "i9-14900KF",
       "14900KF",
       "Intel Core i9-14900KF"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i9-14900": {
     "brand": "Intel",
     "model": "Intel Core i9-14900",
     "socket": "LGA 1700",
-    "tdp_w": 125,
+    "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -40,13 +52,19 @@
       "Core i9-14900",
       "Intel Core i9-14900",
       "i9-14900"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i7-14700k": {
     "brand": "Intel",
     "model": "Intel Core i7-14700K",
     "socket": "LGA 1700",
-    "tdp_w": 105,
+    "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -54,13 +72,19 @@
       "14700K",
       "i7-14700K",
       "Intel Core i7-14700K"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i7-14700kf": {
     "brand": "Intel",
     "model": "Intel Core i7-14700KF",
     "socket": "LGA 1700",
-    "tdp_w": 105,
+    "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": false,
     "aliases": [
@@ -68,13 +92,19 @@
       "i7-14700KF",
       "Core i7-14700KF",
       "Intel Core i7-14700KF"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i7-14700": {
     "brand": "Intel",
     "model": "Intel Core i7-14700",
     "socket": "LGA 1700",
-    "tdp_w": 105,
+    "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -82,13 +112,19 @@
       "14700",
       "i7-14700",
       "Core i7-14700"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i5-14600k": {
     "brand": "Intel",
     "model": "Intel Core i5-14600K",
     "socket": "LGA 1700",
-    "tdp_w": 65,
+    "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -96,13 +132,19 @@
       "i5-14600K",
       "Intel Core i5-14600K",
       "Core i5-14600K"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i5-14600kf": {
     "brand": "Intel",
     "model": "Intel Core i5-14600KF",
     "socket": "LGA 1700",
-    "tdp_w": 65,
+    "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": false,
     "aliases": [
@@ -110,7 +152,13 @@
       "i5-14600KF",
       "Core i5-14600KF",
       "Intel Core i5-14600KF"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i5-14600": {
     "brand": "Intel",
@@ -124,7 +172,13 @@
       "i5-14600",
       "Core i5-14600",
       "Intel Core i5-14600"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i5-14500": {
     "brand": "Intel",
@@ -138,7 +192,13 @@
       "Core i5-14500",
       "i5-14500",
       "14500"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i5-14400": {
     "brand": "Intel",
@@ -152,7 +212,13 @@
       "Core i5-14400",
       "Intel Core i5-14400",
       "i5-14400"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i5-14400f": {
     "brand": "Intel",
@@ -166,13 +232,19 @@
       "i5-14400F",
       "14400F",
       "Core i5-14400F"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i3-14100": {
     "brand": "Intel",
     "model": "Intel Core i3-14100",
     "socket": "LGA 1700",
-    "tdp_w": 125,
+    "tdp_w": 60,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -180,13 +252,19 @@
       "i3-14100",
       "Core i3-14100",
       "14100"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i3-14100f": {
     "brand": "Intel",
     "model": "Intel Core i3-14100F",
     "socket": "LGA 1700",
-    "tdp_w": 125,
+    "tdp_w": 58,
     "ddr": "DDR5",
     "igpu": false,
     "aliases": [
@@ -194,7 +272,13 @@
       "Intel Core i3-14100F",
       "14100F",
       "Core i3-14100F"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i9-13900k": {
     "brand": "Intel",
@@ -208,7 +292,13 @@
       "i9-13900K",
       "Intel Core i9-13900K",
       "13900K"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i9-13900kf": {
     "brand": "Intel",
@@ -222,13 +312,19 @@
       "Core i9-13900KF",
       "13900KF",
       "i9-13900KF"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i9-13900": {
     "brand": "Intel",
     "model": "Intel Core i9-13900",
     "socket": "LGA 1700",
-    "tdp_w": 125,
+    "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -236,13 +332,19 @@
       "Core i9-13900",
       "i9-13900",
       "13900"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i7-13700k": {
     "brand": "Intel",
     "model": "Intel Core i7-13700K",
     "socket": "LGA 1700",
-    "tdp_w": 105,
+    "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -250,13 +352,19 @@
       "13700K",
       "Intel Core i7-13700K",
       "Core i7-13700K"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com",
+      "https://www.techpowerup.com"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:47:57Z"
   },
   "intel-core-i7-13700kf": {
     "brand": "Intel",
     "model": "Intel Core i7-13700KF",
     "socket": "LGA 1700",
-    "tdp_w": 105,
+    "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": false,
     "aliases": [
@@ -264,13 +372,18 @@
       "13700KF",
       "Intel Core i7-13700KF",
       "Core i7-13700KF"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/230502/intel-core-i713700kf-processor-30m-cache-up-to-5-40-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i7-13700kf.c2847"
+    ],
+    "confidence": "high"
   },
   "intel-core-i7-13700": {
     "brand": "Intel",
     "model": "Intel Core i7-13700",
     "socket": "LGA 1700",
-    "tdp_w": 105,
+    "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -278,13 +391,18 @@
       "13700",
       "Intel Core i7-13700",
       "Core i7-13700"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/230575/intel-core-i713700-processor-30m-cache-up-to-5-20-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i7-13700.c2846"
+    ],
+    "confidence": "high"
   },
   "intel-core-i5-13600k": {
     "brand": "Intel",
     "model": "Intel Core i5-13600K",
     "socket": "LGA 1700",
-    "tdp_w": 65,
+    "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -292,13 +410,18 @@
       "13600K",
       "i5-13600K",
       "Intel Core i5-13600K"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/230493/intel-core-i513600k-processor-24m-cache-up-to-5-10-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-13600k.c2845"
+    ],
+    "confidence": "high"
   },
   "intel-core-i5-13600kf": {
     "brand": "Intel",
     "model": "Intel Core i5-13600KF",
     "socket": "LGA 1700",
-    "tdp_w": 65,
+    "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": false,
     "aliases": [
@@ -306,7 +429,12 @@
       "Intel Core i5-13600KF",
       "Core i5-13600KF",
       "13600KF"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/230494/intel-core-i513600kf-processor-24m-cache-up-to-5-10-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-13600kf.c2848"
+    ],
+    "confidence": "high"
   },
   "intel-core-i5-13600": {
     "brand": "Intel",
@@ -320,7 +448,12 @@
       "Core i5-13600",
       "Intel Core i5-13600",
       "13600"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/230574/intel-core-i513600-processor-24m-cache-up-to-5-00-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-13600.c3008"
+    ],
+    "confidence": "high"
   },
   "intel-core-i5-13500": {
     "brand": "Intel",
@@ -334,7 +467,12 @@
       "i5-13500",
       "Core i5-13500",
       "13500"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/230580/intel-core-i513500-processor-24m-cache-up-to-4-80-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-13500.c3009"
+    ],
+    "confidence": "high"
   },
   "intel-core-i5-13400": {
     "brand": "Intel",
@@ -348,7 +486,12 @@
       "Intel Core i5-13400",
       "i5-13400",
       "Core i5-13400"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/230489/intel-core-i513400-processor-20m-cache-up-to-4-60-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-13400.c3010"
+    ],
+    "confidence": "high"
   },
   "intel-core-i5-13400f": {
     "brand": "Intel",
@@ -362,13 +505,18 @@
       "13400F",
       "Core i5-13400F",
       "Intel Core i5-13400F"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/230501/intel-core-i513400f-processor-20m-cache-up-to-4-60-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-13400f.c3011"
+    ],
+    "confidence": "high"
   },
   "intel-core-i3-13100": {
     "brand": "Intel",
     "model": "Intel Core i3-13100",
     "socket": "LGA 1700",
-    "tdp_w": 125,
+    "tdp_w": 60,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -376,13 +524,18 @@
       "Intel Core i3-13100",
       "Core i3-13100",
       "13100"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/230577/intel-core-i313100-processor-12m-cache-up-to-4-50-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i3-13100.c3012"
+    ],
+    "confidence": "high"
   },
   "intel-core-i3-13100f": {
     "brand": "Intel",
     "model": "Intel Core i3-13100F",
     "socket": "LGA 1700",
-    "tdp_w": 125,
+    "tdp_w": 58,
     "ddr": "DDR5",
     "igpu": false,
     "aliases": [
@@ -390,7 +543,12 @@
       "Intel Core i3-13100F",
       "i3-13100F",
       "13100F"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/230500/intel-core-i313100f-processor-12m-cache-up-to-4-50-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i3-13100f.c3013"
+    ],
+    "confidence": "high"
   },
   "intel-core-i9-12900k": {
     "brand": "Intel",
@@ -404,7 +562,12 @@
       "Intel Core i9-12900K",
       "12900K",
       "i9-12900K"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/134599/intel-core-i912900k-processor-30m-cache-up-to-5-20-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i9-12900k.c2471"
+    ],
+    "confidence": "high"
   },
   "intel-core-i9-12900kf": {
     "brand": "Intel",
@@ -418,13 +581,18 @@
       "i9-12900KF",
       "Core i9-12900KF",
       "12900KF"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/134600/intel-core-i912900kf-processor-30m-cache-up-to-5-20-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i9-12900kf.c2472"
+    ],
+    "confidence": "high"
   },
   "intel-core-i9-12900": {
     "brand": "Intel",
     "model": "Intel Core i9-12900",
     "socket": "LGA 1700",
-    "tdp_w": 125,
+    "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -432,13 +600,18 @@
       "12900",
       "Intel Core i9-12900",
       "Core i9-12900"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/134597/intel-core-i912900-processor-30m-cache-up-to-5-10-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i9-12900.c2602"
+    ],
+    "confidence": "high"
   },
   "intel-core-i7-12700k": {
     "brand": "Intel",
     "model": "Intel Core i7-12700K",
     "socket": "LGA 1700",
-    "tdp_w": 105,
+    "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -446,13 +619,18 @@
       "12700K",
       "Intel Core i7-12700K",
       "Core i7-12700K"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/134590/intel-core-i712700k-processor-25m-cache-up-to-5-00-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i7-12700k.c2473"
+    ],
+    "confidence": "high"
   },
   "intel-core-i7-12700kf": {
     "brand": "Intel",
     "model": "Intel Core i7-12700KF",
     "socket": "LGA 1700",
-    "tdp_w": 105,
+    "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": false,
     "aliases": [
@@ -460,13 +638,18 @@
       "Core i7-12700KF",
       "Intel Core i7-12700KF",
       "i7-12700KF"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/134595/intel-core-i712700kf-processor-25m-cache-up-to-5-00-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i7-12700kf.c2474"
+    ],
+    "confidence": "high"
   },
   "intel-core-i7-12700": {
     "brand": "Intel",
     "model": "Intel Core i7-12700",
     "socket": "LGA 1700",
-    "tdp_w": 105,
+    "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -474,13 +657,18 @@
       "12700",
       "Intel Core i7-12700",
       "Core i7-12700"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/134591/intel-core-i712700-processor-25m-cache-up-to-4-90-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i7-12700.c2603"
+    ],
+    "confidence": "high"
   },
   "intel-core-i5-12600k": {
     "brand": "Intel",
     "model": "Intel Core i5-12600K",
     "socket": "LGA 1700",
-    "tdp_w": 65,
+    "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -488,13 +676,18 @@
       "12600K",
       "Intel Core i5-12600K",
       "i5-12600K"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/134589/intel-core-i512600k-processor-20m-cache-up-to-4-90-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-12600k.c2475"
+    ],
+    "confidence": "high"
   },
   "intel-core-i5-12600kf": {
     "brand": "Intel",
     "model": "Intel Core i5-12600KF",
     "socket": "LGA 1700",
-    "tdp_w": 65,
+    "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": false,
     "aliases": [
@@ -502,7 +695,12 @@
       "Intel Core i5-12600KF",
       "Core i5-12600KF",
       "12600KF"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/134594/intel-core-i512600kf-processor-20m-cache-up-to-4-90-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-12600kf.c2476"
+    ],
+    "confidence": "high"
   },
   "intel-core-i5-12600": {
     "brand": "Intel",
@@ -516,7 +714,11 @@
       "Intel Core i5-12600",
       "i5-12600",
       "12600"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/96147/intel-core-i512600-processor-18m-cache-up-to-4-80-ghz/specifications.html"
+    ],
+    "confidence": "high"
   },
   "intel-core-i5-12500": {
     "brand": "Intel",
@@ -530,7 +732,11 @@
       "12500",
       "i5-12500",
       "Core i5-12500"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/196587/intel-core-i512500-processor-18m-cache-up-to-4-60-ghz/specifications.html"
+    ],
+    "confidence": "high"
   },
   "intel-core-i5-12400": {
     "brand": "Intel",
@@ -544,7 +750,11 @@
       "Core i5-12400",
       "Intel Core i5-12400",
       "i5-12400"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/96144/intel-core-i512400-processor-18m-cache-up-to-440-ghz/specifications.html"
+    ],
+    "confidence": "high"
   },
   "intel-core-i5-12400f": {
     "brand": "Intel",
@@ -558,13 +768,17 @@
       "i5-12400F",
       "Core i5-12400F",
       "Intel Core i5-12400F"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/96144/intel-core-i512400f-processor-18m-cache-up-to-4-40-ghz/specifications.html"
+    ],
+    "confidence": "high"
   },
   "intel-core-i3-12100": {
     "brand": "Intel",
     "model": "Intel Core i3-12100",
     "socket": "LGA 1700",
-    "tdp_w": 125,
+    "tdp_w": 60,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -572,13 +786,17 @@
       "i3-12100",
       "Intel Core i3-12100",
       "Core i3-12100"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/197305/intel-core-i312100-processor-12m-cache-up-to-4-30-ghz/specifications.html"
+    ],
+    "confidence": "high"
   },
   "intel-core-i3-12100f": {
     "brand": "Intel",
     "model": "Intel Core i3-12100F",
     "socket": "LGA 1700",
-    "tdp_w": 125,
+    "tdp_w": 58,
     "ddr": "DDR5",
     "igpu": false,
     "aliases": [
@@ -586,13 +804,17 @@
       "Intel Core i3-12100F",
       "Core i3-12100F",
       "i3-12100F"
-    ]
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/226788/intel-core-i312100f-processor-12m-cache-up-to-4-30-ghz/specifications.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-9-9900x": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 9900X",
     "socket": "AM5",
-    "tdp_w": 125,
+    "tdp_w": 120,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -601,28 +823,36 @@
       "9900X",
       "R9 9900X",
       "AMD Ryzen 9 9900X"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-9-9900x.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-7-9800x3d": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 9800X3D",
     "socket": "AM5",
-    "tdp_w": 105,
+    "tdp_w": 120,
     "ddr": "DDR5",
-    "igpu": false,
+    "igpu": true,
     "aliases": [
       "AMD Ryzen 7 9800X3D",
       "R7 9800X3D",
       "Ryzen 7 9800X3D",
       "9800X3D",
       "7 9800X3D"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-7-9800x3d.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-7-9700x": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 9700X",
     "socket": "AM5",
-    "tdp_w": 105,
+    "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -631,7 +861,11 @@
       "AMD Ryzen 7 9700X",
       "Ryzen 7 9700X",
       "9700X"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-7-9700x.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-5-9600x": {
     "brand": "AMD",
@@ -646,28 +880,36 @@
       "R5 9600X",
       "5 9600X",
       "9600X"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-5-9600x.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-9-7950x3d": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 7950X3D",
     "socket": "AM5",
-    "tdp_w": 125,
+    "tdp_w": 120,
     "ddr": "DDR5",
-    "igpu": false,
+    "igpu": true,
     "aliases": [
       "R9 7950X3D",
       "7950X3D",
       "Ryzen 9 7950X3D",
       "9 7950X3D",
       "AMD Ryzen 9 7950X3D"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7950x3d.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-9-7950x": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 7950X",
     "socket": "AM5",
-    "tdp_w": 125,
+    "tdp_w": 170,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -676,28 +918,36 @@
       "9 7950X",
       "Ryzen 9 7950X",
       "AMD Ryzen 9 7950X"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7950x.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-9-7900x3d": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 7900X3D",
     "socket": "AM5",
-    "tdp_w": 125,
+    "tdp_w": 120,
     "ddr": "DDR5",
-    "igpu": false,
+    "igpu": true,
     "aliases": [
       "R9 7900X3D",
       "Ryzen 9 7900X3D",
       "9 7900X3D",
       "7900X3D",
       "AMD Ryzen 9 7900X3D"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7900x3d.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-9-7900x": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 7900X",
     "socket": "AM5",
-    "tdp_w": 125,
+    "tdp_w": 170,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -706,13 +956,17 @@
       "7900X",
       "Ryzen 9 7900X",
       "9 7900X"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7900x.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-9-7900": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 7900",
     "socket": "AM5",
-    "tdp_w": 125,
+    "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -721,22 +975,30 @@
       "AMD Ryzen 9 7900",
       "R9 7900",
       "7900"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7900.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-7-7800x3d": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 7800X3D",
     "socket": "AM5",
-    "tdp_w": 105,
+    "tdp_w": 120,
     "ddr": "DDR5",
-    "igpu": false,
+    "igpu": true,
     "aliases": [
       "7800X3D",
       "7 7800X3D",
       "R7 7800X3D",
       "Ryzen 7 7800X3D",
       "AMD Ryzen 7 7800X3D"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7800x3d.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-7-7700x": {
     "brand": "AMD",
@@ -751,13 +1013,17 @@
       "AMD Ryzen 7 7700X",
       "R7 7700X",
       "7700X"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7700x.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-7-7700": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 7700",
     "socket": "AM5",
-    "tdp_w": 105,
+    "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -766,13 +1032,17 @@
       "R7 7700",
       "7700",
       "AMD Ryzen 7 7700"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7700.html"
+    ],
+    "confidence": "high"
   },
   "amd-ryzen-5-7600x": {
     "brand": "AMD",
     "model": "AMD Ryzen 5 7600X",
     "socket": "AM5",
-    "tdp_w": 65,
+    "tdp_w": 105,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -781,7 +1051,13 @@
       "Ryzen 5 7600X",
       "AMD Ryzen 5 7600X",
       "7600X"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7600x.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7600x.c2859"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-5-7600": {
     "brand": "AMD",
@@ -796,7 +1072,13 @@
       "Ryzen 5 7600",
       "5 7600",
       "R5 7600"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7600.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7600.c2966"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-5-7500f": {
     "brand": "AMD",
@@ -811,52 +1093,75 @@
       "R5 7500F",
       "5 7500F",
       "Ryzen 5 7500F"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7500f.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7500f.c3150"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-9-5950x": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 5950X",
     "socket": "AM4",
-    "tdp_w": 125,
+    "tdp_w": 105,
     "ddr": "DDR4",
-    "igpu": true,
+    "igpu": false,
     "aliases": [
       "AMD Ryzen 9 5950X",
       "5950X",
       "9 5950X",
       "R9 5950X",
       "Ryzen 9 5950X"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-9-5950x.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-9-5950x.c2364"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-9-5900x": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 5900X",
     "socket": "AM4",
-    "tdp_w": 125,
+    "tdp_w": 105,
     "ddr": "DDR4",
-    "igpu": true,
+    "igpu": false,
     "aliases": [
       "Ryzen 9 5900X",
       "R9 5900X",
       "5900X",
       "9 5900X",
       "AMD Ryzen 9 5900X"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-9-5900x.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-9-5900x.c2373"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-9-5900": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 5900",
     "socket": "AM4",
-    "tdp_w": 125,
+    "tdp_w": 65,
     "ddr": "DDR4",
-    "igpu": true,
+    "igpu": false,
     "aliases": [
       "5900",
       "Ryzen 9 5900",
       "AMD Ryzen 9 5900",
       "R9 5900",
       "9 5900"
-    ]
+    ],
+    "sources": [
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-5900.c2394"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-7-5800x3d": {
     "brand": "AMD",
@@ -871,7 +1176,13 @@
       "7 5800X3D",
       "R7 5800X3D",
       "5800X3D"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-7-5800x3d.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5800x3d.c2653"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-7-5800x": {
     "brand": "AMD",
@@ -879,50 +1190,66 @@
     "socket": "AM4",
     "tdp_w": 105,
     "ddr": "DDR4",
-    "igpu": true,
+    "igpu": false,
     "aliases": [
       "5800X",
       "R7 5800X",
       "7 5800X",
       "Ryzen 7 5800X",
       "AMD Ryzen 7 5800X"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-7-5800x.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5800x.c2317"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-7-5800": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 5800",
     "socket": "AM4",
-    "tdp_w": 105,
+    "tdp_w": 65,
     "ddr": "DDR4",
-    "igpu": true,
+    "igpu": false,
     "aliases": [
       "R7 5800",
       "7 5800",
       "Ryzen 7 5800",
       "AMD Ryzen 7 5800",
       "5800"
-    ]
+    ],
+    "sources": [
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5800.c2394"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-7-5700x": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 5700X",
     "socket": "AM4",
-    "tdp_w": 105,
+    "tdp_w": 65,
     "ddr": "DDR4",
-    "igpu": true,
+    "igpu": false,
     "aliases": [
       "AMD Ryzen 7 5700X",
       "R7 5700X",
       "Ryzen 7 5700X",
       "7 5700X",
       "5700X"
-    ]
+    ],
+    "sources": [
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5700x.c2677"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-7-5700g": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 5700G",
     "socket": "AM4",
-    "tdp_w": 105,
+    "tdp_w": 65,
     "ddr": "DDR4",
     "igpu": true,
     "aliases": [
@@ -931,22 +1258,32 @@
       "7 5700G",
       "R7 5700G",
       "Ryzen 7 5700G"
-    ]
+    ],
+    "sources": [
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5700g.c2409"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-7-5700": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 5700",
     "socket": "AM4",
-    "tdp_w": 105,
+    "tdp_w": 65,
     "ddr": "DDR4",
-    "igpu": true,
+    "igpu": false,
     "aliases": [
       "AMD Ryzen 7 5700",
       "7 5700",
       "5700",
       "R7 5700",
       "Ryzen 7 5700"
-    ]
+    ],
+    "sources": [
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5700.c3057"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-5-5600x": {
     "brand": "AMD",
@@ -954,14 +1291,20 @@
     "socket": "AM4",
     "tdp_w": 65,
     "ddr": "DDR4",
-    "igpu": true,
+    "igpu": false,
     "aliases": [
       "AMD Ryzen 5 5600X",
       "5600X",
       "Ryzen 5 5600X",
       "5 5600X",
       "R5 5600X"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5600x.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600x.c2357"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-5-5600": {
     "brand": "AMD",
@@ -969,14 +1312,20 @@
     "socket": "AM4",
     "tdp_w": 65,
     "ddr": "DDR4",
-    "igpu": true,
+    "igpu": false,
     "aliases": [
       "AMD Ryzen 5 5600",
       "Ryzen 5 5600",
       "5600",
       "5 5600",
       "R5 5600"
-    ]
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5600.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600.c2678"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-5-5600g": {
     "brand": "AMD",
@@ -991,7 +1340,12 @@
       "5 5600G",
       "R5 5600G",
       "AMD Ryzen 5 5600G"
-    ]
+    ],
+    "sources": [
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600g.c2401"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-5-5500": {
     "brand": "AMD",
@@ -999,28 +1353,39 @@
     "socket": "AM4",
     "tdp_w": 65,
     "ddr": "DDR4",
-    "igpu": true,
+    "igpu": false,
     "aliases": [
       "5500",
       "Ryzen 5 5500",
       "R5 5500",
       "5 5500",
       "AMD Ryzen 5 5500"
-    ]
+    ],
+    "sources": [
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5500.c2658"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-17T12:55:30Z"
   },
   "amd-ryzen-3-5100": {
     "brand": "AMD",
     "model": "AMD Ryzen 3 5100",
     "socket": "AM4",
-    "tdp_w": 125,
+    "tdp_w": 65,
     "ddr": "DDR4",
-    "igpu": true,
+    "igpu": false,
     "aliases": [
       "5100",
       "Ryzen 3 5100",
       "3 5100",
       "AMD Ryzen 3 5100",
       "R3 5100"
-    ]
+    ],
+    "sources": [
+      "https://videocardz.com/newz/unreleased-amd-ryzen-3-5100-quad-core-cpu-has-been-spotted-on-sale-in-china",
+      "https://www.cpu-benchmark.org/cpu/amd-ryzen-3-5100/"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-17T12:55:30Z"
   }
 }

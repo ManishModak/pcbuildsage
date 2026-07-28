@@ -1,13 +1,13 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { ArrowRight, Database, HardDriveDownload, Info, Radio, TriangleAlert } from "lucide-react";
+import { ArrowRight, Database, Info, Radio, TriangleAlert } from "lucide-react";
 import type { StatusResponse } from "../lib/types";
 import { cn } from "../ui/cn";
 import { Icon } from "../ui/icon";
 import { Button } from "../ui/primitives";
 
-export type DataSourceChoice = "existing" | "seed" | "scrape";
+export type DataSourceChoice = "existing" | "scrape";
 
 export function StepDataSource({
   status,
@@ -48,8 +48,8 @@ export function StepDataSource({
             <p className="font-medium text-text">No Python interpreter was found.</p>
             <p className="text-caption text-text-secondary">
               Scraping runs a Python process. Install Python 3 (or set <code className="font-mono">PYTHON_PATH</code>,
-              or create a <code className="font-mono">.venv</code>) to enable it. Seed download and loading an
-              existing database still work.
+              or create a <code className="font-mono">.venv</code>) to enable it. Loading an existing database
+              still works.
             </p>
           </div>
         </div>
@@ -66,16 +66,8 @@ export function StepDataSource({
           description={
             dbExists
               ? `${totalRows.toLocaleString()} products already indexed${status ? ` at ${shortPath(status.database.path)}` : ""}.`
-              : "No local database found yet — scrape or download a seed first."
+              : "No local database found yet — scrape to create one."
           }
-        />
-        <SourceCard
-          icon={HardDriveDownload}
-          selected={choice === "seed"}
-          onSelect={() => onChoose("seed")}
-          title="Download a community seed"
-          estimate="~1 min"
-          description="Fetch a shared, recent snapshot for your region. Fastest way to start with real data."
         />
         <SourceCard
           icon={Radio}

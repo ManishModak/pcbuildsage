@@ -3,9 +3,10 @@
   "corsair-4000d-airflow": {
     "brand": "Corsair",
     "model": "Corsair 4000D Airflow",
-    "max_gpu_length_mm": 350,
-    "max_cooler_height_mm": 160,
+    "max_gpu_length_mm": 360,
+    "max_cooler_height_mm": 170,
     "form_factors": [
+      "E-ATX",
       "ATX",
       "Micro-ATX",
       "Mini-ITX"
@@ -13,13 +14,18 @@
     "aliases": [
       "Corsair 4000D Airflow",
       "4000D Airflow"
-    ]
+    ],
+    "sources": [
+      "https://www.corsair.com/p/CC-9011200-WW"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "nzxt-h510": {
     "brand": "NZXT",
     "model": "NZXT H510",
-    "max_gpu_length_mm": 350,
-    "max_cooler_height_mm": 160,
+    "max_gpu_length_mm": 381,
+    "max_cooler_height_mm": 165,
     "form_factors": [
       "ATX",
       "Micro-ATX",
@@ -28,13 +34,18 @@
     "aliases": [
       "NZXT H510",
       "H510"
-    ]
+    ],
+    "sources": [
+      "https://support.nzxt.com/hc/en-us/sections/360012543953-H510-H510i-H510-Elite"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "cooler-master-masterbox-mb511": {
     "brand": "Cooler Master",
     "model": "Cooler Master MasterBox MB511",
-    "max_gpu_length_mm": 350,
-    "max_cooler_height_mm": 160,
+    "max_gpu_length_mm": 410,
+    "max_cooler_height_mm": 165,
     "form_factors": [
       "ATX",
       "Micro-ATX",
@@ -43,14 +54,20 @@
     "aliases": [
       "Cooler Master MasterBox MB511",
       "MasterBox MB511"
-    ]
+    ],
+    "sources": [
+      "https://www.coolermaster.com/catalog/legacy/cases/masterbox-mb511/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "phanteks-eclipse-p400a": {
     "brand": "Phanteks",
     "model": "Phanteks Eclipse P400A",
-    "max_gpu_length_mm": 350,
+    "max_gpu_length_mm": 420,
     "max_cooler_height_mm": 160,
     "form_factors": [
+      "E-ATX",
       "ATX",
       "Micro-ATX",
       "Mini-ITX"
@@ -58,13 +75,18 @@
     "aliases": [
       "Eclipse P400A",
       "Phanteks Eclipse P400A"
-    ]
+    ],
+    "sources": [
+      "https://www.phanteks.com/End-of-Life.html"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "corsair-7000d-airflow": {
     "brand": "Corsair",
     "model": "Corsair 7000D Airflow",
     "max_gpu_length_mm": 450,
-    "max_cooler_height_mm": 180,
+    "max_cooler_height_mm": 190,
     "form_factors": [
       "E-ATX",
       "ATX",
@@ -74,15 +96,21 @@
     "aliases": [
       "Corsair 7000D Airflow",
       "7000D Airflow"
-    ]
+    ],
+    "sources": [
+      "https://www.corsair.com/p/CC-9011218-WW"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "be-quiet-dark-base-pro-900": {
     "brand": "be quiet!",
     "model": "be quiet! Dark Base Pro 900",
-    "max_gpu_length_mm": 450,
-    "max_cooler_height_mm": 180,
+    "max_gpu_length_mm": 472,
+    "max_cooler_height_mm": 185,
     "form_factors": [
       "E-ATX",
+      "XL-ATX",
       "ATX",
       "Micro-ATX",
       "Mini-ITX"
@@ -90,14 +118,20 @@
     "aliases": [
       "Dark Base Pro 900",
       "be quiet! Dark Base Pro 900"
-    ]
+    ],
+    "sources": [
+      "https://www.bequiet.com/en/case/1473"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "phanteks-enthoo-pro-2": {
     "brand": "Phanteks",
     "model": "Phanteks Enthoo Pro 2",
-    "max_gpu_length_mm": 450,
-    "max_cooler_height_mm": 180,
+    "max_gpu_length_mm": 503,
+    "max_cooler_height_mm": 195,
     "form_factors": [
+      "SSI-EEB",
       "E-ATX",
       "ATX",
       "Micro-ATX",
@@ -106,114 +140,162 @@
     "aliases": [
       "Phanteks Enthoo Pro 2",
       "Enthoo Pro 2"
-    ]
+    ],
+    "sources": [
+      "https://www.phanteks.com/Enthoo-Pro2-Closed.html"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "cooler-master-masterbox-q300l": {
     "brand": "Cooler Master",
     "model": "Cooler Master MasterBox Q300L",
-    "max_gpu_length_mm": 320,
-    "max_cooler_height_mm": 155,
+    "max_gpu_length_mm": 360,
+    "max_cooler_height_mm": 159,
     "form_factors": [
+      "Micro-ATX",
       "Mini-ITX"
     ],
     "aliases": [
       "MasterBox Q300L",
       "Cooler Master MasterBox Q300L"
-    ]
+    ],
+    "sources": [
+      "https://www.coolermaster.com/catalog/cases/mini-tower/masterbox-q300l/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "thermaltake-versa-h18": {
     "brand": "Thermaltake",
     "model": "Thermaltake Versa H18",
-    "max_gpu_length_mm": 320,
+    "max_gpu_length_mm": 350,
     "max_cooler_height_mm": 155,
     "form_factors": [
+      "Micro-ATX",
       "Mini-ITX"
     ],
     "aliases": [
       "Thermaltake Versa H18",
       "Versa H18"
-    ]
+    ],
+    "sources": [
+      "https://www.thermaltake.com/versa-h18-window-micro-case.html"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "fractal-design-focus-g-mini": {
     "brand": "Fractal Design",
     "model": "Fractal Design Focus G Mini",
-    "max_gpu_length_mm": 320,
-    "max_cooler_height_mm": 155,
+    "max_gpu_length_mm": 380,
+    "max_cooler_height_mm": 165,
     "form_factors": [
+      "Micro-ATX",
       "Mini-ITX"
     ],
     "aliases": [
       "Fractal Design Focus G Mini",
       "Focus G Mini"
-    ]
+    ],
+    "sources": [
+      "https://www.fractal-design.com/products/cases/focus/focus-g/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "nzxt-h1": {
     "brand": "NZXT",
     "model": "NZXT H1",
-    "max_gpu_length_mm": 280,
-    "max_cooler_height_mm": 130,
+    "max_gpu_length_mm": 305,
+    "max_cooler_height_mm": 85,
     "form_factors": [
       "Mini-ITX"
     ],
     "aliases": [
       "NZXT H1",
       "H1"
-    ]
+    ],
+    "sources": [
+      "https://nzxt.com/product/h1"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "cooler-master-nr200": {
     "brand": "Cooler Master",
     "model": "Cooler Master NR200",
-    "max_gpu_length_mm": 280,
-    "max_cooler_height_mm": 130,
+    "max_gpu_length_mm": 330,
+    "max_cooler_height_mm": 155,
     "form_factors": [
-      "Mini-ITX"
+      "Mini-ITX",
+      "Mini-DTX"
     ],
     "aliases": [
       "Cooler Master NR200",
       "NR200"
-    ]
+    ],
+    "sources": [
+      "https://www.coolermaster.com/en-global/products/masterbox-nr200/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "ssupd-meshlicious": {
     "brand": "SSUPD",
     "model": "SSUPD Meshlicious",
-    "max_gpu_length_mm": 280,
-    "max_cooler_height_mm": 130,
+    "max_gpu_length_mm": 336,
+    "max_cooler_height_mm": 73,
     "form_factors": [
-      "Mini-ITX"
+      "Mini-ITX",
+      "Mini-DTX"
     ],
     "aliases": [
       "SSUPD Meshlicious",
       "Meshlicious"
-    ]
+    ],
+    "sources": [
+      "https://ssupd.co/products/meshlicious"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "thermaltake-core-v21": {
     "brand": "Thermaltake",
     "model": "Thermaltake Core V21",
     "max_gpu_length_mm": 350,
-    "max_cooler_height_mm": 160,
+    "max_cooler_height_mm": 185,
     "form_factors": [
-      "ATX",
       "Micro-ATX",
       "Mini-ITX"
     ],
     "aliases": [
       "Thermaltake Core V21",
       "Core V21"
-    ]
+    ],
+    "sources": [
+      "https://www.thermaltake.com/core-v21.html"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   },
   "fractal-design-node-804": {
     "brand": "Fractal Design",
     "model": "Fractal Design Node 804",
-    "max_gpu_length_mm": 350,
+    "max_gpu_length_mm": 320,
     "max_cooler_height_mm": 160,
     "form_factors": [
-      "ATX",
       "Micro-ATX",
       "Mini-ITX"
     ],
     "aliases": [
       "Fractal Design Node 804",
       "Node 804"
-    ]
+    ],
+    "sources": [
+      "https://www.fractal-design.com/products/cases/node/node-804/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:37:04Z"
   }
 }

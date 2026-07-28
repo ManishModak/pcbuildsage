@@ -1,31 +1,25 @@
-import { convertToModelMessages, type ModelMessage, type UIMessage } from "ai";
+import { type UIMessage } from "ai";
+
+/** The message-part union the AI SDK accepts on a UIMessage. */
+export type ChatMessagePart = UIMessage["parts"][number];
+
+export type ChatMessage = {
+  id?: string;
+  role: "user" | "assistant" | "system";
+  content?: string;
+  parts?: ChatMessagePart[];
+};
 
 /**
- * Model-memory depth chosen per chat on *continue* (see the sessions/restore
- * design, Phase 3). Purely controls how history is replayed to the model — the
- * sessions store always keeps the complete UIMessage[] either way.
+ * A message as it arrives over HTTP: the route's zod schema only guarantees a
+ * `type` string per part, so parts stay loosely typed until compaction hands
+ * them to the SDK.
  */
-export type MemoryMode = "full" | "compact";
-
-type AnyPart = UIMessage["parts"][number];
-
-/**
- * Prepare the model-facing history from the persisted UIMessage[].
- *
- * - `full`: replay everything verbatim (raw tool results included) — exact
- *   recall, largest context.
- * - `compact` (default): keep the conversation text + reasoning, but strip the
- *   bulky raw tool-result payloads down to a tiny stub. This is a PURE
- *   structural filter — no LLM summarization call. Call/result pairing stays
- *   intact so `convertToModelMessages` still produces well-formed messages.
- *
- * `convertToModelMessages` is async in this AI SDK version
- * (Promise<ModelMessage[]>), so this helper is async too.
- */
-export async function prepareModelMessages(uiMessages: UIMessage[], mode: MemoryMode): Promise<ModelMessage[]> {
-  const prepared = mode === "compact" ? uiMessages.map(compactMessage) : uiMessages;
-  return convertToModelMessages(prepared);
-}
+export type IncomingChatMessage = {
+  role: string;
+  content?: string;
+  parts?: Array<{ type: string } & Record<string, unknown>>;
+};
 
 /**
  * Scan for the LAST `tool-*` part whose tool name contains `validate_build` and
@@ -36,6 +30,7 @@ export async function prepareModelMessages(uiMessages: UIMessage[], mode: Memory
 export function deriveBuildState(uiMessages: UIMessage[]): { parts: unknown; verdict?: unknown } | null {
   let found: { parts: unknown; verdict?: unknown } | null = null;
   for (const message of uiMessages) {
+    if (!message.parts) continue;
     for (const part of message.parts) {
       const name = toolNameOf(part);
       if (!name || !name.includes("validate_build")) continue;
@@ -49,34 +44,67 @@ export function deriveBuildState(uiMessages: UIMessage[]): { parts: unknown; ver
   return found;
 }
 
-function compactMessage(message: UIMessage): UIMessage {
-  return { ...message, parts: message.parts.map(compactPart) };
+/**
+ * Compact chat messages for LLM context.
+ * - Non-text parts are stripped to keep memory usage low (compact memory).
+ * - Exception: tool parts (calls and results) are kept for the last assistant turn only,
+ *   so immediately-preceding search results are still exact if the user references them.
+ */
+export function compactChatMessages(messages: IncomingChatMessage[]): ChatMessage[] {
+  const lastAssistantIdx = messages.reduce(
+    (last, msg, idx) => (msg.role === "assistant" ? idx : last),
+    -1
+  );
+
+  return messages.map((message, idx) => {
+    const isLastAssistant = idx === lastAssistantIdx;
+    if (isLastAssistant && message.parts) {
+      // Keep tool parts for the last assistant turn only, so an immediately-preceding search result is still exact
+      return {
+        role: message.role as "user" | "assistant" | "system",
+        // The wire shape is only structurally checked; convertToModelMessages
+        // rejects anything the SDK cannot represent.
+        parts: message.parts as ChatMessagePart[]
+      };
+    }
+    // Compact memory: strip non-text parts and merge text parts into content
+    const textContent =
+      message.content ??
+      message.parts
+        ?.flatMap((part) => (part.type === "text" && typeof part.text === "string" ? [part.text] : []))
+        .join("\n") ??
+      "";
+    return {
+      role: message.role as "user" | "assistant" | "system",
+      content: textContent,
+      parts: [{ type: "text", text: textContent }]
+    };
+  });
 }
 
-function compactPart(part: AnyPart): AnyPart {
-  const record = part as { type?: string; state?: string; output?: unknown };
-  const isTool = typeof record.type === "string" && (record.type.startsWith("tool-") || record.type === "dynamic-tool");
-  if (isTool && record.state === "output-available") {
-    return { ...part, output: stubToolOutput(record.output) } as AnyPart;
+export const MAX_RESUME_MESSAGES = 40;
+
+/**
+ * Long-session guardrail: caps the replayed history at MAX_RESUME_MESSAGES.
+ * Always keeps the first user message (which states the goal/budget).
+ */
+export function capMessages(messages: ChatMessage[]): ChatMessage[] {
+  if (messages.length <= MAX_RESUME_MESSAGES) {
+    return messages;
   }
-  return part;
+  const firstUser = messages.find((m) => m.role === "user");
+  const recentCount = MAX_RESUME_MESSAGES - 1;
+  const recent = messages.slice(-recentCount);
+  const includesFirstUser = firstUser && recent.some((m) => m === firstUser);
+  if (includesFirstUser) {
+    return messages.slice(-MAX_RESUME_MESSAGES);
+  }
+  if (firstUser) {
+    return [firstUser, ...recent];
+  }
+  return messages.slice(-MAX_RESUME_MESSAGES);
 }
 
-/** Replace a bulky tool result with a tiny placeholder, keeping a one-line count when derivable. */
-function stubToolOutput(output: unknown): unknown {
-  const summary = summarizeOutput(output);
-  return summary ? { omitted: true, summary } : { omitted: true };
-}
-
-function summarizeOutput(output: unknown): string | null {
-  if (!output || typeof output !== "object") return null;
-  const value = output as Record<string, unknown>;
-  if (Array.isArray(value.results)) return `${value.results.length} result${value.results.length === 1 ? "" : "s"}`;
-  if (Array.isArray(value.issues)) return `${value.issues.length} issue${value.issues.length === 1 ? "" : "s"}`;
-  return null;
-}
-
-/** A compact, low-token summary of a validate_build result (valid + issue counts). */
 function compactVerdict(output: unknown): unknown | undefined {
   if (!output || typeof output !== "object") return undefined;
   const value = output as Record<string, unknown>;
@@ -85,7 +113,6 @@ function compactVerdict(output: unknown): unknown | undefined {
   return { valid: Boolean(value.valid), blocking, issues: issues.length };
 }
 
-/** Extract a tool's bare name from a UI message part (`tool-<name>` or `dynamic-tool`). */
 function toolNameOf(part: unknown): string | null {
   if (!part || typeof part !== "object") return null;
   const type = (part as { type?: unknown }).type;

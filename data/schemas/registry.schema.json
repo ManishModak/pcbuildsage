@@ -29,6 +29,7 @@
         "recommended_psu_w": { "type": "number", "minimum": 0 },
         "vram_gb": { "type": "number", "minimum": 0 },
         "slot_width": { "type": "number", "minimum": 0 },
+        "segment": { "type": "string", "enum": ["gaming", "workstation", "display"] },
         "chipset": { "type": "string" },
         "form_factor": { "type": "string" },
         "form_factors": { "type": "array", "minItems": 1, "items": { "type": "string" } },

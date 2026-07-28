@@ -3,7 +3,7 @@ export type Product = {
   name: string;
   normalized_name: string | null;
   registry_key: string | null;
-  price_minor: number | null;
+  price: number | null;
   currency: string;
   country_code: string;
   retailer: string;
@@ -11,6 +11,9 @@ export type Product = {
   image_url: string | null;
   in_stock: 0 | 1;
   category: string;
+  /** Build role within the category. NULL means the category has no split and
+   *  the row is usable in a build; see BUILD_RELEVANT_SQL in catalog-scope.ts. */
+  subcategory: string | null;
   specs: string | null;
   first_seen: string;
   last_scraped: string;

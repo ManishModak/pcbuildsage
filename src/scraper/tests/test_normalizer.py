@@ -3,13 +3,20 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scraper.normalizer import RegistryMatcher, normalize_title, parse_price_minor, product_id
+from scraper.normalizer import (
+    RegistryMatcher,
+    classify_subcategory,
+    normalize_title,
+    parse_price,
+    product_id,
+    reclassify_category,
+)
 
 
-def test_parse_price_minor_uses_integer_minor_units() -> None:
-    assert parse_price_minor("₹1,23,456.78") == 12345678
-    assert parse_price_minor("$499") == 49900
-    assert parse_price_minor("No price") is None
+def test_parse_price_uses_major_units() -> None:
+    assert parse_price("₹1,23,456.78") == 123456.78
+    assert parse_price("$499") == 499.0
+    assert parse_price("No price") is None
 
 
 def test_product_id_matches_shared_fixture() -> None:
@@ -79,3 +86,14 @@ def test_registry_matcher_keeps_distinct_ram_aliases(tmp_path: Path) -> None:
 
     assert matcher.match(normalize_title("Crucial Pro 32GB DDR5 CL40 Kit")) == "crucial-pro-32gb-ddr5"
     assert matcher.match(normalize_title("Crucial Pro 16GB DDR4 CL22 Kit")) == "crucial-pro-16gb-ddr4"
+
+
+def test_subcategory_classification_portable_ssd() -> None:
+    # "Portable SSD" -> external
+    assert classify_subcategory("Portable SSD", "storage") == "external"
+
+
+def test_reclassify_category_gt_710_not_ram() -> None:
+    # "GT 710 DDR5 Graphics Card" -> not RAM (storage -> storage)
+    assert reclassify_category("GT 710 DDR5 Graphics Card", "storage") == "storage"
+

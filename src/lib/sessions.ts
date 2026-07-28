@@ -65,7 +65,7 @@ export type SessionRecord = {
 
 export type SaveSessionInput = {
   id: string;
-  messages: unknown[];
+  messages?: unknown[];
   title?: string | null;
   countryCode?: string | null;
   currency?: string | null;
@@ -79,20 +79,20 @@ export type SaveSessionInput = {
 export function saveSession(input: SaveSessionInput): void {
   const db = getSessionsDb();
   const now = new Date().toISOString();
-  const messagesJson = JSON.stringify(input.messages ?? []);
+  const messagesJson = input.messages !== undefined ? JSON.stringify(input.messages) : null;
   const buildStateJson = input.buildState !== undefined ? JSON.stringify(input.buildState) : null;
 
   db.prepare(
     `INSERT INTO sessions (id, created_at, updated_at, title, country_code, currency, messages, build_state)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, '[]'), ?)
      ON CONFLICT(id) DO UPDATE SET
-       messages = excluded.messages,
-       title = excluded.title,
-       country_code = excluded.country_code,
-       currency = excluded.currency,
+       messages = COALESCE(?, messages),
+       title = COALESCE(excluded.title, title),
+       country_code = COALESCE(excluded.country_code, country_code),
+       currency = COALESCE(excluded.currency, currency),
        updated_at = excluded.updated_at,
-       build_state = excluded.build_state`
-  ).run(input.id, now, now, input.title ?? null, input.countryCode ?? null, input.currency ?? null, messagesJson, buildStateJson);
+       build_state = COALESCE(excluded.build_state, build_state)`
+  ).run(input.id, now, now, input.title ?? null, input.countryCode ?? null, input.currency ?? null, messagesJson, buildStateJson, messagesJson);
 }
 
 /** List sessions newest-first, without the (potentially large) messages blob. */

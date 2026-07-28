@@ -1,12 +1,14 @@
 import type { UIMessage } from "ai";
 import { z } from "zod";
-import { streamChat, type ChatMessage } from "../../../lib/chat-engine";
+import { streamChat } from "../../../lib/chat-engine";
+import { compactChatMessages } from "../../../lib/model-messages";
 import { buildAppConfig } from "../_lib/credentials";
 import { badRequest, readJson, serverError } from "../_lib/responses";
 
 export const runtime = "nodejs";
 
 const messageSchema = z.object({
+  id: z.string().optional(),
   role: z.enum(["user", "assistant", "system"]),
   content: z.string().optional(),
   parts: z.array(z.object({ type: z.string(), text: z.string().optional() }).passthrough()).optional()
@@ -23,7 +25,7 @@ export async function POST(request: Request): Promise<Response> {
     const body = chatRequestSchema.parse(await readJson(request));
     const config = buildAppConfig(request.headers, body.config ?? {});
     
-    const result = await streamChat(config, body.messages.map(toChatMessage), body.sessionId);
+    const result = await streamChat(config, compactChatMessages(body.messages), body.sessionId);
     return result.toUIMessageStreamResponse<UIMessage<{ provider: string; model: string; fallbackIndex: number; primaryError?: string }>>({
       messageMetadata: () => ({
         provider: result.provider,
@@ -31,7 +33,7 @@ export async function POST(request: Request): Promise<Response> {
         fallbackIndex: result.fallbackIndex,
         primaryError: result.errors?.[0] instanceof Error ? result.errors[0].message : (result.errors?.[0] ? String(result.errors[0]) : undefined)
       }),
-      onError: (error: any) => {
+      onError: (error: unknown) => {
         console.error("POST /api/chat: Stream Error:", error);
         return error instanceof Error ? error.message : String(error);
       }
@@ -43,9 +45,3 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-function toChatMessage(message: z.infer<typeof messageSchema>): ChatMessage {
-  return {
-    role: message.role,
-    content: message.content ?? message.parts?.filter((part) => part.type === "text" && part.text).map((part) => part.text).join("\n") ?? ""
-  };
-}

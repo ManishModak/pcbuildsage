@@ -3,17 +3,24 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import sys
 from dataclasses import replace
 
 from .config import ProfileError, REPO_ROOT, filter_sites, load_profile, resolve_categories
 from .crawler import CrawlError, ScraperCrawler, category_page_url
-from .db import ProductStore, utc_now_iso, write_db_log
+from .db import ProductStore, utc_now_iso
 from .extractor import selector_hit_rates
 from .llm_client import LLMClient, resolve_llm_config
 from .models import CategoryConfig, RawProduct, ScrapedProduct, SiteConfig
-from .normalizer import RegistryMatcher, normalize_title, parse_price_minor, product_id
+from .normalizer import RegistryMatcher, normalize_title, parse_price, product_id
 from .output import EventEmitter, configure_logging
+
+logger = logging.getLogger(__name__)
+
+# A run must find at least this fraction of the retailer/category's on-record
+# in-stock count before it is trusted to retire the rows it did not see.
+DEFAULT_SWEEP_MIN_RATIO = 0.5
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,12 +35,28 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--quick", action="store_true", help="Use quick crawl depth")
     parser.add_argument("--max-pages", type=int, help="Override pages per category")
     parser.add_argument("--skip-fresh", type=int, metavar="HOURS", help="Skip recently scraped rows")
+    parser.add_argument(
+        "--sweep-min-ratio",
+        type=float,
+        default=DEFAULT_SWEEP_MIN_RATIO,
+        metavar="RATIO",
+        help=(
+            "Fraction of a retailer/category's on-record in-stock count a run must find before it may "
+            f"mark unseen rows out of stock (default {DEFAULT_SWEEP_MIN_RATIO}). Guards against partial crawls."
+        ),
+    )
+    parser.add_argument(
+        "--force-sweep",
+        action="store_true",
+        help="Mark unseen rows out of stock even if this run found far fewer products than expected",
+    )
     parser.add_argument("--no-llm-fallback", action="store_true", help="Disable LLM extraction fallback")
     parser.add_argument("--max-llm-calls", type=int, default=25, help="LLM extraction fallback call budget")
     parser.add_argument("--concurrency", type=int, default=2, help="Concurrent sites")
     parser.add_argument("--delay-ms", type=int, default=1000, help="Delay between requests")
     parser.add_argument("--headed", action="store_true", help="Run browser visibly")
     parser.add_argument("--db", default="data/products.db", help="SQLite database path")
+    parser.add_argument("--logs-db", default="data/logs.db", help="SQLite logs database path (must match the web app's PCBUILDSAGE_LOGS_DB_PATH)")
     parser.add_argument("--json-stdout", action="store_true", help="Emit NDJSON progress events on stdout")
     parser.add_argument("--test-profile", help="Validate selectors without DB writes")
     parser.add_argument("--llm-provider", help="Override scraper LLM provider")
@@ -90,7 +113,7 @@ def make_product(raw: RawProduct, site: SiteConfig, category: str, matcher: Regi
         name=raw.title,
         normalized_name=normalized,
         registry_key=matcher.match(normalized),
-        price_minor=parse_price_minor(raw.price_text),
+        price=parse_price(raw.price_text),
         currency=site.currency,
         country_code=site.country_code,
         retailer=site.site_name,
@@ -129,11 +152,60 @@ def search_terms_for_category(category: str, limit: int = 100) -> list[str]:
     return terms or [category]
 
 
-def write_products(db_path: str, products: list[ScrapedProduct], scraped_at: str, site: SiteConfig, category: CategoryConfig, run_started_at: str) -> int:
+def write_products(
+    db_path: str,
+    products: list[ScrapedProduct],
+    scraped_at: str,
+    site: SiteConfig,
+    category: CategoryConfig,
+    run_started_at: str,
+    sweep_min_ratio: float = DEFAULT_SWEEP_MIN_RATIO,
+    force_sweep: bool = False,
+) -> tuple[int, str | None]:
+    """Upsert this run's products, then retire anything the run did not see.
+
+    Returns (rows written, reason the sweep was skipped or None). Anything not
+    seen this run is marked out of stock rather than deleted, so price history,
+    first_seen, and the product URL survive a listing disappearing.
+    """
     with ProductStore(db_path) as store:
+        # Read the baseline before upserting, or this run's own writes count toward it.
+        previous_in_stock = store.count_in_stock(site.site_name, category.name)
         written = store.upsert_products(products, scraped_at=scraped_at)
-        store.sweep_stale_stock(site.site_name, category.name, run_started_at)
-        return written
+
+        skip_reason = sweep_skip_reason(
+            found=len(products),
+            previous_in_stock=previous_in_stock,
+            min_ratio=sweep_min_ratio,
+            force=force_sweep,
+        )
+        if skip_reason is None:
+            store.sweep_stale_stock(site.site_name, category.name, run_started_at)
+        return written, skip_reason
+
+
+def sweep_skip_reason(found: int, previous_in_stock: int, min_ratio: float, force: bool) -> str | None:
+    """Why the stale-stock sweep should be skipped for this job, or None to sweep.
+
+    A crawl that collapses relative to what is already on record is far more
+    likely to be a blocked or partially rendered listing page than a retailer
+    genuinely dropping its catalogue, and sweeping on it would mark healthy
+    stock as unavailable. `force` overrides this for a genuine inventory purge.
+    """
+    if force:
+        return None
+    # An empty crawl is indistinguishable from an anti-bot block page.
+    if found == 0:
+        return "crawl returned no products"
+    # Nothing on record yet, so there is no baseline to collapse against.
+    if previous_in_stock == 0:
+        return None
+    if found < previous_in_stock * min_ratio:
+        return (
+            f"found {found} products but {previous_in_stock} were in stock "
+            f"(below the {min_ratio:.0%} threshold); suspected partial crawl"
+        )
+    return None
 
 
 async def run_test_profile(args: argparse.Namespace, emitter: EventEmitter) -> int:
@@ -178,7 +250,11 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
         "concurrency": args.concurrency,
         "delay_ms": args.delay_ms,
     }
-    write_db_log(args.db, "INFO", "scraper", f"Scrape started for profile {args.profile}", config_details)
+    logger.info(
+        "Scrape started for profile %s",
+        args.profile,
+        extra={"component": "scraper", "details": config_details}
+    )
 
     llm_client = None
     if not args.no_llm_fallback:
@@ -188,7 +264,6 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
         llm_client=llm_client,
         llm_enabled=not args.no_llm_fallback,
         max_llm_calls=args.max_llm_calls,
-        db_path=args.db,
     )
     matcher = RegistryMatcher()
     semaphore = asyncio.Semaphore(max(1, args.concurrency))
@@ -199,12 +274,12 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
         async with semaphore:
             run_started_at = utc_now_iso()
             emitter.emit("site_started", site=site.site_name, category=category.name)
-            write_db_log(args.db, "INFO", "scraper", f"Job started: {site.site_name}/{category.name}")
+            logger.info("Job started: %s/%s", site.site_name, category.name, extra={"component": "scraper"})
             if args.skip_fresh:
                 with ProductStore(args.db) as store:
                     if store.was_scraped_since(site.site_name, category.name, args.skip_fresh):
                         emitter.progress(site=site.site_name, category=category.name, percent=100, skipped=True)
-                        write_db_log(args.db, "INFO", "scraper", f"Job skipped (scraped recently): {site.site_name}/{category.name}")
+                        logger.info("Job skipped (scraped recently): %s/%s", site.site_name, category.name, extra={"component": "scraper"})
                         return 0
             try:
                 if site.scraping_type == "search":
@@ -243,9 +318,43 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
                     for raw in raw_products
                     if (product := make_product(raw, site, category.name, matcher, scraped_at)) is not None
                 ]
-                written = await asyncio.to_thread(write_products, args.db, products, scraped_at, site, category, run_started_at)
+                written, sweep_skipped = await asyncio.to_thread(
+                    write_products,
+                    args.db,
+                    products,
+                    scraped_at,
+                    site,
+                    category,
+                    run_started_at,
+                    args.sweep_min_ratio,
+                    args.force_sweep,
+                )
+                if sweep_skipped:
+                    # Surfaced rather than silent: skipping leaves rows that may
+                    # genuinely be gone still marked in stock.
+                    emitter.emit(
+                        "sweep_skipped",
+                        site=site.site_name,
+                        category=category.name,
+                        reason=sweep_skipped,
+                    )
+                    logger.warning(
+                        "Stale-stock sweep skipped for %s/%s: %s. Existing rows keep their stock status; "
+                        "re-run with --force-sweep if the drop is real.",
+                        site.site_name,
+                        category.name,
+                        sweep_skipped,
+                        extra={"component": "scraper"},
+                    )
                 emitter.progress(site=site.site_name, category=category.name, percent=100, products_seen=len(products))
-                write_db_log(args.db, "INFO", "scraper", f"Job completed: {site.site_name}/{category.name}. Found {len(products)} products, wrote {written} to DB.")
+                logger.info(
+                    "Job completed: %s/%s. Found %d products, wrote %d to DB.",
+                    site.site_name,
+                    category.name,
+                    len(products),
+                    written,
+                    extra={"component": "scraper"}
+                )
                 return written
             except Exception as exc:
                 import traceback
@@ -253,14 +362,24 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
                     "error": str(exc),
                     "traceback": traceback.format_exc()
                 }
-                write_db_log(args.db, "ERROR", "scraper", f"Job failed: {site.site_name}/{category.name}", error_details)
+                logger.error(
+                    "Job failed: %s/%s",
+                    site.site_name,
+                    category.name,
+                    extra={"component": "scraper", "details": error_details}
+                )
                 emitter.emit("site_failed", site=site.site_name, category=category.name, error=str(exc))
                 return 0
 
     async with crawler.fetcher:
         results = await asyncio.gather(*(run_job(site, category, limit) for site, category, limit in work))
     total_written = sum(results)
-    write_db_log(args.db, "INFO", "scraper", f"Scrape finished for profile {args.profile}. Total products written: {total_written}")
+    logger.info(
+        "Scrape finished for profile %s. Total products written: %d",
+        args.profile,
+        total_written,
+        extra={"component": "scraper"}
+    )
     emitter.emit("done", products_written=total_written)
     return 0
 
@@ -268,8 +387,23 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    logger = configure_logging()
-    emitter = EventEmitter(args.json_stdout, logger)
+    scraper_logger = configure_logging()
+    emitter = EventEmitter(args.json_stdout, scraper_logger)
+
+    db_handler = None
+    queue_handler = None
+    log_listener = None
+    if not args.test_profile and not args.list_models:
+        import queue
+        import logging.handlers
+        from .db import SQLiteLogHandler
+        db_handler = SQLiteLogHandler(args.logs_db)
+        log_queue = queue.Queue(-1)
+        queue_handler = logging.handlers.QueueHandler(log_queue)
+        scraper_logger.addHandler(queue_handler)
+        log_listener = logging.handlers.QueueListener(log_queue, db_handler)
+        log_listener.start()
+
     try:
         if args.list_models:
             client = LLMClient(resolve_llm_config(args.llm_provider, args.llm_model))
@@ -285,6 +419,13 @@ def main() -> int:
     except (ProfileError, CrawlError, RuntimeError, ValueError) as exc:
         emitter.emit("error", error=str(exc))
         return 1
+    finally:
+        if log_listener:
+            log_listener.stop()
+        if queue_handler:
+            scraper_logger.removeHandler(queue_handler)
+        if db_handler:
+            db_handler.close()
 
 
 if __name__ == "__main__":

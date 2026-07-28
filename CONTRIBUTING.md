@@ -96,55 +96,9 @@ To update component specs:
 
 ---
 
-## 5. Adding Build Personas & UI Themes
+## 5. Adding UI Themes
 
-You can customize the advice of the AI builder and the visual skin of both the Web and CLI interfaces by adding personas and themes.
-
-### 🎭 Build Personas
-
-Build personas shape how the AI allocates budgets across different PC components and its conversational tone. They are defined in JSON files located under `data/personas/` and validated against the schema `data/schemas/persona.schema.json`.
-
-#### Schema Fields
-- **`$schema`**: Points to `../schemas/persona.schema.json`.
-- **`persona_name`**: A readable title for the persona (e.g., `"Silent Workstation"`).
-- **`description`**: A short explanation of the build priority.
-- **`budget_weights`**: Weight coefficients for 8 required component categories (`gpu`, `cpu`, `motherboard`, `ram`, `storage`, `psu`, `case`, `cooler`). **Crucial: The sum of all weights must equal exactly 1.0** (with a tolerance of 0.001).
-- **`priorities`**: An array of key features prioritized by the persona (e.g., `["quiet fans", "excellent thermals"]`).
-- **`tone`**: Brief instruction detailing the AI's speaking tone (e.g., `"conservative, detail-oriented, quiet"`).
-
-#### Walkthrough: Adding a Build Persona
-1. Create a new JSON file: `data/personas/silent-workstation.json`.
-2. Populate the file with valid JSON following the schema, ensuring the budget weights sum to exactly `1.0`:
-   ```json
-   {
-     "$schema": "../schemas/persona.schema.json",
-     "persona_name": "Silent Workstation",
-     "description": "Prioritizes low noise levels, efficient cooling, and productivity.",
-     "budget_weights": {
-       "gpu": 0.20,
-       "cpu": 0.25,
-       "motherboard": 0.12,
-       "ram": 0.10,
-       "storage": 0.10,
-       "psu": 0.10,
-       "case": 0.08,
-       "cooler": 0.05
-     },
-     "priorities": [
-       "near-silent operation",
-       "reliable and efficient cooling",
-       "high-quality multi-core CPU",
-       "gold-rated silent PSU"
-     ],
-     "tone": "helpful, noise-conscious, and technical"
-   }
-   ```
-3. Run the validation tool to verify:
-   ```bash
-   npm run validate:data
-   ```
-
----
+You can skin both the Web and CLI interfaces by adding themes.
 
 ### 🎨 UI Themes
 

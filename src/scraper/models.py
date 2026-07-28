@@ -51,7 +51,8 @@ class ScrapedProduct:
     name: str
     normalized_name: str | None
     registry_key: str | None
-    price_minor: int | None
+    price: float | None
+
     currency: str
     country_code: str
     retailer: str
@@ -59,6 +60,7 @@ class ScrapedProduct:
     image_url: str | None
     in_stock: bool
     category: str
+    subcategory: str | None = None
     specs: dict[str, Any] = field(default_factory=dict)
     first_seen: str | None = None
     last_scraped: str | None = None

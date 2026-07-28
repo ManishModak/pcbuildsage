@@ -59,7 +59,6 @@ Copy `.env.example` to `.env` and fill in the necessary keys. The application su
 - `EXA_API_KEY`, `TAVILY_API_KEY`, `BRAVE_API_KEY`: API credentials for respective search providers.
 - `SEARXNG_BASE_URL`: Base URL for local SearXNG search instance.
 - `PYTHON_PATH`: Path to the Python executable (if not automatically resolved).
-- `SEED_RELEASE_URL`: Custom base URL to override the default seed release location.
 
 ---
 
@@ -71,7 +70,7 @@ Start the development server:
 npm run dev
 ```
 
-Open `http://localhost:3000` in your browser. The web wizard will guide you through onboarding (configuring LLM credentials and profiles), downloading seed data or scraping fresh prices, and building your PC list.
+Open `http://localhost:3000` in your browser. The web wizard will guide you through onboarding (configuring LLM credentials and profiles), loading an existing catalog or scraping fresh prices, and building your PC list.
 
 The frontend is powered by a robust Next.js API backend interacting with these endpoints:
 - `POST` `/api/chat`: Handles interactive streaming chat and tool calls with the AI.
@@ -81,10 +80,8 @@ The frontend is powered by a robust Next.js API backend interacting with these e
 - `POST` `/api/llm/probe`: Probes and verifies LLM connection/keys.
 - `GET` `/api/models`: Fetches available models for a given provider.
 - `GET` `/api/personalities`: Returns available chat personalities.
-- `GET` `/api/personas`: Returns available build personas (e.g., Frame Chaser, Balanced Showpiece).
 - `GET` `/api/profiles` / `POST` `/api/profiles/import` / `POST` `/api/profiles/test`: Inspect, import, and test CSS selectors on retailer profiles.
 - `POST` `/api/scrape`: Initiates the Python scraper worker.
-- `POST` `/api/seed`: Initiates the seed dataset downloader (returns SSE progress stream).
 - `GET` `/api/status`: Retrieves general database initialization and scraper status.
 - `GET` `/api/themes`: Fetches UI theme tokens.
 - `POST` `/api/validate`: Runs deterministic compatibility checks on build lists.
@@ -107,11 +104,10 @@ If it is your first run and no configuration exists, the CLI automatically launc
 
 #### CLI REPL Slash Commands
 Within the interactive REPL (`pcbuildsage>`), type `/help` to see the available commands:
-- `/ask "<query>" [--persona id] [--json]` — Ask a single query and exit.
+- `/ask "<query>" [--json]` — Ask a single query and exit.
 - `/scrape --profile <name> [--categories csv] [--quick]` — Run the Python scraper.
 - `/provider [provider:model]` — Show or switch the primary LLM chain.
 - `/models --provider <provider> [--base-url url]` — List models for a provider.
-- `/persona [id]` — Show or switch the active build persona.
 - `/personality [id]` — Show or switch the chat personality.
 - `/audit on|off` — Toggle Tier 2 advisory audit.
 - `/search [provider|off]` — Show or switch the grounding search provider.
@@ -120,7 +116,6 @@ Within the interactive REPL (`pcbuildsage>`), type `/help` to see the available 
 - `/test-profile <file> [--site name]` — Run scraper selector checks without DB writes.
 - `/validate --parts build.json [--json]` — Run deterministic Tier 1 validation.
 - `/config get|set <key> [value]` — Manage configuration settings stored in `.pcbuildsage/config.json`.
-- `/seed --country <ISO-2>` — Download a seed dataset.
 - `/help` — List interactive commands.
 - `/exit` — Exit the REPL.
 
@@ -135,20 +130,6 @@ All commands can also be run directly from your terminal as subcommands:
 
 # Run Tier 1 validation on a build file
 ./bin/pcbuildsage.js validate --parts mybuild.json
-```
-
----
-
-### Seed Database Downloading
-
-First run, the wizard offers a way to get data by downloading a seed dataset for your country (e.g., `IN` for India). 
-
-> [!IMPORTANT]
-> **Seed Download Status:** The official community seed dataset release artifacts are not yet published. However, the seed downloader is fully implemented. You can test seed downloads by configuring the `SEED_RELEASE_URL` environment variable to point to a custom hosting URL containing pre-built `products-${country}.db` SQLite databases (or passing `--url <url>` to the download helper script/CLI).
-
-To run the seed downloader directly via script:
-```bash
-npx tsx scripts/seed-download.ts --country IN [--output data/products.db] [--url <release-url-override>]
 ```
 
 ---
@@ -180,7 +161,6 @@ This project is designed so that the most valuable contributions are **data file
 | :-- | :-- | :-- |
 | 🏪 **Add a retailer** (or a whole country!) | ~30 min, JSON only | Copy a profile in `data/profiles/`, adjust URLs + CSS selectors, verify with `node bin/pcbuildsage.js test-profile data/profiles/your_country.json --site RetailerName` — it prints selector hit rates so you know it works before you open the PR. |
 | 📖 **Add component specs** | ~5 min per part | Add an entry to `data/registry/` (socket, TDP, dimensions). Even easier: run `node bin/pcbuildsage.js export-research` or `npm run export-research` to turn the AI's researched specs into a ready-made PR. |
-| 🎭 **Add a build persona** | ~10 min | A JSON file with budget weights + priorities (`data/personas/`) — e.g. "SFF enthusiast" or "silent workstation". Checked against schema and validated by `npm run validate:data`. |
 | 🎨 **Add a theme** | ~20 min | One JSON file of color tokens skins the web app *and* the CLI (`data/themes/`) — Nord, Gruvbox, Catppuccin, OLED black… Validated via `npm run validate:data` (which auto-checks contrast). |
 | 🔧 **Fix a broken profile** | minutes | CI pings us when a retailer redesign breaks selectors; usually a one-selector fix. Great first issue. |
 | 💻 **Code** | varies | TypeScript core (chat engine, rules, CLI) or Python scraper. See `CONTRIBUTING.md` for architecture. |
@@ -211,9 +191,7 @@ Look for `good first issue` and `profile request` labels in our repository.
 ## Roadmap
 
 - [ ] **Roast & Fix** — paste any part list, get a graded critique with cheaper/better alternatives
-- [ ] Multi-persona builds side by side (Frame Chaser vs. Upgrade Path)
 - [ ] Price history tracking & alerts
-- [ ] More seed datasets (help wanted!)
 
 ## License
 

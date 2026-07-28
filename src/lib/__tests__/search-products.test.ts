@@ -1,24 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Product } from "../db-types";
-
-interface MockDb {
-  prepare: (sql: string) => {
-    all: (...params: unknown[]) => Product[];
-    get: (...params: unknown[]) => unknown;
-  };
-}
+import Database from "better-sqlite3";
+import { initializeSchema } from "../db";
 
 const state = vi.hoisted(() => ({
-  rows: [] as Product[],
   specs: new Map<string, unknown>(),
   offsets: [] as number[],
-  db: {} as unknown as MockDb,
-  resolveDbs: [] as unknown[]
+  resolveDbs: [] as unknown[],
+  memoryDb: null as InstanceType<typeof Database> | null
 }));
 
-vi.mock("../db", () => ({
-  getDb: () => state.db
-}));
+vi.mock("../db", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../db")>();
+  return {
+    ...original,
+    getDb: () => state.memoryDb
+  };
+});
 
 vi.mock("../registry", () => ({
   resolveComponent: (input: { key?: string; category?: string }, options?: { db?: unknown }) => {
@@ -29,86 +27,67 @@ vi.mock("../registry", () => ({
 }));
 
 function resetDb() {
-  state.rows = [];
+  if (state.memoryDb) {
+    state.memoryDb.close();
+  }
+  state.memoryDb = new Database(":memory:");
+  initializeSchema(state.memoryDb);
+  
   state.specs.clear();
   state.offsets = [];
   state.resolveDbs = [];
-  state.db = {
-    prepare: (sql: string) => ({
-      all: (...params: unknown[]) => {
-        let index = 0;
-        const country = params[index++];
-        const currency = params[index++];
-        let rows = state.rows.filter((row) => row.country_code === country && row.currency === currency);
-        if (sql.includes("category = ?")) {
-          const category = params[index++];
-          rows = rows.filter((row) => row.category === category);
+
+  const originalPrepare = state.memoryDb.prepare.bind(state.memoryDb);
+  state.memoryDb.prepare = ((sql: string) => {
+    const statement = originalPrepare(sql);
+    const originalAll = statement.all.bind(statement);
+    statement.all = function (this: unknown, ...params: unknown[]) {
+      if (sql.includes("LIMIT ? OFFSET ?") || sql.includes("OFFSET")) {
+        const offset = params[params.length - 1];
+        if (typeof offset === "number") {
+          state.offsets.push(offset);
         }
-        if (sql.includes("price_minor >= ?")) {
-          const min = Number(params[index++]);
-          rows = rows.filter((row) => row.price_minor !== null && row.price_minor >= min);
-        }
-        if (sql.includes("price_minor <= ?")) {
-          const max = Number(params[index++]);
-          rows = rows.filter((row) => row.price_minor !== null && row.price_minor <= max);
-        }
-        if (sql.includes("retailer LIKE ?")) {
-          const retailer = String(params[index++]).replaceAll("%", "");
-          rows = rows.filter((row) => row.retailer.includes(retailer));
-        }
-        if (sql.includes("in_stock = ?")) {
-          const inStock = params[index++];
-          rows = rows.filter((row) => row.in_stock === inStock);
-        }
-        const limit = Number(params[index++]);
-        const offset = Number(params[index++]);
-        state.offsets.push(offset);
-        return rows.sort((a, b) => (a.price_minor ?? 0) - (b.price_minor ?? 0)).slice(offset, offset + limit);
-      },
-      get: (...params: unknown[]) => {
-        // Category baseline COUNT/MIN/MAX query: (country, currency, category)
-        const [country, currency, category] = params;
-        const rows = state.rows.filter(
-          (row) => row.country_code === country && row.currency === currency && row.category === category
-        );
-        const prices = rows.map((row) => row.price_minor).filter((price): price is number => price !== null);
-        return {
-          total: rows.length,
-          min_price: prices.length ? Math.min(...prices) : null,
-          max_price: prices.length ? Math.max(...prices) : null
-        };
       }
-    })
-  };
-  return "temp-products.sqlite";
+      return originalAll(...params);
+    } as typeof statement.all;
+    return statement;
+  }) as typeof state.memoryDb.prepare;
+
+  return ":memory:";
 }
 
 function addProduct(overrides: Partial<Product>) {
   const firstSeen = "2026-01-01T00:00:00.000Z";
-  state.rows.push({
+  const product = {
     id: overrides.id ?? "unknown",
     name: overrides.name ?? overrides.id ?? "unknown",
-    normalized_name: overrides.name ?? overrides.id ?? "unknown",
+    normalized_name: overrides.normalized_name ?? overrides.name ?? overrides.id ?? "unknown",
     registry_key: overrides.registry_key ?? overrides.id ?? null,
-    price_minor: overrides.price_minor ?? 1,
-    currency: "INR",
-    country_code: "IN",
-    retailer: "Local",
-    url: `https://example.com/${overrides.id}`,
-    image_url: null,
+    price: overrides.price ?? 1,
+    currency: overrides.currency ?? "INR",
+    country_code: overrides.country_code ?? "IN",
+    retailer: overrides.retailer ?? "Local",
+    url: overrides.url ?? `https://example.com/${overrides.id}`,
+    image_url: overrides.image_url ?? null,
     in_stock: overrides.in_stock ?? 1,
     category: overrides.category ?? "unknown",
-    specs: null,
-    first_seen: firstSeen,
-    last_scraped: firstSeen
-  });
+    subcategory: overrides.subcategory ?? null,
+    specs: overrides.specs ?? null,
+    first_seen: overrides.first_seen ?? firstSeen,
+    last_scraped: overrides.last_scraped ?? firstSeen
+  };
+
+  state.memoryDb!.prepare(`
+    INSERT INTO products (id, name, normalized_name, registry_key, price, currency, country_code, retailer, url, image_url, in_stock, category, subcategory, specs, first_seen, last_scraped)
+    VALUES (@id, @name, @normalized_name, @registry_key, @price, @currency, @country_code, @retailer, @url, @image_url, @in_stock, @category, @subcategory, @specs, @first_seen, @last_scraped)
+  `).run(product);
 }
 
 describe("searchProducts", () => {
   it("returns an empty result with a hint instead of throwing", async () => {
     const { searchProducts } = await import("../tools/search-products");
     const dbPath = resetDb();
-    await expect(searchProducts({ category: "gpu", price_max: 1, sort_by: "price", order: "asc", limit: 20 }, { dbPath, countryCode: "IN", currency: "INR" })).resolves.toEqual(
+    await expect(searchProducts({ category: "gpu", price_max: 1, in_stock: true, sort_by: "price", order: "asc", limit: 20 }, { dbPath, countryCode: "IN", currency: "INR" })).resolves.toEqual(
       expect.objectContaining({ results: [], hint: expect.any(String) })
     );
   });
@@ -116,42 +95,42 @@ describe("searchProducts", () => {
   it("reports category_total 0 and a do-not-retry hint for an empty category", async () => {
     const { searchProducts } = await import("../tools/search-products");
     const dbPath = resetDb();
-    addProduct({ id: "gpu-1", price_minor: 460000, category: "gpu" });
+    addProduct({ id: "gpu-1", price: 4600, category: "gpu" });
 
     const result = await searchProducts(
-      { category: "motherboard", sort_by: "price", order: "asc", limit: 20 },
+      { category: "motherboard", in_stock: true, sort_by: "price", order: "asc", limit: 20 },
       { dbPath, countryCode: "IN", currency: "INR" }
     );
     expect(result).toMatchObject({ results: [], category_total: 0 });
     expect((result as { hint: string }).hint).toMatch(/do not retry/i);
-    expect(result).not.toHaveProperty("category_price_range_minor");
+    expect(result).not.toHaveProperty("category_price_range");
   });
 
   it("reports the true category price range when filters exclude every match", async () => {
     const { searchProducts } = await import("../tools/search-products");
     const dbPath = resetDb();
-    addProduct({ id: "gpu-cheap", price_minor: 460000, category: "gpu" });
-    addProduct({ id: "gpu-dear", price_minor: 5499900, category: "gpu" });
+    addProduct({ id: "gpu-cheap", price: 4600, category: "gpu" });
+    addProduct({ id: "gpu-dear", price: 54999, category: "gpu" });
 
     const result = await searchProducts(
-      { category: "gpu", price_max: 1, sort_by: "price", order: "asc", limit: 20 },
+      { category: "gpu", price_max: 1, in_stock: true, sort_by: "price", order: "asc", limit: 20 },
       { dbPath, countryCode: "IN", currency: "INR" }
     );
     expect(result).toMatchObject({
       results: [],
       category_total: 2,
-      category_price_range_minor: { min: 460000, max: 5499900 }
+      category_price_range: { min: 4600, max: 54999 }
     });
   });
 
   it("includes category_total on a successful search", async () => {
     const { searchProducts } = await import("../tools/search-products");
     const dbPath = resetDb();
-    addProduct({ id: "gpu-1", price_minor: 460000, category: "gpu" });
-    addProduct({ id: "gpu-2", price_minor: 999900, category: "gpu" });
+    addProduct({ id: "gpu-1", price: 4600, category: "gpu" });
+    addProduct({ id: "gpu-2", price: 9999, category: "gpu" });
 
     const result = await searchProducts(
-      { category: "gpu", sort_by: "price", order: "asc", limit: 20 },
+      { category: "gpu", in_stock: true, sort_by: "price", order: "asc", limit: 20 },
       { dbPath, countryCode: "IN", currency: "INR" }
     );
     expect(result).toMatchObject({ category_total: 2 });
@@ -162,11 +141,11 @@ describe("searchProducts", () => {
     const { searchProducts } = await import("../tools/search-products");
     const dbPath = resetDb();
     state.specs.set("intel-core-i9-14900k", { brand: "Intel", model: "Intel Core i9-14900K", aliases: [], socket: "LGA 1700", ddr: "DDR5", tdp_w: 125 });
-    addProduct({ id: "cpu-1", name: "Intel Core i9-14900K", registry_key: "intel-core-i9-14900k", price_minor: 50000, category: "cpu" });
+    addProduct({ id: "cpu-1", name: "Intel Core i9-14900K", registry_key: "intel-core-i9-14900k", price: 50000, category: "cpu" });
 
-    const result = await searchProducts({ category: "cpu", socket: "LGA 1700", ddr: "DDR5", sort_by: "price", order: "asc", limit: 20 }, { dbPath, countryCode: "IN", currency: "INR" });
+    const result = await searchProducts({ category: "cpu", socket: "LGA 1700", ddr: "DDR5", in_stock: true, sort_by: "price", order: "asc", limit: 20 }, { dbPath, countryCode: "IN", currency: "INR" });
     expect(result).toMatchObject({ results: [expect.objectContaining({ id: "cpu-1", specs: expect.objectContaining({ socket: "LGA 1700" }) })] });
-    expect(state.resolveDbs).toContain(state.db);
+    expect(state.resolveDbs).toContain(state.memoryDb);
   });
 
   it("continues scanning later DB batches until registry-filtered matches are found", async () => {
@@ -175,12 +154,143 @@ describe("searchProducts", () => {
     for (let index = 0; index < 300; index += 1) {
       const key = `gpu-${index}`;
       state.specs.set(key, { brand: "NVIDIA", model: `GPU ${index}`, aliases: [], vram_gb: index === 275 ? 16 : 8 });
-      addProduct({ id: key, registry_key: key, price_minor: index + 1, category: "gpu" });
+      addProduct({ id: key, registry_key: key, price: index + 1, category: "gpu" });
     }
 
-    const result = await searchProducts({ category: "gpu", min_vram_gb: 16, sort_by: "price", order: "asc", limit: 1 }, { dbPath, countryCode: "IN", currency: "INR" });
+    const result = await searchProducts({ category: "gpu", min_vram_gb: 16, in_stock: true, sort_by: "price", order: "asc", limit: 1 }, { dbPath, countryCode: "IN", currency: "INR" });
     expect(state.offsets).toEqual([0, 250]);
     expect(result).toMatchObject({ results: [expect.objectContaining({ id: "gpu-275" })] });
+  });
+
+  it("defaults to build-relevant products (subcategory IS NULL or 'internal') if subcategory is omitted", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    addProduct({ id: "drive-internal", category: "storage", subcategory: "internal", price: 5000 });
+    addProduct({ id: "drive-external", category: "storage", subcategory: "external", price: 6000 });
+    addProduct({ id: "drive-null", category: "storage", subcategory: null, price: 4000 });
+
+    const result = await searchProducts(
+      { category: "storage", in_stock: true, sort_by: "price", order: "asc", limit: 20 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    const ids = (result.results ?? []).map((r: { id: string }) => r.id);
+    expect(ids).toContain("drive-internal");
+    expect(ids).toContain("drive-null");
+    expect(ids).not.toContain("drive-external");
+  });
+
+  it("filters by subcategory exactly when explicit override is provided", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    addProduct({ id: "drive-internal", category: "storage", subcategory: "internal", price: 5000 });
+    addProduct({ id: "drive-external", category: "storage", subcategory: "external", price: 6000 });
+    addProduct({ id: "drive-removable", category: "storage", subcategory: "removable", price: 1000 });
+
+    const result = await searchProducts(
+      { category: "storage", subcategory: "external", in_stock: true, sort_by: "price", order: "asc", limit: 20 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    const ids = (result.results ?? []).map((r: { id: string }) => r.id);
+    expect(ids).toEqual(["drive-external"]);
+  });
+
+  it("reports price range and count of the specific subcategory slice in zero-result hint", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    addProduct({ id: "drive-internal", category: "storage", subcategory: "internal", price: 5000 });
+    addProduct({ id: "drive-external", category: "storage", subcategory: "external", price: 6000 });
+
+    const emptyResult = await searchProducts(
+      { category: "storage", subcategory: "removable", in_stock: true, sort_by: "price", order: "asc", limit: 20 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    expect(emptyResult.hint).toMatch(/No removable storage products exist/i);
+
+    const filterOutResult = await searchProducts(
+      { category: "storage", subcategory: "external", price_min: 10000, in_stock: true, sort_by: "price", order: "asc", limit: 20 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    expect(filterOutResult.hint).toMatch(/1 of 1 external storage products are in stock but none match/i);
+    expect(filterOutResult.hint).toMatch(/In-stock prices range 6000-6000/i);
+  });
+
+  it("filters by segment for registry-resolved specs", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    state.specs.set("nvidia-rtx-5090", { brand: "NVIDIA", model: "RTX 5090", aliases: [], segment: "gaming" });
+    state.specs.set("nvidia-rtx-a400", { brand: "NVIDIA", model: "RTX A400", aliases: [], segment: "workstation" });
+
+    addProduct({ id: "gpu-gaming", registry_key: "nvidia-rtx-5090", category: "gpu" });
+    addProduct({ id: "gpu-workstation", registry_key: "nvidia-rtx-a400", category: "gpu" });
+
+    const result = await searchProducts(
+      { category: "gpu", segment: "gaming", in_stock: true, sort_by: "price", order: "asc", limit: 20 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    const ids = (result.results ?? []).map((r: { id: string }) => r.id);
+    expect(ids).toEqual(["gpu-gaming"]);
+  });
+
+  it("excludes out-of-stock rows by default so a retired listing cannot enter a build", async () => {
+    const { searchProducts, searchProductsInputSchema } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    addProduct({ id: "gpu-live", price: 40000, category: "gpu", in_stock: 1 });
+    addProduct({ id: "gpu-retired", price: 4600, category: "gpu", in_stock: 0 });
+
+    // Parse through the schema so the test exercises the default, not a hand-passed flag.
+    const input = searchProductsInputSchema.parse({ category: "gpu", limit: 20 });
+    const result = await searchProducts(input, { dbPath, countryCode: "IN", currency: "INR" });
+    const ids = (result.results ?? []).map((row: { id: string }) => row.id);
+    expect(ids).toEqual(["gpu-live"]);
+  });
+
+  it("returns retired rows only when in_stock is explicitly false", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    addProduct({ id: "gpu-live", price: 40000, category: "gpu", in_stock: 1 });
+    addProduct({ id: "gpu-retired", price: 4600, category: "gpu", in_stock: 0 });
+
+    const result = await searchProducts(
+      { category: "gpu", in_stock: false, sort_by: "price", order: "asc", limit: 20 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    const ids = (result.results ?? []).map((row: { id: string }) => row.id);
+    expect(ids).toEqual(["gpu-retired"]);
+  });
+
+  it("tells the model a fully retired category is unavailable rather than to widen filters", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    addProduct({ id: "gpu-a", price: 4600, category: "gpu", in_stock: 0 });
+    addProduct({ id: "gpu-b", price: 54999, category: "gpu", in_stock: 0 });
+
+    const result = await searchProducts(
+      { category: "gpu", in_stock: true, sort_by: "price", order: "asc", limit: 20 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    expect(result).toMatchObject({ results: [], category_total: 2, in_stock_total: 0 });
+    expect((result as { hint: string }).hint).toMatch(/out of stock/i);
+    // The "adjust your price bounds" branch must not fire: there is no band to aim at.
+    expect(result).not.toHaveProperty("category_price_range");
+  });
+
+  it("reports the in-stock price band, ignoring retired listings", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    addProduct({ id: "gpu-live-low", price: 30000, category: "gpu", in_stock: 1 });
+    addProduct({ id: "gpu-live-high", price: 60000, category: "gpu", in_stock: 1 });
+    addProduct({ id: "gpu-retired", price: 999, category: "gpu", in_stock: 0 });
+
+    const result = await searchProducts(
+      { category: "gpu", price_max: 1, in_stock: true, sort_by: "price", order: "asc", limit: 20 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    expect(result).toMatchObject({
+      results: [],
+      category_total: 3,
+      in_stock_total: 2,
+      category_price_range: { min: 30000, max: 60000 }
+    });
   });
 
   it("enforces the schema limit cap", () => {

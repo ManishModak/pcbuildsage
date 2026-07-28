@@ -10,7 +10,6 @@ export const DEFAULT_CONFIG: ClientConfig = {
   countryCode: "IN",
   currency: "INR",
   personality: "helpful-consultant",
-  personas: ["frame-chaser", "balanced-showpiece", "upgrade-path"],
   tier2Enabled: true,
   auditVisible: true,
   freeformConsultEnabled: false,
@@ -31,10 +30,6 @@ export function validateConfig(parsed: unknown): ClientConfig {
   if (typeof obj.countryCode === "string") config.countryCode = obj.countryCode;
   if (typeof obj.currency === "string") config.currency = obj.currency;
   if (typeof obj.personality === "string") config.personality = obj.personality;
-  
-  if (Array.isArray(obj.personas)) {
-    config.personas = obj.personas.filter((p): p is string => typeof p === "string");
-  }
   if (typeof obj.tier2Enabled === "boolean") config.tier2Enabled = obj.tier2Enabled;
   if (typeof obj.auditVisible === "boolean") config.auditVisible = obj.auditVisible;
   if (typeof obj.freeformConsultEnabled === "boolean") {

@@ -25,9 +25,6 @@ export type AppConfig = {
   activeProfile?: string;
   countryCode: string;
   currency: string;
-  persona: string;
-  /** Optional multi-select personas; when set, takes precedence over `persona`. */
-  personas?: string[];
   personality: string;
   theme: string;
   tier2Enabled: boolean;

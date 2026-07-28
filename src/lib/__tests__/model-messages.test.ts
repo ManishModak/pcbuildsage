@@ -1,63 +1,83 @@
 import { describe, expect, it } from "vitest";
 import type { UIMessage } from "ai";
-import { deriveBuildState, prepareModelMessages } from "../model-messages";
+import { deriveBuildState, compactChatMessages, capMessages, type IncomingChatMessage } from "../model-messages";
 
-// A unique token buried inside the bulky tool output; compact must drop it,
-// full must retain it.
-const MARKER = "UNIQUE_MARKER_GPU_4090";
+describe("compactChatMessages", () => {
+  it("strips non-text parts from all turns except keeps tool parts for the last assistant turn", () => {
+    const messages: IncomingChatMessage[] = [
+      {
+        role: "user",
+        parts: [{ type: "text", text: "recommend a gpu" }]
+      },
+      {
+        role: "assistant",
+        parts: [
+          { type: "reasoning", text: "thinking about gpus" },
+          {
+            type: "tool-search_products",
+            toolCallId: "call-1",
+            state: "output-available",
+            input: { category: "gpu" },
+            output: { results: [{ id: "gpu-1", name: "old-4090", price: 1500 }] }
+          },
+          { type: "text", text: "Here is a list." }
+        ]
+      },
+      {
+        role: "user",
+        parts: [{ type: "text", text: "pick that one" }]
+      },
+      {
+        role: "assistant",
+        parts: [
+          { type: "reasoning", text: "confirming choice" },
+          {
+            type: "tool-search_products",
+            toolCallId: "call-2",
+            state: "output-available",
+            input: { category: "gpu" },
+            output: { results: [{ id: "gpu-2", name: "new-4090", price: 1600 }] }
+          },
+          { type: "text", text: "Choice locked." }
+        ]
+      }
+    ];
 
-function conversationWithToolResult(): UIMessage[] {
-  return [
-    { id: "u1", role: "user", parts: [{ type: "text", text: "recommend a gpu" }] },
-    {
-      id: "a1",
-      role: "assistant",
-      parts: [
-        { type: "reasoning", text: "internal-thinking-trace" },
-        {
-          type: "tool-search_products",
-          toolCallId: "call-1",
-          state: "output-available",
-          input: { category: "gpu" },
-          output: {
-            results: Array.from({ length: 8 }, (_, index) => ({
-              id: `p${index}`,
-              name: index === 0 ? MARKER : `card-${index}`,
-              price_minor: 5000000 + index
-            }))
-          }
-        },
-        { type: "text", text: "Here are the results" }
-      ]
-    }
-  ] as UIMessage[];
-}
+    const compacted = compactChatMessages(messages);
+    
+    // The first assistant turn's tool parts must be stripped (since it is not the last assistant turn)
+    expect(compacted[1].content).toContain("Here is a list.");
+    expect(compacted[1].parts).toEqual([{ type: "text", text: "Here is a list." }]);
 
-describe("prepareModelMessages", () => {
-  it("full mode retains the raw tool output and the text/reasoning parts", async () => {
-    const model = await prepareModelMessages(conversationWithToolResult(), "full");
-    const serialized = JSON.stringify(model);
-    expect(serialized).toContain(MARKER);
-    expect(serialized).toContain("Here are the results");
-    expect(serialized).toContain("internal-thinking-trace");
-    expect(serialized).not.toContain("omitted");
+    // The second assistant turn is the last assistant turn, so its parts must be kept
+    expect(compacted[3].parts).toBeDefined();
+    expect(compacted[3].parts).toEqual(messages[3].parts);
+    expect(compacted[3].content).toBeUndefined();
+  });
+});
+
+describe("capMessages", () => {
+  it("does not cap if length is within limit", () => {
+    const messages = Array.from({ length: 10 }, (_, i) => ({
+      role: "user" as const,
+      content: `msg ${i}`
+    }));
+    expect(capMessages(messages)).toHaveLength(10);
   });
 
-  it("compact mode strips the bulky tool output to a stub while keeping text/reasoning", async () => {
-    const compact = await prepareModelMessages(conversationWithToolResult(), "compact");
-    const full = await prepareModelMessages(conversationWithToolResult(), "full");
-    const compactStr = JSON.stringify(compact);
-    const fullStr = JSON.stringify(full);
+  it("caps keeping the first user message and the last N-1 messages", () => {
+    const firstUserMsg = { role: "user" as const, content: "budget: 1000" };
+    const middleMessages = Array.from({ length: 50 }, (_, i) => ({
+      role: (i % 2 === 0 ? "assistant" : "user") as "user" | "assistant",
+      content: `middle msg ${i}`
+    }));
+    const messages = [firstUserMsg, ...middleMessages];
 
-    // The heavy payload is gone, replaced by the tiny stub…
-    expect(compactStr).not.toContain(MARKER);
-    expect(compactStr).toContain("omitted");
-    expect(compactStr).toContain("8 results");
-    // …but the conversation text and reasoning survive unchanged.
-    expect(compactStr).toContain("Here are the results");
-    expect(compactStr).toContain("internal-thinking-trace");
-    // …and the compact history is strictly smaller than the full one.
-    expect(compactStr.length).toBeLessThan(fullStr.length);
+    const capped = capMessages(messages);
+    expect(capped).toHaveLength(40);
+    expect(capped[0]).toEqual(firstUserMsg);
+    expect(capped[1].content).toBe("middle msg 11");
+    expect(capped[39].content).toBe("middle msg 49");
   });
 });
 

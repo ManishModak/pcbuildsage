@@ -7,7 +7,17 @@
     "form_factor": "m2-2280",
     "capacity_gb": 2000,
     "pcie_gen": 4,
-    "aliases": ["990 Pro 2TB", "Samsung 990 Pro 2TB", "990 pro 2tb", "990Pro 2TB"]
+    "aliases": [
+      "990 Pro 2TB",
+      "Samsung 990 Pro 2TB",
+      "990 pro 2tb",
+      "990Pro 2TB"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/990-pro-pcie-4-0-nvme-m-2-ssd-2tb-mz-v9p2t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:04:04Z"
   },
   "samsung-990-pro-1tb": {
     "brand": "Samsung",
@@ -16,7 +26,17 @@
     "form_factor": "m2-2280",
     "capacity_gb": 1000,
     "pcie_gen": 4,
-    "aliases": ["990 Pro 1TB", "Samsung 990 Pro 1TB", "990 pro 1tb", "990Pro 1TB"]
+    "aliases": [
+      "990 Pro 1TB",
+      "Samsung 990 Pro 1TB",
+      "990 pro 1tb",
+      "990Pro 1TB"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/990-pro-pcie-4-0-nvme-m-2-ssd-1tb-mz-v9p1t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:04:04Z"
   },
   "wd-black-sn850x-2tb": {
     "brand": "Western Digital",
@@ -25,7 +45,17 @@
     "form_factor": "m2-2280",
     "capacity_gb": 2000,
     "pcie_gen": 4,
-    "aliases": ["SN850X 2TB", "WD Black SN850X 2TB", "WD_BLACK SN850X 2TB", "sn850x 2tb"]
+    "aliases": [
+      "SN850X 2TB",
+      "WD Black SN850X 2TB",
+      "WD_BLACK SN850X 2TB",
+      "sn850x 2tb"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-black-sn850x-nvme-ssd?sku=WDS200T2X0E"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:04:04Z"
   },
   "crucial-t700-2tb": {
     "brand": "Crucial",
@@ -34,7 +64,16 @@
     "form_factor": "m2-2280",
     "capacity_gb": 2000,
     "pcie_gen": 5,
-    "aliases": ["T700 2TB", "Crucial T700 2TB", "t700 2tb"]
+    "aliases": [
+      "T700 2TB",
+      "Crucial T700 2TB",
+      "t700 2tb"
+    ],
+    "sources": [
+      "https://www.crucial.com/ssd/t700/ct2000t700ssd3"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:04:04Z"
   },
   "crucial-p3-plus-1tb": {
     "brand": "Crucial",
@@ -43,7 +82,16 @@
     "form_factor": "m2-2280",
     "capacity_gb": 1000,
     "pcie_gen": 4,
-    "aliases": ["P3 Plus 1TB", "Crucial P3 Plus 1TB", "p3 plus 1tb"]
+    "aliases": [
+      "P3 Plus 1TB",
+      "Crucial P3 Plus 1TB",
+      "p3 plus 1tb"
+    ],
+    "sources": [
+      "https://www.crucial.com/support/ssd/p3-plus"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:04:04Z"
   },
   "samsung-870-evo-1tb": {
     "brand": "Samsung",
@@ -51,7 +99,16 @@
     "interface": "sata",
     "form_factor": "2.5in",
     "capacity_gb": 1000,
-    "aliases": ["870 EVO 1TB", "Samsung 870 EVO 1TB", "870 evo 1tb"]
+    "aliases": [
+      "870 EVO 1TB",
+      "Samsung 870 EVO 1TB",
+      "870 evo 1tb"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/870-evo-sata-2-5-ssd-1tb-mz-77e1t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:04:04Z"
   },
   "crucial-mx500-1tb": {
     "brand": "Crucial",
@@ -59,6 +116,15 @@
     "interface": "sata",
     "form_factor": "2.5in",
     "capacity_gb": 1000,
-    "aliases": ["MX500 1TB", "Crucial MX500 1TB", "mx500 1tb"]
+    "aliases": [
+      "MX500 1TB",
+      "Crucial MX500 1TB",
+      "mx500 1tb"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-mx500-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:04:04Z"
   }
 }

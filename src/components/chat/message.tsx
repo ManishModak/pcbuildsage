@@ -12,9 +12,12 @@ import { BuildCard } from "./build-card";
 import { deriveBuilds } from "./build-derive";
 import { FailoverPill } from "./failover-pill";
 import { Markdown } from "./markdown";
-import { ToolChip, type ToolPart } from "./tool-chip";
+import { ToolChip } from "./tool-chip";
+import { isTextPart, isReasoningPart, isToolPart } from "../lib/message-parts";
 
-export type ChatUIMessage = UIMessage<ChatMetadata>;
+export type ChatUIMessage = UIMessage<ChatMetadata> & {
+  createdAt?: Date;
+};
 
 function ThinkingTrace({ text }: { text: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -49,12 +52,10 @@ function ThinkingTrace({ text }: { text: string }) {
 
 export function MessageView({
   message,
-  personaLabels,
   currency,
   onEdit
 }: {
   message: ChatUIMessage;
-  personaLabels: string[];
   currency: string;
   onEdit?: (newText: string) => void;
 }) {
@@ -67,17 +68,15 @@ export function MessageView({
     setHasMounted(true);
   }, []);
 
-  const rawDate = (message as { createdAt?: Date | string | number }).createdAt
-    ? new Date((message as { createdAt?: Date | string | number }).createdAt!)
-    : null;
+  const rawDate = message.createdAt ?? null;
   const timestamp = hasMounted && rawDate ? formatClock(rawDate.toISOString()) : "";
   const isUser = message.role === "user";
-  const toolParts = message.parts.filter((part) => part.type.startsWith("tool-")) as ToolPart[];
+  const toolParts = message.parts.filter(isToolPart);
   const builds = isUser ? [] : deriveBuilds(toolParts, currency);
 
   const textContent = message.parts
-    .filter((part) => part.type === "text")
-    .map((part) => (part as { text?: string }).text ?? "")
+    .filter(isTextPart)
+    .map((part) => part.text)
     .join("\n");
 
   const startEditing = () => {
@@ -136,13 +135,11 @@ export function MessageView({
     return (
       <div className="flex flex-col items-end gap-1.5 group w-full">
         <div className="max-w-[85%] rounded-card border border-border bg-surface px-4 py-2.5">
-          {message.parts.map((part, index) =>
-            part.type === "text" ? (
-              <p key={index} className="whitespace-pre-wrap text-base leading-relaxed text-text">
-                {part.text}
-              </p>
-            ) : null
-          )}
+          {message.parts.filter(isTextPart).map((part, index) => (
+            <p key={index} className="whitespace-pre-wrap text-base leading-relaxed text-text">
+              {part.text}
+            </p>
+          ))}
           {timestamp ? <p className="mt-1 text-right text-caption text-text-muted">{timestamp}</p> : null}
         </div>
         {onEdit && (
@@ -173,20 +170,21 @@ export function MessageView({
     <div className="flex flex-col">
       <FailoverPill meta={message.metadata} />
       {message.parts.map((part, index) => {
-        if (part.type === "reasoning") {
-          const text = (part as { text?: string }).text;
-          if (text) {
-            return <ThinkingTrace key={index} text={text} />;
+        if (isReasoningPart(part)) {
+          if (part.text) {
+            return <ThinkingTrace key={index} text={part.text} />;
           }
         }
-        if (part.type === "text") {
-          return <Markdown key={index} text={(part as { text: string }).text} />;
+        if (isTextPart(part)) {
+          return <Markdown key={index} text={part.text} />;
         }
-        if (part.type.startsWith("tool-")) return <ToolChip key={index} part={part as ToolPart} />;
+        if (isToolPart(part)) {
+          return <ToolChip key={index} part={part} />;
+        }
         return null;
       })}
 
-      {builds.length ? <BuildCard builds={builds} personaLabels={personaLabels} /> : null}
+      {builds.length ? <BuildCard builds={builds} /> : null}
 
       <div className="mt-1 flex items-center gap-2 text-caption text-text-muted">
         {timestamp ? <span>{timestamp}</span> : null}

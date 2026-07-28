@@ -7,14 +7,16 @@ import {
   formatRelativeTime,
   minorDigits,
   sumPrices,
-  titleCase
+  titleCase,
+  getErrorMessage,
+  getErrorMessageText
 } from "../format";
 import { pickTheme, resolveTheme, TOKEN_KEYS } from "../theme";
 import type { ThemeFile } from "../types";
 
 describe("formatPrice", () => {
   it("renders INR minor units with two fraction digits", () => {
-    expect(formatPrice(2499900, "INR", "en-IN")).toMatch(/24,999\.00/);
+    expect(formatPrice(24999, "INR", "en-IN")).toMatch(/24,999\.00/);
   });
 
   it("renders zero-decimal currencies without fraction digits", () => {
@@ -148,3 +150,36 @@ describe("titleCase", () => {
     expect(titleCase("budget gaming build")).toBe("Budget Gaming Build");
   });
 });
+
+describe("getErrorMessageText", () => {
+  it("parses valid JSON with message key", () => {
+    expect(getErrorMessageText('{"message": "JSON message"}')).toBe("JSON message");
+  });
+
+  it("parses valid JSON with error object and message", () => {
+    expect(getErrorMessageText('{"error": {"message": "Error object message"}}')).toBe("Error object message");
+  });
+
+  it("parses valid JSON with error as string", () => {
+    expect(getErrorMessageText('{"error": "String error"}')).toBe("String error");
+  });
+
+  it("falls back to raw string if not JSON", () => {
+    expect(getErrorMessageText("Raw error message")).toBe("Raw error message");
+  });
+
+  it("extracts nested JSON from text", () => {
+    expect(getErrorMessageText('Prefix {"message": "Extracted message"} Suffix')).toBe("Extracted message");
+  });
+});
+
+describe("getErrorMessage", () => {
+  it("returns default message for empty error message", () => {
+    expect(getErrorMessage(new Error(""))).toContain("Something interrupted");
+  });
+
+  it("returns parsed error message", () => {
+    expect(getErrorMessage(new Error('{"message": "Parsed message"}'))).toBe("Parsed message");
+  });
+});
+

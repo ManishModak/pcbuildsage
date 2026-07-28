@@ -2,16 +2,17 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { TriangleAlert } from "lucide-react";
-import { fetchPersonas, saveSession } from "../lib/api";
+import { fetchStatus, saveSession } from "../lib/api";
 import { apiKeyHeaders, toServerChain } from "../lib/config-store";
-import type { ClientConfig, Persona } from "../lib/types";
+import type { ClientConfig, StatusResponse } from "../lib/types";
 import { Icon } from "../ui/icon";
 import { Composer } from "./composer";
 import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
 import { useApp } from "../app/app-provider";
+import { getErrorMessage, formatRelativeTime } from "../lib/format";
 
 function signatureOf(messages: ChatUIMessage[]): string {
   return `${messages.length}:${messages.at(-1)?.id ?? ""}`;
@@ -26,45 +27,6 @@ function deriveTitle(messages: ChatUIMessage[]): string {
   const text = textPart?.text.trim();
   if (!text) return "New chat";
   return text.length > 60 ? `${text.slice(0, 60)}…` : text;
-}
-
-function getErrorMessage(error: Error): string {
-  if (!error.message) {
-    return "Something interrupted the response. Check your provider chain in settings and try again.";
-  }
-
-  try {
-    const parsed = JSON.parse(error.message);
-    if (parsed && typeof parsed === "object") {
-      if (parsed.message) return String(parsed.message);
-      if (parsed.error && typeof parsed.error === "object" && parsed.error.message) {
-        return String(parsed.error.message);
-      }
-      if (typeof parsed.error === "string") return parsed.error;
-    }
-  } catch {
-    // Ignore
-  }
-
-  const jsonStart = error.message.indexOf("{");
-  const jsonEnd = error.message.lastIndexOf("}");
-  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-    try {
-      const jsonSub = error.message.slice(jsonStart, jsonEnd + 1);
-      const parsed = JSON.parse(jsonSub);
-      if (parsed && typeof parsed === "object") {
-        if (parsed.message) return String(parsed.message);
-        if (parsed.error && typeof parsed.error === "object" && parsed.error.message) {
-          return String(parsed.error.message);
-        }
-        if (typeof parsed.error === "string") return parsed.error;
-      }
-    } catch {
-      // Ignore
-    }
-  }
-
-  return error.message;
 }
 
 function ModelStatus({ modelName, streaming }: { modelName: string; streaming: boolean }) {
@@ -110,7 +72,7 @@ export function ChatView({
   initialMessages: ChatUIMessage[];
   onPersisted?: () => void;
 }) {
-  const { setHeaderSuffix } = useApp();
+  const { setHeaderSuffix, updateConfig } = useApp();
   const configRef = useRef(config);
   useEffect(() => {
     configRef.current = config;
@@ -121,7 +83,6 @@ export function ChatView({
     sessionIdRef.current = sessionId;
   });
 
-  const [personas, setPersonas] = useState<Persona[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
 
@@ -132,9 +93,32 @@ export function ChatView({
     isAtBottomRef.current = isAtBottom;
   };
 
+  const [dbStatus, setDbStatus] = useState<StatusResponse | null>(null);
+
   useEffect(() => {
-    fetchPersonas().then(setPersonas).catch(() => setPersonas([]));
-  }, []);
+    fetchStatus()
+      .then(setDbStatus)
+      .catch(() => setDbStatus(null));
+  }, [config.countryCode]);
+
+  const countryStats = dbStatus?.database?.rowCounts?.find(
+    (row) => row.countryCode === config.countryCode
+  );
+  const lastScraped = countryStats?.lastScraped || dbStatus?.database?.lastScraped || null;
+
+  // Re-render once a minute so the derived label below stays current. The label
+  // itself is computed during render rather than mirrored into state: dbStatus
+  // starts null on both the server and the first client render, so there is
+  // nothing to format until after mount and no hydration mismatch to guard.
+  const [, tickClock] = useReducer((tick: number) => tick + 1, 0);
+
+  useEffect(() => {
+    if (!lastScraped) return;
+    const interval = setInterval(tickClock, 60000);
+    return () => clearInterval(interval);
+  }, [lastScraped]);
+
+  const relativeTime = lastScraped ? formatRelativeTime(lastScraped) : "";
 
   const transport = useMemo(
     () =>
@@ -150,8 +134,6 @@ export function ChatView({
               chatLlmChain: toServerChain(current.chatChain),
               llmChain: toServerChain(current.chatChain),
               ...(current.subagentChain ? { subagentLlmChain: toServerChain(current.subagentChain) } : {}),
-              persona: current.personas[0],
-              personas: current.personas,
               personality: current.personality,
               tier2Enabled: current.tier2Enabled,
               freeformConsultEnabled: current.freeformConsultEnabled,
@@ -222,11 +204,6 @@ export function ChatView({
     return () => clearTimeout(timer);
   }, [status, messages, onPersisted]);
 
-  const personaLabels = useMemo(() => {
-    const byId = new Map(personas.map((persona) => [persona.id, persona.persona_name]));
-    return config.personas.map((id) => byId.get(id) ?? id);
-  }, [personas, config.personas]);
-
   const send = (text: string) => sendMessage({ text });
 
   return (
@@ -241,7 +218,6 @@ export function ChatView({
                 <MessageView
                   key={message.id}
                   message={message}
-                  personaLabels={personaLabels}
                   currency={config.currency}
                   onEdit={
                     !streaming && message.role === "user"
@@ -285,7 +261,14 @@ export function ChatView({
         <div className="mx-auto w-full max-w-[760px] px-4 py-3">
           <Composer onSend={send} onStop={stop} streaming={streaming} />
           <p className="mt-2 text-center text-caption text-text-muted">
-            Prices are live from your local database. Compatibility is checked deterministically.
+            Prices are live from your local database{relativeTime ? ` (last updated ${relativeTime})` : ""}. Compatibility is checked deterministically.{" "}
+            <button
+              type="button"
+              onClick={() => updateConfig({ onboarded: false })}
+              className="ml-1 cursor-pointer font-medium text-accent hover:underline"
+            >
+              Update prices
+            </button>
           </p>
         </div>
       </div>

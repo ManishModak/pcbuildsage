@@ -111,7 +111,7 @@ export function ChatSidebar({
                         showOnHover
                         aria-label="Copy session ID"
                         title="Copy session ID"
-                        className={cn(TRIGGER_HOVER, "text-text-secondary right-8")}
+                        className={cn(TRIGGER_HOVER, "text-text-secondary right-8 md:invisible md:group-hover/menu-item:visible md:group-focus-within/menu-item:visible")}
                         onClick={(e) => {
                           e.stopPropagation();
                           void navigator.clipboard.writeText(session.id);
@@ -125,8 +125,9 @@ export function ChatSidebar({
                         showOnHover
                         aria-label="Delete chat"
                         title="Delete chat"
-                        className={cn(TRIGGER_HOVER, "text-text-secondary")}
-                        onClick={() => {
+                        className={cn(TRIGGER_HOVER, "text-text-secondary md:invisible md:group-hover/menu-item:visible md:group-focus-within/menu-item:visible")}
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (window.confirm(`Delete "${title}"? This can't be undone.`)) onDelete(session.id);
                         }}
                       >

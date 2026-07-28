@@ -24,11 +24,6 @@ const targets: ValidationTarget[] = [
     dataDir: "data/profiles"
   },
   {
-    name: "personas",
-    schemaPath: "data/schemas/persona.schema.json",
-    dataDir: "data/personas"
-  },
-  {
     name: "themes",
     schemaPath: "data/schemas/theme.schema.json",
     dataDir: "data/themes"
@@ -84,19 +79,6 @@ for (const target of targets) {
     }
 
     // Custom semantic validations
-    if (target.name === "personas") {
-      const persona = data.value as Record<string, unknown>;
-      if (persona.budget_weights) {
-        const budgetWeights = persona.budget_weights as Record<string, number>;
-        const sum = Object.values(budgetWeights).reduce((a, b) => a + b, 0);
-        if (Math.abs(sum - 1.0) > 0.001) {
-          hasErrors = true;
-          console.error(`${filePath} invalid: budget_weights must sum to 1.0 (found ${sum.toFixed(4)})`);
-          continue;
-        }
-      }
-    }
-
     if (target.name === "themes") {
       const theme = data.value as Record<string, unknown>;
       if (theme.tokens) {

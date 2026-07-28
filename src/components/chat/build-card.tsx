@@ -9,18 +9,19 @@ import { StatusBadge } from "../ui/status-badge";
 import type { DerivedBuild } from "./build-derive";
 import { validationStrip } from "./build-derive";
 
-// The flagship artifact. One card per proposed build, presented as persona pill
-// tabs above a shared card body. Prices are mono, right-aligned, tabular.
-export function BuildCard({ builds, personaLabels }: { builds: DerivedBuild[]; personaLabels: string[] }) {
+// The flagship artifact. One card per proposed build, presented as pill tabs
+// above a shared card body. Tab labels name the tradeoff each build makes and
+// come from the model via validate_build. Prices are mono, right-aligned, tabular.
+export function BuildCard({ builds }: { builds: DerivedBuild[] }) {
   const [index, setIndex] = useState(0);
   const active = builds[Math.min(index, builds.length - 1)];
   if (!active) return null;
 
-  const tabs = builds.map((_, i) => ({
+  const tabs = builds.map((build, i) => ({
     value: String(i),
-    label: personaLabels[i] ?? `Build ${i + 1}`
+    label: build.label ?? `Build ${i + 1}`
   }));
-  const total = sumPrices(active.components.map((component) => component.priceMinor));
+  const total = sumPrices(active.components.map((component) => component.price));
   const strip = validationStrip(active.validation);
 
   return (
@@ -31,13 +32,13 @@ export function BuildCard({ builds, personaLabels }: { builds: DerivedBuild[]; p
             tabs={tabs}
             value={String(Math.min(index, builds.length - 1))}
             onChange={(value) => setIndex(Number(value))}
-            ariaLabel="Build persona"
+            ariaLabel="Build strategy"
           />
         </div>
       ) : (
         <div className="border-b border-border px-4 py-3">
           <span className="inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
-            {personaLabels[0] ?? "Proposed build"}
+            {active.label ?? "Proposed build"}
           </span>
         </div>
       )}
@@ -85,7 +86,7 @@ export function BuildCard({ builds, personaLabels }: { builds: DerivedBuild[]; p
                 </span>
               </span>
               <span className="shrink-0 font-mono text-sm text-text">
-                {formatPrice(component.priceMinor, component.currency)}
+                {formatPrice(component.price, component.currency)}
               </span>
             </li>
           ))}

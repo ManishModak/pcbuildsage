@@ -1,99 +1,103 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Product } from "../db-types";
-
-interface MockDb {
-  prepare: (sql: string) => {
-    all: (...params: unknown[]) => unknown[];
-  };
-}
+import Database from "better-sqlite3";
+import { initializeSchema } from "../db";
 
 const state = vi.hoisted(() => ({
-  rows: [] as Product[],
-  db: {} as unknown as MockDb
+  memoryDb: null as InstanceType<typeof Database> | null
 }));
 
-vi.mock("../db", () => ({
-  getDb: () => state.db
-}));
+vi.mock("../db", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../db")>();
+  return {
+    ...original,
+    getDb: () => state.memoryDb
+  };
+});
 
 function resetDb() {
-  state.rows = [];
-  state.db = {
-    prepare: (_sql: string) => ({
-      all: (...params: unknown[]) => {
-        const [country, currency] = params;
-        const scoped = state.rows.filter((row) => row.country_code === country && row.currency === currency);
-        const groups = new Map<string, Product[]>();
-        for (const row of scoped) {
-          const bucket = groups.get(row.category) ?? [];
-          bucket.push(row);
-          groups.set(row.category, bucket);
-        }
-        const aggregated = [...groups.entries()].map(([category, rows]) => {
-          const prices = rows.map((row) => row.price_minor).filter((price): price is number => price !== null);
-          return {
-            category,
-            count: rows.length,
-            in_stock_count: rows.reduce((sum, row) => sum + (row.in_stock ?? 0), 0),
-            price_min: prices.length ? Math.min(...prices) : null,
-            price_max: prices.length ? Math.max(...prices) : null
-          };
-        });
-        return aggregated.sort((a, b) => b.count - a.count);
-      }
-    })
-  };
-  return "temp-products.sqlite";
+  if (state.memoryDb) {
+    state.memoryDb.close();
+  }
+  state.memoryDb = new Database(":memory:");
+  initializeSchema(state.memoryDb);
+  return ":memory:";
 }
 
 function addProduct(overrides: Partial<Product>) {
   const firstSeen = "2026-01-01T00:00:00.000Z";
-  state.rows.push({
+  const product = {
     id: overrides.id ?? "unknown",
     name: overrides.name ?? overrides.id ?? "unknown",
-    normalized_name: overrides.name ?? overrides.id ?? "unknown",
+    normalized_name: overrides.normalized_name ?? overrides.name ?? overrides.id ?? "unknown",
     registry_key: overrides.registry_key ?? overrides.id ?? null,
-    price_minor: overrides.price_minor ?? 1,
-    currency: "INR",
-    country_code: "IN",
-    retailer: "Local",
-    url: `https://example.com/${overrides.id}`,
-    image_url: null,
+    price: overrides.price ?? 1,
+    currency: overrides.currency ?? "INR",
+    country_code: overrides.country_code ?? "IN",
+    retailer: overrides.retailer ?? "Local",
+    url: overrides.url ?? `https://example.com/${overrides.id}`,
+    image_url: overrides.image_url ?? null,
     in_stock: overrides.in_stock ?? 1,
     category: overrides.category ?? "unknown",
-    specs: null,
-    first_seen: firstSeen,
-    last_scraped: firstSeen
-  });
+    subcategory: overrides.subcategory ?? null,
+    specs: overrides.specs ?? null,
+    first_seen: overrides.first_seen ?? firstSeen,
+    last_scraped: overrides.last_scraped ?? firstSeen
+  };
+
+  state.memoryDb!.prepare(`
+    INSERT INTO products (id, name, normalized_name, registry_key, price, currency, country_code, retailer, url, image_url, in_stock, category, subcategory, specs, first_seen, last_scraped)
+    VALUES (@id, @name, @normalized_name, @registry_key, @price, @currency, @country_code, @retailer, @url, @image_url, @in_stock, @category, @subcategory, @specs, @first_seen, @last_scraped)
+  `).run(product);
 }
 
 describe("getCatalog", () => {
-  it("aggregates populated categories and omits categories with no rows", async () => {
+  it("aggregates populated categories and includes all known categories", async () => {
     const { getCatalog } = await import("../tools/get-catalog");
     const dbPath = resetDb();
-    addProduct({ id: "gpu-1", price_minor: 460000, category: "gpu", in_stock: 1 });
-    addProduct({ id: "gpu-2", price_minor: 999900, category: "gpu", in_stock: 1 });
-    addProduct({ id: "cpu-1", price_minor: 50000, category: "cpu", in_stock: 1 });
+    addProduct({ id: "gpu-1", price: 4600, category: "gpu", in_stock: 1 });
+    addProduct({ id: "gpu-2", price: 9999, category: "gpu", in_stock: 1 });
+    addProduct({ id: "cpu-1", price: 500, category: "cpu", in_stock: 1 });
 
     const result = await getCatalog({ dbPath, countryCode: "IN", currency: "INR" });
 
-    expect(result.categories).toContainEqual({
+    // Should find the gpu entry
+    const gpu = result.categories.find(c => c.category === "gpu");
+    expect(gpu).toEqual({
       category: "gpu",
       count: 2,
       in_stock_count: 2,
-      price_min_minor: 460000,
-      price_max_minor: 999900
+      price_min: 4600,
+      price_max: 9999
     });
-    expect(result.categories.map((entry) => entry.category)).not.toContain("motherboard");
+
+    // Should find the motherboard entry with 0 count
+    const motherboard = result.categories.find(c => c.category === "motherboard");
+    expect(motherboard).toEqual({
+      category: "motherboard",
+      count: 0,
+      in_stock_count: 0,
+      price_min: null,
+      price_max: null,
+      note: "No products in the catalog for this category. Do not recommend or invent specific products for it."
+    });
+
+    expect(result.categories.length).toEqual(8);
     expect(result.scope).toEqual({ country_code: "IN", currency: "INR" });
   });
 
-  it("returns an empty categories array for an empty catalog", async () => {
+  it("returns all categories with 0 count for an empty catalog", async () => {
     const { getCatalog } = await import("../tools/get-catalog");
     const dbPath = resetDb();
 
     const result = await getCatalog({ dbPath, countryCode: "IN", currency: "INR" });
 
-    expect(result.categories).toEqual([]);
+    expect(result.categories.length).toEqual(8);
+    result.categories.forEach((cat) => {
+      expect(cat.count).toEqual(0);
+      expect(cat.price_min).toBeNull();
+      expect(cat.price_max).toBeNull();
+      expect(cat.note).toBe("No products in the catalog for this category. Do not recommend or invent specific products for it.");
+    });
   });
 });

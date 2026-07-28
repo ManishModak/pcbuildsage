@@ -19,13 +19,12 @@ export function minorDigits(currency: string): number {
  * Returns a plain string; callers render it in mono with tabular-nums.
  */
 export function formatPrice(
-  minor: number | null | undefined,
+  major: number | null | undefined,
   currency: string,
   locale?: string
 ): string {
-  if (minor === null || minor === undefined || Number.isNaN(minor)) return "—";
+  if (major === null || major === undefined || Number.isNaN(major)) return "—";
   const digits = minorDigits(currency);
-  const major = minor / 10 ** digits;
   try {
     return new Intl.NumberFormat(locale, {
       style: "currency",
@@ -52,7 +51,7 @@ export function formatLatency(ms: number | undefined): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
-export function formatRelativeTime(iso: string | undefined, now: number = Date.now()): string {
+export function formatRelativeTime(iso: string | Date | undefined, now: number = Date.now()): string {
   if (!iso) return "—";
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "—";
@@ -73,7 +72,8 @@ export function formatRelativeTime(iso: string | undefined, now: number = Date.n
   return rtf.format(diff, "second");
 }
 
-export function formatClock(iso: string, now: number = Date.now()): string {
+export function formatClock(iso: string | Date | undefined, now: number = Date.now()): string {
+  if (!iso) return "";
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
   const sameDay = new Date(then).toDateString() === new Date(now).toDateString();
@@ -99,4 +99,47 @@ export function titleCase(value: string): string {
   return value
     .replace(/[-_]+/g, " ")
     .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+export function getErrorMessageText(msg: string): string {
+  if (!msg) return "";
+  try {
+    const parsed = JSON.parse(msg);
+    if (parsed && typeof parsed === "object") {
+      if (parsed.message) return String(parsed.message);
+      if (parsed.error && typeof parsed.error === "object" && parsed.error.message) {
+        return String(parsed.error.message);
+      }
+      if (typeof parsed.error === "string") return parsed.error;
+    }
+  } catch {
+    // Ignore
+  }
+
+  const jsonStart = msg.indexOf("{");
+  const jsonEnd = msg.lastIndexOf("}");
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+    try {
+      const jsonSub = msg.slice(jsonStart, jsonEnd + 1);
+      const parsed = JSON.parse(jsonSub);
+      if (parsed && typeof parsed === "object") {
+        if (parsed.message) return String(parsed.message);
+        if (parsed.error && typeof parsed.error === "object" && parsed.error.message) {
+          return String(parsed.error.message);
+        }
+        if (typeof parsed.error === "string") return parsed.error;
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  return msg;
+}
+
+export function getErrorMessage(error: Error): string {
+  if (!error.message) {
+    return "Something interrupted the response. Check your provider chain in settings and try again.";
+  }
+  return getErrorMessageText(error.message);
 }

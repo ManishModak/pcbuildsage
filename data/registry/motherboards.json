@@ -7,14 +7,19 @@
     "chipset": "Z790",
     "ddr": "DDR5",
     "form_factor": "ATX",
-    "m2_slots": 3,
+    "m2_slots": 5,
     "aliases": [
       "ASUS Z790",
       "ROG Strix Z790-E Gaming WiFi",
       "Z790 ROG Strix Z790-E Gaming WiFi",
       "ASUS ROG Strix Z790-E Gaming WiFi"
     ],
-    "sata_ports": 4
+    "sata_ports": 4,
+    "sources": [
+      "https://rog.asus.com/motherboards/rog-strix/rog-strix-z790-e-gaming-wifi-model/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "asus-tuf-gaming-z790-plus-wifi": {
     "brand": "ASUS",
@@ -23,14 +28,19 @@
     "chipset": "Z790",
     "ddr": "DDR5",
     "form_factor": "ATX",
-    "m2_slots": 3,
+    "m2_slots": 4,
     "aliases": [
       "ASUS TUF Gaming Z790-Plus WiFi",
       "ASUS Z790",
       "Z790 TUF Gaming Z790-Plus WiFi",
       "TUF Gaming Z790-Plus WiFi"
     ],
-    "sata_ports": 4
+    "sata_ports": 4,
+    "sources": [
+      "https://www.asus.com/motherboards-components/motherboards/tuf-gaming/tuf-gaming-z790-plus-wifi/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "msi-mag-z790-tomahawk-wifi": {
     "brand": "MSI",
@@ -39,14 +49,19 @@
     "chipset": "Z790",
     "ddr": "DDR5",
     "form_factor": "ATX",
-    "m2_slots": 3,
+    "m2_slots": 4,
     "aliases": [
       "MAG Z790 Tomahawk WiFi",
       "MSI MAG Z790 Tomahawk WiFi",
       "MSI Z790",
       "Z790 MAG Z790 Tomahawk WiFi"
     ],
-    "sata_ports": 7
+    "sata_ports": 7,
+    "sources": [
+      "https://www.msi.com/Motherboard/MAG-Z790-TOMAHAWK-WIFI"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "gigabyte-z790-aorus-elite-ax": {
     "brand": "Gigabyte",
@@ -55,14 +70,19 @@
     "chipset": "Z790",
     "ddr": "DDR5",
     "form_factor": "ATX",
-    "m2_slots": 3,
+    "m2_slots": 4,
     "aliases": [
       "Gigabyte Z790",
       "Z790 Z790 Aorus Elite AX",
       "Z790 Aorus Elite AX",
       "Gigabyte Z790 Aorus Elite AX"
     ],
-    "sata_ports": 4
+    "sata_ports": 6,
+    "sources": [
+      "https://www.gigabyte.com/Motherboard/Z790-AORUS-ELITE-AX-rev-10"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "asrock-z790-taichi": {
     "brand": "ASRock",
@@ -70,15 +90,20 @@
     "socket": "LGA 1700",
     "chipset": "Z790",
     "ddr": "DDR5",
-    "form_factor": "ATX",
-    "m2_slots": 3,
+    "form_factor": "E-ATX",
+    "m2_slots": 5,
     "aliases": [
       "ASRock Z790 Taichi",
       "Z790 Taichi",
       "ASRock Z790",
       "Z790 Z790 Taichi"
     ],
-    "sata_ports": 8
+    "sata_ports": 8,
+    "sources": [
+      "https://www.asrock.com/mb/Intel/Z790%20Taichi/index.asp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "asus-tuf-gaming-b760m-plus-wifi": {
     "brand": "ASUS",
@@ -86,7 +111,7 @@
     "socket": "LGA 1700",
     "chipset": "B760",
     "ddr": "DDR5",
-    "form_factor": "ATX",
+    "form_factor": "Micro-ATX",
     "m2_slots": 2,
     "aliases": [
       "ASUS TUF Gaming B760M-Plus WiFi",
@@ -94,7 +119,12 @@
       "B760 TUF Gaming B760M-Plus WiFi",
       "ASUS B760"
     ],
-    "sata_ports": 4
+    "sata_ports": 4,
+    "sources": [
+      "https://www.asus.com/motherboards-components/motherboards/tuf-gaming/tuf-gaming-b760m-plus-wifi/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "msi-pro-b760m-a-wifi": {
     "brand": "MSI",
@@ -102,7 +132,7 @@
     "socket": "LGA 1700",
     "chipset": "B760",
     "ddr": "DDR5",
-    "form_factor": "ATX",
+    "form_factor": "Micro-ATX",
     "m2_slots": 2,
     "aliases": [
       "MSI PRO B760M-A WiFi",
@@ -110,7 +140,12 @@
       "MSI B760",
       "B760 PRO B760M-A WiFi"
     ],
-    "sata_ports": 4
+    "sata_ports": 4,
+    "sources": [
+      "https://www.msi.com/Motherboard/PRO-B760M-A-WIFI"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "gigabyte-b760m-aorus-elite-ax": {
     "brand": "Gigabyte",
@@ -126,7 +161,12 @@
       "Gigabyte B760",
       "B760 B760M Aorus Elite AX"
     ],
-    "sata_ports": 4
+    "sata_ports": 4,
+    "sources": [
+      "https://www.gigabyte.com/Motherboard/B760M-AORUS-ELITE-AX-rev-1x"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "asus-rog-strix-x670e-e-gaming-wifi": {
     "brand": "ASUS",
@@ -135,14 +175,19 @@
     "chipset": "X670E",
     "ddr": "DDR5",
     "form_factor": "ATX",
-    "m2_slots": 3,
+    "m2_slots": 4,
     "aliases": [
       "ROG Strix X670E-E Gaming WiFi",
       "ASUS ROG Strix X670E-E Gaming WiFi",
       "X670E ROG Strix X670E-E Gaming WiFi",
       "ASUS X670E"
     ],
-    "sata_ports": 4
+    "sata_ports": 4,
+    "sources": [
+      "https://rog.asus.com/motherboards/rog-strix/rog-strix-x670e-e-gaming-wifi-model/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "msi-mpg-x670e-carbon-wifi": {
     "brand": "MSI",
@@ -151,14 +196,19 @@
     "chipset": "X670E",
     "ddr": "DDR5",
     "form_factor": "ATX",
-    "m2_slots": 3,
+    "m2_slots": 4,
     "aliases": [
       "MSI MPG X670E Carbon WiFi",
       "MPG X670E Carbon WiFi",
       "X670E MPG X670E Carbon WiFi",
       "MSI X670E"
     ],
-    "sata_ports": 6
+    "sata_ports": 6,
+    "sources": [
+      "https://www.msi.com/Motherboard/MPG-X670E-CARBON-WIFI"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "gigabyte-x670e-aorus-elite-ax": {
     "brand": "Gigabyte",
@@ -167,14 +217,19 @@
     "chipset": "X670E",
     "ddr": "DDR5",
     "form_factor": "ATX",
-    "m2_slots": 3,
+    "m2_slots": 4,
     "aliases": [
       "X670E X670E Aorus Elite AX",
       "Gigabyte X670E",
       "X670E Aorus Elite AX",
       "Gigabyte X670E Aorus Elite AX"
     ],
-    "sata_ports": 4
+    "sata_ports": 4,
+    "sources": [
+      "https://www.gigabyte.com/Motherboard/X670E-AORUS-ELITE-AX-rev-10"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "asrock-x670e-taichi": {
     "brand": "ASRock",
@@ -182,15 +237,20 @@
     "socket": "AM5",
     "chipset": "X670E",
     "ddr": "DDR5",
-    "form_factor": "ATX",
-    "m2_slots": 3,
+    "form_factor": "E-ATX",
+    "m2_slots": 4,
     "aliases": [
       "X670E Taichi",
       "ASRock X670E",
       "X670E X670E Taichi",
       "ASRock X670E Taichi"
     ],
-    "sata_ports": 8
+    "sata_ports": 8,
+    "sources": [
+      "https://www.asrock.com/mb/AMD/X670E%20Taichi/index.asp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "asus-tuf-gaming-b650-plus-wifi": {
     "brand": "ASUS",
@@ -199,14 +259,19 @@
     "chipset": "B650",
     "ddr": "DDR5",
     "form_factor": "ATX",
-    "m2_slots": 2,
+    "m2_slots": 3,
     "aliases": [
       "ASUS B650",
       "B650 TUF Gaming B650-Plus WiFi",
       "TUF Gaming B650-Plus WiFi",
       "ASUS TUF Gaming B650-Plus WiFi"
     ],
-    "sata_ports": 4
+    "sata_ports": 4,
+    "sources": [
+      "https://www.asus.com/motherboards-components/motherboards/tuf-gaming/tuf-gaming-b650-plus-wifi/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "asus-rog-strix-b650-a-gaming-wifi": {
     "brand": "ASUS",
@@ -215,14 +280,19 @@
     "chipset": "B650",
     "ddr": "DDR5",
     "form_factor": "ATX",
-    "m2_slots": 2,
+    "m2_slots": 3,
     "aliases": [
       "ASUS ROG Strix B650-A Gaming WiFi",
       "ROG Strix B650-A Gaming WiFi",
       "ASUS B650",
       "B650 ROG Strix B650-A Gaming WiFi"
     ],
-    "sata_ports": 4
+    "sata_ports": 4,
+    "sources": [
+      "https://rog.asus.com/motherboards/rog-strix/rog-strix-b650-a-gaming-wifi-model/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "msi-mag-b650-tomahawk-wifi": {
     "brand": "MSI",
@@ -231,14 +301,19 @@
     "chipset": "B650",
     "ddr": "DDR5",
     "form_factor": "ATX",
-    "m2_slots": 2,
+    "m2_slots": 3,
     "aliases": [
       "MAG B650 Tomahawk WiFi",
       "MSI MAG B650 Tomahawk WiFi",
       "B650 MAG B650 Tomahawk WiFi",
       "MSI B650"
     ],
-    "sata_ports": 6
+    "sata_ports": 6,
+    "sources": [
+      "https://www.msi.com/Motherboard/MAG-B650-TOMAHAWK-WIFI"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "gigabyte-b650-aorus-elite-ax": {
     "brand": "Gigabyte",
@@ -247,14 +322,19 @@
     "chipset": "B650",
     "ddr": "DDR5",
     "form_factor": "ATX",
-    "m2_slots": 2,
+    "m2_slots": 3,
     "aliases": [
       "B650 Aorus Elite AX",
       "B650 B650 Aorus Elite AX",
       "Gigabyte B650",
       "Gigabyte B650 Aorus Elite AX"
     ],
-    "sata_ports": 4
+    "sata_ports": 4,
+    "sources": [
+      "https://www.gigabyte.com/Motherboard/B650-AORUS-ELITE-AX-rev-10-11"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   },
   "asrock-b650m-pro-rs": {
     "brand": "ASRock",
@@ -263,13 +343,18 @@
     "chipset": "B650",
     "ddr": "DDR5",
     "form_factor": "Micro-ATX",
-    "m2_slots": 2,
+    "m2_slots": 3,
     "aliases": [
       "B650M Pro RS",
       "B650 B650M Pro RS",
       "ASRock B650M Pro RS",
       "ASRock B650"
     ],
-    "sata_ports": 4
+    "sata_ports": 4,
+    "sources": [
+      "https://www.asrock.com/mb/AMD/B650M%20Pro%20RS/index.asp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T23:07:04Z"
   }
 }

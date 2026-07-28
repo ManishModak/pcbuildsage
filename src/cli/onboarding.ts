@@ -5,7 +5,6 @@ import { generateTextWithFallback, probeToolCapability } from "../lib/llm-client
 import { discoverModels } from "../lib/model-discovery";
 import type { LLMChainEntry, LLMProvider } from "../lib/config-types";
 import { loadEndpointPresets } from "../lib/endpoints";
-import { loadPersonas } from "../lib/personas";
 import { loadPersonalities } from "../lib/personalities";
 import { estimateScrape } from "./scrape";
 import { STATUS_GLYPHS, type Palette } from "./theme";
@@ -20,7 +19,6 @@ type Runtime = {
 export async function onboarding(runtime: Runtime): Promise<CliConfig> {
   intro("PCBuildSage first run");
   const config: CliConfig = {
-    persona: "balanced-showpiece",
     personality: "helpful-consultant",
     theme: "sage-dark",
     tier2Enabled: true,
@@ -32,16 +30,12 @@ export async function onboarding(runtime: Runtime): Promise<CliConfig> {
     message: "Choose a data source",
     options: [
       { value: "existing", label: "Use existing DB", hint: existsSync(path.join(process.cwd(), "data", "products.db")) ? "data/products.db found" : "create/open local DB" },
-      { value: "seed", label: "Download seed dataset", hint: "stub until seed artifacts ship" },
       { value: "scrape", label: "Scrape fresh data", hint: "configure profile and depth" }
     ],
     initialValue: existsSync(path.join(process.cwd(), "data", "products.db")) ? "existing" : "scrape"
   });
   ensureNotCanceled(dataSource);
 
-  if (dataSource === "seed") {
-    log.warn("Seed downloads are planned for Plan 7; continuing with local DB settings.");
-  }
   if (dataSource === "scrape") {
     const profile = await text({ message: "Profile", defaultValue: "india" });
     ensureNotCanceled(profile);
@@ -53,14 +47,6 @@ export async function onboarding(runtime: Runtime): Promise<CliConfig> {
   const { entry: chainEntry, persistKey } = await promptLlmEntry(runtime.palette);
   config.llmChain = [chainEntry];
   config.chatLlmChain = [chainEntry];
-
-  const persona = await select({
-    message: "Build persona",
-    options: loadPersonas().map((item) => ({ value: item.id, label: item.persona_name, hint: item.description })),
-    initialValue: "balanced-showpiece"
-  });
-  ensureNotCanceled(persona);
-  config.persona = persona;
 
   const personality = await select({
     message: "Chat personality",

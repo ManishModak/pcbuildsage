@@ -11,11 +11,27 @@ export type BuildIssue = {
   components: string[];
   detail: string;
 };
+export type SkippedCheck = { rule: RuleName; missing: ComponentCategory[] };
 export type ValidationResult = {
   valid: boolean;
   issues: BuildIssue[];
   resolved: Partial<Record<ComponentCategory, ResolvedSpec | ResolvedSpec[]>>;
+  /** Rules that never ran because the build has no part in that slot. Absent
+   *  categories are a scraping choice, not a build error - but the model must
+   *  disclose which guarantees it is therefore NOT making. */
+  skipped_checks: SkippedCheck[];
 };
+
+/** Which parts each rule needs before it can say anything at all. */
+const RULE_INPUTS: Array<{ rule: RuleName; needs: ComponentCategory[] }> = [
+  { rule: "socket", needs: ["cpu", "motherboard"] },
+  { rule: "ddr", needs: ["motherboard", "ram"] },
+  { rule: "wattage", needs: ["cpu", "psu"] },
+  { rule: "cooler", needs: ["cpu", "cooler"] },
+  { rule: "clearance", needs: ["case"] },
+  { rule: "storage", needs: ["motherboard", "storage"] },
+  { rule: "display_output", needs: ["cpu"] }
+];
 
 type Resolver = (part: BuildPart, category: ComponentCategory) => ResolvedSpec | undefined;
 
@@ -72,8 +88,43 @@ export function validateBuild(parts: BuildParts, options: { resolve?: Resolver }
   checkCooler(cpu, cooler, issues);
   checkStorage(motherboard, storage, issues);
 
+  const skipped_checks = RULE_INPUTS.flatMap(({ rule, needs }) => {
+    const missing = needs.filter((category) => {
+      const part = parts[category];
+      return part === undefined || part === null || (Array.isArray(part) && part.length === 0);
+    });
+    return missing.length ? [{ rule, missing }] : [];
+  });
+
   const dedupedIssues = dedupeIssues(issues);
-  return { valid: !dedupedIssues.some((issue) => issue.severity === "blocking" || issue.severity === "needs_research"), issues: dedupedIssues, resolved };
+  return {
+    valid: !dedupedIssues.some((issue) => issue.severity === "blocking" || issue.severity === "needs_research"),
+    issues: dedupedIssues,
+    resolved,
+    skipped_checks
+  };
+}
+
+/**
+ * True when a spec came from the registry but cannot cite a source.
+ *
+ * Such an entry is a placeholder (see entryConfidence in registry.ts), and a rule
+ * that computes on it produces a confident wrong answer - the worst possible
+ * output for a compatibility checker. Refusing to read the spec turns that into a
+ * needs_research issue, which is the signal that already drives the consult
+ * self-heal loop. A researched spec, even a low-confidence one, cites its sources
+ * and is allowed through to confidenceGate; that also stops research -> validate ->
+ * research looping forever on a part the web simply has little data about.
+ */
+function untrusted(component: ResolvedSpec, issues: BuildIssue[]): boolean {
+  if (component.source !== "registry" || component.confidence !== "low") return false;
+  issues.push(
+    needsResearch(
+      [component.key],
+      `${component.key} has unsourced placeholder specs in the registry. Research it with consult before any compatibility verdict is given.`
+    )
+  );
+  return true;
 }
 
 function checkSocket(cpu: ResolvedSpec | undefined, motherboard: ResolvedSpec | undefined, issues: BuildIssue[]) {
@@ -131,6 +182,7 @@ function checkWattage(cpu: ResolvedSpec | undefined, gpu: ResolvedSpec | undefin
 
 function checkDisplayOutput(cpu: ResolvedSpec | undefined, hasGpu: boolean, issues: BuildIssue[]) {
   if (!cpu || hasGpu) return;
+  if (untrusted(cpu, issues)) return;
   if (cpu.spec.igpu === false) {
     issues.push(blocking("display_output", [cpu.key], "CPU-only build has no display output because the CPU has no integrated GPU."));
     return;
@@ -208,6 +260,7 @@ function checkStorage(motherboard: ResolvedSpec | undefined, drives: ResolvedSpe
 }
 
 function stringSpec(component: ResolvedSpec, key: string, issues: BuildIssue[]) {
+  if (untrusted(component, issues)) return undefined;
   const value = component.spec[key];
   if (typeof value === "string" && value.length > 0) return value;
   issues.push(needsResearch([component.key], `${component.key} is missing required spec "${key}".`));
@@ -215,6 +268,7 @@ function stringSpec(component: ResolvedSpec, key: string, issues: BuildIssue[]) 
 }
 
 function numberSpec(component: ResolvedSpec, key: string, issues: BuildIssue[]) {
+  if (untrusted(component, issues)) return undefined;
   const value = component.spec[key];
   if (typeof value === "number") return value;
   issues.push(needsResearch([component.key], `${component.key} is missing required spec "${key}".`));
@@ -222,6 +276,7 @@ function numberSpec(component: ResolvedSpec, key: string, issues: BuildIssue[]) 
 }
 
 function arraySpec(component: ResolvedSpec, key: string, issues: BuildIssue[]) {
+  if (untrusted(component, issues)) return undefined;
   const value = component.spec[key];
   if (Array.isArray(value) && value.every((item) => typeof item === "string")) return value;
   issues.push(needsResearch([component.key], `${component.key} is missing required spec "${key}".`));

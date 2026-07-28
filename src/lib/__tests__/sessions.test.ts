@@ -1,97 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mirrors search-products.test.ts: instead of a real database we mock the
-// low-level driver (better-sqlite3) that sessions.ts opens, and reimplement
-// just the SQL semantics sessions.ts relies on over an in-memory Map. This
-// exercises the REAL sessions.ts logic (getSessionsDb, upsert, JSON
-// (de)serialization, ordering) without touching disk.
-
-type StoredRow = {
-  id: string;
-  created_at: string;
-  updated_at: string;
-  title: string | null;
-  country_code: string | null;
-  currency: string | null;
-  messages: string;
-  build_state: string | null;
-};
-
-const state = vi.hoisted(() => ({
-  rows: new Map<string, StoredRow>()
-}));
-
-vi.mock("better-sqlite3", () => {
-  class FakeStatement {
-    constructor(private readonly sql: string) {}
-
-    run(...params: unknown[]) {
-      if (/INSERT INTO sessions/i.test(this.sql)) {
-        const [id, created_at, updated_at, title, country_code, currency, messages, build_state] = params as [
-          string,
-          string,
-          string,
-          string | null,
-          string | null,
-          string | null,
-          string,
-          string | null
-        ];
-        const existing = state.rows.get(id);
-        if (existing) {
-          // ON CONFLICT(id) DO UPDATE: created_at stays, everything else refreshes.
-          state.rows.set(id, { ...existing, updated_at, title, country_code, currency, messages, build_state });
-        } else {
-          state.rows.set(id, { id, created_at, updated_at, title, country_code, currency, messages, build_state });
-        }
-        return { changes: 1 };
-      }
-      if (/DELETE FROM sessions/i.test(this.sql)) {
-        const [id] = params as [string];
-        const existed = state.rows.delete(id);
-        return { changes: existed ? 1 : 0 };
-      }
-      return { changes: 0 };
-    }
-
-    get(...params: unknown[]) {
-      if (/SELECT \* FROM sessions WHERE id/i.test(this.sql)) {
-        const [id] = params as [string];
-        return state.rows.get(id);
-      }
-      return undefined;
-    }
-
-    all() {
-      if (/ORDER BY updated_at DESC/i.test(this.sql)) {
-        return [...state.rows.values()]
-          .map((row) => ({ id: row.id, title: row.title, created_at: row.created_at, updated_at: row.updated_at }))
-          .sort((a, b) => (a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0));
-      }
-      return [];
+vi.mock("better-sqlite3", async (importOriginal) => {
+  const original = await importOriginal<typeof import("better-sqlite3")>();
+  const ActualDatabase = typeof original === "function" ? original : (original as { default: typeof original }).default;
+  class WrappedDatabase extends ActualDatabase {
+    constructor(dbPath: string, options?: unknown) {
+      super(":memory:", options as Parameters<typeof ActualDatabase>[1]);
     }
   }
-
-  class FakeDatabase {
-    open = true;
-    pragma() {}
-    exec() {}
-    prepare(sql: string) {
-      return new FakeStatement(sql);
-    }
-    close() {
-      this.open = false;
-    }
-  }
-
-  return { default: FakeDatabase };
+  return {
+    default: WrappedDatabase
+  };
 });
 
-import { deleteSession, getSession, listSessions, saveSession } from "../sessions";
+import { deleteSession, getSession, listSessions, saveSession, getSessionsDb } from "../sessions";
 
 describe("sessions store", () => {
   beforeEach(() => {
-    state.rows.clear();
+    const db = getSessionsDb();
+    db.exec("DELETE FROM sessions");
     vi.useRealTimers();
   });
 
@@ -103,7 +30,7 @@ describe("sessions store", () => {
         role: "assistant",
         parts: [
           { type: "reasoning", text: "Consider GPU first per the cascade." },
-          { type: "tool-search_products", state: "output-available", output: { results: [{ id: "gpu-1", price_minor: 460000 }] } },
+          { type: "tool-search_products", state: "output-available", output: { results: [{ id: "gpu-1", price: 4600 }] } },
           { type: "text", text: "Here is a build." }
         ]
       }

@@ -18,7 +18,6 @@ import { getConfigValue, hasCliConfig, isSensitiveConfigKey, readCliConfig, setC
 import { runScraper, runTestProfile, type ScrapeRunConfig } from "./scrape";
 import { STATUS_GLYPHS, banner, createPalette, listThemes, type Palette } from "./theme";
 import { onboarding, ensureNotCanceled } from "./onboarding";
-import { downloadSeed } from "../lib/seed-download-helper";
 
 // One conversation id per CLI process run, threaded into the debug log so
 // interleaved chat.jsonl / logs entries can be filtered per conversation.
@@ -127,12 +126,8 @@ async function runSubcommand(parsed: ParsedArgs, runtime: Runtime): Promise<numb
       return configCommand(parsed);
     case "export-research":
       return exportResearchCommand(parsed, runtime);
-    case "seed":
-      return seedCommand(parsed, runtime);
     case "provider":
       return simpleSetCommand("llmChain", parsed, runtime, "provider chain");
-    case "persona":
-      return simpleSetCommand("persona", parsed, runtime, "persona");
     case "personality":
       return simpleSetCommand("personality", parsed, runtime, "personality");
     case "audit":
@@ -151,10 +146,8 @@ async function runSubcommand(parsed: ParsedArgs, runtime: Runtime): Promise<numb
 
 async function askCommand(parsed: ParsedArgs, runtime: Runtime): Promise<number> {
   const query = parsed.positionals.join(" ").trim();
-  if (!query) throw new Error('Usage: pcbuildsage ask "<query>" [--persona id] [--json]');
+  if (!query) throw new Error('Usage: pcbuildsage ask "<query>" [--json]');
   const flags: ConfigInput = {};
-  const persona = stringFlag(parsed.flags, "persona");
-  if (persona) flags.persona = persona;
   const config = { ...runtime.saved, ...flags };
   const messages: ChatMessage[] = [{ role: "user", content: query }];
   if (booleanFlag(parsed.flags, "json")) {
@@ -261,23 +254,6 @@ async function exportResearchCommand(parsed: ParsedArgs, runtime: Runtime): Prom
   return 0;
 }
 
-async function seedCommand(parsed: ParsedArgs, runtime: Runtime): Promise<number> {
-  const country = (stringFlag(parsed.flags, "country") ?? parsed.positionals[0])?.toUpperCase();
-  if (!country || !/^[A-Z]{2}$/.test(country)) throw new Error("seed requires --country <ISO-2>.");
-  const dbPath = stringFlag(parsed.flags, "db") ?? runtime.saved.dbPath ?? "data/products.db";
-  const jsonMode = booleanFlag(parsed.flags, "json");
-  if (!jsonMode) console.log(`Downloading community seed dataset for ${country}...`);
-  await downloadSeed(country, {
-    dbPath,
-    onProgress(percent, message) {
-      if (!jsonMode) process.stdout.write(`\rProgress: [${percent}%] ${message}`);
-    }
-  });
-  if (jsonMode) console.log(JSON.stringify({ ok: true, country, dbPath }));
-  else console.log(`\nSeed database for ${country} downloaded successfully.`);
-  return 0;
-}
-
 async function simpleSetCommand(key: string, parsed: ParsedArgs, runtime: Runtime, label: string): Promise<number> {
   const value = parsed.positionals.join(" ").trim();
   if (!value) {
@@ -318,7 +294,7 @@ async function streamAssistant(configInput: CliConfig, messages: ChatMessage[], 
   const result = await streamChat(config, messages, CLI_SESSION_ID);
   if (result.fallbackIndex > 0) {
     const message = `Failover: using ${result.provider}:${result.model}`;
-    appendChatLog({ role: "system", content: message, session_id: CLI_SESSION_ID, provider: result.provider, modelId: result.model });
+    await appendChatLog({ role: "system", content: message, session_id: CLI_SESSION_ID, provider: result.provider, modelId: result.model });
     console.log(palette.warn(`${STATUS_GLYPHS.warn} ${message}`));
   }
   let content = "";

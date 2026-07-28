@@ -1,4 +1,4 @@
-import { generateText, streamText, tool, type AsyncIterableStream, type LanguageModel, type ModelMessage, type StopCondition, type StreamTextResult, type TextStreamPart, type ToolSet } from "ai";
+import { generateText, streamText, tool, type AsyncIterableStream, type LanguageModel, type ModelMessage, type StopCondition, type StreamTextResult, type TextStreamPart, type ToolSet, type OnFinishEvent, type OnStepFinishEvent } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { z } from "zod";
@@ -77,10 +77,8 @@ export async function streamTextWithFallback(args: {
   maxSteps?: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   stopWhen?: StopCondition<any> | Array<StopCondition<any>>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onStepFinish?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onFinish?: any;
+  onStepFinish?: (event: OnStepFinishEvent<ToolSet>) => void | Promise<void>;
+  onFinish?: (event: OnFinishEvent<ToolSet>) => void | Promise<void>;
 }) {
   if (!args.chain.length) throw new Error("LLM chain is empty.");
   const errors: unknown[] = [];
@@ -221,8 +219,8 @@ async function probeStarted(result: StreamTextResult<ToolSet, any, any>): Promis
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function withServedStreams(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result: StreamTextResult<ToolSet, any, any>,
   fullStream: AsyncIterableStream<TextStreamPart<ToolSet>>,
   entry: LLMChainEntry,

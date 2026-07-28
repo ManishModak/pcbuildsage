@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 from urllib.parse import quote, urljoin
@@ -8,6 +9,8 @@ from urllib.parse import quote, urljoin
 from .extractor import extract_products, raw_from_llm_payload
 from .llm_client import LLMClient
 from .models import BrowserConfig, CategoryConfig, RawProduct, SiteConfig
+
+logger = logging.getLogger(__name__)
 
 
 class CrawlError(RuntimeError):
@@ -21,13 +24,12 @@ class ExtractionFallbackState:
 
 
 class Crawl4AIFetcher:
-    def __init__(self, db_path: str | None = None) -> None:
+    def __init__(self) -> None:
         self._crawlers: dict[BrowserConfig, Any] = {}
         self._crawler_contexts: dict[BrowserConfig, Any] = {}
         self._crawler_run_config: Any | None = None
         self._cache_mode: Any | None = None
         self._start_lock = asyncio.Lock()
-        self.db_path = db_path
 
     async def __aenter__(self) -> "Crawl4AIFetcher":
         return self
@@ -78,7 +80,6 @@ class Crawl4AIFetcher:
             return crawler
 
     async def fetch(self, url: str, site: SiteConfig) -> str:
-        from .db import write_db_log
         try:
             crawler = await self._ensure_crawler(site)
             run_cfg = self._crawler_run_config(
@@ -97,15 +98,26 @@ class Crawl4AIFetcher:
                     return html
             else:
                 err_msg = str(getattr(result, "error_message", "unknown error"))
-                if self.db_path:
-                    write_db_log(self.db_path, "WARN", "scraper", f"Crawl4AI fetch failed for {url}. Error: {err_msg}")
+                logger.warning(
+                    "Crawl4AI fetch failed for %s. Error: %s",
+                    url,
+                    err_msg,
+                    extra={"component": "scraper"}
+                )
         except Exception as e:
-            if self.db_path:
-                write_db_log(self.db_path, "WARN", "scraper", f"Crawl4AI raised exception for {url}: {str(e)}")
+            logger.warning(
+                "Crawl4AI raised exception for %s: %s",
+                url,
+                str(e),
+                extra={"component": "scraper"}
+            )
 
         # Fallback to standard HTTP fetch for robust bot-bypass
-        if self.db_path:
-            write_db_log(self.db_path, "INFO", "scraper", f"Triggering self-healing HTTP fallback for {url}")
+        logger.info(
+            "Triggering self-healing HTTP fallback for %s",
+            url,
+            extra={"component": "scraper"}
+        )
         try:
             import urllib.request
             req = urllib.request.Request(
@@ -119,12 +131,19 @@ class Crawl4AIFetcher:
                     return resp.read().decode('utf-8', errors='ignore')
             html = await asyncio.to_thread(_http_get)
             if html:
-                if self.db_path:
-                    write_db_log(self.db_path, "INFO", "scraper", f"HTTP fallback succeeded for {url}")
+                logger.info(
+                    "HTTP fallback succeeded for %s",
+                    url,
+                    extra={"component": "scraper"}
+                )
                 return html
         except Exception as http_exc:
-            if self.db_path:
-                write_db_log(self.db_path, "ERROR", "scraper", f"Crawl4AI and HTTP fallback both failed for {url}. Error: {http_exc}")
+            logger.error(
+                "Crawl4AI and HTTP fallback both failed for %s. Error: %s",
+                url,
+                http_exc,
+                extra={"component": "scraper"}
+            )
             raise CrawlError(f"Crawl4AI and HTTP fallback both failed. HTTP error: {http_exc}") from http_exc
 
         raise CrawlError("Crawl failed")
@@ -179,16 +198,14 @@ class ScraperCrawler:
         llm_client: LLMClient | None = None,
         llm_enabled: bool = True,
         max_llm_calls: int = 25,
-        db_path: str | None = None,
     ) -> None:
-        self.fetcher = fetcher or Crawl4AIFetcher(db_path=db_path)
+        self.fetcher = fetcher or Crawl4AIFetcher()
         self.delay_ms = delay_ms
         self.selector_failure_threshold = selector_failure_threshold
         self.llm_client = llm_client
         self.llm_enabled = llm_enabled
         self.max_llm_calls = max_llm_calls
         self.llm_calls = 0
-        self.db_path = db_path
 
     def _should_invoke_llm(self, failed: list[RawProduct], cumulative_selector_failures: int) -> bool:
         return bool(
@@ -214,23 +231,28 @@ class ScraperCrawler:
             return valid_products, fallback_state
 
         self.llm_calls += 1
-        from .db import write_db_log
-        if self.db_path:
-            query_details = {
-                "site": site.site_name,
-                "failed_count": len(fallback_state.failed_products),
-                "failed_products_html": [item.source_html[:500] for item in fallback_state.failed_products]
-            }
-            write_db_log(self.db_path, "INFO", "llm", f"Invoking LLM extraction fallback for {site.site_name}", query_details)
+        query_details = {
+            "site": site.site_name,
+            "failed_count": len(fallback_state.failed_products),
+            "failed_products_html": [item.source_html[:500] for item in fallback_state.failed_products]
+        }
+        logger.info(
+            "Invoking LLM extraction fallback for %s",
+            site.site_name,
+            extra={"component": "llm", "details": query_details}
+        )
 
         payload = await asyncio.to_thread(self.llm_client.extract_products, [item.source_html for item in fallback_state.failed_products])
         
-        if self.db_path:
-            response_details = {
-                "site": site.site_name,
-                "payload": payload
-            }
-            write_db_log(self.db_path, "INFO", "llm", f"LLM extraction fallback response received for {site.site_name}", response_details)
+        response_details = {
+            "site": site.site_name,
+            "payload": payload
+        }
+        logger.info(
+            "LLM extraction fallback response received for %s",
+            site.site_name,
+            extra={"component": "llm", "details": response_details}
+        )
 
         fallback = raw_from_llm_payload(payload, site.base_url)
         if fallback:

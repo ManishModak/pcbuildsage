@@ -1,5 +1,15 @@
 import sys
 import asyncio
+from pathlib import Path
+from bs4 import BeautifulSoup
+
+# Ensure scraper package is importable if run directly as a script
+src_dir = Path(__file__).resolve().parent.parent
+if str(src_dir) not in sys.path:
+    sys.path.insert(0, str(src_dir))
+
+from scraper.crawler import Crawl4AIFetcher
+from scraper.models import SiteConfig, BrowserConfig
 
 async def main():
     if len(sys.argv) < 2:
@@ -8,33 +18,26 @@ async def main():
     
     url = sys.argv[1]
     
-    # Try Crawl4AI first
+    # Construct a dummy SiteConfig to satisfy the fetch signature
+    site = SiteConfig(
+        site_name="crawl_page",
+        base_url=url,
+        scraping_type="category",
+        browser_config=BrowserConfig(headless=True, js_rendering=True),
+        categories={},
+        selectors={},
+        country_code="US",
+        currency="USD"
+    )
+    
     try:
-        from crawl4ai import AsyncWebCrawler, CacheMode, CrawlerRunConfig
-        
-        config = CrawlerRunConfig(cache_mode=CacheMode.BYPASS)
-        async with AsyncWebCrawler() as crawler:
-            result = await crawler.arun(url=url, config=config)
-            if result.success and result.markdown:
-                print(result.markdown)
-                return
+        async with Crawl4AIFetcher() as fetcher:
+            html = await fetcher.fetch(url, site)
     except Exception as e:
-        # Fall back to BeautifulSoup
-        pass
-
-    # Fallback: urllib + BeautifulSoup
-    try:
-        import urllib.request
-        from bs4 import BeautifulSoup
+        print(f"Error crawling page: {e}", file=sys.stderr)
+        sys.exit(1)
         
-        # Add a realistic User-Agent to avoid simple blocking
-        req = urllib.request.Request(
-            url, 
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        )
-        with urllib.request.urlopen(req, timeout=10) as response:
-            html = response.read().decode('utf-8', errors='ignore')
-            
+    try:
         soup = BeautifulSoup(html, 'html.parser')
         
         # Remove script, style, and metadata elements
@@ -51,7 +54,7 @@ async def main():
         
         print(clean_text)
     except Exception as e:
-        print(f"Error crawling page: {e}", file=sys.stderr)
+        print(f"Error parsing page content: {e}", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":

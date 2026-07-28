@@ -8,11 +8,10 @@ import {
   exportResearch,
   fetchCredentials,
   fetchEndpoints,
-  fetchPersonalities,
-  fetchPersonas
+  fetchPersonalities
 } from "../lib/api";
-import type { ClientConfig, ThemeFile, CredentialAvailability, EndpointPreset, Personality, Persona, SearchProvider } from "../lib/types";
-import { saveUiKey, readKeyMap, type KeyMap } from "../lib/config-store";
+import type { ClientConfig, ThemeFile, CredentialAvailability, EndpointPreset, Personality, SearchProvider } from "../lib/types";
+import { saveUiKey, type KeyMap } from "../lib/config-store";
 import { ChainBuilder } from "../llm/chain-builder";
 import { cn } from "../ui/cn";
 import { Icon } from "../ui/icon";
@@ -48,6 +47,18 @@ const NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Sparkles }[] = [
   { id: "database", label: "Scraping & Local Catalog", icon: Database }
 ];
 
+/**
+ * Deep links like /settings?tab=database open straight to that panel. Read as
+ * lazy initial state rather than in an effect: SettingsView only mounts once
+ * the app provider reports `ready`, which is always post-hydration, so there is
+ * no server render for this to disagree with.
+ */
+function initialTab(): SettingsTab {
+  if (typeof window === "undefined") return "llm";
+  const requested = new URLSearchParams(window.location.search).get("tab");
+  return NAV_ITEMS.some((item) => item.id === requested) ? (requested as SettingsTab) : "llm";
+}
+
 interface SettingsLayoutProps {
   config: ClientConfig;
   themes: ThemeFile[];
@@ -55,7 +66,6 @@ interface SettingsLayoutProps {
   setTheme: (name: string) => void;
   credentials: CredentialAvailability | null;
   endpoints: EndpointPreset[];
-  personas: Persona[];
   personalities: Personality[];
   exportState: { busy: boolean; files?: string[]; error?: string };
   uiKeys: KeyMap;
@@ -63,7 +73,6 @@ interface SettingsLayoutProps {
   setActiveTab: (tab: SettingsTab) => void;
   handleKeyChange: (provider: string, value: string) => void;
   runExport: () => Promise<void>;
-  togglePersona: (id: string) => void;
 }
 
 function SettingsLayout({
@@ -73,15 +82,13 @@ function SettingsLayout({
   setTheme,
   credentials,
   endpoints,
-  personas,
   personalities,
   exportState,
   uiKeys,
   activeTab,
   setActiveTab,
   handleKeyChange,
-  runExport,
-  togglePersona
+  runExport
 }: SettingsLayoutProps) {
   return (
     <>
@@ -240,40 +247,6 @@ function SettingsLayout({
                 </div>
               </Section>
 
-              <Section title="Build personas" description="Which strategies the sage compares.">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {personas.map((persona) => {
-                    const active = config.personas.includes(persona.id);
-                    return (
-                      <button
-                        key={persona.id}
-                        type="button"
-                        role="checkbox"
-                        aria-checked={active}
-                        onClick={() => togglePersona(persona.id)}
-                        className={cn(
-                          "flex items-start gap-3 rounded-card border bg-surface p-3 text-left transition-colors duration-150 cursor-pointer",
-                          active ? "border-accent" : "border-border hover:border-text-muted"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border",
-                            active ? "border-accent bg-accent text-on-accent" : "border-border"
-                          )}
-                        >
-                          {active ? <Icon icon={Check} size={13} /> : null}
-                        </span>
-                        <span className="flex flex-col gap-0.5">
-                          <span className="text-sm font-medium text-text">{persona.persona_name}</span>
-                          <span className="text-caption text-text-secondary">{persona.description}</span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </Section>
-
               <Section title="Personality" description="The tone the sage speaks in.">
                 <div className="grid gap-2 sm:grid-cols-2">
                   {personalities.map((personality) => {
@@ -376,18 +349,18 @@ export function SettingsView() {
   const { config, themes, updateConfig, setTheme } = useApp();
   const [credentials, setCredentials] = useState<CredentialAvailability | null>(null);
   const [endpoints, setEndpoints] = useState<EndpointPreset[]>([]);
-  const [personas, setPersonas] = useState<Persona[]>([]);
   const [personalities, setPersonalities] = useState<Personality[]>([]);
   const [exportState, setExportState] = useState<{ busy: boolean; files?: string[]; error?: string }>({ busy: false });
+  // Keys the user types this session. Deliberately not seeded from storage:
+  // saved keys are write-only (see KeyMap in config-store) and reach the server
+  // as headers via apiKeyHeaders, so they never need to be read back into an input.
   const [uiKeys, setUiKeys] = useState<KeyMap>({});
-  const [activeTab, setActiveTab] = useState<SettingsTab>("llm");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
 
   useEffect(() => {
     fetchCredentials().then(setCredentials).catch(() => setCredentials(null));
     fetchEndpoints().then(setEndpoints).catch(() => setEndpoints([]));
-    fetchPersonas().then(setPersonas).catch(() => setPersonas([]));
     fetchPersonalities().then(setPersonalities).catch(() => setPersonalities([]));
-    setUiKeys(readKeyMap());
   }, []);
 
   const handleKeyChange = (provider: string, value: string) => {
@@ -405,12 +378,6 @@ export function SettingsView() {
     }
   };
 
-  const togglePersona = (id: string) => {
-    const active = config.personas.includes(id);
-    const next = active ? config.personas.filter((item) => item !== id) : [...config.personas, id];
-    updateConfig({ personas: next.length ? next : [id] });
-  };
-
   return (
     <SidebarProvider defaultOpen className="h-dvh overflow-hidden bg-bg text-text">
       <SettingsLayout
@@ -420,7 +387,6 @@ export function SettingsView() {
         setTheme={setTheme}
         credentials={credentials}
         endpoints={endpoints}
-        personas={personas}
         personalities={personalities}
         exportState={exportState}
         uiKeys={uiKeys}
@@ -428,7 +394,6 @@ export function SettingsView() {
         setActiveTab={setActiveTab}
         handleKeyChange={handleKeyChange}
         runExport={runExport}
-        togglePersona={togglePersona}
       />
     </SidebarProvider>
   );

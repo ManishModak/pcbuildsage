@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync } from "node:fs";
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import { writeDbLog } from "./db";
 
@@ -15,7 +15,7 @@ export type ChatLogEntry = {
   provider?: string;
 };
 
-export function appendChatLog(entry: ChatLogEntry, logPath = path.join(process.cwd(), "logs", "chat.jsonl")): void {
+export async function appendChatLog(entry: ChatLogEntry, logPath = path.join(process.cwd(), "logs", "chat.jsonl")): Promise<void> {
   const safe: ChatLogEntry = {
     timestamp: entry.timestamp ?? new Date().toISOString(),
     session_id: entry.session_id,
@@ -28,8 +28,8 @@ export function appendChatLog(entry: ChatLogEntry, logPath = path.join(process.c
     modelId: entry.modelId,
     provider: entry.provider
   };
-  mkdirSync(path.dirname(logPath), { recursive: true });
-  appendFileSync(logPath, `${JSON.stringify(safe)}\n`, "utf8");
+  await fs.mkdir(path.dirname(logPath), { recursive: true });
+  await fs.appendFile(logPath, `${JSON.stringify(safe)}\n`, "utf8");
 
   // Sync log entry to rotating SQLite logs table
   try {
@@ -38,8 +38,8 @@ export function appendChatLog(entry: ChatLogEntry, logPath = path.join(process.c
     const message = entry.role === "tool"
       ? `Tool Call: ${entry.toolName}`
       : `${entry.role?.toUpperCase() || "CHAT"} message`;
-    writeDbLog(undefined, level, component, message, safe as Record<string, any>);
-  } catch (error) {
+    writeDbLog(undefined, level, component, message, safe as Record<string, unknown>);
+  } catch {
     // Ignore database write failures to prevent interrupting user chat sessions
   }
 }

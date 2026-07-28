@@ -24,11 +24,75 @@ BRAND_CANONICAL = {
 }
 
 
+# Retailers file products by shop-shelf taxonomy, not by build role: MDComputers'
+# "storage" aisle holds internal SSDs alongside pen drives, memory cards, NAS
+# units and the occasional RAM stick. `subcategory` records what a row actually
+# is, so build flows can ask for parts that go *inside* a PC without anything
+# being pruned from the catalog.
+BUILD_SUBCATEGORY = "internal"
+
+# DDR alone is not enough: "Asus GT 710 2GB DDR5 Graphics Card" is a GPU. Require
+# a memory-module word or a CAS-latency token alongside it.
+_DDR = re.compile(r"\bddr[345]\b", re.IGNORECASE)
+_RAM_CONFIRM = re.compile(r"\b(ram|dimm|sodimm|udimm)\b|\bcl\d{2}\b", re.IGNORECASE)
+
+_REMOVABLE = re.compile(
+    r"pen\s*drive|pendrive|flash\s+drive|jump\s*drive|data\s*traveler|datatraveler"
+    r"|micro\s*sdxc|micro\s*sdhc|micro\s*sd|sdxc|sdhc|memory\s+card|card\s+reader"
+    r"|cruzer|\botg\b",
+    re.IGNORECASE,
+)
+_EXTERNAL = re.compile(
+    r"\bexternal\b|\bportable\b|my\s+passport|easystore|\benclosure\b|docking\s+station",
+    re.IGNORECASE,
+)
+_INTERNAL = re.compile(
+    r"\bnvme\b|\bm\.?2\b|\bsata\b|\bssd\b|\bhdd\b|hard\s+disk|hard\s+drive",
+    re.IGNORECASE,
+)
+_ACCESSORY = re.compile(r"\bnas\b|rail\s*kit|\bcaddy\b|\bbracket\b", re.IGNORECASE)
+
+
+def reclassify_category(name: str, category: str) -> str:
+    """Correct a retailer's shelf category when the title says otherwise.
+
+    Only RAM-in-storage is corrected today; that is the one misfiling observed in
+    the live catalog, and it is what made the assistant tell a user "RAM is
+    unavailable" while three DDR5 sticks sat in the storage aisle.
+    """
+    if category == "storage" and _DDR.search(name) and _RAM_CONFIRM.search(name):
+        return "ram"
+    return category
+
+
+def classify_subcategory(name: str, category: str) -> str | None:
+    """Return the build role of a product, or None when the category has no split.
+
+    Order is load-bearing. External must precede internal, or a "Portable SSD"
+    reads as an internal drive; internal must precede accessory, or a "4TB NAS
+    HDD" (a real internal drive) reads as a NAS box. Storage titles that match
+    nothing default to `internal`: hiding a genuine SSD from a build is a worse
+    failure than admitting an unknown, and misclassification here is one UPDATE
+    to undo, whereas exclusion is silent.
+    """
+    if category != "storage":
+        return None
+    if _REMOVABLE.search(name):
+        return "removable"
+    if _EXTERNAL.search(name):
+        return "external"
+    if _INTERNAL.search(name):
+        return BUILD_SUBCATEGORY
+    if _ACCESSORY.search(name):
+        return "accessory"
+    return BUILD_SUBCATEGORY
+
+
 def product_id(url: str) -> str:
     return hashlib.sha1(url.encode("utf-8")).hexdigest()
 
 
-def parse_price_minor(price_text: str | None) -> int | None:
+def parse_price(price_text: str | None) -> float | None:
     if not price_text:
         return None
     text = price_text.replace("\xa0", " ")
@@ -40,7 +104,8 @@ def parse_price_minor(price_text: str | None) -> int | None:
         value = Decimal(numeric)
     except InvalidOperation:
         return None
-    return int(value * 100)
+    return float(value)
+
 
 
 def normalize_title(title: str) -> str:

@@ -3,7 +3,6 @@ import type {
   CredentialAvailability,
   DiscoveredModel,
   EndpointPreset,
-  Persona,
   Personality,
   PingResult,
   ProfileSummary,
@@ -35,11 +34,6 @@ export async function fetchProfiles(): Promise<ProfileSummary[]> {
 export async function fetchThemes(): Promise<ThemeFile[]> {
   const data = await getJson<{ themes: ThemeFile[] }>("/api/themes");
   return data.themes;
-}
-
-export async function fetchPersonas(): Promise<Persona[]> {
-  const data = await getJson<{ personas: Persona[] }>("/api/personas");
-  return data.personas;
 }
 
 export async function fetchPersonalities(): Promise<Personality[]> {
@@ -208,8 +202,8 @@ export async function exportResearch(): Promise<{ files: string[] }> {
 export type SessionDetail = {
   id: string;
   title: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at: Date;
   country_code: string | null;
   currency: string | null;
   messages: ChatUIMessage[];
@@ -224,14 +218,51 @@ export type SaveSessionRequest = {
   currency?: string;
 };
 
+interface SessionSummaryRaw {
+  id: string;
+  title?: string;
+  created_at: string | number;
+  updated_at: string | number;
+  [key: string]: unknown;
+}
+
+interface SessionDetailRaw {
+  id: string;
+  messages: { createdAt?: string | number; [key: string]: unknown }[];
+  created_at: string | number;
+  updated_at: string | number;
+  [key: string]: unknown;
+}
+
 export async function fetchSessions(): Promise<SessionSummary[]> {
-  const data = await getJson<{ sessions: SessionSummary[] }>("/api/sessions");
-  return data.sessions;
+  const data = await getJson<{ sessions: SessionSummaryRaw[] }>("/api/sessions");
+  return data.sessions.map((s) => ({
+    id: s.id,
+    title: s.title ?? null,
+    created_at: new Date(s.created_at),
+    updated_at: new Date(s.updated_at)
+  }));
 }
 
 export async function fetchSession(id: string): Promise<SessionDetail | null> {
-  const data = await getJson<{ session: SessionDetail | null }>(`/api/sessions/${id}`);
-  return data.session;
+  const data = await getJson<{ session: SessionDetailRaw | null }>(`/api/sessions/${id}`);
+  if (!data.session) return null;
+  return {
+    id: data.session.id,
+    title: (data.session.title as string | undefined) ?? null,
+    created_at: new Date(data.session.created_at),
+    updated_at: new Date(data.session.updated_at),
+    country_code: (data.session.country_code as string | undefined) ?? null,
+    currency: (data.session.currency as string | undefined) ?? null,
+    build_state: data.session.build_state ?? null,
+    messages: data.session.messages.map((m) => {
+      const { createdAt, ...rest } = m;
+      return {
+        ...rest,
+        createdAt: createdAt ? new Date(createdAt) : undefined
+      } as unknown as ChatUIMessage;
+    })
+  };
 }
 
 export async function saveSession(input: SaveSessionRequest): Promise<void> {

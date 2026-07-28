@@ -37,11 +37,6 @@ const freeformSchema = z.object({
   sources: z.array(z.string().url()).default([])
 });
 
-export type ConsultInput =
-  | { mode: "component_specs"; name: string; category: string }
-  | { mode: "build_audit"; parts: Record<string, string> }
-  | { mode: "freeform"; question: string; context?: string };
-
 type ConsultDeps = {
   searchClient?: SearchClient;
   generateText?: typeof generateTextWithFallback;
@@ -49,14 +44,34 @@ type ConsultDeps = {
   now?: () => Date;
 };
 
-export const consultInputSchema = z.object({
-  mode: z.enum(["component_specs", "build_audit", "freeform"]).describe("The operation mode: component_specs (research specs for a component), build_audit (audit build parts), or freeform (ask a general hardware question)."),
-  name: z.string().optional().describe("Used in component_specs: exact component name to research."),
-  category: z.string().optional().describe("Used in component_specs: component category."),
-  parts: partMapSchema.optional().describe("Used in build_audit: final build parts keyed by category."),
-  question: z.string().optional().describe("Used in freeform: question to answer."),
-  context: z.string().optional().describe("Used in freeform: relevant build context.")
-});
+const modeDescription = "The operation mode: component_specs (research specs for a component), build_audit (audit build parts), or freeform (ask a general hardware question).";
+
+export const consultInputSchema = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("component_specs").describe(modeDescription),
+    name: z.string().refine((value) => value.trim() !== "", {
+      message: "name is required and must be a non-empty string in component_specs mode"
+    }).describe("Used in component_specs: exact component name to research."),
+    category: z.string().refine((value) => value.trim() !== "", {
+      message: "category is required and must be a non-empty string in component_specs mode"
+    }).describe("Used in component_specs: component category.")
+  }),
+  z.object({
+    mode: z.literal("build_audit").describe(modeDescription),
+    parts: partMapSchema.refine((value) => Object.keys(value).length > 0, {
+      message: "parts is required and must be a non-empty object in build_audit mode"
+    }).describe("Used in build_audit: final build parts keyed by category.")
+  }),
+  z.object({
+    mode: z.literal("freeform").describe(modeDescription),
+    question: z.string().refine((value) => value.trim() !== "", {
+      message: "question is required and must be a non-empty string in freeform mode"
+    }).describe("Used in freeform: question to answer."),
+    context: z.string().optional().describe("Used in freeform: relevant build context.")
+  })
+]);
+
+export type ConsultInput = z.infer<typeof consultInputSchema>;
 
 export function createConsultTool(config: AppConfig) {
   return tool({
@@ -76,7 +91,7 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
     const existing = db.prepare("SELECT key, specs, confidence, sources FROM registry_research WHERE key = ?").get(key) as Pick<RegistryResearchEntry, "key" | "specs" | "confidence" | "sources"> | undefined;
     if (existing) {
       const result = { mode: input.mode, key, specs: JSON.parse(existing.specs), confidence: existing.confidence, sources: JSON.parse(existing.sources ?? "[]"), cached: true };
-      logConsult(input, result, { provider: "cache", model: "registry_research", logPath: deps.logPath });
+      await logConsult(input, result, { provider: "cache", model: "registry_research", logPath: deps.logPath });
       return result;
     }
     const grounded = await safeSearch(search, `${input.name} ${input.category} official specifications`, config.search.crawlEnabled);
@@ -88,13 +103,13 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
       prompt: [
         `Extract factual registry specs for this ${input.category}: ${input.name}.`,
         "Return only JSON with shape {\"specs\":{...},\"sources\":[...]}",
-        "The specs object must include brand, model, aliases, and any category-relevant fields present in sources such as socket, ddr, tdp_w, wattage, length_mm, vram_gb, form_factor, m2_slots, sata_ports, height_mm, sockets, tdp_rating_w, interface, capacity_gb.",
+        "The specs object must include brand, model, aliases, and any category-relevant fields present in sources such as socket, ddr, tdp_w, wattage, length_mm, vram_gb, segment, form_factor, m2_slots, sata_ports, height_mm, sockets, tdp_rating_w, interface, capacity_gb.",
         "Do not include compatibility verdicts.",
         groundingBlock(grounded)
       ].join("\n\n")
     });
     if (!llm.ok) {
-      logConsult(input, llm.result, { provider: llm.provider, model: llm.model, logPath: deps.logPath });
+      await logConsult(input, llm.result, { provider: llm.provider, model: llm.model, logPath: deps.logPath });
       return llm.result;
     }
     const confidence = grounded.grounded && grounded.results.length ? "medium" : "low";
@@ -103,7 +118,7 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
     db.prepare("INSERT OR REPLACE INTO registry_research (key, category, specs, sources, confidence, researched_at) VALUES (?, ?, ?, ?, ?, ?)")
       .run(key, input.category, JSON.stringify(specs), JSON.stringify(sourceUrls), confidence, now().toISOString());
     const result = { mode: input.mode, key, specs, sources: grounded.results, confidence, note: "Facts are researched and not community-verified; no compatibility verdict is returned." };
-    logConsult(input, result, { provider: llm.provider, model: llm.model, logPath: deps.logPath });
+    await logConsult(input, result, { provider: llm.provider, model: llm.model, logPath: deps.logPath });
     return result;
   }
   if (input.mode === "build_audit") {
@@ -129,16 +144,19 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
           groundingBlock(grounded)
         ].join("\n\n")
       });
-      const verdict = llm.ok
-        ? sanitizeAuditFinding(llm.data.findings[0], pair)
-        : { severity: "needs_verification", detail: `Advisory audit unavailable for ${pair}: ${llm.result.error}`, sources: [] };
-      db.prepare("INSERT OR REPLACE INTO audit_cache (pair_key, verdict, checked_at) VALUES (?, ?, ?)").run(pair, JSON.stringify(verdict), now().toISOString());
-      return { pair, ...verdict, cached: false, provider: llm.provider, model: llm.model };
+      let verdict;
+      if (llm.ok) {
+        verdict = sanitizeAuditFinding(llm.data.findings[0], pair);
+        db.prepare("INSERT OR REPLACE INTO audit_cache (pair_key, verdict, checked_at) VALUES (?, ?, ?)").run(pair, JSON.stringify(verdict), now().toISOString());
+      } else {
+        verdict = { severity: "needs_verification", detail: `Advisory audit unavailable for ${pair}: ${llm.result.error}`, sources: [] };
+      }
+      return { ...verdict, pair, cached: false, provider: llm.provider, model: llm.model };
     }));
     cached.push(...freshResults);
     const servedBy = freshResults.map((item) => ({ provider: item.provider, model: item.model }));
     const result = { mode: input.mode, verdicts: cached.map((item) => sanitizeAuditFinding(item, item.pair)), authority: "advisory_only" };
-    logConsult(input, result, {
+    await logConsult(input, result, {
       provider: servedBy.length ? Array.from(new Set(servedBy.map((served) => served.provider))).join(",") : "cache",
       model: servedBy.length ? Array.from(new Set(servedBy.map((served) => served.model))).join(",") : "audit_cache",
       logPath: deps.logPath
@@ -163,7 +181,7 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
   const result = llm.ok
     ? { mode: input.mode, severity: "needs_verification", answer: llm.data.answer, note: "Uncached advisory answer; not fed to deterministic rules.", sources: grounded.results, source_urls: llm.data.sources, label: "unverified" }
     : llm.result;
-  logConsult(input, result, { provider: llm.provider, model: llm.model, logPath: deps.logPath });
+  await logConsult(input, result, { provider: llm.provider, model: llm.model, logPath: deps.logPath });
   return result;
 }
 
@@ -249,8 +267,8 @@ function sanitizeAuditFinding(finding: unknown, pair: string) {
   };
 }
 
-function logConsult(input: ConsultInput, result: unknown, served: { provider: string; model: string; logPath?: string }) {
-  appendChatLog({
+async function logConsult(input: ConsultInput, result: unknown, served: { provider: string; model: string; logPath?: string }): Promise<void> {
+  await appendChatLog({
     role: "tool",
     toolName: "consult",
     toolArgs: input,

@@ -193,9 +193,8 @@ describe("validateBuild", () => {
     expect(result.issues).not.toContainEqual(expect.objectContaining({ severity: "needs_research", detail: expect.stringContaining("\"m2_slots\"") }));
   });
 
-  it("passes SATA-count validation with sata_ports from the registry", () => {
-    const motherboard = resolveComponent("msi-mag-b650-tomahawk-wifi");
-    if (!motherboard) throw new Error("registry motherboard fixture missing");
+  it("passes SATA-count validation with sata_ports from a sourced registry entry", () => {
+    const motherboard = makeResolved("mobo-sourced", "motherboard", { ...base.motherboard.spec, sata_ports: 6 });
     const drives = Array.from({ length: 6 }, (_, index) => makeResolved(`sata-${index}`, "storage", { ...base.storage.spec, model: `SATA ${index}`, interface: "sata" }));
     const result = validateBuild(
       { motherboard: motherboard.key, storage: drives.map((drive) => drive.key) },
@@ -203,6 +202,40 @@ describe("validateBuild", () => {
     );
     expect(result.issues).not.toContainEqual(expect.objectContaining({ rule: "storage" }));
     expect(result.valid).toBe(true);
+  });
+
+  it("refuses to compute a verdict from an unsourced registry entry", () => {
+    // The seed registry cites nothing, so every entry in it resolves low-confidence.
+    // Computing on a placeholder would return a confident wrong answer, so the rules
+    // engine must demand research instead of passing the build.
+    const cooler = resolveComponent("thermaltake-magfloe-240");
+    if (!cooler) throw new Error("registry cooler fixture missing");
+    expect(cooler.source).toBe("registry");
+    expect(cooler.confidence).toBe("low");
+
+    const cpu = base.cpu;
+    const result = validateBuild(
+      { cpu: cpu.key, cooler: cooler.key },
+      { resolve: (part, category) => category === "cpu" ? cpu : cooler }
+    );
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ severity: "needs_research", detail: expect.stringContaining("unsourced placeholder specs") })
+    );
+  });
+
+  it("reports the rules it could not run because a category has no part", () => {
+    // Categories the user chose not to scrape are absent, not wrong - but the model
+    // must know which guarantees it is therefore not making.
+    const result = validateBuild(
+      { cpu: base.cpu.key, gpu: base.gpu.key },
+      { resolve: (part) => [base.cpu, base.gpu].find((item) => item.key === part) }
+    );
+    const skipped = Object.fromEntries(result.skipped_checks.map((check) => [check.rule, check.missing]));
+    expect(skipped.wattage).toEqual(["psu"]);
+    expect(skipped.socket).toEqual(["motherboard"]);
+    expect(skipped.clearance).toEqual(["case"]);
+    expect(skipped.display_output).toBeUndefined();
   });
 
   it("requests research when a drive interface is missing", () => {
