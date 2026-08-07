@@ -5,7 +5,7 @@
 Compare live PC component prices from *your local retailers*, chat with an AI build consultant that never hallucinates specs, and get builds that are guaranteed compatible — all running 100% on your own machine.
 
 <!-- badges -->
-![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen) ![Local First](https://img.shields.io/badge/100%25-local--first-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen) ![GitHub Stars](https://img.shields.io/github/stars/ManishModak/pcbuildsage?style=social) ![Local First](https://img.shields.io/badge/100%25-local--first-blue)
 
 <!-- demo -->
 <p align="center"><em>📸 demo GIF here — wizard → scrape progress → chat recommending a build</em></p>
@@ -197,6 +197,12 @@ Our goal is to build the ultimate 100% local, self-hosted AI PC building assista
 - [ ] 🛠️ **In-App Profile Manager** — Inspect, test, and sync community retailer profiles directly within the Web and CLI UI.
 - [ ] 📄 **Export & Share** — Export validated builds to Markdown tables, Reddit PCBuild markup, HTML summaries, and JSON.
 - [ ] 🧩 **Self-Healing Scraper Resilience** — Automatic LLM selector recovery when local tech store layouts change.
+
+---
+
+## ⭐ Show Your Support
+
+If you find PCBuildSage useful or want to support local-first AI tools, please give this repository a **Star** ⭐! It helps more PC builders discover the project.
 
 ## License
 
