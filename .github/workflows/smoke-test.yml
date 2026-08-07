@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r src/scraper/requirements.txt -r src/scraper/requirements-dev.txt
+          pip install -r scraper/requirements.txt -r scraper/requirements-dev.txt
           # crawl4ai / playwright setup if needed in future
           python -m playwright install --with-deps chromium
 
@@ -36,7 +36,7 @@ jobs:
           for profile in data/profiles/*.json; do
             profile_name=$(basename "$profile")
             echo "::group::Testing profile $profile_name"
-            if ! PYTHONPATH=src python3 -m scraper --test-profile "$profile"; then
+            if ! PYTHONPATH=. python3 -m scraper --test-profile "$profile"; then
               echo "Profile test failed for $profile_name. Creating a GitHub issue..."
               gh issue create \
                 --title "Broken Profile: $profile_name" \
