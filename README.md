@@ -16,7 +16,7 @@ Compare live PC component prices from *your local retailers*, chat with an AI bu
 
 If you've ever tried to plan a PC build outside the US, you know the pain:
 
-- **PCPartPicker doesn't cover your country.** No Indian retailers, no local pricing, no local stock. Most of the world builds PCs blind.
+- **PCPartPicker misses most of the world.** Limited retailer coverage across many countries, missing local pricing and stock in regions across Asia, Europe, South America, and beyond. Most of the world builds PCs blind.
 - **Price aggregators are static spreadsheets.** They show numbers but offer zero guidance on compatibility, bottlenecks, or value.
 - **ChatGPT/Gemini hallucinate hardware.** Ask a chatbot for a build and you'll get outdated prices, imaginary stock, and confidently wrong compatibility claims.
 
@@ -24,7 +24,7 @@ PCBuildSage fixes all three:
 
 | | |
 | :-- | :-- |
-| 🌍 **Works anywhere** | Retailers are defined in simple JSON profiles. India ships out of the box; adding your country is a pull request away — **no code required**. |
+| 🌍 **Works anywhere** | Retailers are defined in simple JSON profiles. Preset profiles are provided, and adding your country or local store is a pull request away — **no code required**. |
 | 🤖 **AI consultant, real data** | Chat with the LLM of your choice (Gemini, Ollama, OpenRouter, any OpenAI-compatible API). It queries your **local SQLite database** of freshly scraped prices — never its imagination. |
 | ✅ **Compatibility you can trust** | A deterministic, open-source rules engine checks sockets, DDR generation, PSU wattage, and physical clearances. The AI **cannot override it** — no hallucinated builds, ever. |
 | 🔒 **100% local & private** | Your data, your API keys, your machine. No cloud, no accounts, no telemetry. |
@@ -178,7 +178,7 @@ Look for `good first issue` and `profile request` labels in our repository.
 
 **Is it free?** Yes — MIT licensed, self-hosted. You only pay your own LLM provider (or use free local Ollama).
 
-**Which countries work?** Any country someone has written a profile for. India ships first; the whole point is that yours is easy to add.
+**Which countries work?** Any country! Retailers are defined in simple JSON profiles. Preset profiles are included out of the box, and adding your country or local stores takes just minutes with zero code.
 
 **Does it work offline?** Scraped data, product search, and the compatibility engine are fully offline (web-search grounding for brand-new hardware is optional and needs a provider). Chat needs whatever your chosen LLM needs (local Ollama = fully offline).
 
