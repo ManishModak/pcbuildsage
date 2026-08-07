@@ -1,11 +1,11 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { cancel, confirm, intro, isCancel, log, outro, password, select, text } from "@clack/prompts";
-import { generateTextWithFallback, probeToolCapability } from "../lib/llm-client";
-import { discoverModels } from "../lib/model-discovery";
-import type { LLMChainEntry, LLMProvider } from "../lib/config-types";
-import { loadEndpointPresets } from "../lib/endpoints";
-import { loadPersonalities } from "../lib/personalities";
+import { generateTextWithFallback, probeToolCapability } from "@/lib/llm/client";
+import { discoverModels } from "@/lib/llm/discovery";
+import type { LLMChainEntry, LLMProvider } from "@/types";
+import { loadEndpointPresets } from "@/lib/llm/endpoints";
+import { loadPersonalities } from "@/lib/llm/personalities";
 import { estimateScrape } from "./scrape";
 import { STATUS_GLYPHS, type Palette } from "./theme";
 import { configPath, writeCliConfig, stripUnsavedKeys, type CliConfig } from "./config-store";

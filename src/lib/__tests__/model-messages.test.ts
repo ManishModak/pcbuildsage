@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { UIMessage } from "ai";
-import { deriveBuildState, compactChatMessages, capMessages, type IncomingChatMessage } from "../model-messages";
+import { deriveBuildState, compactChatMessages, capMessages, type IncomingChatMessage } from "@/lib/llm/messages";
 
 describe("compactChatMessages", () => {
   it("strips non-text parts from all turns except keeps tool parts for the last assistant turn", () => {

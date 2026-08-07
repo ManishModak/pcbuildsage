@@ -1,4 +1,4 @@
-import { loadEndpointPresets } from "../../../lib/endpoints";
+import { loadEndpointPresets } from "@/lib/llm/endpoints";
 import { json } from "../_lib/responses";
 
 export const runtime = "nodejs";

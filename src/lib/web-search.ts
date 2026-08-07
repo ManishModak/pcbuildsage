@@ -3,8 +3,8 @@ import { promisify } from "node:util";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { z } from "zod";
-import type { SearchProvider } from "./config-types";
-import { loadJsonPresets } from "./json-presets";
+import type { SearchProvider } from "@/types";
+import { loadJsonPresets } from "@/lib/llm/presets";
 
 const execFilePromise = promisify(execFile);
 
@@ -111,7 +111,7 @@ async function duckduckgo(query: string, limit = 5): Promise<SearchResponse> {
 }
 
 async function keyedSearch(query: string, provider: Exclude<SearchProvider, "none" | "duckduckgo" | "searxng" | "gemini-native">, apiKey: string, limit = 5): Promise<SearchResponse> {
-  const endpoints = {
+  const endpoints: Record<string, string> = {
     brave: "https://api.search.brave.com/res/v1/web/search",
     exa: "https://api.exa.ai/search",
     tavily: "https://api.tavily.com/search"

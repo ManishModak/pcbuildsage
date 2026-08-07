@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { discoverModels } from "../../../lib/model-discovery";
+import { discoverModels } from "@/lib/llm/discovery";
 import { entryFromRequest } from "../_lib/credentials";
 import { badRequest, json, serverError } from "../_lib/responses";
 

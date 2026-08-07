@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
 import { z } from "zod";
-import { streamChat } from "../../../lib/chat-engine";
-import { compactChatMessages } from "../../../lib/model-messages";
+import { streamChat } from "@/lib/llm/chat-engine";
+import { compactChatMessages } from "@/lib/llm/messages";
 import { buildAppConfig } from "../_lib/credentials";
 import { badRequest, readJson, serverError } from "../_lib/responses";
 

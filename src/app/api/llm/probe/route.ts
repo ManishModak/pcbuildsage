@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { generateTextWithFallback, probeToolCapability } from "../../../../lib/llm-client";
+import { generateTextWithFallback, probeToolCapability } from "@/lib/llm/client";
 import { entryFromRequest } from "../../_lib/credentials";
 import { badRequest, json } from "../../_lib/responses";
 

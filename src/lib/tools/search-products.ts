@@ -1,10 +1,10 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type Database from "better-sqlite3";
-import type { Product } from "../db-types";
-import { getDb } from "../db";
-import { resolveComponent, type RegistrySpec } from "../registry";
-import { BUILD_RELEVANT_SQL } from "../catalog-scope";
+import type { Product } from "@/types";
+import { getDb } from "@/lib/db";
+import { resolveComponent, type RegistrySpec } from "@/lib/registry";
+import { BUILD_RELEVANT_SQL } from "@/lib/db/catalog-scope";
 
 const validFilters = ["category", "subcategory", "price_min", "price_max", "brands", "retailer", "in_stock", "socket", "ddr", "form_factor", "min_vram_gb", "segment", "max_tdp_w", "max_length_mm", "sort_by", "order", "limit"];
 

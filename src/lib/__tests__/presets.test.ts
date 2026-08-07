@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadEndpointPresets } from "../endpoints";
+import { loadEndpointPresets } from "@/lib/llm/endpoints";
 import { createSearchClient, loadSearchPresets } from "../web-search";
 
 let tempDir: string | undefined;

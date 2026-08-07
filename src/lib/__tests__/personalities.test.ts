@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadPersonalities, resetPersonalityCache } from "../personalities";
+import { loadPersonalities, resetPersonalityCache } from "@/lib/llm/personalities";
 
 let tempDirs: string[] = [];
 
@@ -28,15 +28,15 @@ describe("personality cache", () => {
       prompt: "Be direct."
     }), "utf8");
 
-    expect(loadPersonalities(dir).map((personality) => personality.name)).toEqual(["Direct"]);
+    expect(loadPersonalities(dir).map((personality: { name: string }) => personality.name)).toEqual(["Direct"]);
     writeFileSync(file, JSON.stringify({
       name: "Changed",
       description: "Changed style",
       prompt: "Changed."
     }), "utf8");
-    expect(loadPersonalities(dir).map((personality) => personality.name)).toEqual(["Direct"]);
+    expect(loadPersonalities(dir).map((personality: { name: string }) => personality.name)).toEqual(["Direct"]);
     resetPersonalityCache();
-    expect(loadPersonalities(dir).map((personality) => personality.name)).toEqual(["Changed"]);
+    expect(loadPersonalities(dir).map((personality: { name: string }) => personality.name)).toEqual(["Changed"]);
   });
 
   it("keeps personality caches separate for custom directories", () => {
@@ -53,8 +53,8 @@ describe("personality cache", () => {
       prompt: "Second."
     }), "utf8");
 
-    expect(loadPersonalities(first).map((personality) => personality.name)).toEqual(["First"]);
-    expect(loadPersonalities(second).map((personality) => personality.name)).toEqual(["Second"]);
+    expect(loadPersonalities(first).map((personality: { name: string }) => personality.name)).toEqual(["First"]);
+    expect(loadPersonalities(second).map((personality: { name: string }) => personality.name)).toEqual(["Second"]);
   });
 
   it("skips invalid personalities and still loads valid files", () => {
@@ -67,7 +67,7 @@ describe("personality cache", () => {
       prompt: "Be direct."
     }), "utf8");
 
-    expect(loadPersonalities(dir).map((personality) => personality.name)).toEqual(["Direct"]);
+    expect(loadPersonalities(dir).map((personality: { name: string }) => personality.name)).toEqual(["Direct"]);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("bad.json"));
   });
 });

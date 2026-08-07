@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { getDb } from "./db";
-import type { RegistryResearchEntry } from "./db-types";
+import { getDb } from "@/lib/db";
+import type { RegistryResearchEntry } from "@/types";
 
 export function exportResearch(options: { dbPath?: string; outputDir?: string } = {}) {
   const db = getDb(options.dbPath);

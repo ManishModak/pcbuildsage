@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { resolveConfig } from "../../../lib/config";
-import type { AppConfig, ConfigInput, LLMChainEntry, LLMProvider, SearchProvider } from "../../../lib/config-types";
+import { resolveConfig } from "@/lib/config";
+import type { AppConfig, ConfigInput, LLMChainEntry, LLMProvider, SearchProvider } from "@/types";
 import { resolveSandboxedPath } from "./paths";
 
 const providerSchema = z.enum(["gemini", "ollama", "openrouter", "openai-compatible"]);

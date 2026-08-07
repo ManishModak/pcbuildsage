@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseLlmChain, resolveConfig } from "../config";
-import { createLanguageModel, isFallbackable, normalizeBaseUrl } from "../llm-client";
-import { discoverModels } from "../model-discovery";
+import { createLanguageModel, isFallbackable, normalizeBaseUrl } from "@/lib/llm/client";
+import { discoverModels } from "@/lib/llm/discovery";
 
 const openAiState = vi.hoisted(() => ({
   configs: [] as Array<{ baseURL?: string; apiKey?: string }>

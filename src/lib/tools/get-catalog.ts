@@ -1,7 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { getDb } from "../db";
-import { BUILD_RELEVANT_SQL, COMPONENT_CATEGORIES } from "../catalog-scope";
+import { getDb } from "@/lib/db";
+import { BUILD_RELEVANT_SQL, COMPONENT_CATEGORIES } from "@/lib/db/catalog-scope";
+import type { ComponentCategory } from "@/lib/registry";
 
 type Scope = { dbPath?: string; countryCode: string; currency: string };
 
@@ -56,7 +57,7 @@ export async function getCatalog(scope: Scope) {
 
   // Enumerate every known category, including the ones with nothing in them. An
   // explicit count of 0 is unambiguous; a silently absent key is not.
-  const categories = COMPONENT_CATEGORIES.map((category) => {
+  const categories = COMPONENT_CATEGORIES.map((category: ComponentCategory) => {
     const build = buildByCategory.get(category);
     const subcategories = subsByCategory.get(category);
     const accessories = subcategories

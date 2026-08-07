@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type Database from "better-sqlite3";
-import { getDb } from "./db";
-import type { RegistryResearchEntry } from "./db-types";
+import { getDb } from "@/lib/db";
+import type { RegistryResearchEntry } from "@/types";
 import { normalizeTitle, slugifyComponent } from "./normalizer";
 import { parseSpecsFromTitle } from "./spec-parsers";
 

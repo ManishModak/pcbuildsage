@@ -1,12 +1,11 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { getDb } from "../db";
-import { generateTextWithFallback } from "../llm-client";
-import { appendChatLog } from "../logger";
-import { slugifyComponent } from "../normalizer";
-import { createSearchClient, type SearchClient, type SearchResponse, type SearchResult } from "../web-search";
-import type { AppConfig } from "../config-types";
-import type { AuditCacheEntry, RegistryResearchEntry } from "../db-types";
+import { getDb } from "@/lib/db";
+import { generateTextWithFallback } from "@/lib/llm/client";
+import { appendChatLog } from "@/lib/logger";
+import { slugifyComponent } from "@/lib/normalizer";
+import { createSearchClient, type SearchClient, type SearchResponse, type SearchResult } from "@/lib/web-search";
+import type { AppConfig, AuditCacheEntry, RegistryResearchEntry } from "@/types";
 
 const partMapSchema = z.record(z.string().describe("Component category."), z.string().describe("Registry key or component name."));
 const registrySpecSchema = z.object({

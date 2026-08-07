@@ -1,4 +1,4 @@
-import { loadPersonalities } from "../../../lib/personalities";
+import { loadPersonalities } from "@/lib/llm/personalities";
 import { json } from "../_lib/responses";
 
 export const runtime = "nodejs";

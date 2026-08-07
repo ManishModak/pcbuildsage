@@ -1,8 +1,8 @@
 "use client";
 
-import { useApp } from "../../components/app/app-provider";
-import { SettingsView } from "../../components/settings/settings-view";
-import { Spinner } from "../../components/ui/primitives";
+import { useApp } from "@/components/app/app-provider";
+import { SettingsView } from "@/features/settings/settings-view";
+import { Spinner } from "@/components/ui/primitives";
 
 export default function SettingsPage() {
   const { ready } = useApp();

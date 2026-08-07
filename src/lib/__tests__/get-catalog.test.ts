@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Product } from "../db-types";
+import type { Product } from "@/types";
 import Database from "better-sqlite3";
 import { initializeSchema } from "../db";
 

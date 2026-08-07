@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { resolveConfig } from "../config";
 import { consult } from "../tools/consult";
 import type { SearchClient } from "../web-search";
-import type { generateTextWithFallback } from "../llm-client";
+import type { generateTextWithFallback } from "@/lib/llm/client";
 
 const state = vi.hoisted(() => ({ auditCache: new Map<string, { verdict: string; checked_at: string }>() }));
 

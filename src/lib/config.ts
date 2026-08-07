@@ -1,7 +1,7 @@
 import path from "node:path";
-import { DEFAULT_DB_PATH } from "./db";
-import type { AppConfig, ConfigInput, LLMChainEntry, LLMProvider, LLMRole, RoleChains, SearchProvider } from "./config-types";
-import { normalizeBaseUrl } from "./llm-client";
+import { DEFAULT_DB_PATH } from "@/lib/db";
+import type { AppConfig, ConfigInput, LLMChainEntry, LLMProvider, LLMRole, RoleChains, SearchProvider } from "@/types";
+import { normalizeBaseUrl } from "@/lib/llm/client";
 
 const DEFAULT_CHAIN = "gemini:gemini-2.5-flash,ollama:llama3.3";
 const ROLES: LLMRole[] = ["chat", "subagent", "scraper"];

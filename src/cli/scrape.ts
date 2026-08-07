@@ -211,7 +211,7 @@ function validatePython(candidate: PythonCandidate): Promise<boolean> {
 }
 
 function scraperEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const pythonPath = path.join(process.cwd(), "src");
+  const pythonPath = process.cwd();
   return {
     ...env,
     PYTHONPATH: env.PYTHONPATH ? `${pythonPath}${path.delimiter}${env.PYTHONPATH}` : pythonPath

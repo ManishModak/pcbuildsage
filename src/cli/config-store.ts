@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { ConfigInput } from "../lib/config-types";
+import type { ConfigInput } from "@/types";
 
 export const CLI_CONFIG_DIR = ".pcbuildsage";
 export const CLI_CONFIG_FILE = "config.json";

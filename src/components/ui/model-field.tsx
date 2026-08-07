@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { RefreshCw } from "lucide-react";
-import type { DiscoveredModel } from "../lib/types";
+import type { DiscoveredModel } from "@/types/client";
 import { cn } from "./cn";
 import { IconButton, Input, Spinner } from "./primitives";
 

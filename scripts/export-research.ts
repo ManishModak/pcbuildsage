@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { getDb } from "../src/lib/db";
-import type { RegistryResearchEntry } from "../src/lib/db-types";
+import type { RegistryResearchEntry } from "../src/types";
 
 const db = getDb();
 try {

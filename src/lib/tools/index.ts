@@ -1,5 +1,5 @@
 import type { ToolSet } from "ai";
-import type { AppConfig } from "../config-types";
+import type { AppConfig } from "@/types";
 import { createSearchProductsTool } from "./search-products";
 import { createGetCatalogTool } from "./get-catalog";
 import { createValidateBuildTool } from "./validate-build";

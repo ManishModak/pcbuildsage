@@ -1,10 +1,10 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { fetchThemes } from "../lib/api";
-import { DEFAULT_CONFIG, loadConfig, saveConfig, validateConfig } from "../lib/config-store";
-import { applyTheme, pickTheme } from "../lib/theme";
-import type { ClientConfig, ThemeFile } from "../lib/types";
+import { fetchThemes } from "@/lib/api-client";
+import { DEFAULT_CONFIG, loadConfig, saveConfig, validateConfig } from "@/lib/client-config-store";
+import { applyTheme, pickTheme } from "@/lib/theme";
+import type { ClientConfig, ThemeFile } from "@/types/client";
 
 type AppContextValue = {
   config: ClientConfig;

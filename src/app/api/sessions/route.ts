@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { listSessions, saveSession } from "../../../lib/sessions";
-import { deriveBuildState } from "../../../lib/model-messages";
+import { deriveBuildState } from "@/lib/llm/messages";
 import { badRequest, json, readJson, serverError } from "../_lib/responses";
 import type { UIMessage } from "ai";
 

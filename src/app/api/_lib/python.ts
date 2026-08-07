@@ -126,7 +126,7 @@ export function buildTestProfileArgs(config: {
 
 export function spawnScraper(resolution: PythonResolution, args: string[]) {
   if (!resolution.ok || !resolution.command) throw new Error(resolution.error ?? "Python interpreter is unavailable.");
-  const pythonPath = path.join(process.cwd(), "src");
+  const pythonPath = process.cwd();
   return spawn(resolution.command, [...resolution.args, ...args], {
     cwd: process.cwd(),
     env: {
