@@ -8,8 +8,8 @@ src_dir = Path(__file__).resolve().parent.parent
 if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
-from scraper.crawler import Crawl4AIFetcher
-from scraper.models import SiteConfig, BrowserConfig
+from scraper.crawler import Crawl4AIFetcher  # noqa: E402
+from scraper.models import SiteConfig, BrowserConfig  # noqa: E402
 
 async def main():
     if len(sys.argv) < 2:
