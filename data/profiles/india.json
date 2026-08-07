@@ -17,18 +17,43 @@
         "timeout_ms": 30000
       },
       "categories": {
-        "gpu": {
-          "path": "product-category/graphic-cards/",
-          "pagination_pattern": "page/{page}/",
-          "max_pages": 20
-        },
         "cpu": {
           "path": "product-category/processor/",
           "pagination_pattern": "page/{page}/",
           "max_pages": 20
         },
+        "gpu": {
+          "path": "product-category/graphic-cards/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "motherboard": {
+          "path": "product-category/motherboard/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "ram": {
+          "path": "product-category/ram/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
         "storage": {
           "path": "product-category/internal-ssd/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "psu": {
+          "path": "product-category/power-supply/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "case": {
+          "path": "product-category/cabinets/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "cooler": {
+          "path": "product-category/cpu-cooler/",
           "pagination_pattern": "page/{page}/",
           "max_pages": 20
         }
@@ -54,18 +79,43 @@
         "timeout_ms": 30000
       },
       "categories": {
-        "gpu": {
-          "path": "catalog/graphics-card",
-          "pagination_pattern": "?page={page}",
-          "max_pages": 20
-        },
         "cpu": {
           "path": "catalog/processor",
           "pagination_pattern": "?page={page}",
           "max_pages": 20
         },
+        "gpu": {
+          "path": "catalog/graphics-card",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "motherboard": {
+          "path": "catalog/motherboard",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "ram": {
+          "path": "catalog/memory-ram",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
         "storage": {
           "path": "catalog/storage",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "psu": {
+          "path": "catalog/smps-power-supply",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "case": {
+          "path": "catalog/cabinet",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "cooler": {
+          "path": "catalog/cooling-system",
           "pagination_pattern": "?page={page}",
           "max_pages": 20
         }
@@ -76,6 +126,254 @@
         "price": ".price span.ins, .price span.amount",
         "url": ".product-entities-title a",
         "image": ".product-image-link img",
+        "out_of_stock": ".out-of-stock"
+      }
+    },
+    {
+      "site_name": "PrimeABGB",
+      "base_url": "https://www.primeabgb.com/",
+      "scraping_type": "category",
+      "browser_config": {
+        "headless": true,
+        "js_rendering": true,
+        "wait_for_selector": "li.product",
+        "scroll_down": true,
+        "timeout_ms": 30000
+      },
+      "categories": {
+        "cpu": {
+          "path": "buy-online-price-india/cpu-processor/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "gpu": {
+          "path": "buy-online-price-india/graphic-cards-gpu/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "motherboard": {
+          "path": "buy-online-price-india/motherboards/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "ram": {
+          "path": "buy-online-price-india/ram-memory/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "storage": {
+          "path": "buy-online-price-india/ssd/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "psu": {
+          "path": "buy-online-price-india/power-supplies-smps/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "case": {
+          "path": "buy-online-price-india/pc-cases-cabinet/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "cooler": {
+          "path": "buy-online-price-india/cpu-cooler/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        }
+      },
+      "selectors": {
+        "product_container": "li.product",
+        "title": "h3.woocommerce-loop-product__title, .product-title a",
+        "price": "span.price ins span.woocommerce-Price-amount, span.price span.woocommerce-Price-amount",
+        "url": "a.woocommerce-LoopProduct-link",
+        "image": "img.attachment-woocommerce_thumbnail",
+        "out_of_stock": ".out-of-stock"
+      }
+    },
+    {
+      "site_name": "VedantComputers",
+      "base_url": "https://www.vedantcomputers.com/",
+      "scraping_type": "category",
+      "browser_config": {
+        "headless": true,
+        "js_rendering": true,
+        "wait_for_selector": ".product-thumb",
+        "scroll_down": true,
+        "timeout_ms": 30000
+      },
+      "categories": {
+        "cpu": {
+          "path": "pc-components/processor",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "gpu": {
+          "path": "pc-components/gpu",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "motherboard": {
+          "path": "pc-components/motherboard",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "ram": {
+          "path": "pc-components/memory",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "storage": {
+          "path": "pc-components/storage",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "psu": {
+          "path": "pc-components/smps",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "case": {
+          "path": "pc-components/cabinet",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "cooler": {
+          "path": "pc-components/cpu-cooler",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        }
+      },
+      "selectors": {
+        "product_container": ".product-thumb",
+        "title": ".caption h4 a, .name a",
+        "price": ".price .price-new, .price",
+        "url": ".caption h4 a, .name a",
+        "image": ".image img",
+        "out_of_stock": ".out-of-stock"
+      }
+    },
+    {
+      "site_name": "EliteHubs",
+      "base_url": "https://elitehubs.com/",
+      "scraping_type": "category",
+      "browser_config": {
+        "headless": true,
+        "js_rendering": true,
+        "wait_for_selector": ".product-grid-item",
+        "scroll_down": true,
+        "timeout_ms": 30000
+      },
+      "categories": {
+        "cpu": {
+          "path": "collections/processor",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "gpu": {
+          "path": "collections/graphic-cards",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "motherboard": {
+          "path": "collections/motherboard",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "ram": {
+          "path": "collections/ram",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "storage": {
+          "path": "collections/ssd",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "psu": {
+          "path": "collections/power-supply-unit-psu",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "case": {
+          "path": "collections/pc-cabinet",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        },
+        "cooler": {
+          "path": "collections/pc-coolers",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 20
+        }
+      },
+      "selectors": {
+        "product_container": ".product-grid-item",
+        "title": ".product-card__title, .grid-view-item__title",
+        "price": ".price-item--sale, .price-item--regular, span.price",
+        "url": "a.product-card__link",
+        "image": ".product-card__image img, img",
+        "out_of_stock": ".price--sold-out, .badge--sold-out"
+      }
+    },
+    {
+      "site_name": "PCStudio",
+      "base_url": "https://www.pcstudio.in/",
+      "scraping_type": "category",
+      "browser_config": {
+        "headless": true,
+        "js_rendering": true,
+        "wait_for_selector": "li.product",
+        "scroll_down": true,
+        "timeout_ms": 30000
+      },
+      "categories": {
+        "cpu": {
+          "path": "product-category/processor/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "gpu": {
+          "path": "product-category/graphics-card/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "motherboard": {
+          "path": "product-category/motherboard/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "ram": {
+          "path": "product-category/ram/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "storage": {
+          "path": "product-category/storage/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "psu": {
+          "path": "product-category/power-supply/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "case": {
+          "path": "product-category/cabinets/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        },
+        "cooler": {
+          "path": "product-category/cpu-cooler/",
+          "pagination_pattern": "page/{page}/",
+          "max_pages": 20
+        }
+      },
+      "selectors": {
+        "product_container": "li.product",
+        "title": "h3.woocommerce-loop-product__title, .product-title a",
+        "price": "span.price ins span.woocommerce-Price-amount, span.price span.woocommerce-Price-amount",
+        "url": "a.woocommerce-LoopProduct-link",
+        "image": "img.attachment-woocommerce_thumbnail",
         "out_of_stock": ".out-of-stock"
       }
     }
