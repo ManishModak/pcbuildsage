@@ -190,8 +190,13 @@ Look for `good first issue` and `profile request` labels in our repository.
 
 ## Roadmap
 
-- [ ] **Roast & Fix** — paste any part list, get a graded critique with cheaper/better alternatives
-- [ ] Price history tracking & alerts
+Our goal is to build the ultimate 100% local, self-hosted AI PC building assistant & compatibility engine.
+
+- [ ] 🎮 **FPS & Workload Estimator** — Deterministic estimation of target game FPS (1080p, 1440p, 4K) and rendering benchmarks based on component specs.
+- [ ] 📏 **Advanced 3D Spatial Clearance Engine** — Precise clearance checks for GPU length vs front radiator, RAM height vs CPU cooler clearance, and PSU depth vs drive cages.
+- [ ] 🛠️ **In-App Profile Manager** — Inspect, test, and sync community retailer profiles directly within the Web and CLI UI.
+- [ ] 📄 **Export & Share** — Export validated builds to Markdown tables, Reddit PCBuild markup, HTML summaries, and JSON.
+- [ ] 🧩 **Self-Healing Scraper Resilience** — Automatic LLM selector recovery when local tech store layouts change.
 
 ## License
 
