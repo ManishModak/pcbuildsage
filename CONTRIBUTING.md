@@ -98,79 +98,16 @@ To update component specs:
 
 ## 5. Adding UI Themes
 
-You can skin both the Web and CLI interfaces by adding themes.
+Themes style both the web app and the CLI. They live under `data/themes/` as JSON files validated against `data/schemas/theme.schema.json` (which documents every field and enforces WCAG AA contrast ratios).
 
-### 🎨 UI Themes
+To add a theme:
 
-Themes style both the Next.js web application and the interactive terminal CLI. Themes are defined in JSON files located under `data/themes/` and validated against `data/schemas/theme.schema.json`.
-
-#### Schema Fields
-- **`$schema`**: Points to `../schemas/theme.schema.json`.
-- **`schema_version`**: Must be `1`.
-- **`theme_name`**: Unique name of your theme.
-- **`mode`**: Either `"dark"` or `"light"`.
-- **`tokens`**: CSS variables for the web app UI (must be in `#RRGGBB` format):
-  - `--bg`: Main page background.
-  - `--surface`: Containers and background elements.
-  - `--surface-raised`: Tooltips, modals, elevated surfaces.
-  - `--border`: Standard divider border lines.
-  - `--text`: Main readable text.
-  - `--text-secondary`: Secondary captions/text.
-  - `--text-muted`: Dimmed text.
-  - `--accent`: Accent buttons, active highlights, prompts.
-  - `--on-accent`: Readable text on top of the accent color.
-  - `--ok`: Success/compatible states.
-  - `--blocking`: Errors/incompatible states.
-  - `--warn`: Warning/advisory states.
-  - `--unverified`: Unverified specs status.
-- **`ansi`**: Terminal color codes (integers from `0` to `255`) corresponding to:
-  - `accent`, `ok`, `blocking`, `warn`, `unverified`, `muted`.
-
-#### WCAG AA Contrast Enforcement
-To ensure accessibility, the validation script enforces WCAG AA contrast ratio standards. Your hex tokens must meet or exceed the following ratios:
-- `--text` vs `--bg` (minimum **4.5:1**)
-- `--text-secondary` vs `--bg` (minimum **4.5:1**)
-- `--accent` vs `--bg` (minimum **3.0:1**)
-- `--on-accent` vs `--accent` (minimum **4.5:1**)
-- `--text` vs `--surface` (minimum **4.5:1**)
-
-#### Walkthrough: Adding a Theme
-1. Create a new JSON file: `data/themes/nord-dark.json`.
-2. Populate the file with theme colors, ensuring correct HEX patterns (`^#[0-9A-Fa-f]{6}$`) and matching ANSI color codes:
-   ```json
-   {
-     "$schema": "../schemas/theme.schema.json",
-     "schema_version": 1,
-     "theme_name": "nord-dark",
-     "mode": "dark",
-     "tokens": {
-       "--bg": "#2e3440",
-       "--surface": "#3b4252",
-       "--surface-raised": "#434c5e",
-       "--border": "#4c566a",
-       "--text": "#eceff4",
-       "--text-secondary": "#e5e9f0",
-       "--text-muted": "#d8dee9",
-       "--accent": "#88c0d0",
-       "--on-accent": "#2e3440",
-       "--ok": "#a3be8c",
-       "--blocking": "#bf616a",
-       "--warn": "#ebcb8b",
-       "--unverified": "#b48ead"
-     },
-     "ansi": {
-       "accent": 110,
-       "ok": 108,
-       "blocking": 131,
-       "warn": 222,
-       "unverified": 139,
-       "muted": 246
-     }
-   }
-   ```
-3. Run the validation command:
+1. Copy an existing theme file (e.g. `data/themes/nord-dark.json`) and edit the colors.
+2. Set `tokens` (hex `#RRGGBB` CSS variables for the web UI) and `ansi` (0–255 terminal color codes for the CLI).
+3. Validate:
    ```bash
    npm run validate:data
    ```
-   If any contrast ratio checks fail, adjust your colors accordingly.
+   Fix any contrast failures the script reports.
+
 
