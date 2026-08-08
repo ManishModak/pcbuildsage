@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node node_modules/vitest/dist/cli.js run",
     "init-db": "tsx scripts/init-db.ts",
+    "generate-sample-db": "tsx scripts/generate-sample-db.ts",
     "validate:data": "node --import tsx scripts/validate-data.ts",
     "export-research": "tsx scripts/export-research.ts"
   },

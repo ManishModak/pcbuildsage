@@ -11,7 +11,7 @@ const eslintConfig = defineConfig([
     "build/**",
     "node_modules/**",
     "next-env.d.ts",
-    "src/scraper/**",
+    "scraper/**",
     ".venv/**",
     "venv/**",
     ".agents/**",

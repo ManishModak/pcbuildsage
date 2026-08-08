@@ -4,7 +4,7 @@ import path from "node:path";
 
 export const DEFAULT_DB_PATH = process.env.PCBUILDSAGE_DB_PATH ?? path.join(process.cwd(), "data", "products.db");
 export const DEFAULT_LOGS_DB_PATH = process.env.PCBUILDSAGE_LOGS_DB_PATH ?? path.join(process.cwd(), "data", "logs.db");
-// Keep in lockstep with SCHEMA_VERSION in src/scraper/db.py. The Python scraper
+// Keep in lockstep with SCHEMA_VERSION in scraper/db.py. The Python scraper
 // owns the migrations; this side only needs to recognise the version it is given,
 // and initializeSchema() throws outright if the file is newer than this constant.
 export const DATABASE_SCHEMA_VERSION = 4;
@@ -12,7 +12,7 @@ export const DATABASE_SCHEMA_VERSION = 4;
 const activeDbs = new Map<string, Database.Database>();
 const activeLogsDbs = new Map<string, Database.Database>();
 
-// Keep in lockstep with LOGS_TABLE_DDL in src/scraper/db.py.
+// Keep in lockstep with LOGS_TABLE_DDL in scraper/db.py.
 const LOGS_TABLE_DDL = `
       CREATE TABLE IF NOT EXISTS logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

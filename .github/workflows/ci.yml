@@ -33,6 +33,9 @@ jobs:
       - name: Vitest (including Rules Engine & SHA-1 Consistency)
         run: npm run test
 
+      - name: Build Next.js
+        run: npm run build
+
   python-quality:
     runs-on: ubuntu-latest
     steps:

@@ -10,7 +10,7 @@ PCBuildSage consists of:
 - **TypeScript Core** (`src/lib`): Contains the compatibility rules engine, chat engine, grounding search, and configuration management.
 - **Web Frontend** (`src/app` / `src/components`): Next.js single-page application.
 - **CLI Frontend** (`src/cli`): Node.js interactive terminal client.
-- **Python Scraper Engine** (`src/scraper`): Independent Python process that crawls retailer catalog pages and writes to a local SQLite database.
+- **Python Scraper Engine** (`scraper`): Independent Python process that crawls retailer catalog pages and writes to a local SQLite database.
 
 ---
 
@@ -22,17 +22,19 @@ Scraping profiles live under `data/profiles/` (e.g., `data/profiles/india.json`)
 ```json
 {
   "$schema": "../schemas/profile.schema.json",
-  "countryCode": "IN",
-  "currency": "INR",
-  "flag": "🇮🇳",
-  "profileName": "India",
+  "schema_version": 1,
+  "profile_name": "India",
+  "country_code": "IN",
+  "default_currency": "INR",
   "sites": [
     {
       "site_name": "RetailerName",
       "base_url": "https://retailer.example.com",
       "scraping_type": "category",
       "browser_config": {
-        "headless": true
+        "headless": true,
+        "js_rendering": true,
+        "timeout_ms": 30000
       },
       "selectors": {
         "product_container": "div.product-card",
@@ -60,7 +62,7 @@ Before submitting a pull request with a new or updated profile, run selector val
 pcbuildsage test-profile data/profiles/india.json --site RetailerName
 
 # Via Python directly
-PYTHONPATH=src python3 -m scraper --test-profile data/profiles/india.json --site RetailerName
+python3 -m scraper --test-profile data/profiles/india.json --site RetailerName
 ```
 Ensure all mandatory selector hit rates (title, price, url) are at 100%.
 
@@ -91,8 +93,8 @@ To update component specs:
 - Run unit tests: `npm test` (Runs Vitest, including Tier 1 rules engine tests)
 
 ### Python Scraper
-- Format and lint: `ruff check src/scraper`
-- Run unit tests: `PYTHONPATH=src pytest src/scraper/tests`
+- Format and lint: `ruff check scraper`
+- Run unit tests: `pytest scraper/tests`
 
 ---
 

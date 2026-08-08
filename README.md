@@ -37,7 +37,7 @@ PCBuildSage fixes all three:
 git clone https://github.com/<org>/pcbuildsage
 cd pcbuildsage
 npm install
-pip install -r src/scraper/requirements.txt
+pip install -r scraper/requirements.txt
 cp .env.example .env   # then fill in your LLM API keys
 ```
 
@@ -60,6 +60,14 @@ First run launches an interactive onboarding wizard, then drops you into a REPL.
 ```bash
 ./bin/pcbuildsage.js ask "₹80,000 Blender + 1440p gaming build, white case"
 ./bin/pcbuildsage.js validate --parts mybuild.json
+```
+
+### Seed Sample Database (Optional)
+
+To quickly populate a sample SQLite database from fixtures without scraping:
+
+```bash
+npm run generate-sample-db
 ```
 
 ---

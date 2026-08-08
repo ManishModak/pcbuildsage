@@ -4,6 +4,8 @@ out/
 dist/
 data/products.db
 data/products.db-*
+data/products-sample.db
+data/products-sample.db-*
 data/sessions.db
 data/sessions.db-*
 logs/*
