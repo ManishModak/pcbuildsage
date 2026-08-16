@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { ConfigInput } from "@/types";
 
@@ -25,8 +26,22 @@ export function readCliConfig(cwd = process.cwd()): CliConfig {
 
 export function writeCliConfig(config: CliConfig, cwd = process.cwd()): void {
   const filePath = configPath(cwd);
-  mkdirSync(path.dirname(filePath), { recursive: true });
-  writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const directory = path.dirname(filePath);
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  chmodSync(directory, 0o700);
+
+  const temporaryPath = path.join(directory, `.${CLI_CONFIG_FILE}.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    writeFileSync(temporaryPath, `${JSON.stringify(config, null, 2)}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+      mode: 0o600
+    });
+    renameSync(temporaryPath, filePath);
+    chmodSync(filePath, 0o600);
+  } finally {
+    rmSync(temporaryPath, { force: true });
+  }
 }
 
 export function getConfigValue(config: CliConfig, key: string): unknown {
@@ -41,13 +56,22 @@ export function setConfigValue(config: CliConfig, key: string, rawValue: string)
   const normalized = aliasKey(key);
   const next = structuredClone(config) as CliConfig;
   const parts = normalized.split(".");
+  for (const part of parts) {
+    if (part === "__proto__" || part === "prototype" || part === "constructor") {
+      throw new Error(`Invalid property key: ${part}`);
+    }
+  }
   let cursor: Record<string, unknown> = next as Record<string, unknown>;
   for (const part of parts.slice(0, -1)) {
     const value = cursor[part];
     if (typeof value !== "object" || value === null || Array.isArray(value)) cursor[part] = {};
     cursor = cursor[part] as Record<string, unknown>;
   }
-  cursor[parts.at(-1) ?? normalized] = coerceValue(rawValue);
+  const lastPart = parts.at(-1) ?? normalized;
+  if (lastPart === "__proto__" || lastPart === "prototype" || lastPart === "constructor") {
+    throw new Error(`Invalid property key: ${lastPart}`);
+  }
+  cursor[lastPart] = coerceValue(rawValue);
   return next;
 }
 
@@ -56,6 +80,12 @@ export function isSensitiveConfigKey(key: string): boolean {
 }
 
 function aliasKey(key: string): string {
+  const parts = key.split(".");
+  for (const part of parts) {
+    if (part === "__proto__" || part === "prototype" || part === "constructor") {
+      throw new Error(`Invalid property key: ${part}`);
+    }
+  }
   if (key === "audit") return "tier2Enabled";
   if (key === "profile") return "activeProfile";
   if (key === "provider") return "llmChain";
@@ -67,7 +97,11 @@ function coerceValue(value: string): unknown {
   if (["true", "false"].includes(trimmed.toLowerCase())) return trimmed.toLowerCase() === "true";
   if (/^-?\d+$/.test(trimmed)) return Number(trimmed);
   if ((trimmed.startsWith("[") && trimmed.endsWith("]")) || (trimmed.startsWith("{") && trimmed.endsWith("}"))) {
-    return JSON.parse(trimmed) as unknown;
+    try {
+      return JSON.parse(trimmed) as unknown;
+    } catch {
+      return value;
+    }
   }
   return value;
 }
@@ -92,4 +126,3 @@ export function redactConfig(config: CliConfig): CliConfig {
   if (copy.savedKeys) copy.savedKeys = Object.fromEntries(Object.keys(copy.savedKeys).map((key) => [key, "[redacted]"]));
   return copy;
 }
-

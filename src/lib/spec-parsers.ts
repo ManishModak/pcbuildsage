@@ -62,7 +62,108 @@ export function parseStorageSpecs(name: string): RegistrySpec | undefined {
   };
 }
 
-/** Title parsers by category. Only storage is formulaic enough to read reliably. */
+export function parseMotherboardSpecs(name: string): RegistrySpec | undefined {
+  const norm = name.toUpperCase();
+  let socket: string | undefined;
+  let ddr: string | undefined;
+  let chipset: string | undefined;
+
+  const am4 = norm.match(/\b(B550|B450|A520|X570|B350|A320|X470|X370)\w*\b/);
+  const am5 = norm.match(/\b(B650|B650E|A620|X670|X670E|B850|X870|X870E)\w*\b/);
+  const lga1700 = norm.match(/\b(Z790|B760|H610|B660|Z690|H670)\w*\b/);
+  const lga1851 = norm.match(/\b(Z890|B860|H810)\w*\b/);
+  const lga1200 = norm.match(/\b(Z590|B560|H510|Z490|B460|H410)\w*\b/);
+
+  if (am4) {
+    socket = "AM4";
+    ddr = "DDR4";
+    chipset = am4[1];
+  } else if (am5) {
+    socket = "AM5";
+    ddr = "DDR5";
+    chipset = am5[1];
+  } else if (lga1700) {
+    socket = "LGA 1700";
+    ddr = /DDR4|D4\b/.test(norm) ? "DDR4" : "DDR5";
+    chipset = lga1700[1];
+  } else if (lga1851) {
+    socket = "LGA 1851";
+    ddr = "DDR5";
+    chipset = lga1851[1];
+  } else if (lga1200) {
+    socket = "LGA 1200";
+    ddr = "DDR4";
+    chipset = lga1200[1];
+  }
+
+  if (!socket) return undefined;
+
+  const isItx = /\b(MINI[- ]?ITX|ITX)\b/.test(norm);
+  const isMatx = /\b(MICRO[- ]?ATX|MATX|M-ATX)\b/.test(norm) || /\b[A-Z]\d{3}M\b/.test(norm) || /\b[A-Z]\d{3}M-/.test(norm);
+  const form_factor = isItx ? "Mini-ITX" : isMatx ? "Micro-ATX" : "ATX";
+
+  return {
+    brand: name.trim().split(/\s+/)[0] ?? "",
+    model: name.trim(),
+    aliases: [name.trim()],
+    socket,
+    ddr,
+    chipset,
+    form_factor,
+    m2_slots: /A520|H610|H410|A320/.test(chipset ?? "") ? 1 : 2,
+    sata_ports: 4
+  };
+}
+
+export function parsePsuSpecs(name: string): RegistrySpec | undefined {
+  const wMatch = name.match(/(\d{3,4})\s*W\b/i) || name.match(/\b(450|500|550|600|650|700|750|800|850|1000|1200|1300|1600)\b/);
+  const wattage_w = wMatch ? parseInt(wMatch[1] || wMatch[0], 10) : undefined;
+  if (!wattage_w || wattage_w < 250 || wattage_w > 2000) return undefined;
+
+  const isSfx = /\bSFX\b/i.test(name);
+  const form_factor = isSfx ? "SFX" : "ATX";
+
+  return {
+    brand: name.trim().split(/\s+/)[0] ?? "",
+    model: name.trim(),
+    aliases: [name.trim()],
+    wattage_w,
+    form_factor
+  };
+}
+
+export function parseRamSpecs(name: string): RegistrySpec | undefined {
+  const ddrMatch = name.match(/\bDDR([45])\b/i);
+  const ddr = ddrMatch ? `DDR${ddrMatch[1]}` : undefined;
+
+  const kitMatch = name.match(/(\d+)\s*x\s*(\d+)\s*GB/i);
+  const singleMatch = name.match(/(\d+)\s*GB\b/i);
+  const capacity_gb = kitMatch
+    ? parseInt(kitMatch[1], 10) * parseInt(kitMatch[2], 10)
+    : singleMatch
+      ? parseInt(singleMatch[1], 10)
+      : undefined;
+
+  const speedMatch = name.match(/(\d{4})\s*MHz\b/i) || name.match(/DDR[45]-(\d{4})\b/i);
+  const speed_mhz = speedMatch ? parseInt(speedMatch[1], 10) : undefined;
+
+  if (!ddr && !capacity_gb) return undefined;
+
+  return {
+    brand: name.trim().split(/\s+/)[0] ?? "",
+    model: name.trim(),
+    aliases: [name.trim()],
+    ...(ddr ? { ddr } : {}),
+    ...(capacity_gb ? { capacity_gb } : {}),
+    ...(speed_mhz ? { speed_mhz } : {})
+  };
+}
+
+/** Title parsers by category for deterministic extraction from retailer listings. */
 export function parseSpecsFromTitle(name: string, category?: string): RegistrySpec | undefined {
-  return category === "storage" ? parseStorageSpecs(name) : undefined;
+  if (category === "storage") return parseStorageSpecs(name);
+  if (category === "motherboard") return parseMotherboardSpecs(name);
+  if (category === "psu") return parsePsuSpecs(name);
+  if (category === "ram") return parseRamSpecs(name);
+  return undefined;
 }

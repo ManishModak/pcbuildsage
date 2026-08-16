@@ -2,7 +2,7 @@
   "$schema": "../schemas/registry.schema.json",
   "corsair-4000d-airflow": {
     "brand": "Corsair",
-    "model": "Corsair 4000D Airflow",
+    "model": "Corsair 4000D AIRFLOW Mid Tower",
     "max_gpu_length_mm": 360,
     "max_cooler_height_mm": 170,
     "form_factors": [
@@ -12,14 +12,17 @@
       "Mini-ITX"
     ],
     "aliases": [
-      "Corsair 4000D Airflow",
-      "4000D Airflow"
+      "Corsair 4000D AIRFLOW",
+      "4000D AIRFLOW",
+      "Corsair 4000D",
+      "4000D",
+      "Corsair 4000D Airflow CC-9011200-WW"
     ],
     "sources": [
       "https://www.corsair.com/p/CC-9011200-WW"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T17:37:04Z"
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "nzxt-h510": {
     "brand": "NZXT",
@@ -95,7 +98,10 @@
     ],
     "aliases": [
       "Corsair 7000D Airflow",
-      "7000D Airflow"
+      "7000D Airflow",
+      "Corsair 7000D",
+      "7000D",
+      "Corsair 7000D AIRFLOW"
     ],
     "sources": [
       "https://www.corsair.com/p/CC-9011218-WW"
@@ -199,7 +205,7 @@
       "Focus G Mini"
     ],
     "sources": [
-      "https://www.fractal-design.com/products/cases/focus/focus-g/"
+      "https://www.fractal-design.com/products/cases/focus/focus-g-mini/black/"
     ],
     "confidence": "high",
     "researched_at": "2026-07-11T17:37:04Z"
@@ -219,7 +225,7 @@
     "sources": [
       "https://nzxt.com/product/h1"
     ],
-    "confidence": "medium",
+    "confidence": "high",
     "researched_at": "2026-07-11T17:37:04Z"
   },
   "cooler-master-nr200": {
@@ -297,5 +303,667 @@
     ],
     "confidence": "high",
     "researched_at": "2026-07-11T17:37:04Z"
+  },
+  "ant-esports-si28": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports SI28 Mid Tower",
+    "max_gpu_length_mm": 270,
+    "max_cooler_height_mm": 162,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Ant Esports SI28",
+      "SI28",
+      "Ant Esports SI28 Mid Tower",
+      "Ant Esports SI28 Cabinet Black"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-si28-cabinet-black/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "ant-esports-ice-100": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports ICE-100TG Mid Tower",
+    "max_gpu_length_mm": 310,
+    "max_cooler_height_mm": 159,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Ant Esports ICE-100",
+      "Ant Esports ICE-100TG",
+      "ICE-100TG",
+      "ICE-100",
+      "Ant Esports ICE 100"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-ice-100tg-gaming-cabinet/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "ant-esports-ice-200tg": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports ICE-200TG Mid Tower",
+    "max_gpu_length_mm": 360,
+    "max_cooler_height_mm": 159,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Ant Esports ICE-200TG",
+      "ICE-200TG",
+      "Ant Esports ICE 200TG",
+      "ICE 200TG"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-ice-200tg-gaming-cabinet/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "ant-esports-211tg": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports 211TG Mid Tower",
+    "max_gpu_length_mm": 315,
+    "max_cooler_height_mm": 154,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Ant Esports 211TG",
+      "Ant Esports ICE-211TG",
+      "ICE-211TG",
+      "211TG"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-ice-211tg-gaming-cabinet/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "ant-esports-200-air": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports 200 Air Mini Tower",
+    "max_gpu_length_mm": 340,
+    "max_cooler_height_mm": 190,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Ant Esports 200 Air",
+      "Ant Esports 200 Air Mini",
+      "200 Air Mini",
+      "200 Air",
+      "Ant Esports 200 Air Mini Gaming Cabinet"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-200-air-mini-gaming-cabinet/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "ant-esports-510-air": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports 510 Air Mid Tower",
+    "max_gpu_length_mm": 360,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Ant Esports 510 Air",
+      "510 Air",
+      "Ant Esports 510 Air Gaming Cabinet"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-510-air-gaming-cabinet/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "ant-esports-690-air": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports 690 Air Mid Tower",
+    "max_gpu_length_mm": 390,
+    "max_cooler_height_mm": 175,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Ant Esports 690 Air",
+      "690 Air",
+      "Ant Esports 690 Air Gaming Cabinet"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-690-air-gaming-cabinet/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "ant-esports-ice-112": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports ICE-112 Mid Tower",
+    "max_gpu_length_mm": 340,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Ant Esports ICE-112",
+      "ICE-112",
+      "Ant Esports ICE 112",
+      "ICE 112"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-ice-112-gaming-cabinet/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "deepcool-cc560-v2": {
+    "brand": "DeepCool",
+    "model": "DeepCool CC560 V2 Mid Tower",
+    "max_gpu_length_mm": 370,
+    "max_cooler_height_mm": 165,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "DeepCool CC560 V2",
+      "CC560 V2",
+      "DeepCool CC560 WH V2",
+      "CC560 WH V2",
+      "DeepCool CC560"
+    ],
+    "sources": [
+      "https://www.deepcool.com/products/Cases/CC560-V2-Mid-Tower-ATX-Case/2023/17804.shtml"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "deepcool-matrexx-40-3fs": {
+    "brand": "DeepCool",
+    "model": "DeepCool Matrexx 40 3FS Mini Tower",
+    "max_gpu_length_mm": 320,
+    "max_cooler_height_mm": 165,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "DeepCool Matrexx 40 3FS",
+      "Matrexx 40 3FS",
+      "DeepCool Matrexx 40",
+      "Matrexx 40"
+    ],
+    "sources": [
+      "https://www.deepcool.com/products/Cases/MATREXX-40-3FS-Micro-ATX-Case/2021/11624.shtml"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "deepcool-matrexx-55-mesh": {
+    "brand": "DeepCool",
+    "model": "DeepCool Matrexx 55 Mesh Mid Tower",
+    "max_gpu_length_mm": 370,
+    "max_cooler_height_mm": 168,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "DeepCool Matrexx 55 Mesh",
+      "Matrexx 55 Mesh",
+      "DeepCool Matrexx 55 Mesh 4F",
+      "Matrexx 55 Mesh 4F",
+      "Matrexx 55 Mesh ADD-RGB 4F"
+    ],
+    "sources": [
+      "https://www.deepcool.com/products/Cases/MATREXX-55-MESH-4F-Mid-Tower-ATX-Case/2021/11559.shtml"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "deepcool-ch560": {
+    "brand": "DeepCool",
+    "model": "DeepCool CH560 Mid Tower",
+    "max_gpu_length_mm": 380,
+    "max_cooler_height_mm": 175,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "DeepCool CH560",
+      "CH560",
+      "DeepCool CH560 DIGITAL",
+      "CH560 DIGITAL",
+      "DeepCool CH560 WH"
+    ],
+    "sources": [
+      "https://www.deepcool.com/products/Cases/CH560-High-Airflow-Case/2023/17118.shtml"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "deepcool-ch370": {
+    "brand": "DeepCool",
+    "model": "DeepCool CH370 Mini Tower",
+    "max_gpu_length_mm": 378,
+    "max_cooler_height_mm": 165,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "DeepCool CH370",
+      "CH370",
+      "DeepCool CH370 WH",
+      "CH370 WH"
+    ],
+    "sources": [
+      "https://www.deepcool.com/products/Cases/CH370-Micro-ATX-Case/2022/15984.shtml"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "montech-air-903-max": {
+    "brand": "Montech",
+    "model": "Montech AIR 903 MAX Mid Tower",
+    "max_gpu_length_mm": 400,
+    "max_cooler_height_mm": 180,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Montech AIR 903 MAX",
+      "AIR 903 MAX",
+      "Montech AIR 903 MAX Black",
+      "Montech AIR 903 MAX White"
+    ],
+    "sources": [
+      "https://www.montechpc.com/en/products_detail.php?nid=355"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "montech-air-903-base": {
+    "brand": "Montech",
+    "model": "Montech AIR 903 BASE Mid Tower",
+    "max_gpu_length_mm": 400,
+    "max_cooler_height_mm": 180,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Montech AIR 903 BASE",
+      "AIR 903 BASE",
+      "Montech AIR 903 BASE Black",
+      "Montech AIR 903 BASE White"
+    ],
+    "sources": [
+      "https://www.montechpc.com/en/products_detail.php?nid=354"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "montech-air-100-argb": {
+    "brand": "Montech",
+    "model": "Montech AIR 100 ARGB Mini Tower",
+    "max_gpu_length_mm": 330,
+    "max_cooler_height_mm": 161,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Montech AIR 100 ARGB",
+      "AIR 100 ARGB",
+      "Montech AIR 100 ARGB Black",
+      "Montech AIR 100 ARGB White",
+      "Montech AIR 100"
+    ],
+    "sources": [
+      "https://www.montechpc.com/en/products_detail.php?nid=227"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "montech-sky-two": {
+    "brand": "Montech",
+    "model": "Montech Sky Two Mid Tower",
+    "max_gpu_length_mm": 400,
+    "max_cooler_height_mm": 168,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Montech Sky Two",
+      "Sky Two",
+      "Montech Sky Two Black",
+      "Montech Sky Two White",
+      "Montech Sky Two Morocco Blue"
+    ],
+    "sources": [
+      "https://www.montechpc.com/en/products_detail.php?nid=314"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "lian-li-lancool-216": {
+    "brand": "Lian Li",
+    "model": "Lian Li LANCOOL 216 Mid Tower",
+    "max_gpu_length_mm": 392,
+    "max_cooler_height_mm": 180,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Lian Li LANCOOL 216",
+      "LANCOOL 216",
+      "Lian Li LANCOOL 216 RGB",
+      "LANCOOL 216 RGB"
+    ],
+    "sources": [
+      "https://lian-li.com/product/lancool-216/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "lian-li-lancool-iii": {
+    "brand": "Lian Li",
+    "model": "Lian Li LANCOOL III Mid Tower",
+    "max_gpu_length_mm": 420,
+    "max_cooler_height_mm": 185,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Lian Li LANCOOL III",
+      "LANCOOL III",
+      "Lian Li LANCOOL III RGB",
+      "LANCOOL 3",
+      "LANCOOL III RGB"
+    ],
+    "sources": [
+      "https://lian-li.com/product/lancool-iii/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "lian-li-o11-dynamic-evo": {
+    "brand": "Lian Li",
+    "model": "Lian Li O11 Dynamic EVO Mid Tower",
+    "max_gpu_length_mm": 426,
+    "max_cooler_height_mm": 167,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Lian Li O11 Dynamic EVO",
+      "O11 Dynamic EVO",
+      "O11D EVO",
+      "Lian Li O11D EVO"
+    ],
+    "sources": [
+      "https://lian-li.com/product/o11-dynamic-evo/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "lian-li-o11-vision": {
+    "brand": "Lian Li",
+    "model": "Lian Li O11 Vision Mid Tower",
+    "max_gpu_length_mm": 430,
+    "max_cooler_height_mm": 174,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Lian Li O11 Vision",
+      "O11 Vision",
+      "Lian Li O11 Vision Black",
+      "Lian Li O11 Vision White",
+      "O11 Vision Chrome"
+    ],
+    "sources": [
+      "https://lian-li.com/product/o11-vision/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "lian-li-a3-matx": {
+    "brand": "Lian Li",
+    "model": "Lian Li DAN Cases A3-mATX Mini Tower",
+    "max_gpu_length_mm": 415,
+    "max_cooler_height_mm": 165,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Lian Li A3-mATX",
+      "A3-mATX",
+      "Lian Li DAN Cases A3-mATX",
+      "Lian Li A3 mATX",
+      "A3 mATX"
+    ],
+    "sources": [
+      "https://lian-li.com/product/a3-matx/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "corsair-5000d-airflow": {
+    "brand": "Corsair",
+    "model": "Corsair 5000D AIRFLOW Mid Tower",
+    "max_gpu_length_mm": 420,
+    "max_cooler_height_mm": 170,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Corsair 5000D AIRFLOW",
+      "5000D AIRFLOW",
+      "Corsair 5000D",
+      "5000D",
+      "Corsair 5000D Airflow CC-9011210-WW"
+    ],
+    "sources": [
+      "https://www.corsair.com/p/CC-9011210-WW"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "corsair-3000d-airflow": {
+    "brand": "Corsair",
+    "model": "Corsair 3000D AIRFLOW Mid Tower",
+    "max_gpu_length_mm": 360,
+    "max_cooler_height_mm": 170,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Corsair 3000D AIRFLOW",
+      "3000D AIRFLOW",
+      "Corsair 3000D",
+      "3000D",
+      "Corsair 3000D RGB AIRFLOW"
+    ],
+    "sources": [
+      "https://www.corsair.com/p/CC-9011251-WW"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "fractal-design-pop-air": {
+    "brand": "Fractal Design",
+    "model": "Fractal Design Pop Air Mid Tower",
+    "max_gpu_length_mm": 405,
+    "max_cooler_height_mm": 170,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Fractal Design Pop Air",
+      "Pop Air",
+      "Fractal Pop Air",
+      "Fractal Design Pop Air RGB",
+      "Pop Air RGB"
+    ],
+    "sources": [
+      "https://www.fractal-design.com/products/cases/pop/pop-air/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "fractal-design-north": {
+    "brand": "Fractal Design",
+    "model": "Fractal Design North Mid Tower",
+    "max_gpu_length_mm": 355,
+    "max_cooler_height_mm": 170,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Fractal Design North",
+      "Fractal North",
+      "Fractal Design North Charcoal Black",
+      "Fractal Design North Chalk White",
+      "Fractal Design North Mesh",
+      "Fractal Design North TG"
+    ],
+    "sources": [
+      "https://www.fractal-design.com/products/cases/north/north/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "fractal-design-meshify-2": {
+    "brand": "Fractal Design",
+    "model": "Fractal Design Meshify 2 Mid Tower",
+    "max_gpu_length_mm": 470,
+    "max_cooler_height_mm": 185,
+    "form_factors": [
+      "E-ATX",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Fractal Design Meshify 2",
+      "Meshify 2",
+      "Fractal Meshify 2",
+      "Fractal Design Meshify 2 Black",
+      "Fractal Design Meshify 2 Light Tint"
+    ],
+    "sources": [
+      "https://www.fractal-design.com/products/cases/meshify/meshify-2/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "nzxt-h5-flow": {
+    "brand": "NZXT",
+    "model": "NZXT H5 Flow Mid Tower",
+    "max_gpu_length_mm": 365,
+    "max_cooler_height_mm": 165,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "NZXT H5 Flow",
+      "H5 Flow",
+      "NZXT H5 Flow RGB",
+      "H5 Flow RGB"
+    ],
+    "sources": [
+      "https://nzxt.com/product/h5-flow"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "cooler-master-masterbox-td500-mesh-v2": {
+    "brand": "Cooler Master",
+    "model": "Cooler Master MasterBox TD500 Mesh V2 Mid Tower",
+    "max_gpu_length_mm": 410,
+    "max_cooler_height_mm": 165,
+    "form_factors": [
+      "E-ATX",
+      "SSI-CEB",
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "aliases": [
+      "Cooler Master MasterBox TD500 Mesh V2",
+      "MasterBox TD500 Mesh V2",
+      "TD500 Mesh V2",
+      "Cooler Master TD500 Mesh V2"
+    ],
+    "sources": [
+      "https://www.coolermaster.com/en-global/products/masterbox-td500-mesh-v2/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   }
 }

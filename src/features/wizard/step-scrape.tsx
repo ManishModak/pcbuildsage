@@ -1,7 +1,6 @@
 "use client";
 
 import { Database } from "lucide-react";
-import type { StatusResponse } from "@/types/client";
 import type { DataSourceChoice } from "./step-data-source";
 import { ScrapeForm } from "./scrape-form";
 import { SimplePanel } from "./simple-panel";
@@ -12,7 +11,6 @@ export function StepScrape({
   onNext
 }: {
   dataSource: DataSourceChoice | null;
-  status: StatusResponse | null;
   onBack: () => void;
   onNext: () => void;
 }) {

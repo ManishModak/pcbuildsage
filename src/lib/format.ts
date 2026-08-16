@@ -13,7 +13,6 @@ const CURRENCY_MINOR_DIGITS: Record<string, number> = {
 export function minorDigits(currency: string): number {
   return CURRENCY_MINOR_DIGITS[currency.toUpperCase()] ?? 2;
 }
-
 /**
  * Format an integer minor-unit price (e.g. paise, cents) for the given currency.
  * Returns a plain string; callers render it in mono with tabular-nums.
@@ -84,13 +83,16 @@ export function formatClock(iso: string | Date | undefined, now: number = Date.n
   });
 }
 
-/** Estimate crawl time from selected sites × categories × page depth. */
+/** Estimate crawl time from selected sites × categories × page depth, accounting for parallel site workers. */
 export function estimateScrapeMinutes(
   jobs: number,
   pages: number,
-  delayMs = 1000
+  delayMs = 1000,
+  concurrency = 1,
+  siteCount = 1
 ): { pages: number; label: string } {
-  const seconds = Math.max(1, Math.round(pages * (2.5 + delayMs / 1000)));
+  const effectiveWorkers = Math.max(1, Math.min(Math.max(1, siteCount), Math.max(1, concurrency)));
+  const seconds = Math.max(1, Math.round((pages * (2.5 + delayMs / 1000)) / effectiveWorkers));
   const minutes = Math.round(seconds / 60);
   return { pages, label: minutes >= 1 ? `~${minutes} min` : `~${seconds} sec` };
 }
@@ -137,9 +139,72 @@ export function getErrorMessageText(msg: string): string {
   return msg;
 }
 
-export function getErrorMessage(error: Error): string {
-  if (!error.message) {
-    return "Something interrupted the response. Check your provider chain in settings and try again.";
+const FALLBACK_ERROR_MESSAGE =
+  "Something interrupted the response. Check your provider chain in settings and try again.";
+
+export function getErrorMessage(error: unknown): string {
+  let message = "";
+
+  if (error instanceof Error) {
+    message = error.message;
+  } else if (typeof error === "object" && error !== null) {
+    const errObj = error as Record<string, unknown>;
+    if ("message" in errObj && errObj.message && typeof errObj.message !== "object") {
+      message = String(errObj.message);
+    } else {
+      try {
+        const json = JSON.stringify(error);
+        if (json && json !== "{}") {
+          message = json;
+        }
+      } catch {
+        // Serialization failed (e.g. circular reference)
+      }
+    }
+  } else {
+    message = String(error ?? "");
   }
-  return getErrorMessageText(error.message);
+
+  if (!message || message === "[object Object]") {
+    return FALLBACK_ERROR_MESSAGE;
+  }
+
+  const result = getErrorMessageText(message);
+  if (!result || result === "[object Object]") {
+    return FALLBACK_ERROR_MESSAGE;
+  }
+
+  return result;
+}
+
+/** Format raw model identifiers or filesystem paths into a concise, readable model name. */
+export function formatModelName(model: string | undefined): string {
+  if (!model || typeof model !== "string") return "Sage";
+  let name = model.trim();
+  if (!name) return "Sage";
+
+  // If it's a filepath (contains slashes or backslashes), grab the filename
+  if (name.includes("/") || name.includes("\\")) {
+    const parts = name.split(/[/\\]/);
+    const filename = parts.pop() || "";
+    if (filename) {
+      name = filename;
+    }
+  }
+
+  // Strip .gguf / .bin / .safetensors / .pt / .onnx extensions
+  name = name.replace(/\.(gguf|bin|safetensors|pt|onnx)$/i, "");
+
+  // If it looks like HuggingFace models--org--repo
+  if (name.startsWith("models--")) {
+    name = name.replace(/^models--/, "").replace(/--/g, "/");
+  }
+
+  // If prefixed with provider like 'ollama:llama3.3' or 'gemini:gemini-2.5-flash'
+  if (name.includes(":") && !name.startsWith("http")) {
+    const colonIdx = name.lastIndexOf(":");
+    name = name.slice(colonIdx + 1);
+  }
+
+  return name || "Sage";
 }

@@ -6,13 +6,19 @@ import { useApp } from "@/components/app/app-provider";
 import type { ChainEntry, CredentialAvailability, EndpointPreset } from "@/types/client";
 import { ChainBuilder, newEntry } from "@/features/llm/chain-builder";
 import { Icon } from "@/components/ui/icon";
-import { Button, Toggle } from "@/components/ui/primitives";
+import { Button, Card, Toggle } from "@/components/ui/primitives";
+
+export type EndpointLoadState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; endpoints: EndpointPreset[] };
 
 export function StepLLM({
   chain,
   onChange,
   credentials,
-  endpoints,
+  endpointState,
+  onRetryEndpoints,
   onBack,
   onNext,
   canAdvance
@@ -20,12 +26,14 @@ export function StepLLM({
   chain: ChainEntry[];
   onChange: (next: ChainEntry[]) => void;
   credentials: CredentialAvailability | null;
-  endpoints: EndpointPreset[];
+  endpointState: EndpointLoadState;
+  onRetryEndpoints: () => void;
   onBack: () => void;
   onNext: () => void;
   canAdvance: boolean;
 }) {
   const { config, updateConfig } = useApp();
+  const endpoints = endpointState.status === "ready" ? endpointState.endpoints : [];
 
   // Seed a first entry, defaulting to a provider with a detected env credential.
   useEffect(() => {
@@ -47,6 +55,20 @@ export function StepLLM({
           failures. Keys entered here are stored locally and sent only as request headers — never rendered back.
         </p>
       </header>
+
+      {endpointState.status === "loading" ? (
+        <p className="text-caption text-text-muted" aria-live="polite">Loading local endpoint presets…</p>
+      ) : endpointState.status === "error" ? (
+        <Card className="flex items-start justify-between gap-3 p-3" role="alert">
+          <div>
+            <p className="text-caption font-medium text-text">Could not load local endpoint presets</p>
+            <p className="text-caption text-text-secondary">{endpointState.message}</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onRetryEndpoints}>Retry</Button>
+        </Card>
+      ) : endpointState.endpoints.length === 0 ? (
+        <p className="text-caption text-text-muted">No local endpoint presets are configured. Custom endpoints remain available.</p>
+      ) : null}
 
       <ChainBuilder chain={chain} onChange={onChange} credentials={credentials} endpoints={endpoints} />
 

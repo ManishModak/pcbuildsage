@@ -4,7 +4,7 @@ import { useId } from "react";
 import { RefreshCw } from "lucide-react";
 import type { DiscoveredModel } from "@/types/client";
 import { cn } from "./cn";
-import { IconButton, Input, Spinner } from "./primitives";
+import { IconButton, Input, Spinner, type FieldControlProps } from "./primitives";
 
 // Model dropdowns are populated live but always accept an arbitrary model id,
 // since some custom endpoints don't implement /v1/models listing.
@@ -15,7 +15,8 @@ export function ModelField({
   loading,
   onRefresh,
   error,
-  disabled
+  disabled,
+  inputProps
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -24,6 +25,7 @@ export function ModelField({
   onRefresh?: () => void;
   error?: string;
   disabled?: boolean;
+  inputProps?: FieldControlProps;
 }) {
   const listId = useId();
   return (
@@ -31,13 +33,13 @@ export function ModelField({
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Input
+            {...inputProps}
             mono
             list={listId}
             value={value}
             disabled={disabled}
             placeholder="model id (type or pick)"
             onChange={(event) => onChange(event.target.value)}
-            aria-label="Model id"
           />
           {loading ? (
             <span className="absolute right-3 top-1/2 -translate-y-1/2">

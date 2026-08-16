@@ -2,129 +2,1942 @@
   "$schema": "../schemas/registry.schema.json",
   "samsung-990-pro-2tb": {
     "brand": "Samsung",
-    "model": "Samsung 990 Pro 2TB",
+    "model": "Samsung 990 PRO 2TB M.2 NVMe Gen4 SSD",
     "interface": "nvme",
     "form_factor": "m2-2280",
     "capacity_gb": 2000,
     "pcie_gen": 4,
     "aliases": [
-      "990 Pro 2TB",
-      "Samsung 990 Pro 2TB",
+      "Samsung 990 PRO 2TB",
+      "990 PRO 2TB",
+      "Samsung 990 Pro 2TB NVMe SSD",
       "990 pro 2tb",
-      "990Pro 2TB"
+      "990Pro 2TB",
+      "Samsung 990 PRO 2TB M.2 PCIe 4.0 SSD",
+      "MZ-V9P2T0B"
     ],
     "sources": [
       "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/990-pro-pcie-4-0-nvme-m-2-ssd-2tb-mz-v9p2t0b-am/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T23:04:04Z"
+    "researched_at": "2026-08-16T10:04:56Z"
   },
   "samsung-990-pro-1tb": {
     "brand": "Samsung",
-    "model": "Samsung 990 Pro 1TB",
+    "model": "Samsung 990 PRO 1TB M.2 NVMe Gen4 SSD",
     "interface": "nvme",
     "form_factor": "m2-2280",
     "capacity_gb": 1000,
     "pcie_gen": 4,
     "aliases": [
-      "990 Pro 1TB",
-      "Samsung 990 Pro 1TB",
+      "Samsung 990 PRO 1TB",
+      "990 PRO 1TB",
+      "Samsung 990 Pro 1TB NVMe SSD",
       "990 pro 1tb",
-      "990Pro 1TB"
+      "990Pro 1TB",
+      "Samsung 990 PRO 1TB M.2 PCIe 4.0 SSD",
+      "MZ-V9P1T0B"
     ],
     "sources": [
       "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/990-pro-pcie-4-0-nvme-m-2-ssd-1tb-mz-v9p1t0b-am/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T23:04:04Z"
+    "researched_at": "2026-08-16T10:04:56Z"
   },
   "wd-black-sn850x-2tb": {
     "brand": "Western Digital",
-    "model": "WD_BLACK SN850X 2TB",
+    "model": "WD_BLACK SN850X 2TB M.2 NVMe Gen4 SSD",
     "interface": "nvme",
     "form_factor": "m2-2280",
     "capacity_gb": 2000,
     "pcie_gen": 4,
     "aliases": [
-      "SN850X 2TB",
       "WD Black SN850X 2TB",
       "WD_BLACK SN850X 2TB",
-      "sn850x 2tb"
+      "SN850X 2TB",
+      "sn850x 2tb",
+      "Western Digital WD Black SN850X 2TB NVMe SSD",
+      "WDS200T2X0E"
     ],
     "sources": [
       "https://www.westerndigital.com/products/internal-drives/wd-black-sn850x-nvme-ssd?sku=WDS200T2X0E"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T23:04:04Z"
+    "researched_at": "2026-08-16T10:04:56Z"
   },
   "crucial-t700-2tb": {
     "brand": "Crucial",
-    "model": "Crucial T700 2TB",
+    "model": "Crucial T700 2TB M.2 NVMe Gen5 SSD",
     "interface": "nvme",
     "form_factor": "m2-2280",
     "capacity_gb": 2000,
     "pcie_gen": 5,
     "aliases": [
-      "T700 2TB",
       "Crucial T700 2TB",
-      "t700 2tb"
+      "T700 2TB",
+      "t700 2tb",
+      "Crucial T700 2TB NVMe SSD",
+      "CT2000T700SSD3"
     ],
     "sources": [
-      "https://www.crucial.com/ssd/t700/ct2000t700ssd3"
+      "https://www.crucial.com/products/ssd/crucial-t700-ssd"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T23:04:04Z"
+    "researched_at": "2026-08-16T10:04:56Z"
   },
   "crucial-p3-plus-1tb": {
     "brand": "Crucial",
-    "model": "Crucial P3 Plus 1TB",
+    "model": "Crucial P3 Plus 1TB M.2 NVMe Gen4 SSD",
     "interface": "nvme",
     "form_factor": "m2-2280",
     "capacity_gb": 1000,
     "pcie_gen": 4,
     "aliases": [
-      "P3 Plus 1TB",
       "Crucial P3 Plus 1TB",
-      "p3 plus 1tb"
+      "P3 Plus 1TB",
+      "p3 plus 1tb",
+      "Crucial P3 Plus 1TB NVMe SSD",
+      "CT1000P3PSSD8"
     ],
     "sources": [
-      "https://www.crucial.com/support/ssd/p3-plus"
+      "https://www.crucial.com/products/ssd/crucial-p3-plus-ssd"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T23:04:04Z"
+    "researched_at": "2026-08-16T10:04:56Z"
   },
   "samsung-870-evo-1tb": {
     "brand": "Samsung",
-    "model": "Samsung 870 EVO 1TB",
+    "model": "Samsung 870 EVO 1TB 2.5\" SATA SSD",
     "interface": "sata",
     "form_factor": "2.5in",
     "capacity_gb": 1000,
     "aliases": [
-      "870 EVO 1TB",
       "Samsung 870 EVO 1TB",
-      "870 evo 1tb"
+      "870 EVO 1TB",
+      "870 evo 1tb",
+      "Samsung 870 EVO 1TB 2.5 Inch SATA III SSD",
+      "MZ-77E1T0B"
     ],
     "sources": [
       "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/870-evo-sata-2-5-ssd-1tb-mz-77e1t0b-am/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T23:04:04Z"
+    "researched_at": "2026-08-16T10:04:56Z"
   },
   "crucial-mx500-1tb": {
     "brand": "Crucial",
-    "model": "Crucial MX500 1TB",
+    "model": "Crucial MX500 1TB 2.5\" SATA SSD",
     "interface": "sata",
     "form_factor": "2.5in",
     "capacity_gb": 1000,
     "aliases": [
-      "MX500 1TB",
       "Crucial MX500 1TB",
-      "mx500 1tb"
+      "MX500 1TB",
+      "mx500 1tb",
+      "Crucial MX500 1TB 2.5 SATA SSD",
+      "CT1000MX500SSD1"
     ],
     "sources": [
       "https://www.crucial.com/products/ssd/crucial-mx500-ssd"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T23:04:04Z"
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-990-pro-4tb": {
+    "brand": "Samsung",
+    "model": "Samsung 990 PRO 4TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 4000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Samsung 990 PRO 4TB",
+      "990 PRO 4TB",
+      "Samsung 990 Pro 4TB NVMe SSD",
+      "990 pro 4tb",
+      "990Pro 4TB",
+      "Samsung 990 PRO 4TB M.2 PCIe 4.0 SSD",
+      "MZ-V9P4T0B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/990-pro-pcie-4-0-nvme-m-2-ssd-4tb-mz-v9p4t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-990-evo-plus-4tb": {
+    "brand": "Samsung",
+    "model": "Samsung 990 EVO Plus 4TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 4000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Samsung 990 EVO Plus 4TB",
+      "990 EVO Plus 4TB",
+      "Samsung 990 EVO+ 4TB",
+      "990 evo plus 4tb",
+      "Samsung 990 EVO Plus 4TB NVMe SSD",
+      "MZ-V9S4T0B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/990-evo-plus-pcie-4-0-nvme-ssd-4tb-mz-v9s4t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-990-evo-plus-2tb": {
+    "brand": "Samsung",
+    "model": "Samsung 990 EVO Plus 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Samsung 990 EVO Plus 2TB",
+      "990 EVO Plus 2TB",
+      "Samsung 990 EVO+ 2TB",
+      "990 evo plus 2tb",
+      "Samsung 990 EVO Plus 2TB NVMe SSD",
+      "MZ-V9S2T0B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/990-evo-plus-pcie-4-0-nvme-ssd-2tb-mz-v9s2t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-990-evo-plus-1tb": {
+    "brand": "Samsung",
+    "model": "Samsung 990 EVO Plus 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Samsung 990 EVO Plus 1TB",
+      "990 EVO Plus 1TB",
+      "Samsung 990 EVO+ 1TB",
+      "990 evo plus 1tb",
+      "Samsung 990 EVO Plus 1TB NVMe SSD",
+      "MZ-V9S1T0B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/990-evo-plus-pcie-4-0-nvme-ssd-1tb-mz-v9s1t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-990-evo-2tb": {
+    "brand": "Samsung",
+    "model": "Samsung 990 EVO 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Samsung 990 EVO 2TB",
+      "990 EVO 2TB",
+      "990 evo 2tb",
+      "Samsung 990 EVO 2TB NVMe SSD",
+      "MZ-V9E2T0B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/990-evo-pcie-4-0-nvme-ssd-2tb-mz-v9e2t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-990-evo-1tb": {
+    "brand": "Samsung",
+    "model": "Samsung 990 EVO 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Samsung 990 EVO 1TB",
+      "990 EVO 1TB",
+      "990 evo 1tb",
+      "Samsung 990 EVO 1TB NVMe SSD",
+      "MZ-V9E1T0B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/990-evo-pcie-4-0-nvme-ssd-1tb-mz-v9e1t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-980-pro-2tb": {
+    "brand": "Samsung",
+    "model": "Samsung 980 PRO 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Samsung 980 PRO 2TB",
+      "980 PRO 2TB",
+      "Samsung 980 Pro 2TB NVMe SSD",
+      "980 pro 2tb",
+      "980Pro 2TB",
+      "MZ-V8P2T0B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/980-pro-pcie-4-0-nvme-ssd-2tb-mz-v8p2t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-980-pro-1tb": {
+    "brand": "Samsung",
+    "model": "Samsung 980 PRO 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Samsung 980 PRO 1TB",
+      "980 PRO 1TB",
+      "Samsung 980 Pro 1TB NVMe SSD",
+      "980 pro 1tb",
+      "980Pro 1TB",
+      "MZ-V8P1T0B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/980-pro-pcie-4-0-nvme-ssd-1tb-mz-v8p1t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-980-pro-500gb": {
+    "brand": "Samsung",
+    "model": "Samsung 980 PRO 500GB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 500,
+    "pcie_gen": 4,
+    "aliases": [
+      "Samsung 980 PRO 500GB",
+      "980 PRO 500GB",
+      "Samsung 980 Pro 500GB NVMe SSD",
+      "980 pro 500gb",
+      "980Pro 500GB",
+      "MZ-V8P500B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/980-pro-pcie-4-0-nvme-ssd-500gb-mz-v8p500b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-970-evo-plus-2tb": {
+    "brand": "Samsung",
+    "model": "Samsung 970 EVO Plus 2TB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 3,
+    "aliases": [
+      "Samsung 970 EVO Plus 2TB",
+      "970 EVO Plus 2TB",
+      "Samsung 970 EVO+ 2TB",
+      "970 evo plus 2tb",
+      "Samsung 970 EVO Plus 2TB NVMe SSD",
+      "MZ-V7S2T0B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/970-evo-plus-nvme-m-2-ssd-2tb-mz-v7s2t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-970-evo-plus-1tb": {
+    "brand": "Samsung",
+    "model": "Samsung 970 EVO Plus 1TB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 3,
+    "aliases": [
+      "Samsung 970 EVO Plus 1TB",
+      "970 EVO Plus 1TB",
+      "Samsung 970 EVO+ 1TB",
+      "970 evo plus 1tb",
+      "Samsung 970 EVO Plus 1TB NVMe SSD",
+      "MZ-V7S1T0B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/970-evo-plus-nvme-m-2-ssd-1tb-mz-v7s1t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-970-evo-plus-500gb": {
+    "brand": "Samsung",
+    "model": "Samsung 970 EVO Plus 500GB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 500,
+    "pcie_gen": 3,
+    "aliases": [
+      "Samsung 970 EVO Plus 500GB",
+      "970 EVO Plus 500GB",
+      "Samsung 970 EVO+ 500GB",
+      "970 evo plus 500gb",
+      "Samsung 970 EVO Plus 500GB NVMe SSD",
+      "MZ-V7S500B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/970-evo-plus-nvme-m-2-ssd-500gb-mz-v7s500b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-870-evo-4tb": {
+    "brand": "Samsung",
+    "model": "Samsung 870 EVO 4TB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 4000,
+    "aliases": [
+      "Samsung 870 EVO 4TB",
+      "870 EVO 4TB",
+      "870 evo 4tb",
+      "Samsung 870 EVO 4TB 2.5 Inch SATA III SSD",
+      "MZ-77E4T0B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/870-evo-sata-2-5-ssd-4tb-mz-77e4t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-870-evo-2tb": {
+    "brand": "Samsung",
+    "model": "Samsung 870 EVO 2TB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 2000,
+    "aliases": [
+      "Samsung 870 EVO 2TB",
+      "870 EVO 2TB",
+      "870 evo 2tb",
+      "Samsung 870 EVO 2TB 2.5 Inch SATA III SSD",
+      "MZ-77E2T0B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/870-evo-sata-2-5-ssd-2tb-mz-77e2t0b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-870-evo-500gb": {
+    "brand": "Samsung",
+    "model": "Samsung 870 EVO 500GB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 500,
+    "aliases": [
+      "Samsung 870 EVO 500GB",
+      "870 EVO 500GB",
+      "870 evo 500gb",
+      "Samsung 870 EVO 500GB 2.5 Inch SATA III SSD",
+      "MZ-77E500B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/870-evo-sata-2-5-ssd-500gb-mz-77e500b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "samsung-870-evo-250gb": {
+    "brand": "Samsung",
+    "model": "Samsung 870 EVO 250GB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 250,
+    "aliases": [
+      "Samsung 870 EVO 250GB",
+      "870 EVO 250GB",
+      "870 evo 250gb",
+      "Samsung 870 EVO 250GB 2.5 Inch SATA III SSD",
+      "MZ-77E250B"
+    ],
+    "sources": [
+      "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/870-evo-sata-2-5-ssd-250gb-mz-77e250b-am/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-black-sn850x-4tb": {
+    "brand": "Western Digital",
+    "model": "WD_BLACK SN850X 4TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 4000,
+    "pcie_gen": 4,
+    "aliases": [
+      "WD Black SN850X 4TB",
+      "WD_BLACK SN850X 4TB",
+      "SN850X 4TB",
+      "sn850x 4tb",
+      "Western Digital WD Black SN850X 4TB NVMe SSD",
+      "WDS400T2X0E"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-black-sn850x-nvme-ssd?sku=WDS400T2X0E"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-black-sn850x-1tb": {
+    "brand": "Western Digital",
+    "model": "WD_BLACK SN850X 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "WD Black SN850X 1TB",
+      "WD_BLACK SN850X 1TB",
+      "SN850X 1TB",
+      "sn850x 1tb",
+      "Western Digital WD Black SN850X 1TB NVMe SSD",
+      "WDS100T2X0E"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-black-sn850x-nvme-ssd?sku=WDS100T2X0E"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-black-sn770-2tb": {
+    "brand": "Western Digital",
+    "model": "WD_BLACK SN770 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "WD Black SN770 2TB",
+      "WD_BLACK SN770 2TB",
+      "SN770 2TB",
+      "sn770 2tb",
+      "Western Digital WD Black SN770 2TB NVMe SSD",
+      "WDS200T3X0E"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-black-sn770-nvme-ssd?sku=WDS200T3X0E"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-black-sn770-1tb": {
+    "brand": "Western Digital",
+    "model": "WD_BLACK SN770 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "WD Black SN770 1TB",
+      "WD_BLACK SN770 1TB",
+      "SN770 1TB",
+      "sn770 1tb",
+      "Western Digital WD Black SN770 1TB NVMe SSD",
+      "WDS100T3X0E"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-black-sn770-nvme-ssd?sku=WDS100T3X0E"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-black-sn770-500gb": {
+    "brand": "Western Digital",
+    "model": "WD_BLACK SN770 500GB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 500,
+    "pcie_gen": 4,
+    "aliases": [
+      "WD Black SN770 500GB",
+      "WD_BLACK SN770 500GB",
+      "SN770 500GB",
+      "sn770 500gb",
+      "Western Digital WD Black SN770 500GB NVMe SSD",
+      "WDS500G3X0E"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-black-sn770-nvme-ssd?sku=WDS500G3X0E"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-blue-sn580-2tb": {
+    "brand": "Western Digital",
+    "model": "WD Blue SN580 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "WD Blue SN580 2TB",
+      "SN580 2TB",
+      "sn580 2tb",
+      "Western Digital WD Blue SN580 2TB NVMe SSD",
+      "WDS200T3B0E"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-blue-sn580-nvme-ssd?sku=WDS200T3B0E"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-blue-sn580-1tb": {
+    "brand": "Western Digital",
+    "model": "WD Blue SN580 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "WD Blue SN580 1TB",
+      "SN580 1TB",
+      "sn580 1tb",
+      "Western Digital WD Blue SN580 1TB NVMe SSD",
+      "WDS100T3B0E"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-blue-sn580-nvme-ssd?sku=WDS100T3B0E"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-blue-sn580-500gb": {
+    "brand": "Western Digital",
+    "model": "WD Blue SN580 500GB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 500,
+    "pcie_gen": 4,
+    "aliases": [
+      "WD Blue SN580 500GB",
+      "SN580 500GB",
+      "sn580 500gb",
+      "Western Digital WD Blue SN580 500GB NVMe SSD",
+      "WDS500G3B0E"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-blue-sn580-nvme-ssd?sku=WDS500G3B0E"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-blue-sn5000-4tb": {
+    "brand": "Western Digital",
+    "model": "WD Blue SN5000 4TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 4000,
+    "pcie_gen": 4,
+    "aliases": [
+      "WD Blue SN5000 4TB",
+      "SN5000 4TB",
+      "sn5000 4tb",
+      "Western Digital WD Blue SN5000 4TB NVMe SSD",
+      "WDBB8G0040BNC-WRSN"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-blue-sn5000-nvme-ssd?sku=WDBB8G0040BNC-WRSN"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-blue-sn5000-2tb": {
+    "brand": "Western Digital",
+    "model": "WD Blue SN5000 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "WD Blue SN5000 2TB",
+      "SN5000 2TB",
+      "sn5000 2tb",
+      "Western Digital WD Blue SN5000 2TB NVMe SSD",
+      "WDBB8G0020BNC-WRSN"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-blue-sn5000-nvme-ssd?sku=WDBB8G0020BNC-WRSN"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-blue-sn5000-1tb": {
+    "brand": "Western Digital",
+    "model": "WD Blue SN5000 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "WD Blue SN5000 1TB",
+      "SN5000 1TB",
+      "sn5000 1tb",
+      "Western Digital WD Blue SN5000 1TB NVMe SSD",
+      "WDBB8G0010BNC-WRSN"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-blue-sn5000-nvme-ssd?sku=WDBB8G0010BNC-WRSN"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-blue-sn5000-500gb": {
+    "brand": "Western Digital",
+    "model": "WD Blue SN5000 500GB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 500,
+    "pcie_gen": 4,
+    "aliases": [
+      "WD Blue SN5000 500GB",
+      "SN5000 500GB",
+      "sn5000 500gb",
+      "Western Digital WD Blue SN5000 500GB NVMe SSD",
+      "WDBB8G5000ANC-WRSN"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-blue-sn5000-nvme-ssd?sku=WDBB8G5000ANC-WRSN"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-green-sata-2tb": {
+    "brand": "Western Digital",
+    "model": "WD Green 2TB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 2000,
+    "aliases": [
+      "WD Green 2TB SSD",
+      "WD Green 2TB SATA SSD",
+      "WD Green 2TB 2.5",
+      "wd green 2tb",
+      "WDS200T2G0A"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-green-sata-2-5-ssd?sku=WDS200T2G0A"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-green-sata-1tb": {
+    "brand": "Western Digital",
+    "model": "WD Green 1TB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 1000,
+    "aliases": [
+      "WD Green 1TB SSD",
+      "WD Green 1TB SATA SSD",
+      "WD Green 1TB 2.5",
+      "wd green 1tb",
+      "WDS100T2G0A"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-green-sata-2-5-ssd?sku=WDS100T2G0A"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-green-sata-480gb": {
+    "brand": "Western Digital",
+    "model": "WD Green 480GB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 480,
+    "aliases": [
+      "WD Green 480GB SSD",
+      "WD Green 480GB SATA SSD",
+      "WD Green 480GB 2.5",
+      "wd green 480gb",
+      "WDS480G2G0A"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-green-sata-2-5-ssd?sku=WDS480G2G0A"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-green-sata-240gb": {
+    "brand": "Western Digital",
+    "model": "WD Green 240GB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 240,
+    "aliases": [
+      "WD Green 240GB SSD",
+      "WD Green 240GB SATA SSD",
+      "WD Green 240GB 2.5",
+      "wd green 240gb",
+      "WDS240G2G0A"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-green-sata-2-5-ssd?sku=WDS240G2G0A"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-blue-hdd-4tb": {
+    "brand": "Western Digital",
+    "model": "WD Blue 4TB 3.5\" SATA HDD",
+    "interface": "sata",
+    "form_factor": "3.5in",
+    "capacity_gb": 4000,
+    "aliases": [
+      "WD Blue 4TB HDD",
+      "WD Blue 4TB 3.5 HDD",
+      "WD Blue 4TB Hard Drive",
+      "wd blue 4tb hdd",
+      "WD40EZAX"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-blue-desktop-sata-hdd?sku=WD40EZAX"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-blue-hdd-2tb": {
+    "brand": "Western Digital",
+    "model": "WD Blue 2TB 3.5\" SATA HDD",
+    "interface": "sata",
+    "form_factor": "3.5in",
+    "capacity_gb": 2000,
+    "aliases": [
+      "WD Blue 2TB HDD",
+      "WD Blue 2TB 3.5 HDD",
+      "WD Blue 2TB Hard Drive",
+      "wd blue 2tb hdd",
+      "WD20EZBX"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-blue-desktop-sata-hdd?sku=WD20EZBX"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "wd-blue-hdd-1tb": {
+    "brand": "Western Digital",
+    "model": "WD Blue 1TB 3.5\" SATA HDD",
+    "interface": "sata",
+    "form_factor": "3.5in",
+    "capacity_gb": 1000,
+    "aliases": [
+      "WD Blue 1TB HDD",
+      "WD Blue 1TB 3.5 HDD",
+      "WD Blue 1TB Hard Drive",
+      "wd blue 1tb hdd",
+      "WD10EZEX"
+    ],
+    "sources": [
+      "https://www.westerndigital.com/products/internal-drives/wd-blue-desktop-sata-hdd?sku=WD10EZEX"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-t700-1tb": {
+    "brand": "Crucial",
+    "model": "Crucial T700 1TB M.2 NVMe Gen5 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 5,
+    "aliases": [
+      "Crucial T700 1TB",
+      "T700 1TB",
+      "t700 1tb",
+      "Crucial T700 1TB NVMe SSD",
+      "CT1000T700SSD3"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-t700-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-t500-2tb": {
+    "brand": "Crucial",
+    "model": "Crucial T500 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Crucial T500 2TB",
+      "T500 2TB",
+      "t500 2tb",
+      "Crucial T500 2TB NVMe SSD",
+      "CT2000T500SSD8"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-t500-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-t500-1tb": {
+    "brand": "Crucial",
+    "model": "Crucial T500 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Crucial T500 1TB",
+      "T500 1TB",
+      "t500 1tb",
+      "Crucial T500 1TB NVMe SSD",
+      "CT1000T500SSD8"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-t500-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-t500-500gb": {
+    "brand": "Crucial",
+    "model": "Crucial T500 500GB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 500,
+    "pcie_gen": 4,
+    "aliases": [
+      "Crucial T500 500GB",
+      "T500 500GB",
+      "t500 500gb",
+      "Crucial T500 500GB NVMe SSD",
+      "CT500T500SSD8"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-t500-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-p3-plus-4tb": {
+    "brand": "Crucial",
+    "model": "Crucial P3 Plus 4TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 4000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Crucial P3 Plus 4TB",
+      "P3 Plus 4TB",
+      "p3 plus 4tb",
+      "Crucial P3 Plus 4TB NVMe SSD",
+      "CT4000P3PSSD8"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-p3-plus-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-p3-plus-2tb": {
+    "brand": "Crucial",
+    "model": "Crucial P3 Plus 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Crucial P3 Plus 2TB",
+      "P3 Plus 2TB",
+      "p3 plus 2tb",
+      "Crucial P3 Plus 2TB NVMe SSD",
+      "CT2000P3PSSD8"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-p3-plus-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-p3-plus-500gb": {
+    "brand": "Crucial",
+    "model": "Crucial P3 Plus 500GB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 500,
+    "pcie_gen": 4,
+    "aliases": [
+      "Crucial P3 Plus 500GB",
+      "P3 Plus 500GB",
+      "p3 plus 500gb",
+      "Crucial P3 Plus 500GB NVMe SSD",
+      "CT500P3PSSD8"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-p3-plus-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-p3-4tb": {
+    "brand": "Crucial",
+    "model": "Crucial P3 4TB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 4000,
+    "pcie_gen": 3,
+    "aliases": [
+      "Crucial P3 4TB",
+      "P3 4TB",
+      "p3 4tb",
+      "Crucial P3 4TB NVMe SSD",
+      "CT4000P3SSD8"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-p3-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-p3-2tb": {
+    "brand": "Crucial",
+    "model": "Crucial P3 2TB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 3,
+    "aliases": [
+      "Crucial P3 2TB",
+      "P3 2TB",
+      "p3 2tb",
+      "Crucial P3 2TB NVMe SSD",
+      "CT2000P3SSD8"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-p3-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-p3-1tb": {
+    "brand": "Crucial",
+    "model": "Crucial P3 1TB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 3,
+    "aliases": [
+      "Crucial P3 1TB",
+      "P3 1TB",
+      "p3 1tb",
+      "Crucial P3 1TB NVMe SSD",
+      "CT1000P3SSD8"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-p3-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-p3-500gb": {
+    "brand": "Crucial",
+    "model": "Crucial P3 500GB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 500,
+    "pcie_gen": 3,
+    "aliases": [
+      "Crucial P3 500GB",
+      "P3 500GB",
+      "p3 500gb",
+      "Crucial P3 500GB NVMe SSD",
+      "CT500P3SSD8"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-p3-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-bx500-2tb": {
+    "brand": "Crucial",
+    "model": "Crucial BX500 2TB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 2000,
+    "aliases": [
+      "Crucial BX500 2TB",
+      "BX500 2TB",
+      "bx500 2tb",
+      "Crucial BX500 2TB 2.5 SATA SSD",
+      "CT2000BX500SSD1"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-bx500-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-bx500-1tb": {
+    "brand": "Crucial",
+    "model": "Crucial BX500 1TB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 1000,
+    "aliases": [
+      "Crucial BX500 1TB",
+      "BX500 1TB",
+      "bx500 1tb",
+      "Crucial BX500 1TB 2.5 SATA SSD",
+      "CT1000BX500SSD1"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-bx500-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-bx500-500gb": {
+    "brand": "Crucial",
+    "model": "Crucial BX500 500GB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 500,
+    "aliases": [
+      "Crucial BX500 500GB",
+      "BX500 500GB",
+      "bx500 500gb",
+      "Crucial BX500 500GB 2.5 SATA SSD",
+      "CT500BX500SSD1"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-bx500-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-bx500-480gb": {
+    "brand": "Crucial",
+    "model": "Crucial BX500 480GB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 480,
+    "aliases": [
+      "Crucial BX500 480GB",
+      "BX500 480GB",
+      "bx500 480gb",
+      "Crucial BX500 480GB 2.5 SATA SSD",
+      "CT480BX500SSD1"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-bx500-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-bx500-240gb": {
+    "brand": "Crucial",
+    "model": "Crucial BX500 240GB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 240,
+    "aliases": [
+      "Crucial BX500 240GB",
+      "BX500 240GB",
+      "bx500 240gb",
+      "Crucial BX500 240GB 2.5 SATA SSD",
+      "CT240BX500SSD1"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-bx500-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-mx500-4tb": {
+    "brand": "Crucial",
+    "model": "Crucial MX500 4TB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 4000,
+    "aliases": [
+      "Crucial MX500 4TB",
+      "MX500 4TB",
+      "mx500 4tb",
+      "Crucial MX500 4TB 2.5 SATA SSD",
+      "CT4000MX500SSD1"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-mx500-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-mx500-2tb": {
+    "brand": "Crucial",
+    "model": "Crucial MX500 2TB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 2000,
+    "aliases": [
+      "Crucial MX500 2TB",
+      "MX500 2TB",
+      "mx500 2tb",
+      "Crucial MX500 2TB 2.5 SATA SSD",
+      "CT2000MX500SSD1"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-mx500-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "crucial-mx500-500gb": {
+    "brand": "Crucial",
+    "model": "Crucial MX500 500GB 2.5\" SATA SSD",
+    "interface": "sata",
+    "form_factor": "2.5in",
+    "capacity_gb": 500,
+    "aliases": [
+      "Crucial MX500 500GB",
+      "MX500 500GB",
+      "mx500 500gb",
+      "Crucial MX500 500GB 2.5 SATA SSD",
+      "CT500MX500SSD1"
+    ],
+    "sources": [
+      "https://www.crucial.com/products/ssd/crucial-mx500-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-kc3000-4tb": {
+    "brand": "Kingston",
+    "model": "Kingston KC3000 4TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 4000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston KC3000 4TB",
+      "KC3000 4TB",
+      "kc3000 4tb",
+      "Kingston KC3000 4TB NVMe SSD",
+      "Kingston KC3000 4096GB NVMe SSD",
+      "SKC3000D/4096G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/gaming/kingston-kc3000-pcie-4-0-nvme-m-2-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-kc3000-2tb": {
+    "brand": "Kingston",
+    "model": "Kingston KC3000 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston KC3000 2TB",
+      "KC3000 2TB",
+      "kc3000 2tb",
+      "Kingston KC3000 2TB NVMe SSD",
+      "Kingston KC3000 2048GB NVMe SSD",
+      "SKC3000D/2048G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/gaming/kingston-kc3000-pcie-4-0-nvme-m-2-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-kc3000-1tb": {
+    "brand": "Kingston",
+    "model": "Kingston KC3000 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston KC3000 1TB",
+      "KC3000 1TB",
+      "kc3000 1tb",
+      "Kingston KC3000 1TB NVMe SSD",
+      "Kingston KC3000 1024GB NVMe SSD",
+      "SKC3000S/1024G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/gaming/kingston-kc3000-pcie-4-0-nvme-m-2-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-kc3000-512gb": {
+    "brand": "Kingston",
+    "model": "Kingston KC3000 512GB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 512,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston KC3000 512GB",
+      "KC3000 512GB",
+      "kc3000 512gb",
+      "Kingston KC3000 512GB NVMe SSD",
+      "SKC3000S/512G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/gaming/kingston-kc3000-pcie-4-0-nvme-m-2-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-fury-renegade-4tb": {
+    "brand": "Kingston",
+    "model": "Kingston FURY Renegade 4TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 4000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston FURY Renegade 4TB",
+      "Fury Renegade 4TB",
+      "fury renegade 4tb",
+      "Kingston Fury Renegade 4TB NVMe SSD",
+      "SFYRD/4000G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/gaming/kingston-fury-renegade-pcie-4-0-nvme-m-2-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-fury-renegade-2tb": {
+    "brand": "Kingston",
+    "model": "Kingston FURY Renegade 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston FURY Renegade 2TB",
+      "Fury Renegade 2TB",
+      "fury renegade 2tb",
+      "Kingston Fury Renegade 2TB NVMe SSD",
+      "SFYRD/2000G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/gaming/kingston-fury-renegade-pcie-4-0-nvme-m-2-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-fury-renegade-1tb": {
+    "brand": "Kingston",
+    "model": "Kingston FURY Renegade 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston FURY Renegade 1TB",
+      "Fury Renegade 1TB",
+      "fury renegade 1tb",
+      "Kingston Fury Renegade 1TB NVMe SSD",
+      "SFYRS/1000G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/gaming/kingston-fury-renegade-pcie-4-0-nvme-m-2-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-fury-renegade-500gb": {
+    "brand": "Kingston",
+    "model": "Kingston FURY Renegade 500GB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 500,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston FURY Renegade 500GB",
+      "Fury Renegade 500GB",
+      "fury renegade 500gb",
+      "Kingston Fury Renegade 500GB NVMe SSD",
+      "SFYRS/500G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/gaming/kingston-fury-renegade-pcie-4-0-nvme-m-2-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-nv3-4tb": {
+    "brand": "Kingston",
+    "model": "Kingston NV3 4TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 4000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston NV3 4TB",
+      "NV3 4TB",
+      "nv3 4tb",
+      "Kingston NV3 PCIe 4.0 NVMe SSD 4TB",
+      "SNV3S/4000G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/kingston-nv3-nvme-pcie-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-nv3-2tb": {
+    "brand": "Kingston",
+    "model": "Kingston NV3 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston NV3 2TB",
+      "NV3 2TB",
+      "nv3 2tb",
+      "Kingston NV3 PCIe 4.0 NVMe SSD 2TB",
+      "SNV3S/2000G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/kingston-nv3-nvme-pcie-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-nv3-1tb": {
+    "brand": "Kingston",
+    "model": "Kingston NV3 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston NV3 1TB",
+      "NV3 1TB",
+      "nv3 1tb",
+      "Kingston NV3 PCIe 4.0 NVMe SSD 1TB",
+      "SNV3S/1000G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/kingston-nv3-nvme-pcie-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-nv3-500gb": {
+    "brand": "Kingston",
+    "model": "Kingston NV3 500GB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 500,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston NV3 500GB",
+      "NV3 500GB",
+      "nv3 500gb",
+      "Kingston NV3 PCIe 4.0 NVMe SSD 500GB",
+      "SNV3S/500G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/kingston-nv3-nvme-pcie-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-nv2-2tb": {
+    "brand": "Kingston",
+    "model": "Kingston NV2 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston NV2 2TB",
+      "NV2 2TB",
+      "nv2 2tb",
+      "Kingston NV2 PCIe 4.0 NVMe SSD 2TB",
+      "SNV2S/2000G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/kingston-nv2-nvme-pcie-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-nv2-1tb": {
+    "brand": "Kingston",
+    "model": "Kingston NV2 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston NV2 1TB",
+      "NV2 1TB",
+      "nv2 1tb",
+      "Kingston NV2 PCIe 4.0 NVMe SSD 1TB",
+      "SNV2S/1000G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/kingston-nv2-nvme-pcie-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "kingston-nv2-500gb": {
+    "brand": "Kingston",
+    "model": "Kingston NV2 500GB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 500,
+    "pcie_gen": 4,
+    "aliases": [
+      "Kingston NV2 500GB",
+      "NV2 500GB",
+      "nv2 500gb",
+      "Kingston NV2 PCIe 4.0 NVMe SSD 500GB",
+      "SNV2S/500G"
+    ],
+    "sources": [
+      "https://www.kingston.com/en/ssd/kingston-nv2-nvme-pcie-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "seagate-barracuda-4tb": {
+    "brand": "Seagate",
+    "model": "Seagate BarraCuda 4TB 3.5\" SATA HDD",
+    "interface": "sata",
+    "form_factor": "3.5in",
+    "capacity_gb": 4000,
+    "aliases": [
+      "Seagate Barracuda 4TB",
+      "Seagate BarraCuda 4TB HDD",
+      "Barracuda 4TB",
+      "barracuda 4tb",
+      "ST4000DM004"
+    ],
+    "sources": [
+      "https://www.seagate.com/products/hard-drives/barracuda-hard-drive/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "seagate-barracuda-2tb": {
+    "brand": "Seagate",
+    "model": "Seagate BarraCuda 2TB 3.5\" SATA HDD",
+    "interface": "sata",
+    "form_factor": "3.5in",
+    "capacity_gb": 2000,
+    "aliases": [
+      "Seagate Barracuda 2TB",
+      "Seagate BarraCuda 2TB HDD",
+      "Barracuda 2TB",
+      "barracuda 2tb",
+      "ST2000DM008"
+    ],
+    "sources": [
+      "https://www.seagate.com/products/hard-drives/barracuda-hard-drive/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "seagate-barracuda-1tb": {
+    "brand": "Seagate",
+    "model": "Seagate BarraCuda 1TB 3.5\" SATA HDD",
+    "interface": "sata",
+    "form_factor": "3.5in",
+    "capacity_gb": 1000,
+    "aliases": [
+      "Seagate Barracuda 1TB",
+      "Seagate BarraCuda 1TB HDD",
+      "Barracuda 1TB",
+      "barracuda 1tb",
+      "ST1000DM010"
+    ],
+    "sources": [
+      "https://www.seagate.com/products/hard-drives/barracuda-hard-drive/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "adata-legend-710-2tb": {
+    "brand": "ADATA",
+    "model": "ADATA Legend 710 2TB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 3,
+    "aliases": [
+      "ADATA Legend 710 2TB",
+      "Legend 710 2TB",
+      "legend 710 2tb",
+      "Adata Legend 710 2TB NVMe SSD",
+      "ALEG-710-2TCS"
+    ],
+    "sources": [
+      "https://www.adata.com/en/consumer/solid-state-drives-legend-710/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "adata-legend-710-1tb": {
+    "brand": "ADATA",
+    "model": "ADATA Legend 710 1TB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 3,
+    "aliases": [
+      "ADATA Legend 710 1TB",
+      "Legend 710 1TB",
+      "legend 710 1tb",
+      "Adata Legend 710 1TB NVMe SSD",
+      "ALEG-710-1TCS"
+    ],
+    "sources": [
+      "https://www.adata.com/en/consumer/solid-state-drives-legend-710/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "adata-legend-710-512gb": {
+    "brand": "ADATA",
+    "model": "ADATA Legend 710 512GB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 512,
+    "pcie_gen": 3,
+    "aliases": [
+      "ADATA Legend 710 512GB",
+      "Legend 710 512GB",
+      "legend 710 512gb",
+      "Adata Legend 710 512GB NVMe SSD",
+      "ALEG-710-512GCS"
+    ],
+    "sources": [
+      "https://www.adata.com/en/consumer/solid-state-drives-legend-710/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "adata-legend-800-2tb": {
+    "brand": "ADATA",
+    "model": "ADATA Legend 800 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "ADATA Legend 800 2TB",
+      "Legend 800 2TB",
+      "legend 800 2tb",
+      "Adata Legend 800 2TB NVMe SSD",
+      "ALEG-800-2000GCS"
+    ],
+    "sources": [
+      "https://www.adata.com/en/consumer/solid-state-drives-legend-800/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "adata-legend-800-1tb": {
+    "brand": "ADATA",
+    "model": "ADATA Legend 800 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "ADATA Legend 800 1TB",
+      "Legend 800 1TB",
+      "legend 800 1tb",
+      "Adata Legend 800 1TB NVMe SSD",
+      "ALEG-800-1000GCS"
+    ],
+    "sources": [
+      "https://www.adata.com/en/consumer/solid-state-drives-legend-800/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "adata-legend-800-500gb": {
+    "brand": "ADATA",
+    "model": "ADATA Legend 800 500GB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 500,
+    "pcie_gen": 4,
+    "aliases": [
+      "ADATA Legend 800 500GB",
+      "Legend 800 500GB",
+      "legend 800 500gb",
+      "Adata Legend 800 500GB NVMe SSD",
+      "ALEG-800-500GCS"
+    ],
+    "sources": [
+      "https://www.adata.com/en/consumer/solid-state-drives-legend-800/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "adata-legend-960-4tb": {
+    "brand": "ADATA",
+    "model": "ADATA Legend 960 4TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 4000,
+    "pcie_gen": 4,
+    "aliases": [
+      "ADATA Legend 960 4TB",
+      "Legend 960 4TB",
+      "legend 960 4tb",
+      "Adata Legend 960 4TB NVMe SSD",
+      "ALEG-960-4TCS"
+    ],
+    "sources": [
+      "https://www.adata.com/en/consumer/solid-state-drives-legend-960/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "adata-legend-960-2tb": {
+    "brand": "ADATA",
+    "model": "ADATA Legend 960 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "ADATA Legend 960 2TB",
+      "Legend 960 2TB",
+      "legend 960 2tb",
+      "Adata Legend 960 2TB NVMe SSD",
+      "ALEG-960-2TCS"
+    ],
+    "sources": [
+      "https://www.adata.com/en/consumer/solid-state-drives-legend-960/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "adata-legend-960-1tb": {
+    "brand": "ADATA",
+    "model": "ADATA Legend 960 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "ADATA Legend 960 1TB",
+      "Legend 960 1TB",
+      "legend 960 1tb",
+      "Adata Legend 960 1TB NVMe SSD",
+      "ALEG-960-1TCS"
+    ],
+    "sources": [
+      "https://www.adata.com/en/consumer/solid-state-drives-legend-960/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "xpg-gammix-s70-blade-4tb": {
+    "brand": "XPG",
+    "model": "XPG GAMMIX S70 BLADE 4TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 4000,
+    "pcie_gen": 4,
+    "aliases": [
+      "XPG GAMMIX S70 BLADE 4TB",
+      "XPG S70 Blade 4TB",
+      "Gammix S70 Blade 4TB",
+      "s70 blade 4tb",
+      "AGAMMIXS70B-4T-CS"
+    ],
+    "sources": [
+      "https://www.xpg.com/en/xpg/830"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "xpg-gammix-s70-blade-2tb": {
+    "brand": "XPG",
+    "model": "XPG GAMMIX S70 BLADE 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "XPG GAMMIX S70 BLADE 2TB",
+      "XPG S70 Blade 2TB",
+      "Gammix S70 Blade 2TB",
+      "s70 blade 2tb",
+      "AGAMMIXS70B-2T-CS"
+    ],
+    "sources": [
+      "https://www.xpg.com/en/xpg/830"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "xpg-gammix-s70-blade-1tb": {
+    "brand": "XPG",
+    "model": "XPG GAMMIX S70 BLADE 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "XPG GAMMIX S70 BLADE 1TB",
+      "XPG S70 Blade 1TB",
+      "Gammix S70 Blade 1TB",
+      "s70 blade 1tb",
+      "AGAMMIXS70B-1T-CS"
+    ],
+    "sources": [
+      "https://www.xpg.com/en/xpg/830"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "evm-gen3-nvme-1tb": {
+    "brand": "EVM",
+    "model": "EVM 1TB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 3,
+    "aliases": [
+      "EVM 1TB NVMe SSD",
+      "EVM NVMe 1TB",
+      "evm 1tb nvme",
+      "EVM 1TB M.2 PCIe Gen3 SSD",
+      "EVMPCIE/1000GB"
+    ],
+    "sources": [
+      "https://evmzone.com/products/evm-m-2-nvme-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "evm-gen3-nvme-512gb": {
+    "brand": "EVM",
+    "model": "EVM 512GB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 512,
+    "pcie_gen": 3,
+    "aliases": [
+      "EVM 512GB NVMe SSD",
+      "EVM NVMe 512GB",
+      "evm 512gb nvme",
+      "EVM 512GB M.2 PCIe Gen3 SSD",
+      "EVMPCIE/512GB"
+    ],
+    "sources": [
+      "https://evmzone.com/products/evm-m-2-nvme-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "evm-gen3-nvme-256gb": {
+    "brand": "EVM",
+    "model": "EVM 256GB M.2 NVMe Gen3 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 256,
+    "pcie_gen": 3,
+    "aliases": [
+      "EVM 256GB NVMe SSD",
+      "EVM NVMe 256GB",
+      "evm 256gb nvme",
+      "EVM 256GB M.2 PCIe Gen3 SSD",
+      "EVMPCIE/256GB"
+    ],
+    "sources": [
+      "https://evmzone.com/products/evm-m-2-nvme-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "evm-gen4-nvme-2tb": {
+    "brand": "EVM",
+    "model": "EVM 2TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 2000,
+    "pcie_gen": 4,
+    "aliases": [
+      "EVM 2TB Gen4 NVMe SSD",
+      "EVM Gen4 2TB",
+      "evm 2tb gen4",
+      "EVM 2TB M.2 PCIe Gen4 SSD",
+      "EVMN700/2TB"
+    ],
+    "sources": [
+      "https://evmzone.com/products/evm-m-2-nvme-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "evm-gen4-nvme-1tb": {
+    "brand": "EVM",
+    "model": "EVM 1TB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 1000,
+    "pcie_gen": 4,
+    "aliases": [
+      "EVM 1TB Gen4 NVMe SSD",
+      "EVM Gen4 1TB",
+      "evm 1tb gen4",
+      "EVM 1TB M.2 PCIe Gen4 SSD",
+      "EVMN700/1TB"
+    ],
+    "sources": [
+      "https://evmzone.com/products/evm-m-2-nvme-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
+  },
+  "evm-gen4-nvme-512gb": {
+    "brand": "EVM",
+    "model": "EVM 512GB M.2 NVMe Gen4 SSD",
+    "interface": "nvme",
+    "form_factor": "m2-2280",
+    "capacity_gb": 512,
+    "pcie_gen": 4,
+    "aliases": [
+      "EVM 512GB Gen4 NVMe SSD",
+      "EVM Gen4 512GB",
+      "evm 512gb gen4",
+      "EVM 512GB M.2 PCIe Gen4 SSD",
+      "EVMN700/512GB"
+    ],
+    "sources": [
+      "https://evmzone.com/products/evm-m-2-nvme-ssd"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:04:56Z"
   }
 }

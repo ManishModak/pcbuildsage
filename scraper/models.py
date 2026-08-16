@@ -32,6 +32,7 @@ class SiteConfig:
     selectors: dict[str, str]
     country_code: str
     currency: str
+    engine: str = "browser"
     max_llm_calls_per_site: int | None = None
 
 

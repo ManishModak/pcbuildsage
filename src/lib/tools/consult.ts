@@ -1,10 +1,11 @@
-import { tool } from "ai";
+import { isStepCount, tool, type ToolSet } from "ai";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { generateTextWithFallback } from "@/lib/llm/client";
 import { appendChatLog } from "@/lib/logger";
 import { slugifyComponent } from "@/lib/normalizer";
-import { createSearchClient, type SearchClient, type SearchResponse, type SearchResult } from "@/lib/web-search";
+import { createSearchClient, crawlPage, type CrawlRunner, type SearchClient, type SearchResponse, type SearchResult } from "@/lib/web-search";
+import { runPythonModule } from "@/lib/server/python-process";
 import type { AppConfig, AuditCacheEntry, RegistryResearchEntry } from "@/types";
 
 const partMapSchema = z.record(z.string().describe("Component category."), z.string().describe("Registry key or component name."));
@@ -45,37 +46,43 @@ type ConsultDeps = {
 
 const modeDescription = "The operation mode: component_specs (research specs for a component), build_audit (audit build parts), or freeform (ask a general hardware question).";
 
-export const consultInputSchema = z.discriminatedUnion("mode", [
-  z.object({
-    mode: z.literal("component_specs").describe(modeDescription),
-    name: z.string().refine((value) => value.trim() !== "", {
-      message: "name is required and must be a non-empty string in component_specs mode"
-    }).describe("Used in component_specs: exact component name to research."),
-    category: z.string().refine((value) => value.trim() !== "", {
-      message: "category is required and must be a non-empty string in component_specs mode"
-    }).describe("Used in component_specs: component category.")
-  }),
-  z.object({
-    mode: z.literal("build_audit").describe(modeDescription),
-    parts: partMapSchema.refine((value) => Object.keys(value).length > 0, {
-      message: "parts is required and must be a non-empty object in build_audit mode"
-    }).describe("Used in build_audit: final build parts keyed by category.")
-  }),
-  z.object({
-    mode: z.literal("freeform").describe(modeDescription),
-    question: z.string().refine((value) => value.trim() !== "", {
-      message: "question is required and must be a non-empty string in freeform mode"
-    }).describe("Used in freeform: question to answer."),
+export const consultInputSchema = z
+  .object({
+    mode: z.enum(["component_specs", "build_audit", "freeform"]).describe(modeDescription),
+    name: z.string().optional().describe("Used in component_specs: exact component name to research."),
+    category: z.string().optional().describe("Used in component_specs: component category."),
+    parts: partMapSchema.optional().describe("Used in build_audit: final build parts keyed by category."),
+    question: z.string().optional().describe("Used in freeform: question to answer."),
     context: z.string().optional().describe("Used in freeform: relevant build context.")
   })
-]);
+  .superRefine((data, ctx) => {
+    if (data.mode === "component_specs") {
+      if (!data.name || data.name.trim() === "") {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "name is required and must be a non-empty string in component_specs mode", path: ["name"] });
+      }
+      if (!data.category || data.category.trim() === "") {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "category is required and must be a non-empty string in component_specs mode", path: ["category"] });
+      }
+    } else if (data.mode === "build_audit") {
+      if (!data.parts || Object.keys(data.parts).length === 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "parts is required and must be a non-empty object in build_audit mode", path: ["parts"] });
+      }
+    } else if (data.mode === "freeform") {
+      if (!data.question || data.question.trim() === "") {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "question is required and must be a non-empty string in freeform mode", path: ["question"] });
+      }
+    }
+  });
 
-export type ConsultInput = z.infer<typeof consultInputSchema>;
+export type ConsultInput =
+  | { mode: "component_specs"; name: string; category: string }
+  | { mode: "build_audit"; parts: Record<string, string> }
+  | { mode: "freeform"; question: string; context?: string };
 
 export function createConsultTool(config: AppConfig) {
   return tool({
     description:
-      "Use consult only for Tier 2 advisory work. Use component_specs when validate_build reports needs_research; use build_audit once on a final build; do not use it to clear Tier 1 blocking failures. Example: {\"mode\":\"component_specs\",\"name\":\"Ryzen 7 9700X\",\"category\":\"cpu\"}.",
+      "Use consult for advisory research when validate_build reports needs_research or for hardware questions. Do not use it to clear Tier 1 blocking failures or after presenting a build. Example: {\"mode\":\"component_specs\",\"name\":\"Ryzen 7 9700X\",\"category\":\"cpu\"}.",
     inputSchema: consultInputSchema,
     execute: async (input) => consult(input as ConsultInput, config)
   });
@@ -116,7 +123,7 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
     const sourceUrls = Array.from(new Set([...grounded.results.map((result) => result.url), ...llm.data.sources]));
     db.prepare("INSERT OR REPLACE INTO registry_research (key, category, specs, sources, confidence, researched_at) VALUES (?, ?, ?, ?, ?, ?)")
       .run(key, input.category, JSON.stringify(specs), JSON.stringify(sourceUrls), confidence, now().toISOString());
-    const result = { mode: input.mode, key, specs, sources: grounded.results, confidence, note: "Facts are researched and not community-verified; no compatibility verdict is returned." };
+    const result = { mode: input.mode, key, specs, sources: grounded.results, actions: llm.actions, confidence, note: "Facts are researched and not community-verified; no compatibility verdict is returned." };
     await logConsult(input, result, { provider: llm.provider, model: llm.model, logPath: deps.logPath });
     return result;
   }
@@ -209,17 +216,73 @@ function formatSource(result: SearchResult, index: number) {
   return `[${index + 1}] ${result.title}\nURL: ${result.url}\nSnippet: ${result.snippet}`;
 }
 
+export type SubagentAction = {
+  tool: "search_web" | "crawl_page";
+  query?: string;
+  url?: string;
+  resultCount?: number;
+  error?: string;
+};
+
+function createSubagentTools(
+  search: SearchClient,
+  crawlRunner?: CrawlRunner,
+  onAction?: (action: SubagentAction) => void
+): ToolSet {
+  return {
+    search_web: tool({
+      description: "Search the web for PC hardware component specifications, official datasheets, physical dimensions, TDP, and power requirements.",
+      inputSchema: z.object({
+        query: z.string().describe("Search query, e.g. 'Gigabyte RTX 5070 Aorus Master length mm tdp power'")
+      }),
+      execute: async ({ query }) => {
+        try {
+          const res = await safeSearch(search, query, false);
+          onAction?.({ tool: "search_web", query, resultCount: res.results.length });
+          return { results: res.results };
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          onAction?.({ tool: "search_web", query, error: errorMsg });
+          return { results: [], error: errorMsg };
+        }
+      }
+    }),
+    crawl_page: tool({
+      description: "Fetch full text and spec tables from a specific URL discovered in web search (e.g. manufacturer spec page or TechPowerUp).",
+      inputSchema: z.object({
+        url: z.string().url().describe("Exact webpage URL to crawl")
+      }),
+      execute: async ({ url }) => {
+        try {
+          const runner = crawlRunner ?? runPythonModule;
+          const content = await crawlPage(url, runner);
+          onAction?.({ tool: "crawl_page", url });
+          return { content: content.slice(0, 30000) };
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          onAction?.({ tool: "crawl_page", url, error: errorMsg });
+          return { error: errorMsg };
+        }
+      }
+    })
+  };
+}
+
 async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
   input: ConsultInput;
   config: AppConfig;
   deps: ConsultDeps;
   schema: T;
   prompt: string;
+  crawlRunner?: CrawlRunner;
 }): Promise<
-  | { ok: true; data: z.infer<T>; provider: string; model: string }
-  | { ok: false; result: { mode: ConsultInput["mode"]; error: string; retryable: false; label: "unverified" }; provider: string; model: string }
+  | { ok: true; data: z.infer<T>; provider: string; model: string; actions: SubagentAction[] }
+  | { ok: false; result: { mode: ConsultInput["mode"]; error: string; retryable: false; label: "unverified"; actions?: SubagentAction[] }; provider: string; model: string }
 > {
   const generate = args.deps.generateText ?? generateTextWithFallback;
+  const search = args.deps.searchClient ?? createSearchClient(args.config.search);
+  const actions: SubagentAction[] = [];
+  const tools = createSubagentTools(search, args.crawlRunner, (act) => actions.push(act));
   let provider = "unknown";
   let model = "unknown";
   let lastError = "Model did not return valid JSON.";
@@ -227,20 +290,23 @@ async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
     try {
       const response = await generate({
         chain: args.config.llm.roles.subagent,
-        system: "You are an isolated PCBuildSage Tier 2 subagent. Respond with JSON only. No markdown.",
-        prompt: attempt === 0 ? args.prompt : `${args.prompt}\n\nPrevious response failed JSON/schema validation: ${lastError}\nReturn corrected JSON only.`
+        system: "You are an isolated PCBuildSage Tier 2 research subagent. You have tools to search the web and crawl pages for technical specifications. After gathering the necessary facts, output the final result strictly as a valid JSON object matching the requested schema. No markdown formatting outside the JSON.",
+        prompt: attempt === 0 ? args.prompt : `${args.prompt}\n\nPrevious response failed JSON/schema validation: ${lastError}\nReturn corrected JSON only.`,
+        tools,
+        stopWhen: isStepCount(5),
+        abortSignal: AbortSignal.timeout(30000)
       });
       provider = response.provider;
       model = response.model;
       const parsed = parseJsonObject(response.text);
       const validated = args.schema.safeParse(parsed);
-      if (validated.success) return { ok: true, data: validated.data, provider, model };
+      if (validated.success) return { ok: true, data: validated.data, provider, model, actions };
       lastError = validated.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
     }
   }
-  return { ok: false, provider, model, result: { mode: args.input.mode, error: lastError, retryable: false, label: "unverified" } };
+  return { ok: false, provider, model, result: { mode: args.input.mode, error: lastError, retryable: false, label: "unverified", actions } };
 }
 
 function parseJsonObject(text: string): unknown {

@@ -157,7 +157,7 @@ def extract_products(html: str, selectors: dict[str, str], base_url: str) -> lis
         image = attr_or_text(image_node, ("data-src", "data-lazy-src", "src"))
         products.append(
             RawProduct(
-                title=attr_or_text(title_node),
+                title=attr_or_text(title_node, ("title",)),
                 price_text=attr_or_text(price_node),
                 url=urljoin(base_url, url) if url else None,
                 image_url=urljoin(base_url, image) if image else None,

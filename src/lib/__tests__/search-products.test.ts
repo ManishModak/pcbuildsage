@@ -214,6 +214,29 @@ describe("searchProducts", () => {
     expect(filterOutResult.hint).toMatch(/In-stock prices range 6000-6000/i);
   });
 
+  it("reports nearest_above and nearest_below when search filters exclude a price gap", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    addProduct({ id: "cpu-budget", category: "cpu", price: 12000, in_stock: 1, name: "Ryzen 5 5600" });
+    addProduct({ id: "cpu-premium", category: "cpu", price: 22000, in_stock: 1, name: "Ryzen 5 7600" });
+
+    // Model queries a price gap between 14,000 and 18,000 where no product exists
+    const gapResult = await searchProducts(
+      { category: "cpu", price_min: 14000, price_max: 18000, in_stock: true, sort_by: "price", order: "asc", limit: 20 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+
+    expect(gapResult).toMatchObject({
+      results: [],
+      category_total: 2,
+      in_stock_total: 2,
+      nearest_below: expect.objectContaining({ name: "Ryzen 5 5600", price: 12000 }),
+      nearest_above: expect.objectContaining({ name: "Ryzen 5 7600", price: 22000 })
+    });
+    expect((gapResult as { hint: string }).hint).toMatch(/Nearest cheaper option is Ryzen 5 5600 at 12000/i);
+    expect((gapResult as { hint: string }).hint).toMatch(/nearest higher option is Ryzen 5 7600 at 22000/i);
+  });
+
   it("filters by segment for registry-resolved specs", async () => {
     const { searchProducts } = await import("../tools/search-products");
     const dbPath = resetDb();

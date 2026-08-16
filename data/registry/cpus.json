@@ -7,18 +7,20 @@
     "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 24,
+    "boost_clock_ghz": 6,
     "aliases": [
-      "Core i9-14900K",
       "Intel Core i9-14900K",
+      "Core i9-14900K",
       "i9-14900K",
       "14900K"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236773/intel-core-i9-processor-14900k-36m-cache-up-to-6-00-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i9-14900k.c3260"
     ],
-    "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "intel-core-i9-14900kf": {
     "brand": "Intel",
@@ -67,18 +69,20 @@
     "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 20,
+    "boost_clock_ghz": 5.6,
     "aliases": [
+      "Intel Core i7-14700K",
       "Core i7-14700K",
       "14700K",
-      "i7-14700K",
-      "Intel Core i7-14700K"
+      "i7-14700K"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236783/intel-core-i7-processor-14700k-33m-cache-up-to-5-60-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i7-14700k.c3262"
     ],
-    "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "intel-core-i7-14700kf": {
     "brand": "Intel",
@@ -127,18 +131,20 @@
     "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 14,
+    "boost_clock_ghz": 5.3,
     "aliases": [
-      "14600K",
-      "i5-14600K",
       "Intel Core i5-14600K",
-      "Core i5-14600K"
+      "Core i5-14600K",
+      "i5-14600K",
+      "14600K"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236793/intel-core-i5-processor-14600k-24m-cache-up-to-5-30-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-14600k.c3264"
     ],
-    "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "intel-core-i5-14600kf": {
     "brand": "Intel",
@@ -227,18 +233,20 @@
     "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": false,
+    "cores": 10,
+    "boost_clock_ghz": 4.7,
     "aliases": [
       "Intel Core i5-14400F",
+      "Core i5-14400F",
       "i5-14400F",
-      "14400F",
-      "Core i5-14400F"
+      "14400F"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236777/intel-core-i5-processor-14400f-20m-cache-up-to-4-70-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-14400f.c3422"
     ],
-    "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "intel-core-i3-14100": {
     "brand": "Intel",
@@ -267,18 +275,20 @@
     "tdp_w": 58,
     "ddr": "DDR5",
     "igpu": false,
+    "cores": 4,
+    "boost_clock_ghz": 4.7,
     "aliases": [
-      "i3-14100F",
       "Intel Core i3-14100F",
-      "14100F",
-      "Core i3-14100F"
+      "Core i3-14100F",
+      "i3-14100F",
+      "14100F"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236798/intel-core-i3-processor-14100f-12m-cache-up-to-4-70-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i3-14100f.c3426"
     ],
-    "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "intel-core-i9-13900k": {
     "brand": "Intel",
@@ -287,18 +297,20 @@
     "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 24,
+    "boost_clock_ghz": 5.8,
     "aliases": [
+      "Intel Core i9-13900K",
       "Core i9-13900K",
       "i9-13900K",
-      "Intel Core i9-13900K",
       "13900K"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/230496/intel-core-i913900k-processor-36m-cache-up-to-5-80-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i9-13900k.c2843"
     ],
-    "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "intel-core-i9-13900kf": {
     "brand": "Intel",
@@ -347,18 +359,20 @@
     "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 16,
+    "boost_clock_ghz": 5.4,
     "aliases": [
-      "i7-13700K",
-      "13700K",
       "Intel Core i7-13700K",
-      "Core i7-13700K"
+      "Core i7-13700K",
+      "i7-13700K",
+      "13700K"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/230490/intel-core-i713700k-processor-30m-cache-up-to-5-40-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i7-13700k.c2844"
     ],
-    "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "intel-core-i7-13700kf": {
     "brand": "Intel",
@@ -405,17 +419,20 @@
     "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 14,
+    "boost_clock_ghz": 5.1,
     "aliases": [
+      "Intel Core i5-13600K",
       "Core i5-13600K",
-      "13600K",
       "i5-13600K",
-      "Intel Core i5-13600K"
+      "13600K"
     ],
     "sources": [
       "https://www.intel.com/content/www/us/en/products/sku/230493/intel-core-i513600k-processor-24m-cache-up-to-5-10-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i5-13600k.c2845"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "intel-core-i5-13600kf": {
     "brand": "Intel",
@@ -500,17 +517,20 @@
     "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": false,
+    "cores": 10,
+    "boost_clock_ghz": 4.6,
     "aliases": [
-      "i5-13400F",
-      "13400F",
+      "Intel Core i5-13400F",
       "Core i5-13400F",
-      "Intel Core i5-13400F"
+      "i5-13400F",
+      "13400F"
     ],
     "sources": [
       "https://www.intel.com/content/www/us/en/products/sku/230501/intel-core-i513400f-processor-20m-cache-up-to-4-60-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i5-13400f.c3011"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "intel-core-i3-13100": {
     "brand": "Intel",
@@ -671,17 +691,20 @@
     "tdp_w": 125,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 10,
+    "boost_clock_ghz": 4.9,
     "aliases": [
-      "Core i5-12600K",
-      "12600K",
       "Intel Core i5-12600K",
-      "i5-12600K"
+      "Core i5-12600K",
+      "i5-12600K",
+      "12600K"
     ],
     "sources": [
       "https://www.intel.com/content/www/us/en/products/sku/134589/intel-core-i512600k-processor-20m-cache-up-to-4-90-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i5-12600k.c2475"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "intel-core-i5-12600kf": {
     "brand": "Intel",
@@ -763,16 +786,20 @@
     "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": false,
+    "cores": 6,
+    "boost_clock_ghz": 4.4,
     "aliases": [
-      "12400F",
-      "i5-12400F",
+      "Intel Core i5-12400F",
       "Core i5-12400F",
-      "Intel Core i5-12400F"
+      "i5-12400F",
+      "12400F"
     ],
     "sources": [
-      "https://www.intel.com/content/www/us/en/products/sku/96144/intel-core-i512400f-processor-18m-cache-up-to-4-40-ghz/specifications.html"
+      "https://www.intel.com/content/www/us/en/products/sku/134587/intel-core-i512400f-processor-18m-cache-up-to-4-40-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-12400f.c2605"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "intel-core-i3-12100": {
     "brand": "Intel",
@@ -799,16 +826,20 @@
     "tdp_w": 58,
     "ddr": "DDR5",
     "igpu": false,
+    "cores": 4,
+    "boost_clock_ghz": 4.3,
     "aliases": [
-      "12100F",
       "Intel Core i3-12100F",
       "Core i3-12100F",
-      "i3-12100F"
+      "i3-12100F",
+      "12100F"
     ],
     "sources": [
-      "https://www.intel.com/content/www/us/en/products/sku/226788/intel-core-i312100f-processor-12m-cache-up-to-4-30-ghz/specifications.html"
+      "https://www.intel.com/content/www/us/en/products/sku/226788/intel-core-i312100f-processor-12m-cache-up-to-4-30-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i3-12100f.c2609"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-9-9900x": {
     "brand": "AMD",
@@ -817,17 +848,21 @@
     "tdp_w": 120,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 12,
+    "boost_clock_ghz": 5.6,
     "aliases": [
-      "9 9900X",
+      "AMD Ryzen 9 9900X",
       "Ryzen 9 9900X",
       "9900X",
       "R9 9900X",
-      "AMD Ryzen 9 9900X"
+      "9 9900X"
     ],
     "sources": [
-      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-9-9900x.html"
+      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-9-9900x.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-9900x.c3642"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-7-9800x3d": {
     "brand": "AMD",
@@ -836,17 +871,21 @@
     "tdp_w": 120,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 8,
+    "boost_clock_ghz": 5.2,
     "aliases": [
       "AMD Ryzen 7 9800X3D",
-      "R7 9800X3D",
       "Ryzen 7 9800X3D",
       "9800X3D",
+      "R7 9800X3D",
       "7 9800X3D"
     ],
     "sources": [
-      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-7-9800x3d.html"
+      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-7-9800x3d.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-7-9800x3d.c3746"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-7-9700x": {
     "brand": "AMD",
@@ -855,17 +894,21 @@
     "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 8,
+    "boost_clock_ghz": 5.5,
     "aliases": [
-      "R7 9700X",
-      "7 9700X",
       "AMD Ryzen 7 9700X",
       "Ryzen 7 9700X",
-      "9700X"
+      "9700X",
+      "R7 9700X",
+      "7 9700X"
     ],
     "sources": [
-      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-7-9700x.html"
+      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-7-9700x.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-7-9700x.c3643"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-5-9600x": {
     "brand": "AMD",
@@ -874,17 +917,21 @@
     "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 6,
+    "boost_clock_ghz": 5.4,
     "aliases": [
       "AMD Ryzen 5 9600X",
       "Ryzen 5 9600X",
+      "9600X",
       "R5 9600X",
-      "5 9600X",
-      "9600X"
+      "5 9600X"
     ],
     "sources": [
-      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-5-9600x.html"
+      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-5-9600x.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-5-9600x.c3644"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-9-7950x3d": {
     "brand": "AMD",
@@ -912,17 +959,21 @@
     "tdp_w": 170,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 16,
+    "boost_clock_ghz": 5.7,
     "aliases": [
+      "AMD Ryzen 9 7950X",
+      "Ryzen 9 7950X",
       "7950X",
       "R9 7950X",
-      "9 7950X",
-      "Ryzen 9 7950X",
-      "AMD Ryzen 9 7950X"
+      "9 7950X"
     ],
     "sources": [
-      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7950x.html"
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7950x.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-7950x.c2856"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-9-7900x3d": {
     "brand": "AMD",
@@ -950,17 +1001,21 @@
     "tdp_w": 170,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 12,
+    "boost_clock_ghz": 5.6,
     "aliases": [
-      "R9 7900X",
       "AMD Ryzen 9 7900X",
-      "7900X",
       "Ryzen 9 7900X",
+      "7900X",
+      "R9 7900X",
       "9 7900X"
     ],
     "sources": [
-      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7900x.html"
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7900x.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-7900x.c2857"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-9-7900": {
     "brand": "AMD",
@@ -988,17 +1043,21 @@
     "tdp_w": 120,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 8,
+    "boost_clock_ghz": 5,
     "aliases": [
-      "7800X3D",
-      "7 7800X3D",
-      "R7 7800X3D",
+      "AMD Ryzen 7 7800X3D",
       "Ryzen 7 7800X3D",
-      "AMD Ryzen 7 7800X3D"
+      "7800X3D",
+      "R7 7800X3D",
+      "7 7800X3D"
     ],
     "sources": [
-      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7800x3d.html"
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7800x3d.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-7-7800x3d.c3022"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-7-7700x": {
     "brand": "AMD",
@@ -1007,17 +1066,21 @@
     "tdp_w": 105,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 8,
+    "boost_clock_ghz": 5.4,
     "aliases": [
-      "Ryzen 7 7700X",
-      "7 7700X",
       "AMD Ryzen 7 7700X",
+      "Ryzen 7 7700X",
+      "7700X",
       "R7 7700X",
-      "7700X"
+      "7 7700X"
     ],
     "sources": [
-      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7700x.html"
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7700x.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-7-7700x.c2858"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-7-7700": {
     "brand": "AMD",
@@ -1045,19 +1108,21 @@
     "tdp_w": 105,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 6,
+    "boost_clock_ghz": 5.3,
     "aliases": [
-      "R5 7600X",
-      "5 7600X",
-      "Ryzen 5 7600X",
       "AMD Ryzen 5 7600X",
-      "7600X"
+      "Ryzen 5 7600X",
+      "7600X",
+      "R5 7600X",
+      "5 7600X"
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7600x.html",
       "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7600x.c2859"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-5-7600": {
     "brand": "AMD",
@@ -1066,19 +1131,21 @@
     "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": true,
+    "cores": 6,
+    "boost_clock_ghz": 5.1,
     "aliases": [
       "AMD Ryzen 5 7600",
-      "7600",
       "Ryzen 5 7600",
-      "5 7600",
-      "R5 7600"
+      "7600",
+      "R5 7600",
+      "5 7600"
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7600.html",
       "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7600.c2966"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-5-7500f": {
     "brand": "AMD",
@@ -1087,19 +1154,21 @@
     "tdp_w": 65,
     "ddr": "DDR5",
     "igpu": false,
+    "cores": 6,
+    "boost_clock_ghz": 5,
     "aliases": [
       "AMD Ryzen 5 7500F",
+      "Ryzen 5 7500F",
       "7500F",
       "R5 7500F",
-      "5 7500F",
-      "Ryzen 5 7500F"
+      "5 7500F"
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7500f.html",
       "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7500f.c3150"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-9-5950x": {
     "brand": "AMD",
@@ -1170,19 +1239,21 @@
     "tdp_w": 105,
     "ddr": "DDR4",
     "igpu": false,
+    "cores": 8,
+    "boost_clock_ghz": 4.5,
     "aliases": [
       "AMD Ryzen 7 5800X3D",
       "Ryzen 7 5800X3D",
-      "7 5800X3D",
+      "5800X3D",
       "R7 5800X3D",
-      "5800X3D"
+      "7 5800X3D"
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-7-5800x3d.html",
       "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5800x3d.c2653"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-7-5800x": {
     "brand": "AMD",
@@ -1232,18 +1303,21 @@
     "tdp_w": 65,
     "ddr": "DDR4",
     "igpu": false,
+    "cores": 8,
+    "boost_clock_ghz": 4.6,
     "aliases": [
       "AMD Ryzen 7 5700X",
-      "R7 5700X",
       "Ryzen 7 5700X",
-      "7 5700X",
-      "5700X"
+      "5700X",
+      "R7 5700X",
+      "7 5700X"
     ],
     "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-7-5700x.html",
       "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5700x.c2677"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-7-5700g": {
     "brand": "AMD",
@@ -1292,19 +1366,21 @@
     "tdp_w": 65,
     "ddr": "DDR4",
     "igpu": false,
+    "cores": 6,
+    "boost_clock_ghz": 4.6,
     "aliases": [
       "AMD Ryzen 5 5600X",
-      "5600X",
       "Ryzen 5 5600X",
-      "5 5600X",
-      "R5 5600X"
+      "5600X",
+      "R5 5600X",
+      "5 5600X"
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5600x.html",
       "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600x.c2357"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-5-5600": {
     "brand": "AMD",
@@ -1313,19 +1389,21 @@
     "tdp_w": 65,
     "ddr": "DDR4",
     "igpu": false,
+    "cores": 6,
+    "boost_clock_ghz": 4.4,
     "aliases": [
       "AMD Ryzen 5 5600",
       "Ryzen 5 5600",
       "5600",
-      "5 5600",
-      "R5 5600"
+      "R5 5600",
+      "5 5600"
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5600.html",
       "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600.c2678"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-5-5600g": {
     "brand": "AMD",
@@ -1354,18 +1432,21 @@
     "tdp_w": 65,
     "ddr": "DDR4",
     "igpu": false,
+    "cores": 6,
+    "boost_clock_ghz": 4.2,
     "aliases": [
-      "5500",
+      "AMD Ryzen 5 5500",
       "Ryzen 5 5500",
+      "5500",
       "R5 5500",
-      "5 5500",
-      "AMD Ryzen 5 5500"
+      "5 5500"
     ],
     "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5500.html",
       "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5500.c2658"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "researched_at": "2026-08-16T10:05:00Z"
   },
   "amd-ryzen-3-5100": {
     "brand": "AMD",
@@ -1387,5 +1468,286 @@
     ],
     "confidence": "medium",
     "researched_at": "2026-07-17T12:55:30Z"
+  },
+  "amd-ryzen-9-9950x": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 9 9950X",
+    "socket": "AM5",
+    "tdp_w": 170,
+    "ddr": "DDR5",
+    "igpu": true,
+    "cores": 16,
+    "boost_clock_ghz": 5.7,
+    "aliases": [
+      "AMD Ryzen 9 9950X",
+      "Ryzen 9 9950X",
+      "9950X",
+      "R9 9950X",
+      "9 9950X"
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-9-9950x.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-9950x.c3641"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "amd-ryzen-9-9950x3d": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 9 9950X3D",
+    "socket": "AM5",
+    "tdp_w": 170,
+    "ddr": "DDR5",
+    "igpu": true,
+    "cores": 16,
+    "boost_clock_ghz": 5.7,
+    "aliases": [
+      "AMD Ryzen 9 9950X3D",
+      "Ryzen 9 9950X3D",
+      "9950X3D",
+      "R9 9950X3D",
+      "9 9950X3D"
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-9-9950x3d.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-9950x3d.c3747"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "amd-ryzen-7-8700g": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 8700G",
+    "socket": "AM5",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "cores": 8,
+    "boost_clock_ghz": 5.1,
+    "aliases": [
+      "AMD Ryzen 7 8700G",
+      "Ryzen 7 8700G",
+      "8700G",
+      "R7 8700G",
+      "7 8700G"
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/8000-series/amd-ryzen-7-8700g.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-7-8700g.c3427"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "amd-ryzen-5-8600g": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 5 8600G",
+    "socket": "AM5",
+    "tdp_w": 65,
+    "ddr": "DDR5",
+    "igpu": true,
+    "cores": 6,
+    "boost_clock_ghz": 5,
+    "aliases": [
+      "AMD Ryzen 5 8600G",
+      "Ryzen 5 8600G",
+      "8600G",
+      "R5 8600G",
+      "5 8600G"
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/8000-series/amd-ryzen-5-8600g.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-5-8600g.c3428"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "amd-ryzen-7-5700x3d": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 7 5700X3D",
+    "socket": "AM4",
+    "tdp_w": 105,
+    "ddr": "DDR4",
+    "igpu": false,
+    "cores": 8,
+    "boost_clock_ghz": 4.1,
+    "aliases": [
+      "AMD Ryzen 7 5700X3D",
+      "Ryzen 7 5700X3D",
+      "5700X3D",
+      "R7 5700X3D",
+      "7 5700X3D"
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-7-5700x3d.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-7-5700x3d.c3653"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "amd-ryzen-5-3600": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 5 3600",
+    "socket": "AM4",
+    "tdp_w": 65,
+    "ddr": "DDR4",
+    "igpu": false,
+    "cores": 6,
+    "boost_clock_ghz": 4.2,
+    "aliases": [
+      "AMD Ryzen 5 3600",
+      "Ryzen 5 3600",
+      "3600",
+      "R5 3600",
+      "5 3600"
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/3000-series/amd-ryzen-5-3600.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-3600.c2182"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "amd-ryzen-5-4500": {
+    "brand": "AMD",
+    "model": "AMD Ryzen 5 4500",
+    "socket": "AM4",
+    "tdp_w": 65,
+    "ddr": "DDR4",
+    "igpu": false,
+    "cores": 6,
+    "boost_clock_ghz": 4.1,
+    "aliases": [
+      "AMD Ryzen 5 4500",
+      "Ryzen 5 4500",
+      "4500",
+      "R5 4500",
+      "5 4500"
+    ],
+    "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/4000-series/amd-ryzen-5-4500.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-4500.c2659"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "intel-core-ultra-9-285k": {
+    "brand": "Intel",
+    "model": "Intel Core Ultra 9 285K",
+    "socket": "LGA 1851",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "cores": 24,
+    "boost_clock_ghz": 5.7,
+    "aliases": [
+      "Intel Core Ultra 9 285K",
+      "Core Ultra 9 285K",
+      "Ultra 9 285K",
+      "285K",
+      "i9-285K",
+      "Ultra 9-285K"
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/241063/intel-core-ultra-9-processor-285k-36m-cache-up-to-5-70-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-ultra-9-285k.c3672"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "intel-core-ultra-7-265k": {
+    "brand": "Intel",
+    "model": "Intel Core Ultra 7 265K",
+    "socket": "LGA 1851",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "cores": 20,
+    "boost_clock_ghz": 5.5,
+    "aliases": [
+      "Intel Core Ultra 7 265K",
+      "Core Ultra 7 265K",
+      "Ultra 7 265K",
+      "265K",
+      "i7-265K",
+      "Ultra 7-265K"
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/241064/intel-core-ultra-7-processor-265k-30m-cache-up-to-5-50-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-ultra-7-265k.c3673"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "intel-core-ultra-7-265kf": {
+    "brand": "Intel",
+    "model": "Intel Core Ultra 7 265KF",
+    "socket": "LGA 1851",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": false,
+    "cores": 20,
+    "boost_clock_ghz": 5.5,
+    "aliases": [
+      "Intel Core Ultra 7 265KF",
+      "Core Ultra 7 265KF",
+      "Ultra 7 265KF",
+      "265KF",
+      "i7-265KF",
+      "Ultra 7-265KF"
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/241065/intel-core-ultra-7-processor-265kf-30m-cache-up-to-5-50-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-ultra-7-265kf.c3674"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "intel-core-ultra-5-245k": {
+    "brand": "Intel",
+    "model": "Intel Core Ultra 5 245K",
+    "socket": "LGA 1851",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": true,
+    "cores": 14,
+    "boost_clock_ghz": 5.2,
+    "aliases": [
+      "Intel Core Ultra 5 245K",
+      "Core Ultra 5 245K",
+      "Ultra 5 245K",
+      "245K",
+      "i5-245K",
+      "Ultra 5-245K"
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/241066/intel-core-ultra-5-processor-245k-24m-cache-up-to-5-20-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-ultra-5-245k.c3675"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "intel-core-ultra-5-245kf": {
+    "brand": "Intel",
+    "model": "Intel Core Ultra 5 245KF",
+    "socket": "LGA 1851",
+    "tdp_w": 125,
+    "ddr": "DDR5",
+    "igpu": false,
+    "cores": 14,
+    "boost_clock_ghz": 5.2,
+    "aliases": [
+      "Intel Core Ultra 5 245KF",
+      "Core Ultra 5 245KF",
+      "Ultra 5 245KF",
+      "245KF",
+      "i5-245KF",
+      "Ultra 5-245KF"
+    ],
+    "sources": [
+      "https://www.intel.com/content/www/us/en/products/sku/241067/intel-core-ultra-5-processor-245kf-24m-cache-up-to-5-20-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-ultra-5-245kf.c3676"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   }
 }

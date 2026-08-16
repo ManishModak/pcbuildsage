@@ -1,8 +1,10 @@
+import { parseRunOutcome, type RunOutcome } from "@/contracts/scrape";
+
 export type ScrapeEvent =
   | { type: "site_started"; site: string; category?: string }
   | { type: "progress"; site: string; category?: string; percent?: number; page?: number; pages_total?: number; products_seen?: number; skipped?: boolean }
   | { type: "site_failed"; site: string; category?: string; error: string }
-  | { type: "done"; products_written?: number }
+  | { type: "outcome"; outcome: RunOutcome }
   | { type: "error"; error: string };
 
 export type NdjsonParseResult = {
@@ -35,7 +37,10 @@ export function parseScrapeEvent(line: string): ScrapeEvent | undefined {
   try {
     const value = JSON.parse(line) as Partial<ScrapeEvent>;
     if (!value || typeof value !== "object" || !("type" in value)) return undefined;
-    if (value.type === "done") return { type: "done", products_written: numberValue(value.products_written) };
+    if (value.type === "outcome") {
+      const outcome = parseRunOutcome(value);
+      return outcome ? { type: "outcome", outcome } : undefined;
+    }
     if (value.type === "error" && typeof value.error === "string") return { type: "error", error: value.error };
     if (value.type === "site_failed" && typeof value.site === "string") {
       return { type: "site_failed", site: value.site, category: stringValue(value.category), error: stringValue(value.error) ?? "site failed" };

@@ -11,11 +11,51 @@ import type {
   ThemeFile
 } from "@/types/client";
 import type { ChatUIMessage } from "@/features/chat/message";
+import { parseRunOutcome, type RunOutcome } from "@/contracts/scrape";
+
+export class HttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly body: unknown
+  ) {
+    super(message);
+    this.name = "HttpError";
+  }
+}
+
+type JsonGuard<T> = (value: unknown) => value is T;
+
+export async function requestJson<T>(url: string, init: RequestInit = {}, guard?: JsonGuard<T>): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (!headers.has("accept")) headers.set("accept", "application/json");
+  const response = await fetch(url, {
+    ...init,
+    headers
+  });
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    if (!response.ok) throw new HttpError(`Request to ${url} failed: HTTP ${response.status}`, response.status, null);
+    throw new Error(`Request to ${url} returned malformed JSON.`);
+  }
+
+  if (!response.ok) {
+    const detail = isRecord(body) && typeof body.message === "string" ? `: ${body.message}` : "";
+    throw new HttpError(`Request to ${url} failed: HTTP ${response.status}${detail}`, response.status, body);
+  }
+  if (guard && !guard(body)) throw new Error(`Request to ${url} returned an invalid response.`);
+  return body as T;
+}
+
+export async function requestOk(url: string, init: RequestInit = {}): Promise<void> {
+  await requestJson(url, init, isOkResponse);
+}
 
 async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { headers: { accept: "application/json" } });
-  if (!response.ok) throw new Error(`Request to ${url} failed: HTTP ${response.status}`);
-  return (await response.json()) as T;
+  return requestJson<T>(url);
 }
 
 export async function fetchStatus(): Promise<StatusResponse> {
@@ -66,7 +106,7 @@ export async function probeEntry(
   entry: Pick<ChainEntry, "provider" | "model" | "baseUrl" | "keySource">,
   apiKey?: string
 ): Promise<PingResult> {
-  const response = await fetch("/api/llm/probe", {
+  return requestJson("/api/llm/probe", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -79,39 +119,34 @@ export async function probeEntry(
       keySource: entry.keySource,
       ...(apiKey ? { key: apiKey } : {})
     })
-  });
-  return (await response.json()) as PingResult;
+  }, isPingResult);
 }
 
 export type ImportResult =
-  | { ok: true; filename?: string; profileName?: string }
+  | { ok: true; id: string }
   | { ok: false; errors: string[] };
 
 export async function importProfileFromFile(file: File): Promise<ImportResult> {
   const form = new FormData();
   form.append("file", file);
-  const response = await fetch("/api/profiles/import", { method: "POST", body: form });
-  return normalizeImportResponse(response);
+  return importProfile({ method: "POST", body: form });
 }
 
 export async function importProfileFromUrl(url: string): Promise<ImportResult> {
-  const response = await fetch("/api/profiles/import", {
+  return importProfile({
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ url })
   });
-  return normalizeImportResponse(response);
 }
 
-async function normalizeImportResponse(response: Response): Promise<ImportResult> {
-  const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-  if (response.ok && (data.ok ?? true)) {
-    return { ok: true, filename: data.filename as string | undefined, profileName: data.profileName as string | undefined };
+async function importProfile(init: RequestInit): Promise<ImportResult> {
+  try {
+    return await requestJson("/api/profiles/import", init, isImportSuccess);
+  } catch (error) {
+    if (!(error instanceof HttpError)) throw error;
+    return { ok: false, errors: errorsFromBody(error.body, error.message) };
   }
-  const errors = Array.isArray(data.errors)
-    ? (data.errors as unknown[]).map((error) => (typeof error === "string" ? error : JSON.stringify(error)))
-    : [typeof data.message === "string" ? data.message : `Import failed (HTTP ${response.status}).`];
-  return { ok: false, errors };
 }
 
 export async function testProfile(input: {
@@ -134,14 +169,15 @@ export async function testProfile(input: {
 
 /**
  * POST a JSON body and consume a Server-Sent Events response, invoking onEvent
- * for each `event:`/`data:` frame. Resolves when the stream closes.
+ * for each non-terminal `event:`/`data:` frame. Resolves only when the stream
+ * closes after exactly one valid terminal outcome.
  */
 export async function postSse(
   url: string,
   body: unknown,
   onEvent: (event: string, data: unknown) => void,
   signal?: AbortSignal
-): Promise<void> {
+): Promise<RunOutcome> {
   const response = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json", accept: "text/event-stream" },
@@ -153,12 +189,22 @@ export async function postSse(
     // Surface a structured error (e.g. python_unavailable, single-scrape 409).
     const detail = await response.json().catch(() => ({}));
     onEvent("error", { status: response.status, ...(detail as object) });
-    return;
+    throw new Error(`Scrape request failed: HTTP ${response.status}`);
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  const outcomes: RunOutcome[] = [];
+  const handleEvent = (event: string, data: unknown) => {
+    if (event === "outcome" || (data as { type?: string })?.type === "outcome") {
+      const outcome = parseRunOutcome(data);
+      if (!outcome) throw new Error("The scrape stream returned an invalid terminal outcome.");
+      outcomes.push(outcome);
+      return;
+    }
+    onEvent(event, data);
+  };
 
   try {
     while (true) {
@@ -167,12 +213,20 @@ export async function postSse(
       buffer += decoder.decode(value, { stream: true });
       const frames = buffer.split("\n\n");
       buffer = frames.pop() ?? "";
-      for (const frame of frames) emitFrame(frame, onEvent);
+      for (const frame of frames) emitFrame(frame, handleEvent);
     }
-    if (buffer.trim()) emitFrame(buffer, onEvent);
+    if (buffer.trim()) emitFrame(buffer, handleEvent);
   } finally {
     reader.releaseLock();
   }
+  if (outcomes.length !== 1) {
+    throw new Error(
+      outcomes.length === 0
+        ? "The scrape stream closed without a terminal outcome."
+        : "The scrape stream returned more than one terminal outcome."
+    );
+  }
+  return outcomes[0];
 }
 
 function emitFrame(frame: string, onEvent: (event: string, data: unknown) => void): void {
@@ -201,6 +255,7 @@ export async function exportResearch(): Promise<{ files: string[] }> {
 
 export type SessionDetail = {
   id: string;
+  revision: number;
   title: string | null;
   created_at: Date;
   updated_at: Date;
@@ -212,6 +267,7 @@ export type SessionDetail = {
 
 export type SaveSessionRequest = {
   id: string;
+  revision: number;
   messages: ChatUIMessage[];
   title?: string;
   countryCode?: string;
@@ -228,6 +284,7 @@ interface SessionSummaryRaw {
 
 interface SessionDetailRaw {
   id: string;
+  revision: number;
   messages: { createdAt?: string | number; [key: string]: unknown }[];
   created_at: string | number;
   updated_at: string | number;
@@ -249,6 +306,7 @@ export async function fetchSession(id: string): Promise<SessionDetail | null> {
   if (!data.session) return null;
   return {
     id: data.session.id,
+    revision: data.session.revision,
     title: (data.session.title as string | undefined) ?? null,
     created_at: new Date(data.session.created_at),
     updated_at: new Date(data.session.updated_at),
@@ -266,13 +324,45 @@ export async function fetchSession(id: string): Promise<SessionDetail | null> {
 }
 
 export async function saveSession(input: SaveSessionRequest): Promise<void> {
-  await fetch("/api/sessions", {
+  await requestJson("/api/sessions", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input)
-  });
+  }, (value): value is { ok: true; revision: number } =>
+    isRecord(value) && value.ok === true && value.revision === input.revision
+  );
 }
 
 export async function deleteSession(id: string): Promise<void> {
-  await fetch(`/api/sessions/${id}`, { method: "DELETE" });
+  await requestOk(`/api/sessions/${id}`, { method: "DELETE" });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isOkResponse(value: unknown): value is { ok: true } {
+  return isRecord(value) && value.ok === true;
+}
+
+function isImportSuccess(value: unknown): value is { ok: true; id: string } {
+  return isRecord(value) && value.ok === true && typeof value.id === "string" && value.id.length > 0;
+}
+
+function isPingResult(value: unknown): value is PingResult {
+  return isRecord(value)
+    && typeof value.reachable === "boolean"
+    && typeof value.latencyMs === "number"
+    && Number.isFinite(value.latencyMs)
+    && typeof value.toolCapable === "boolean"
+    && (value.hint === undefined || typeof value.hint === "string");
+}
+
+function errorsFromBody(body: unknown, fallback: string): string[] {
+  if (!isRecord(body)) return [fallback];
+  if (Array.isArray(body.errors)) {
+    return body.errors.map((error) => typeof error === "string" ? error : JSON.stringify(error));
+  }
+  if (typeof body.message === "string") return [body.message];
+  return [fallback];
 }

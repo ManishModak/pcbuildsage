@@ -40,8 +40,12 @@ next-env.d.ts
 
 *.db-wal
 *.db-shm
+*.db
+!data/products-sample.db
 db-backups/
 
 # runtime log sink; regenerated on demand
 data/logs.db
+data/logs.db-*
+
 

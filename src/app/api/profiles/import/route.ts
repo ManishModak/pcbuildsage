@@ -1,6 +1,6 @@
 import path from "node:path";
 import { z } from "zod";
-import { validateAndWriteProfile } from "../../_lib/profile-import";
+import { validateAndWriteProfile, type ProfileImportResult } from "../../_lib/profile-import";
 import { badRequest, InvalidJsonError, json, readJson, serverError } from "../../_lib/responses";
 import { assertSafeFetchUrl, UnsafeUrlError } from "../../_lib/url-guard";
 
@@ -21,9 +21,10 @@ export async function POST(request: Request): Promise<Response> {
     const body = importSchema.parse(await readJson(request));
     if ("url" in body) {
       const url = assertSafeFetchUrl(body.url);
-      const response = await fetch(url);
+      const signal = AbortSignal.any([request.signal, AbortSignal.timeout(10_000)]);
+      const response = await fetch(url, { signal });
       if (!response.ok) return json({ error: "profile_fetch_failed", status: response.status }, { status: 400 });
-      return writeProfile(await readFetchedJson(response), body.filename ?? path.basename(url.pathname));
+      return writeProfile(await readFetchedJson(response), body.filename ?? path.posix.basename(url.pathname));
     }
     return writeProfile(body.profile, body.filename);
   } catch (error) {
@@ -39,8 +40,17 @@ async function importFormData(formData: FormData): Promise<Response> {
 }
 
 function writeProfile(profile: unknown, filename?: string): Response {
-  const result = validateAndWriteProfile(profile, { filename });
-  if (!result.ok) return json({ error: "invalid_profile", errors: result.errors }, { status: 400 });
+  return profileImportResponse(validateAndWriteProfile(profile, { filename }));
+}
+
+export function profileImportResponse(result: ProfileImportResult): Response {
+  if (!result.ok && result.error === "profile_exists") {
+    return json(
+      { error: "profile_exists", message: `A profile with id "${result.id}" already exists.`, id: result.id },
+      { status: 409 }
+    );
+  }
+  if (!result.ok) return json({ error: result.error, errors: result.errors }, { status: 400 });
   return json(result);
 }
 
@@ -53,6 +63,9 @@ function parseProfileJson(text: string): unknown {
 }
 
 async function readFetchedJson(response: Response): Promise<unknown> {
+  if (!response.ok) {
+    throw new Error("profile_fetch_failed");
+  }
   try {
     return await response.json();
   } catch {

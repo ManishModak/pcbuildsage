@@ -5,25 +5,27 @@ import { ArrowRight, Database, Info, Radio, TriangleAlert } from "lucide-react";
 import type { StatusResponse } from "@/types/client";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
-import { Button } from "@/components/ui/primitives";
+import { Button, Card, ChoiceControl, ChoiceGroup, Spinner } from "@/components/ui/primitives";
 
 export type DataSourceChoice = "existing" | "scrape";
+export type StatusLoadState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; data: StatusResponse };
 
 export function StepDataSource({
-  status,
+  statusState,
   choice,
   onChoose,
+  onRetry,
   onNext
 }: {
-  status: StatusResponse | null;
+  statusState: StatusLoadState;
   choice: DataSourceChoice | null;
   onChoose: (choice: DataSourceChoice) => void;
+  onRetry: () => void;
   onNext: () => void;
 }) {
-  const dbExists = status?.database.exists ?? false;
-  const pythonOk = status?.python.ok ?? true;
-  const totalRows = status?.database.rowCounts.reduce((sum: number, row: { count: number }) => sum + row.count, 0) ?? 0;
-
   return (
     <section className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
@@ -33,6 +35,49 @@ export function StepDataSource({
           swap sources any time from settings.
         </p>
       </header>
+
+      {statusState.status === "loading" ? (
+        <Card className="flex items-center gap-3 p-4 text-sm text-text-secondary" aria-live="polite">
+          <Spinner />
+          Checking Python and your local catalog…
+        </Card>
+      ) : statusState.status === "error" ? (
+        <Card className="flex flex-col items-start gap-3 p-4" role="alert">
+          <div>
+            <p className="text-sm font-medium text-text">Could not inspect this computer</p>
+            <p className="text-caption text-text-secondary">{statusState.message}</p>
+          </div>
+          <Button variant="ghost" onClick={onRetry}>Retry status check</Button>
+        </Card>
+      ) : (
+        <DataSourceChoices
+          status={statusState.data}
+          choice={choice}
+          onChoose={onChoose}
+          onNext={onNext}
+        />
+      )}
+    </section>
+  );
+}
+
+function DataSourceChoices({
+  status,
+  choice,
+  onChoose,
+  onNext
+}: {
+  status: StatusResponse;
+  choice: DataSourceChoice | null;
+  onChoose: (choice: DataSourceChoice) => void;
+  onNext: () => void;
+}) {
+  const dbExists = status.database.exists;
+  const pythonOk = status.python.ok;
+  const totalRows = status.database.rowCounts.reduce((sum, row) => sum + row.count, 0);
+
+  return (
+    <>
 
       {!pythonOk ? (
         <div
@@ -55,7 +100,7 @@ export function StepDataSource({
         </div>
       ) : null}
 
-      <div className="grid gap-3">
+      <ChoiceGroup label="Data source" legendClassName="sr-only" className="grid gap-3">
         <SourceCard
           icon={Database}
           selected={choice === "existing"}
@@ -65,7 +110,7 @@ export function StepDataSource({
           estimate="instant"
           description={
             dbExists
-              ? `${totalRows.toLocaleString()} products already indexed${status ? ` at ${shortPath(status.database.path)}` : ""}.`
+              ? `${totalRows.toLocaleString()} products already indexed at ${shortPath(status.database.path)}.`
               : "No local database found yet — scrape to create one."
           }
         />
@@ -78,7 +123,7 @@ export function StepDataSource({
           estimate="~10 min"
           description="Crawl retailer sites now for the newest prices. Configurable per site, category, and depth."
         />
-      </div>
+      </ChoiceGroup>
 
       {dbExists ? (
         <p className="flex items-center gap-2 text-caption text-text-muted">
@@ -92,7 +137,7 @@ export function StepDataSource({
           Continue
         </Button>
       </div>
-    </section>
+    </>
   );
 }
 
@@ -114,12 +159,13 @@ function SourceCard({
   onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
+    <ChoiceControl
+      type="radio"
+      name="data-source"
+      value={title}
+      checked={selected}
       disabled={disabled}
-      onClick={onSelect}
+      onChange={onSelect}
       className={cn(
         "flex items-start gap-4 rounded-card border bg-surface p-4 text-left transition-colors duration-150",
         selected ? "border-accent" : "border-border hover:border-text-muted",
@@ -143,7 +189,7 @@ function SourceCard({
         </span>
         <span className="text-caption text-text-secondary">{description}</span>
       </span>
-    </button>
+    </ChoiceControl>
   );
 }
 

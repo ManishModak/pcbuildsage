@@ -1,13 +1,32 @@
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { booleanFlag, csvFlag, numberFlag, parseArgv, stringFlag } from "../arg-parser";
 import { findCommand, helpText, slashCommands, subcommands } from "../commands";
 import { getConfigValue, isSensitiveConfigKey, readCliConfig, setConfigValue, writeCliConfig } from "../config-store";
 import { parseNdjsonChunk, parseScrapeEvent } from "../ndjson";
-import { buildScraperArgs, estimateScrape } from "../scrape";
+import { buildScraperArgs, estimateScrape, resolveCliTermination } from "../scrape";
 import { createPalette, loadThemeAnsi, shouldUseColor } from "../theme";
+
+const tempDirs: string[] = [];
+
+afterEach(() => {
+  for (const dir of tempDirs) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+  tempDirs.length = 0;
+});
+
+function createTempDir(prefix: string): string {
+  const dir = mkdtempSync(path.join(os.tmpdir(), prefix));
+  tempDirs.push(dir);
+  return dir;
+}
 
 describe("CLI arg parsing", () => {
   it("parses positionals, boolean flags, csv flags, and negated flags", () => {
@@ -41,7 +60,7 @@ describe("command registry", () => {
 
 describe("CLI config store", () => {
   it("round-trips get and set through .pcbuildsage/config.json", () => {
-    const cwd = mkdtempSync(path.join(os.tmpdir(), "pcbuildsage-cli-"));
+    const cwd = createTempDir("pcbuildsage-cli-");
     const config = setConfigValue(setConfigValue({}, "theme", "nord"), "audit", "false");
 
     writeCliConfig(config, cwd);
@@ -49,6 +68,11 @@ describe("CLI config store", () => {
 
     expect(getConfigValue(loaded, "theme")).toBe("nord");
     expect(getConfigValue(loaded, "tier2Enabled")).toBe(false);
+    expect(readdirSync(path.join(cwd, ".pcbuildsage"))).toEqual(["config.json"]);
+    if (process.platform !== "win32") {
+      expect(statSync(path.join(cwd, ".pcbuildsage")).mode & 0o777).toBe(0o700);
+      expect(statSync(path.join(cwd, ".pcbuildsage", "config.json")).mode & 0o600).toBe(0o600);
+    }
   });
 
   it("detects sensitive credential keys", () => {
@@ -75,6 +99,26 @@ describe("NDJSON scrape progress parsing", () => {
 });
 
 describe("scrape flag mapping and estimates", () => {
+  const successOutcome = {
+    status: "succeeded" as const,
+    jobs_total: 1,
+    jobs_succeeded: 1,
+    jobs_failed: 0,
+    jobs_skipped: 0,
+    products_written: 2,
+    errors: []
+  };
+
+  it("requires exactly one terminal outcome matching process exit", () => {
+    expect(resolveCliTermination([successOutcome], 0)).toEqual({ outcome: successOutcome, exitCode: 0 });
+    expect(resolveCliTermination([], 0)).toMatchObject({ outcome: { status: "failed" }, exitCode: 1 });
+    expect(resolveCliTermination([successOutcome, successOutcome], 0)).toMatchObject({
+      outcome: { status: "failed" },
+      exitCode: 1
+    });
+    expect(resolveCliTermination([successOutcome], 1)).toMatchObject({ outcome: { status: "failed" }, exitCode: 1 });
+  });
+
   it("maps run config to scraper args", () => {
     expect(buildScraperArgs({
       profile: "india",
@@ -97,7 +141,7 @@ describe("scrape flag mapping and estimates", () => {
   });
 
   it("estimates scrape work from profile JSON", () => {
-    const cwd = mkdtempSync(path.join(os.tmpdir(), "pcbuildsage-profile-"));
+    const cwd = createTempDir("pcbuildsage-profile-");
     mkdirSync(path.join(cwd, "data", "profiles"), { recursive: true });
     writeFileSync(path.join(cwd, "data", "profiles", "test.json"), JSON.stringify({
       sites: [
@@ -112,7 +156,7 @@ describe("scrape flag mapping and estimates", () => {
 
 describe("theme ansi and NO_COLOR", () => {
   it("loads ansi colors from a theme file", () => {
-    const cwd = mkdtempSync(path.join(os.tmpdir(), "pcbuildsage-theme-"));
+    const cwd = createTempDir("pcbuildsage-theme-");
     mkdirSync(cwd, { recursive: true });
     writeFileSync(path.join(cwd, "custom.json"), JSON.stringify({ ansi: { accent: 1, ok: 2, blocking: 3, warn: 4, unverified: 5, muted: 6 } }));
 

@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import json
+import sqlite3
+
+import pytest
+
 from scraper.db import SCHEMA_VERSION, ProductStore
 from scraper.models import ScrapedProduct
 
@@ -22,6 +27,104 @@ def test_fresh_database_is_stamped_with_schema_version(tmp_path) -> None:
     db = tmp_path / "products.db"
     with ProductStore(db) as store:
         version = store.conn.execute("PRAGMA user_version").fetchone()[0]
+    assert version == SCHEMA_VERSION
+
+
+def test_fresh_database_has_canonical_tables_indexes_and_url_uniqueness(tmp_path) -> None:
+    db = tmp_path / "products.db"
+    with ProductStore(db) as store:
+        tables = {
+            row[0]
+            for row in store.conn.execute("SELECT name FROM sqlite_schema WHERE type = 'table'").fetchall()
+        }
+        indexes = {
+            row[0]
+            for row in store.conn.execute(
+                "SELECT name FROM sqlite_schema WHERE type = 'index' AND tbl_name = 'products'"
+            ).fetchall()
+        }
+        store.upsert_products([_product("canonical-a")])
+        duplicate_url = _product("canonical-b")
+        duplicate_url.url = "https://example.com/canonical-a"
+        with pytest.raises(sqlite3.IntegrityError):
+            store.upsert_products([duplicate_url])
+
+    assert {"products", "audit_cache", "registry_research"}.issubset(tables)
+    assert {
+        "idx_products_url_unique",
+        "idx_products_lookup",
+        "idx_products_norm",
+        "idx_products_retailer_sweep",
+    }.issubset(indexes)
+
+
+@pytest.mark.parametrize("legacy_version", range(SCHEMA_VERSION))
+def test_python_migrates_every_legacy_version_without_losing_rows(tmp_path, legacy_version: int) -> None:
+    db = tmp_path / f"legacy-v{legacy_version}.db"
+    _create_legacy_database(db, legacy_version)
+
+    with ProductStore(db) as store:
+        row = store.conn.execute(
+            "SELECT id, category, subcategory, price FROM products WHERE id = 'legacy'"
+        ).fetchone()
+        version = store.conn.execute("PRAGMA user_version").fetchone()[0]
+        index_names = {
+            result[0]
+            for result in store.conn.execute(
+                "SELECT name FROM sqlite_schema WHERE type = 'index' AND tbl_name = 'products'"
+            ).fetchall()
+        }
+
+    assert row is not None
+    assert row["id"] == "legacy"
+    assert row["category"] == "storage"
+    assert row["subcategory"] == "removable"
+    assert row["price"] == 123.45
+    assert version == SCHEMA_VERSION
+    assert "idx_products_url_unique" in index_names
+    assert "idx_products_retailer_sweep" in index_names
+
+
+def test_python_rejects_future_schema_versions(tmp_path) -> None:
+    db = tmp_path / "future.db"
+    connection = sqlite3.connect(db)
+    connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION + 1}")
+    connection.close()
+
+    with pytest.raises(RuntimeError, match="newer than supported"):
+        ProductStore(db)
+
+
+def test_v5_migration_merges_duplicate_urls_and_keeps_newest_row(tmp_path) -> None:
+    db = tmp_path / "duplicate-legacy.db"
+    _create_legacy_database(db, 4)
+    connection = sqlite3.connect(db)
+    connection.execute(
+        """
+        INSERT INTO products (
+          id, name, normalized_name, registry_key, price, currency, country_code,
+          retailer, url, image_url, in_stock, category, subcategory, specs,
+          first_seen, last_scraped
+        )
+        SELECT
+          'duplicate', name, normalized_name, registry_key, price, currency,
+          country_code, retailer, url, image_url, in_stock, category, subcategory,
+          specs, first_seen, last_scraped
+        FROM products WHERE id = 'legacy'
+        """
+    )
+    connection.execute("UPDATE products SET last_scraped = '2026-01-01T00:00:00Z' WHERE id = 'legacy'")
+    connection.execute("UPDATE products SET last_scraped = '2026-02-01T00:00:00Z' WHERE id = 'duplicate'")
+    connection.commit()
+    connection.close()
+
+    with ProductStore(db) as store:
+        rows = store.conn.execute("SELECT id, last_scraped FROM products").fetchall()
+        version = store.conn.execute("PRAGMA user_version").fetchone()[0]
+
+    assert [(row["id"], row["last_scraped"]) for row in rows] == [
+        ("duplicate", "2026-02-01T00:00:00Z")
+    ]
     assert version == SCHEMA_VERSION
 
 
@@ -138,6 +241,39 @@ def test_logs_truncation_trigger(tmp_path) -> None:
     assert last_remaining == "Log msg 1049"
     
     logger.removeHandler(handler)
+    handler.close()
+
+
+def test_log_details_are_redacted_and_bounded() -> None:
+    from scraper.db import MAX_LOG_DETAILS_BYTES, serialize_log_details
+
+    redacted = json.loads(serialize_log_details({"api_key": "secret", "nested": {"Authorization": "Bearer token"}}))
+    assert redacted == {"api_key": "[redacted]", "nested": {"Authorization": "[redacted]"}}
+
+    oversized = serialize_log_details({"payload": "x" * (MAX_LOG_DETAILS_BYTES * 2), "meta": "keep_me"})
+    parsed = json.loads(oversized)
+    assert len(oversized.encode("utf-8")) <= MAX_LOG_DETAILS_BYTES
+    assert parsed["meta"] == "keep_me"
+    assert "... [truncated]" in parsed["payload"]
+
+
+def test_sqlite_log_handler_rollback_on_failure(tmp_path) -> None:
+    import logging
+    from unittest.mock import MagicMock
+    from scraper.db import SQLiteLogHandler
+
+    db = tmp_path / "logs.db"
+    handler = SQLiteLogHandler(db)
+
+    record = logging.LogRecord("test", logging.ERROR, "", 0, "msg", (), None)
+    handler.conn = MagicMock()
+    handler.conn.execute.side_effect = Exception("db write error")
+    handler.handleError = MagicMock()
+
+    handler.emit(record)
+
+    handler.conn.rollback.assert_called_once()
+    handler.handleError.assert_called_once_with(record)
     handler.close()
 
 
@@ -258,3 +394,122 @@ def test_count_in_stock_ignores_retired_rows_and_other_categories(tmp_path) -> N
         assert store.count_in_stock("Shop", "gpu") == 2
         assert store.count_in_stock("Shop", "cpu") == 1
         assert store.count_in_stock("Nobody", "gpu") == 0
+
+
+def test_category_snapshot_rolls_back_upsert_when_sweep_fails(tmp_path) -> None:
+    db = tmp_path / "products.db"
+    with ProductStore(db) as store:
+        store.upsert_products([_product("old")])
+        store.conn.execute(
+            """
+            CREATE TEMP TRIGGER fail_snapshot_sweep
+            BEFORE UPDATE OF in_stock ON products
+            WHEN OLD.id = 'old'
+            BEGIN
+              SELECT RAISE(ABORT, 'injected sweep failure');
+            END
+            """
+        )
+
+        with pytest.raises(sqlite3.IntegrityError, match="injected sweep failure"):
+            store.apply_category_snapshot(
+                [_product("new")],
+                retailer="Shop",
+                category="gpu",
+                run_started_at="2026-07-01T00:00:00Z",
+                scraped_at="2026-07-07T00:00:00Z",
+                force_sweep=True,
+            )
+
+        rows = store.conn.execute("SELECT id, in_stock FROM products ORDER BY id").fetchall()
+
+    assert [(row["id"], row["in_stock"]) for row in rows] == [("old", 1)]
+
+
+def test_category_snapshot_reader_sees_only_pre_and_post_commit_states(tmp_path) -> None:
+    db = tmp_path / "products.db"
+    with ProductStore(db) as store:
+        store.upsert_products([_product("old")])
+        reader = sqlite3.connect(db)
+        observed_during_sweep: list[list[tuple[str, int]]] = []
+
+        def observe_snapshot() -> int:
+            observed_during_sweep.append(
+                reader.execute("SELECT id, in_stock FROM products ORDER BY id").fetchall()
+            )
+            return 0
+
+        store.conn.create_function("observe_snapshot", 0, observe_snapshot)
+        store.conn.execute(
+            """
+            CREATE TEMP TRIGGER observe_snapshot_sweep
+            BEFORE UPDATE OF in_stock ON products
+            WHEN OLD.id = 'old'
+            BEGIN
+              SELECT observe_snapshot();
+            END
+            """
+        )
+
+        new = _product("new")
+        new.last_scraped = "2026-07-07T00:00:00Z"
+        store.apply_category_snapshot(
+            [new],
+            retailer="Shop",
+            category="gpu",
+            run_started_at="2026-07-01T00:00:00Z",
+            scraped_at="2026-07-07T00:00:00Z",
+            force_sweep=True,
+        )
+        after_commit = reader.execute("SELECT id, in_stock FROM products ORDER BY id").fetchall()
+        reader.close()
+
+    assert observed_during_sweep == [[("old", 1)]]
+    assert after_commit == [("new", 1), ("old", 0)]
+
+
+def _create_legacy_database(db, version: int) -> None:
+    connection = sqlite3.connect(db)
+    price_column = "price_minor INTEGER" if version < 3 else "price REAL"
+    subcategory_column = "subcategory TEXT," if version >= 4 else ""
+    connection.execute(
+        f"""
+        CREATE TABLE products (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          normalized_name TEXT,
+          registry_key TEXT,
+          {price_column},
+          currency TEXT NOT NULL,
+          country_code TEXT NOT NULL,
+          retailer TEXT NOT NULL,
+          url TEXT NOT NULL,
+          image_url TEXT,
+          in_stock INTEGER DEFAULT 1,
+          category TEXT NOT NULL,
+          {subcategory_column}
+          specs TEXT,
+          first_seen TEXT NOT NULL,
+          last_scraped TEXT NOT NULL
+        )
+        """
+    )
+    price_value = 12345 if version < 3 else 123.45
+    columns = [
+        "id", "name", "normalized_name", "registry_key", "price_minor" if version < 3 else "price",
+        "currency", "country_code", "retailer", "url", "image_url", "in_stock", "category",
+    ]
+    values: list[object] = [
+        "legacy", "USB Pen Drive 32GB", "usb pen drive 32gb", None, price_value,
+        "INR", "IN", "Legacy Shop", "https://example.com/legacy", None, 1, "storage",
+    ]
+    if version >= 4:
+        columns.append("subcategory")
+        values.append(None)
+    columns.extend(["specs", "first_seen", "last_scraped"])
+    values.extend([None, "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"])
+    placeholders = ", ".join("?" for _ in values)
+    connection.execute(f"INSERT INTO products ({', '.join(columns)}) VALUES ({placeholders})", values)
+    connection.execute(f"PRAGMA user_version = {version}")
+    connection.commit()
+    connection.close()

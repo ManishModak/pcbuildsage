@@ -9,6 +9,7 @@
       "site_name": "Kryptronix",
       "base_url": "https://kryptronix.in/",
       "scraping_type": "category",
+      "engine": "http",
       "browser_config": {
         "headless": true,
         "js_rendering": true,
@@ -71,6 +72,7 @@
       "site_name": "MDComputers",
       "base_url": "https://mdcomputers.in/",
       "scraping_type": "category",
+      "engine": "http",
       "browser_config": {
         "headless": true,
         "js_rendering": true,
@@ -133,6 +135,7 @@
       "site_name": "PrimeABGB",
       "base_url": "https://www.primeabgb.com/",
       "scraping_type": "category",
+      "engine": "http",
       "browser_config": {
         "headless": true,
         "js_rendering": true,
@@ -183,8 +186,8 @@
         }
       },
       "selectors": {
-        "product_container": "li.product",
-        "title": "h3.woocommerce-loop-product__title, .product-title a",
+        "product_container": "div.product, li.product",
+        "title": "h3.woocommerce-loop-product__title, .product-title a, h2.woocommerce-loop-product__title, .product-name a",
         "price": "span.price ins span.woocommerce-Price-amount, span.price span.woocommerce-Price-amount",
         "url": "a.woocommerce-LoopProduct-link",
         "image": "img.attachment-woocommerce_thumbnail",
@@ -195,6 +198,7 @@
       "site_name": "VedantComputers",
       "base_url": "https://www.vedantcomputers.com/",
       "scraping_type": "category",
+      "engine": "http",
       "browser_config": {
         "headless": true,
         "js_rendering": true,
@@ -262,7 +266,7 @@
         "js_rendering": true,
         "wait_for_selector": ".product-grid-item",
         "scroll_down": true,
-        "timeout_ms": 30000
+        "timeout_ms": 5000
       },
       "categories": {
         "cpu": {
@@ -319,6 +323,7 @@
       "site_name": "PCStudio",
       "base_url": "https://www.pcstudio.in/",
       "scraping_type": "category",
+      "engine": "http",
       "browser_config": {
         "headless": true,
         "js_rendering": true,
@@ -370,7 +375,7 @@
       },
       "selectors": {
         "product_container": "li.product",
-        "title": "h3.woocommerce-loop-product__title, .product-title a",
+        "title": "li.title span, li.title a, h2.woocommerce-loop-product__title, h3.woocommerce-loop-product__title, .product-title a",
         "price": "span.price ins span.woocommerce-Price-amount, span.price span.woocommerce-Price-amount",
         "url": "a.woocommerce-LoopProduct-link",
         "image": "img.attachment-woocommerce_thumbnail",

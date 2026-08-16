@@ -104,7 +104,9 @@
 }
 
 html {
+  background-color: #0e1210;
   background: var(--bg);
+  color: #e8ede9;
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -114,7 +116,9 @@ html {
 body {
   min-height: 100dvh;
   margin: 0;
+  background-color: #0e1210;
   background: var(--bg);
+  color: #e8ede9;
   color: var(--text);
   font-size: 16px;
   line-height: 1.6;

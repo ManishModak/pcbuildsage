@@ -44,6 +44,8 @@ def _validate_profile(raw: dict[str, Any]) -> None:
             _require(site, key, object)
         if site["scraping_type"] not in {"category", "search"}:
             raise ProfileError(f"{site['site_name']}: scraping_type must be category or search")
+        if "engine" in site and site["engine"] not in {"http", "browser"}:
+            raise ProfileError(f"{site['site_name']}: engine must be 'http' or 'browser'")
         if not isinstance(site["browser_config"], dict):
             raise ProfileError(f"{site['site_name']}: browser_config must be an object")
         if not isinstance(site["categories"], dict) or not site["categories"]:
@@ -128,6 +130,7 @@ def load_profile(profile: str | Path, profiles_dir: Path = DEFAULT_PROFILES_DIR)
                 selectors=raw_site["selectors"],
                 country_code=raw["country_code"],
                 currency=raw["default_currency"],
+                engine=raw_site.get("engine", "browser"),
                 max_llm_calls_per_site=raw_site.get("max_llm_calls_per_site"),
             )
         )

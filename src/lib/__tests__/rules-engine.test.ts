@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeResolved, validateBuild, type BuildPart } from "../rules-engine";
-import { resolveComponent, type ComponentCategory, type ResolvedSpec } from "../registry";
+import { listRegistrySpecs, type ComponentCategory, type ResolvedSpec } from "../registry";
 
 const base = {
   cpu: makeResolved("cpu-am5", "cpu", { brand: "AMD", model: "CPU", aliases: ["CPU"], socket: "AM5", ddr: "DDR5", tdp_w: 65 }),
@@ -208,7 +208,7 @@ describe("validateBuild", () => {
     // The seed registry cites nothing, so every entry in it resolves low-confidence.
     // Computing on a placeholder would return a confident wrong answer, so the rules
     // engine must demand research instead of passing the build.
-    const cooler = resolveComponent("thermaltake-magfloe-240");
+    const cooler = listRegistrySpecs("cooler").find((entry) => entry.key === "thermaltake-magfloe-240");
     if (!cooler) throw new Error("registry cooler fixture missing");
     expect(cooler.source).toBe("registry");
     expect(cooler.confidence).toBe("low");

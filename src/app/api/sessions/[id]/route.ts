@@ -1,4 +1,4 @@
-import { deleteSession, getSession } from "../../../../lib/sessions";
+import { CorruptSessionError, deleteSession, getSession } from "../../../../lib/sessions";
 import { json, serverError } from "../../_lib/responses";
 
 export const runtime = "nodejs";
@@ -12,6 +12,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     }
     return json({ session });
   } catch (error) {
+    if (error instanceof CorruptSessionError) {
+      return json({ error: "corrupt_session", message: error.message }, { status: 422 });
+    }
     return serverError(error);
   }
 }

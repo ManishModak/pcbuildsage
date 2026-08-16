@@ -94,4 +94,63 @@ describe("keyed search clients", () => {
       })
     );
   });
+
+  it("rejects HTTP failures instead of presenting them as empty search results", async () => {
+    const fetchMock = vi.fn(async () => new Response("Error 500", { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(createSearchClient({ provider: "searxng" }).search("gpu")).rejects.toThrow("HTTP 500");
+    await expect(createSearchClient({ provider: "duckduckgo" }).search("gpu")).rejects.toThrow("HTTP 500");
+    await expect(createSearchClient({ provider: "exa", apiKey: "key" }).search("gpu")).rejects.toThrow("HTTP 500");
+  });
+});
+
+describe("crawl enhancement", () => {
+  it("invokes the supported scraper.crawl_page module and replaces only the top snippet", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      results: [
+        { title: "Top", url: "https://example.com/top", text: "search snippet" },
+        { title: "Second", url: "https://example.com/second", text: "keep me" }
+      ]
+    })));
+    const runPythonModule = vi.fn(async () => ({
+      code: 0,
+      signal: null,
+      stdout: "crawled page content\n",
+      stderr: ""
+    }));
+
+    const response = await createSearchClient(
+      { provider: "exa", apiKey: "key" },
+      { runPythonModule }
+    ).search("gpu", { crawlEnabled: true });
+
+    expect(runPythonModule).toHaveBeenCalledWith(
+      "scraper.crawl_page",
+      ["https://example.com/top"],
+      { timeoutMs: 30_000, maxOutputBytes: 500_000 }
+    );
+    expect(response.crawl).toEqual({ status: "succeeded" });
+    expect(response.results.map((result) => result.snippet)).toEqual(["crawled page content", "keep me"]);
+  });
+
+  it("keeps the original search result and exposes crawl failure", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      results: [{ title: "Top", url: "https://example.com/top", text: "search snippet" }]
+    })));
+    const runPythonModule = vi.fn(async () => ({
+      code: 1,
+      signal: null,
+      stdout: "",
+      stderr: "browser unavailable"
+    }));
+
+    const response = await createSearchClient(
+      { provider: "exa", apiKey: "key" },
+      { runPythonModule }
+    ).search("gpu", { crawlEnabled: true });
+
+    expect(response.results[0].snippet).toBe("search snippet");
+    expect(response.crawl).toEqual({ status: "failed", error: "browser unavailable" });
+  });
 });

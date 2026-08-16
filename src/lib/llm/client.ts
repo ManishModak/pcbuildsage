@@ -45,6 +45,7 @@ export async function generateTextWithFallback(args: {
   messages?: Parameters<typeof generateText>[0]["messages"];
   tools?: ToolSet;
   stopWhen?: Parameters<typeof generateText>[0]["stopWhen"];
+  abortSignal?: AbortSignal;
 }) {
   const errors: unknown[] = [];
   for (const [index, entry] of args.chain.entries()) {
@@ -58,6 +59,7 @@ export async function generateTextWithFallback(args: {
         system: args.system,
         tools: args.tools,
         stopWhen: args.stopWhen,
+        abortSignal: args.abortSignal,
         maxRetries: 0
       });
       return Object.assign(result, { provider: entry.provider, model: entry.model, fallbackIndex: index }) as ServedText<typeof result>;
@@ -130,6 +132,8 @@ export function isFallbackable(error: unknown): boolean {
   if (status === 429 || (status !== undefined && status >= 500)) return true;
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return [
+    "abort",
+    "aborted",
     "timeout",
     "timed out",
     "network",

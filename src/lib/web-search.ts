@@ -1,16 +1,25 @@
 import path from "node:path";
-import { promisify } from "node:util";
-import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
 import { z } from "zod";
 import type { SearchProvider } from "@/types";
 import { loadJsonPresets } from "@/lib/llm/presets";
-
-const execFilePromise = promisify(execFile);
+import { runPythonModule, type CapturedProcessResult } from "@/lib/server/python-process";
 
 export type SearchResult = { title: string; url: string; snippet: string };
-export type SearchResponse = { results: SearchResult[]; provider: SearchProvider; grounded: boolean };
+export type CrawlDiagnostic =
+  | { status: "succeeded" }
+  | { status: "failed"; error: string }
+  | { status: "skipped"; reason: "no_results" };
+export type SearchResponse = {
+  results: SearchResult[];
+  provider: SearchProvider;
+  grounded: boolean;
+  crawl?: CrawlDiagnostic;
+};
 export type SearchClient = { search(query: string, options?: { limit?: number; crawlEnabled?: boolean }): Promise<SearchResponse> };
+export type CrawlRunner = (module: string, args: string[], options: {
+  timeoutMs: number;
+  maxOutputBytes: number;
+}) => Promise<CapturedProcessResult>;
 
 export const searchPresetSchema = z.object({
   $schema: z.string().optional(),
@@ -22,33 +31,24 @@ export const searchPresetSchema = z.object({
 });
 export type SearchPreset = z.infer<typeof searchPresetSchema>;
 
-function getPythonCommand(): string {
-  const cwd = process.cwd();
-  const venvBinPath = path.join(cwd, ".venv", "bin", "python");
-  const venvScriptsPath = path.join(cwd, ".venv", "Scripts", "python.exe");
-
-  if (existsSync(venvBinPath)) {
-    return venvBinPath;
+export async function crawlPage(url: string, runner: CrawlRunner): Promise<string> {
+  const result = await runner("scraper.crawl_page", [url], {
+    timeoutMs: 30_000,
+    maxOutputBytes: 500_000
+  });
+  if (result.code !== 0) {
+    throw new Error(result.stderr.trim() || `Crawler exited with code ${result.code ?? "null"}.`);
   }
-  if (existsSync(venvScriptsPath)) {
-    return venvScriptsPath;
-  }
-  return "python3";
+  const content = result.stdout.trim();
+  if (!content) throw new Error("Crawler returned no page content.");
+  return content;
 }
 
-async function crawlPage(url: string): Promise<string> {
-  const pythonCmd = getPythonCommand();
-  const scriptPath = path.join(process.cwd(), "src", "scraper", "crawl_page.py");
-  try {
-    const { stdout } = await execFilePromise(pythonCmd, [scriptPath, url]);
-    return stdout.trim();
-  } catch (error) {
-    console.error("Crawl error:", error);
-    return "";
-  }
-}
-
-export function createSearchClient(config: { provider: SearchProvider; apiKey?: string; baseUrl?: string }): SearchClient {
+export function createSearchClient(
+  config: { provider: SearchProvider; apiKey?: string; baseUrl?: string },
+  dependencies: { runPythonModule?: CrawlRunner } = {}
+): SearchClient {
+  const crawlRunner = dependencies.runPythonModule ?? runPythonModule;
   return {
     async search(query, options = {}) {
       if (config.provider === "none" || config.provider === "gemini-native") {
@@ -70,13 +70,13 @@ export function createSearchClient(config: { provider: SearchProvider; apiKey?: 
       if (options.crawlEnabled && response.results.length > 0) {
         const topResult = response.results[0];
         try {
-          const crawledContent = await crawlPage(topResult.url);
-          if (crawledContent) {
-            topResult.snippet = crawledContent;
-          }
-        } catch (err) {
-          console.error(`Crawling failed for ${topResult.url}:`, err);
+          topResult.snippet = await crawlPage(topResult.url, crawlRunner);
+          response.crawl = { status: "succeeded" };
+        } catch (error) {
+          response.crawl = { status: "failed", error: error instanceof Error ? error.message : String(error) };
         }
+      } else if (options.crawlEnabled) {
+        response.crawl = { status: "skipped", reason: "no_results" };
       }
 
       return response;
@@ -96,18 +96,39 @@ async function searxng(query: string, baseUrl = process.env.SEARXNG_BASE_URL ?? 
   url.searchParams.set("q", query);
   url.searchParams.set("format", "json");
   const response = await fetch(url);
+  assertSearchOk(response, "searxng");
   const json = (await response.json()) as { results?: Array<{ title?: string; url?: string; content?: string }> };
   return { provider: "searxng", grounded: true, results: (json.results ?? []).slice(0, limit).map((item) => ({ title: item.title ?? item.url ?? "", url: item.url ?? "", snippet: item.content ?? "" })) };
 }
 
 async function duckduckgo(query: string, limit = 5): Promise<SearchResponse> {
-  const url = new URL("https://api.duckduckgo.com/");
+  const url = new URL("https://html.duckduckgo.com/html/");
   url.searchParams.set("q", query);
-  url.searchParams.set("format", "json");
-  url.searchParams.set("no_redirect", "1");
-  const response = await fetch(url);
-  const json = (await response.json()) as { RelatedTopics?: Array<{ Text?: string; FirstURL?: string }> };
-  return { provider: "duckduckgo", grounded: true, results: (json.RelatedTopics ?? []).slice(0, limit).map((item) => ({ title: item.Text?.split(" - ")[0] ?? "", url: item.FirstURL ?? "", snippet: item.Text ?? "" })) };
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+  });
+  assertSearchOk(response, "duckduckgo");
+  const html = await response.text();
+  const results: SearchResult[] = [];
+  const linkRegex = /<a rel="nofollow" class="result__a" href="([^"]+)">(.*?)<\/a>/g;
+  const snippetRegex = /<a class="result__snippet[^>]*>([\s\S]*?)<\/a>/g;
+
+  const links = [...html.matchAll(linkRegex)];
+  const snippets = [...html.matchAll(snippetRegex)];
+
+  for (let i = 0; i < Math.min(links.length, limit); i++) {
+    const rawHref = links[i][1];
+    const rawTitle = links[i][2].replace(/<[^>]+>/g, "").trim();
+    const snippet = snippets[i] ? snippets[i][1].replace(/<[^>]+>/g, "").trim() : "";
+    const uddgMatch = rawHref.match(/uddg=([^&]+)/);
+    const resultUrl = uddgMatch ? decodeURIComponent(uddgMatch[1]) : rawHref;
+    if (resultUrl) {
+      results.push({ title: rawTitle || resultUrl, url: resultUrl, snippet });
+    }
+  }
+  return { provider: "duckduckgo", grounded: results.length > 0, results };
 }
 
 async function keyedSearch(query: string, provider: Exclude<SearchProvider, "none" | "duckduckgo" | "searxng" | "gemini-native">, apiKey: string, limit = 5): Promise<SearchResponse> {
@@ -125,7 +146,12 @@ async function keyedSearch(query: string, provider: Exclude<SearchProvider, "non
         ? { method: "POST", headers: { "Content-Type": "application/json", "x-api-key": apiKey }, body: JSON.stringify({ query, numResults: limit }) }
         : { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify({ query, max_results: limit }) };
   const response = await fetch(url, init);
+  assertSearchOk(response, provider);
   const json = (await response.json()) as { web?: { results?: Array<{ title?: string; url?: string; description?: string; snippet?: string; text?: string }> }; results?: Array<{ title?: string; url?: string; description?: string; snippet?: string; text?: string }> };
   const raw = provider === "brave" ? json.web?.results : json.results;
   return { provider, grounded: true, results: (raw ?? []).slice(0, limit).map((item) => ({ title: item.title ?? "", url: item.url ?? "", snippet: item.description ?? item.snippet ?? item.text ?? "" })) };
+}
+
+function assertSearchOk(response: Response, provider: string): void {
+  if (!response.ok) throw new Error(`${provider} search failed: HTTP ${response.status}`);
 }

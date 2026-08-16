@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 export const DEFAULT_DB_PATH = process.env.PCBUILDSAGE_DB_PATH ?? path.join(process.cwd(), "data", "products.db");
@@ -7,7 +7,9 @@ export const DEFAULT_LOGS_DB_PATH = process.env.PCBUILDSAGE_LOGS_DB_PATH ?? path
 // Keep in lockstep with SCHEMA_VERSION in scraper/db.py. The Python scraper
 // owns the migrations; this side only needs to recognise the version it is given,
 // and initializeSchema() throws outright if the file is newer than this constant.
-export const DATABASE_SCHEMA_VERSION = 4;
+export const DATABASE_SCHEMA_VERSION = 5;
+export const MAX_LOG_DETAILS_BYTES = 16 * 1024;
+const CATALOG_SCHEMA_PATH = path.join(process.cwd(), "data", "schemas", "catalog-v5.sql");
 
 const activeDbs = new Map<string, Database.Database>();
 const activeLogsDbs = new Map<string, Database.Database>();
@@ -115,7 +117,12 @@ function openDb(dbPath = DEFAULT_DB_PATH): Database.Database {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
   db.pragma("foreign_keys = ON");
-  initializeSchema(db);
+  try {
+    initializeSchema(db);
+  } catch (error) {
+    db.close();
+    throw error;
+  }
 
   return db;
 }
@@ -144,44 +151,7 @@ export function initializeSchema(db: Database.Database): void {
     );
   }
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS products (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      normalized_name TEXT,
-      registry_key TEXT,
-      price REAL,
-      currency TEXT NOT NULL,
-      country_code TEXT NOT NULL,
-      retailer TEXT NOT NULL,
-      url TEXT NOT NULL,
-      image_url TEXT,
-      in_stock INTEGER DEFAULT 1,
-      category TEXT NOT NULL,
-      subcategory TEXT,
-      specs TEXT,
-      first_seen TEXT NOT NULL,
-      last_scraped TEXT NOT NULL
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_products_lookup ON products(country_code, currency, category, subcategory, price);
-    CREATE INDEX IF NOT EXISTS idx_products_norm ON products(normalized_name);
-
-    CREATE TABLE IF NOT EXISTS audit_cache (
-      pair_key TEXT PRIMARY KEY,
-      verdict TEXT NOT NULL,
-      checked_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS registry_research (
-      key TEXT PRIMARY KEY,
-      category TEXT NOT NULL,
-      specs TEXT NOT NULL,
-      sources TEXT,
-      confidence TEXT NOT NULL CHECK (confidence IN ('high', 'medium', 'low')),
-      researched_at TEXT NOT NULL
-    );
-  `);
+  db.exec(readFileSync(CATALOG_SCHEMA_PATH, "utf8"));
 
   db.pragma(`user_version = ${DATABASE_SCHEMA_VERSION}`);
 }
@@ -195,7 +165,7 @@ export function writeDbLog(
 ): void {
   try {
     const db = getLogsDb(dbPath);
-    const detailsStr = details ? JSON.stringify(details) : null;
+    const detailsStr = details ? serializeLogDetails(details) : null;
     const now = new Date().toISOString();
     
     db.prepare(
@@ -205,4 +175,14 @@ export function writeDbLog(
   } catch (error) {
     console.error("Failed to write to DB logs:", error);
   }
+}
+
+export function serializeLogDetails(details: Record<string, unknown>): string {
+  const serialized = JSON.stringify(details, (key, value: unknown) =>
+    /api[-_]?key|\bkey\b|private[-_]?key|authorization|cookie|password|secret|token/i.test(key) ? "[redacted]" : value
+  );
+  const bytes = Buffer.byteLength(serialized, "utf8");
+  return bytes <= MAX_LOG_DETAILS_BYTES
+    ? serialized
+    : JSON.stringify({ truncated: true, originalBytes: bytes });
 }

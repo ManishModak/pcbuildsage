@@ -1,6 +1,5 @@
-from __future__ import annotations
-
-from scraper.__main__ import DEFAULT_SWEEP_MIN_RATIO, sweep_skip_reason
+from scraper.__main__ import DEFAULT_SWEEP_MIN_RATIO
+from scraper.db import sweep_skip_reason
 
 
 def test_empty_crawl_never_sweeps() -> None:

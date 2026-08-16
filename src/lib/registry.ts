@@ -56,12 +56,24 @@ export function resolveComponent(input: string | { key?: string; name?: string; 
   const canonical = key ? registry.byKey.get(key) : undefined;
   const normalized = normalizeTitle(name);
   const alias = registry.byAlias.get(normalized);
-  const hit =
+  let hit =
     canonical && (!category || canonical.category === category)
       ? canonical
       : alias && (!category || alias.category === category)
         ? alias
         : undefined;
+
+  // Substring word-boundary match against canonical aliases (e.g., matching "MSI RTX 5060 Shadow..." to "nvidia-rtx-5060")
+  if (!hit && normalized) {
+    for (const { pattern, resolved } of registry.sortedAliases) {
+      if (!category || resolved.category === category) {
+        if (pattern.test(normalized)) {
+          hit = resolved;
+          break;
+        }
+      }
+    }
+  }
 
   // A high/medium-confidence registry entry is the best answer available.
   if (hit && hit.confidence !== "low") return hit;
@@ -112,6 +124,8 @@ function entryConfidence(spec: RegistrySpec): Confidence {
 function buildRegistry(registryDir: string) {
   const byKey = new Map<string, ResolvedSpec>();
   const byAlias = new Map<string, ResolvedSpec>();
+  const sortedAliases: Array<{ pattern: RegExp; resolved: ResolvedSpec; length: number }> = [];
+
   for (const file of readdirSync(registryDir).filter((entry) => entry.endsWith(".json"))) {
     const stem = file.replace(/\.json$/, "");
     const category = CATEGORY_BY_FILE[stem];
@@ -122,11 +136,26 @@ function buildRegistry(registryDir: string) {
       const resolved: ResolvedSpec = { key, category, spec, source: "registry", confidence: entryConfidence(spec) };
       byKey.set(key, resolved);
       for (const alias of [key, spec.model, spec.brand + " " + spec.model, ...(spec.aliases ?? [])]) {
-        byAlias.set(normalizeTitle(alias), resolved);
+        const norm = normalizeTitle(alias);
+        if (norm) {
+          byAlias.set(norm, resolved);
+          if (norm.length >= 3) {
+            const escaped = norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            sortedAliases.push({
+              pattern: new RegExp(`\\b${escaped}\\b`, "i"),
+              resolved,
+              length: norm.length
+            });
+          }
+        }
       }
     }
   }
-  return { byKey, byAlias };
+
+  // Sort longest alias first so "rtx 5070 ti" matches before "rtx 5070"
+  sortedAliases.sort((a, b) => b.length - a.length);
+
+  return { byKey, byAlias, sortedAliases };
 }
 
 function lookupResearch(input: { key: string; name: string; category?: string }, db: Database.Database): ResolvedSpec | undefined {

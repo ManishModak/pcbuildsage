@@ -33,6 +33,7 @@
           "additionalProperties": { "$ref": "#/$defs/category" }
         },
         "selectors": { "$ref": "#/$defs/selectors" },
+        "engine": { "enum": ["http", "browser"] },
         "max_llm_calls_per_site": { "type": "integer", "minimum": 0 }
       }
     },

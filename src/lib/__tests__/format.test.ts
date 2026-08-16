@@ -9,7 +9,8 @@ import {
   sumPrices,
   titleCase,
   getErrorMessage,
-  getErrorMessageText
+  getErrorMessageText,
+  formatModelName
 } from "../format";
 import { pickTheme, resolveTheme, TOKEN_KEYS } from "../theme";
 import type { ThemeFile } from "@/types/client";
@@ -55,6 +56,12 @@ describe("estimateScrapeMinutes", () => {
   });
   it("labels longer crawls in minutes", () => {
     expect(estimateScrapeMinutes(20, 40, 1000).label).toMatch(/min/);
+  });
+  it("factors in concurrency and site count to reduce estimated time", () => {
+    const single = estimateScrapeMinutes(20, 100, 1000, 1, 4);
+    const multi = estimateScrapeMinutes(20, 100, 1000, 4, 4);
+    expect(single.label).toBe("~6 min");
+    expect(multi.label).toBe("~1 min");
   });
 });
 
@@ -180,6 +187,36 @@ describe("getErrorMessage", () => {
 
   it("returns parsed error message", () => {
     expect(getErrorMessage(new Error('{"message": "Parsed message"}'))).toBe("Parsed message");
+  });
+
+  it("formats plain object with message property", () => {
+    expect(getErrorMessage({ message: "Plain object error" })).toBe("Plain object error");
+  });
+});
+
+describe("formatModelName", () => {
+  it("formats long local GGUF cache filepaths to concise filename without extension", () => {
+    const raw = "/home/manishm/.cache/huggingface/hub/models--deepreinforce-ai--Ornith-1.0-9B-GGUF/snapshots/3296bc7a404871a72ac3f1903f561459c09b5c17/ornith-1.0-9b-Q6_K.gguf";
+    expect(formatModelName(raw)).toBe("ornith-1.0-9b-Q6_K");
+  });
+
+  it("formats standard filepaths", () => {
+    expect(formatModelName("/models/llama-3.3-70b.gguf")).toBe("llama-3.3-70b");
+    expect(formatModelName("C:\\models\\mistral-7b.bin")).toBe("mistral-7b");
+  });
+
+  it("formats provider-prefixed model names", () => {
+    expect(formatModelName("gemini:gemini-2.5-flash")).toBe("gemini-2.5-flash");
+    expect(formatModelName("ollama:llama3.3")).toBe("llama3.3");
+  });
+
+  it("handles HuggingFace models-- namespace format", () => {
+    expect(formatModelName("models--deepreinforce-ai--Ornith-1.0-9B")).toBe("deepreinforce-ai/Ornith-1.0-9B");
+  });
+
+  it("returns Sage for undefined or empty string", () => {
+    expect(formatModelName(undefined)).toBe("Sage");
+    expect(formatModelName("")).toBe("Sage");
   });
 });
 

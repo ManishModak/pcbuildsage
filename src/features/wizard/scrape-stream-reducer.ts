@@ -1,4 +1,4 @@
-import type { ScrapeEvent } from "@/types/client";
+import type { RunOutcome } from "@/contracts/scrape";
 import type { SiteRow } from "./scrape-progress";
 
 // State for a single scrape run's SSE stream. Kept in one reducer so every
@@ -8,6 +8,7 @@ export type ScrapeStreamState = {
   logs: string[];
   productsWritten: number | undefined;
   runError: string | null;
+  outcome: RunOutcome | null;
 };
 
 export type ScrapeStreamAction =
@@ -23,12 +24,11 @@ export type ScrapeStreamAction =
       skipped?: boolean;
     }
   | { type: "site_failed"; site: string; category?: string; error: string }
-  | { type: "done"; products_written?: number }
-  | { type: "error"; error?: string; status?: number }
-  | { type: "stream_failed"; message: string };
+  | { type: "outcome"; outcome: RunOutcome }
+  | { type: "error"; error?: string; status?: number };
 
 export function createInitialScrapeStreamState(): ScrapeStreamState {
-  return { rows: new Map(), logs: [], productsWritten: undefined, runError: null };
+  return { rows: new Map(), logs: [], productsWritten: undefined, runError: null, outcome: null };
 }
 
 function rowKey(site?: string, category?: string): string {
@@ -41,42 +41,53 @@ function rowKey(site?: string, category?: string): string {
  * field or in the SSE event name. Returns null for frames we don't track.
  */
 export function toScrapeStreamAction(event: string, data: unknown): ScrapeStreamAction | null {
-  const type = (data as { type?: string }).type ?? event;
-  const payload = data as ScrapeEvent;
+  if (typeof data !== "object" || data === null) {
+    return null;
+  }
+
+  const payload = data as Record<string, unknown>;
+  const type = typeof payload.type === "string" ? payload.type : event;
 
   switch (type) {
-    case "log":
-      return { type: "log", message: (payload as { message: string }).message };
+    case "log": {
+      if (typeof payload.message !== "string") return null;
+      return { type: "log", message: payload.message };
+    }
     case "site_started": {
-      const d = payload as { site: string; category?: string };
-      return { type: "site_started", site: d.site, category: d.category };
+      if (typeof payload.site !== "string" || !payload.site.trim()) return null;
+      const category = typeof payload.category === "string" ? payload.category : undefined;
+      return { type: "site_started", site: payload.site, category };
     }
     case "progress": {
-      const d = payload as {
-        site: string;
-        category?: string;
-        percent?: number;
-        products_seen?: number;
-        skipped?: boolean;
-      };
+      if (typeof payload.site !== "string" || !payload.site.trim()) return null;
+      const category = typeof payload.category === "string" ? payload.category : undefined;
+      const percent = typeof payload.percent === "number" ? payload.percent : undefined;
+      const products_seen = typeof payload.products_seen === "number" ? payload.products_seen : undefined;
+      const skipped = typeof payload.skipped === "boolean" ? payload.skipped : undefined;
       return {
         type: "progress",
-        site: d.site,
-        category: d.category,
-        percent: d.percent,
-        products_seen: d.products_seen,
-        skipped: d.skipped
+        site: payload.site,
+        category,
+        percent,
+        products_seen,
+        skipped
       };
     }
     case "site_failed": {
-      const d = payload as { site: string; category?: string; error: string };
-      return { type: "site_failed", site: d.site, category: d.category, error: d.error };
+      if (typeof payload.site !== "string" || !payload.site.trim() || typeof payload.error !== "string") return null;
+      const category = typeof payload.category === "string" ? payload.category : undefined;
+      return { type: "site_failed", site: payload.site, category, error: payload.error };
     }
-    case "done":
-      return { type: "done", products_written: (payload as { products_written?: number }).products_written };
+    case "outcome": {
+      if (typeof payload.outcome !== "object" || payload.outcome === null) return null;
+      const outcome = payload.outcome as { status?: string };
+      if (typeof outcome.status !== "string") return null;
+      return { type: "outcome", outcome: payload.outcome as RunOutcome };
+    }
     case "error": {
-      const d = payload as { error?: string; status?: number };
-      return { type: "error", error: d.error, status: d.status };
+      const error = typeof payload.error === "string" ? payload.error : undefined;
+      const status = typeof payload.status === "number" ? payload.status : undefined;
+      return { type: "error", error, status };
     }
     default:
       return null;
@@ -90,9 +101,11 @@ export function scrapeStreamReducer(state: ScrapeStreamState, action: ScrapeStre
       return createInitialScrapeStreamState();
 
     case "log":
+      if (typeof action.message !== "string") return state;
       return { ...state, logs: [...state.logs, action.message] };
 
     case "site_started": {
+      if (!action.site || typeof action.site !== "string") return state;
       const key = rowKey(action.site, action.category);
       const rows = new Map(state.rows);
       rows.set(key, { key, site: action.site, category: action.category, status: "running", percent: 0 });
@@ -100,6 +113,7 @@ export function scrapeStreamReducer(state: ScrapeStreamState, action: ScrapeStre
     }
 
     case "progress": {
+      if (!action.site || typeof action.site !== "string") return state;
       const key = rowKey(action.site, action.category);
       const rows = new Map(state.rows);
       const existing = rows.get(key);
@@ -115,18 +129,38 @@ export function scrapeStreamReducer(state: ScrapeStreamState, action: ScrapeStre
     }
 
     case "site_failed": {
+      if (!action.site || typeof action.site !== "string" || typeof action.error !== "string") return state;
       const key = rowKey(action.site, action.category);
       const rows = new Map(state.rows);
       rows.set(key, { key, site: action.site, category: action.category, status: "failed", error: action.error });
       return { ...state, rows };
     }
 
-    case "done": {
+    case "outcome": {
       const rows = new Map(state.rows);
       for (const [key, row] of rows) {
-        if (row.status === "running") rows.set(key, { ...row, status: "done", percent: 100 });
+        if (row.status !== "running") continue;
+        if (action.outcome.status === "succeeded" || action.outcome.status === "partial") {
+          rows.set(key, { ...row, status: "done", percent: 100 });
+        } else if (action.outcome.status === "cancelled") {
+          rows.set(key, { ...row, status: "cancelled" });
+        } else {
+          rows.set(key, { ...row, status: "failed", error: "The scrape did not complete." });
+        }
       }
-      return { ...state, rows, productsWritten: action.products_written };
+      const runError =
+        action.outcome.status === "partial"
+          ? action.outcome.errors.join("\n") || "Some requested scrape jobs failed."
+          : action.outcome.status === "failed"
+            ? action.outcome.errors.join("\n") || "The scrape failed."
+            : null;
+      return {
+        ...state,
+        rows,
+        productsWritten: action.outcome.products_written ?? undefined,
+        runError,
+        outcome: action.outcome
+      };
     }
 
     case "error": {
@@ -136,9 +170,6 @@ export function scrapeStreamReducer(state: ScrapeStreamState, action: ScrapeStre
       else runError = action.error ?? "The scrape failed.";
       return { ...state, runError };
     }
-
-    case "stream_failed":
-      return { ...state, runError: action.message };
 
     default:
       return state;

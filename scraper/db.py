@@ -9,7 +9,12 @@ from pathlib import Path
 from .models import ScrapedProduct
 from .normalizer import classify_subcategory, reclassify_category
 
-SCHEMA_VERSION = 4
+logger = logging.getLogger(__name__)
+
+SCHEMA_VERSION = 5
+CATALOG_SCHEMA_PATH = Path(__file__).resolve().parents[1] / "data" / "schemas" / "catalog-v5.sql"
+MAX_LOG_DETAILS_BYTES = 16 * 1024
+SENSITIVE_LOG_KEYS = ("apikey", "api_key", "authorization", "cookie", "password", "secret", "token")
 
 # Keep in lockstep with LOGS_TABLE_DDL in src/lib/db.ts.
 LOGS_TABLE_DDL = """
@@ -35,6 +40,65 @@ def utc_now_iso() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def serialize_log_details(details: object) -> str:
+    def redact(value: object) -> object:
+        if isinstance(value, dict):
+            return {
+                str(key): "[redacted]" if any(secret in str(key).lower() for secret in SENSITIVE_LOG_KEYS) else redact(item)
+                for key, item in value.items()
+            }
+        if isinstance(value, list):
+            return [redact(item) for item in value]
+        return value
+
+    def truncate_strings(value: object, max_len: int) -> object:
+        if isinstance(value, str):
+            if len(value) > max_len:
+                return value[:max_len] + "... [truncated]"
+            return value
+        if isinstance(value, dict):
+            return {str(k): truncate_strings(v, max_len) for k, v in value.items()}
+        if isinstance(value, list):
+            return [truncate_strings(v, max_len) for v in value]
+        return value
+
+    redacted = redact(details)
+    serialized = json.dumps(redacted, ensure_ascii=False, default=str)
+    byte_count = len(serialized.encode("utf-8"))
+    if byte_count <= MAX_LOG_DETAILS_BYTES:
+        return serialized
+
+    max_len = 1000
+    while max_len > 0:
+        truncated = truncate_strings(redacted, max_len)
+        serialized = json.dumps(truncated, ensure_ascii=False, default=str)
+        if len(serialized.encode("utf-8")) <= MAX_LOG_DETAILS_BYTES:
+            return serialized
+        max_len //= 2
+
+    truncated = truncate_strings(redacted, 0)
+    serialized = json.dumps(truncated, ensure_ascii=False, default=str)
+    if len(serialized.encode("utf-8")) <= MAX_LOG_DETAILS_BYTES:
+        return serialized
+
+    return json.dumps({"truncated": True, "original_bytes": byte_count})
+
+
+def sweep_skip_reason(found: int, previous_in_stock: int, min_ratio: float, force: bool) -> str | None:
+    if force:
+        return None
+    if found == 0:
+        return "crawl returned no products"
+    if previous_in_stock == 0:
+        return None
+    if found < previous_in_stock * min_ratio:
+        return (
+            f"found {found} products but {previous_in_stock} were in stock "
+            f"(below the {min_ratio:.0%} threshold); suspected partial crawl"
+        )
+    return None
+
+
 class ProductStore:
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
@@ -43,40 +107,25 @@ class ProductStore:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL;")
         self.conn.execute("PRAGMA busy_timeout=5000;")
-        self._initialize_schema()
+        try:
+            self._initialize_schema()
+        except Exception:
+            self.conn.close()
+            raise
 
     def _initialize_schema(self) -> None:
         current_version = self.conn.execute("PRAGMA user_version").fetchone()[0]
-        if current_version < SCHEMA_VERSION:
-            with self.conn:
-                self._run_migrations(current_version)
-                self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        if current_version > SCHEMA_VERSION:
+            raise RuntimeError(
+                f"Database schema version {current_version} is newer than supported version "
+                f"{SCHEMA_VERSION}. Update PCBuildSage before opening this database."
+            )
 
-        self.conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS products (
-              id TEXT PRIMARY KEY,
-              name TEXT NOT NULL,
-              normalized_name TEXT,
-              registry_key TEXT,
-              price REAL,
-              currency TEXT NOT NULL,
-              country_code TEXT NOT NULL,
-              retailer TEXT NOT NULL,
-              url TEXT UNIQUE NOT NULL,
-              image_url TEXT,
-              in_stock INTEGER DEFAULT 1,
-              category TEXT NOT NULL,
-              subcategory TEXT,
-              specs TEXT,
-              first_seen TEXT NOT NULL,
-              last_scraped TEXT NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_products_lookup ON products(country_code, currency, category, subcategory, price);
-            CREATE INDEX IF NOT EXISTS idx_products_norm ON products(normalized_name);
-            CREATE INDEX IF NOT EXISTS idx_products_retailer_sweep ON products(retailer, category, last_scraped);
-            """
-        )
+        with self.conn:
+            if current_version < SCHEMA_VERSION:
+                self._run_migrations(current_version)
+            self._apply_canonical_schema()
+            self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     def _run_migrations(self, from_version: int) -> None:
         if from_version < 1:
@@ -100,8 +149,57 @@ class ProductStore:
                 return
             if "subcategory" not in cols:
                 self.conn.execute("ALTER TABLE products ADD COLUMN subcategory TEXT;")
-            self._backfill_build_roles()
             self.conn.execute("DROP INDEX IF EXISTS idx_products_lookup;")
+        if from_version < 5:
+            # v4 files created by the former TypeScript bootstrap can contain
+            # NULL build roles even though their version stamp says current.
+            self._backfill_build_roles()
+            self._rebuild_products_v5()
+
+    def _rebuild_products_v5(self) -> None:
+        """Rebuild legacy products, merging duplicate URLs deterministically."""
+        columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(products)").fetchall()}
+        if not columns:
+            return
+
+        self.conn.execute("ALTER TABLE products RENAME TO products_legacy_v4")
+        duplicate_count = self.conn.execute(
+            "SELECT COUNT(*) - COUNT(DISTINCT url) FROM products_legacy_v4"
+        ).fetchone()[0]
+        if duplicate_count:
+            logger.warning(
+                "Merging %d duplicate legacy product URL rows during v5 migration",
+                duplicate_count,
+                extra={"component": "database"},
+            )
+        self._apply_canonical_schema()
+        self.conn.execute(
+            """
+            INSERT INTO products (
+              id, name, normalized_name, registry_key, price, currency,
+              country_code, retailer, url, image_url, in_stock, category,
+              subcategory, specs, first_seen, last_scraped
+            )
+            SELECT
+              id, name, normalized_name, registry_key, price, currency,
+              country_code, retailer, url, image_url, in_stock, category,
+              subcategory, specs, first_seen, last_scraped
+            FROM (
+              SELECT *, ROW_NUMBER() OVER (
+                PARTITION BY url
+                ORDER BY last_scraped DESC, first_seen ASC, id ASC
+              ) AS url_rank
+              FROM products_legacy_v4
+            )
+            WHERE url_rank = 1
+            """
+        )
+        self.conn.execute("DROP TABLE products_legacy_v4")
+
+    def _apply_canonical_schema(self) -> None:
+        for statement in CATALOG_SCHEMA_PATH.read_text(encoding="utf-8").split(";"):
+            if statement.strip():
+                self.conn.execute(statement)
 
     def _backfill_build_roles(self) -> None:
         """Label every existing row with its build role, and correct misfilings.
@@ -139,6 +237,10 @@ class ProductStore:
     def upsert_products(self, products: list[ScrapedProduct], scraped_at: str | None = None) -> int:
         if not products:
             return 0
+        with self.conn:
+            return self._upsert_products(products, scraped_at)
+
+    def _upsert_products(self, products: list[ScrapedProduct], scraped_at: str | None = None) -> int:
         now = scraped_at or utc_now_iso()
         rows = []
         for product in products:
@@ -166,9 +268,8 @@ class ProductStore:
                     "last_scraped": product.last_scraped or now,
                 }
             )
-        with self.conn:
-            self.conn.executemany(
-                """
+        self.conn.executemany(
+            """
                 INSERT INTO products (
                     id, name, normalized_name, registry_key, price, currency,
                     country_code, retailer, url, image_url, in_stock, category, subcategory,
@@ -193,9 +294,9 @@ class ProductStore:
                     subcategory = excluded.subcategory,
                     specs = excluded.specs,
                     last_scraped = excluded.last_scraped
-                """,
-                rows,
-            )
+            """,
+            rows,
+        )
         return len(rows)
 
     def count_in_stock(self, retailer: str, category: str) -> int:
@@ -205,6 +306,9 @@ class ProductStore:
         crawl that returns far fewer products than are on record is more likely
         a partially blocked crawl than a real inventory collapse.
         """
+        return self._count_in_stock(retailer, category)
+
+    def _count_in_stock(self, retailer: str, category: str) -> int:
         row = self.conn.execute(
             """
             SELECT COUNT(*) FROM products
@@ -216,17 +320,45 @@ class ProductStore:
 
     def sweep_stale_stock(self, retailer: str, category: str, run_started_at: str) -> int:
         with self.conn:
-            cursor = self.conn.execute(
-                """
-                UPDATE products
-                SET in_stock = 0
-                WHERE retailer = ?
-                  AND category = ?
-                  AND last_scraped < ?
-                """,
-                (retailer, category, run_started_at),
-            )
+            return self._sweep_stale_stock(retailer, category, run_started_at)
+
+    def _sweep_stale_stock(self, retailer: str, category: str, run_started_at: str) -> int:
+        cursor = self.conn.execute(
+            """
+            UPDATE products
+            SET in_stock = 0
+            WHERE retailer = ?
+              AND category = ?
+              AND last_scraped < ?
+            """,
+            (retailer, category, run_started_at),
+        )
         return cursor.rowcount
+
+    def apply_category_snapshot(
+        self,
+        products: list[ScrapedProduct],
+        *,
+        retailer: str,
+        category: str,
+        run_started_at: str,
+        scraped_at: str | None = None,
+        sweep_min_ratio: float = 0.5,
+        force_sweep: bool = False,
+    ) -> tuple[int, str | None]:
+        """Atomically upsert and optionally retire one retailer/category snapshot."""
+        with self.conn:
+            previous_in_stock = self._count_in_stock(retailer, category)
+            written = self._upsert_products(products, scraped_at) if products else 0
+            skip_reason = sweep_skip_reason(
+                found=len(products),
+                previous_in_stock=previous_in_stock,
+                min_ratio=sweep_min_ratio,
+                force=force_sweep,
+            )
+            if skip_reason is None:
+                self._sweep_stale_stock(retailer, category, run_started_at)
+            return written, skip_reason
 
     def was_scraped_since(self, retailer: str, category: str, hours: int) -> bool:
         threshold = datetime.now(UTC) - timedelta(hours=hours)
@@ -268,19 +400,26 @@ class SQLiteLogHandler(logging.Handler):
                 component = name_parts[-1] if name_parts else "scraper"
 
             details = getattr(record, "details", None)
-            details_str = json.dumps(details, ensure_ascii=False) if details is not None else None
+            details_str = serialize_log_details(details) if details is not None else None
 
             message = record.getMessage()
 
             with self.lock:
-                self.conn.execute(
-                    """
-                    INSERT INTO logs (timestamp, level, component, message, details)
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (utc_now_iso(), level, component, message, details_str)
-                )
-                self.conn.commit()
+                try:
+                    self.conn.execute(
+                        """
+                        INSERT INTO logs (timestamp, level, component, message, details)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (utc_now_iso(), level, component, message, details_str)
+                    )
+                    self.conn.commit()
+                except Exception:
+                    try:
+                        self.conn.rollback()
+                    except Exception:
+                        pass
+                    raise
         except Exception:
             self.handleError(record)
 
@@ -291,4 +430,3 @@ class SQLiteLogHandler(logging.Handler):
             except Exception:
                 pass
         super().close()
-

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { buildTestProfileArgs, resolvePython, spawnScraper } from "../../_lib/python";
-import { badRequest, json, readJson, serverError } from "../../_lib/responses";
+import { badRequest, InvalidJsonError, json, readJson, serverError } from "../../_lib/responses";
+import { buildTestProfileArgs, resolvePython, runPythonCaptured } from "@/lib/server/python-process";
 
 export const runtime = "nodejs";
 
@@ -17,7 +17,11 @@ export async function POST(request: Request): Promise<Response> {
     const body = testProfileSchema.parse(await readJson(request));
     const resolution = await resolvePython();
     if (!resolution.ok) return json({ error: "python_unavailable", python: resolution }, { status: 503 });
-    const result = await runChild(resolution, buildTestProfileArgs(body));
+    const result = await runPythonCaptured(resolution, buildTestProfileArgs(body), {
+      signal: request.signal,
+      timeoutMs: 60_000,
+      maxOutputBytes: 1_000_000
+    });
     return json({
       ok: result.code === 0,
       code: result.code,
@@ -26,25 +30,9 @@ export async function POST(request: Request): Promise<Response> {
       hitRates: parseHitRates(result.stdout)
     }, { status: result.code === 0 ? 200 : 500 });
   } catch (error) {
-    if (error instanceof z.ZodError) return badRequest(error);
+    if (error instanceof z.ZodError || error instanceof InvalidJsonError) return badRequest(error);
     return serverError(error);
   }
-}
-
-function runChild(resolution: Awaited<ReturnType<typeof resolvePython>>, args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawnScraper(resolution, args);
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString("utf8");
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
-    });
-    child.on("error", reject);
-    child.on("close", (code) => resolve({ code, stdout, stderr }));
-  });
 }
 
 function parseHitRates(output: string) {

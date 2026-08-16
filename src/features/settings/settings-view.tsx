@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Database, Download, Globe, Moon, Sliders, Sparkles, Sun, Wand2 } from "lucide-react";
 import { useApp } from "@/components/app/app-provider";
@@ -10,12 +10,13 @@ import {
   fetchEndpoints,
   fetchPersonalities
 } from "@/lib/api-client";
-import type { ClientConfig, ThemeFile, CredentialAvailability, EndpointPreset, Personality, SearchProvider } from "@/types/client";
+import type { CredentialAvailability, EndpointPreset, Personality, SearchProvider } from "@/types/client";
 import { saveUiKey, type KeyMap } from "@/lib/client-config-store";
+import { getErrorMessage } from "@/lib/format";
 import { ChainBuilder } from "@/features/llm/chain-builder";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
-import { Button, Card, Toggle, Input, Field } from "@/components/ui/primitives";
+import { Button, Card, ChoiceControl, ChoiceGroup, Toggle, Input, Field } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/select";
 import { LeafMark, Wordmark } from "@/components/app/brand";
 import { ThemeSwitcher } from "@/components/app/theme-switcher";
@@ -38,7 +39,15 @@ import {
 // twMerge lets this override the component's default `hover:bg-accent` (green).
 const TRIGGER_HOVER = "hover:bg-surface-raised hover:text-text";
 
-type SettingsTab = "llm" | "search" | "personalization" | "database";
+export type SettingsTab = "llm" | "search" | "personalization" | "database";
+type EndpointCatalogState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; endpoints: EndpointPreset[] };
+type PersonalityCatalogState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; personalities: Personality[] };
 
 const NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Sparkles }[] = [
   { id: "llm", label: "LLM Provider Chain", icon: Sparkles },
@@ -53,43 +62,81 @@ const NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Sparkles }[] = [
  * the app provider reports `ready`, which is always post-hydration, so there is
  * no server render for this to disagree with.
  */
-function initialTab(): SettingsTab {
-  if (typeof window === "undefined") return "llm";
-  const requested = new URLSearchParams(window.location.search).get("tab");
+export function settingsTabFromSearch(search: string): SettingsTab {
+  const requested = new URLSearchParams(search).get("tab");
   return NAV_ITEMS.some((item) => item.id === requested) ? (requested as SettingsTab) : "llm";
 }
 
+export function settingsUrlForTab(href: string, tab: SettingsTab): string {
+  const url = new URL(href);
+  url.searchParams.set("tab", tab);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function initialTab(): SettingsTab {
+  if (typeof window === "undefined") return "llm";
+  return settingsTabFromSearch(window.location.search);
+}
+
 interface SettingsLayoutProps {
-  config: ClientConfig;
-  themes: ThemeFile[];
-  updateConfig: (patch: Partial<ClientConfig>) => void;
-  setTheme: (name: string) => void;
-  credentials: CredentialAvailability | null;
-  endpoints: EndpointPreset[];
-  personalities: Personality[];
-  exportState: { busy: boolean; files?: string[]; error?: string };
-  uiKeys: KeyMap;
   activeTab: SettingsTab;
-  setActiveTab: (tab: SettingsTab) => void;
-  handleKeyChange: (provider: string, value: string) => void;
-  runExport: () => Promise<void>;
+  onSelectTab: (tab: SettingsTab) => void;
 }
 
 function SettingsLayout({
-  config,
-  themes,
-  updateConfig,
-  setTheme,
-  credentials,
-  endpoints,
-  personalities,
-  exportState,
-  uiKeys,
   activeTab,
-  setActiveTab,
-  handleKeyChange,
-  runExport
+  onSelectTab
 }: SettingsLayoutProps) {
+  const { config, themeCatalog, updateConfig, setTheme } = useApp();
+  const [credentials, setCredentials] = useState<CredentialAvailability | null>(null);
+  const [endpointCatalog, setEndpointCatalog] = useState<EndpointCatalogState>({ status: "loading" });
+  const [personalityCatalog, setPersonalityCatalog] = useState<PersonalityCatalogState>({ status: "loading" });
+  const [exportState, setExportState] = useState<{ busy: boolean; files?: string[]; error?: string }>({ busy: false });
+  const [uiKeys, setUiKeys] = useState<KeyMap>({});
+
+  const loadEndpoints = useCallback(() => {
+    setEndpointCatalog({ status: "loading" });
+    fetchEndpoints()
+      .then((endpoints) => setEndpointCatalog({ status: "ready", endpoints }))
+      .catch((error) => setEndpointCatalog({ status: "error", message: getErrorMessage(error) }));
+  }, []);
+
+  const loadPersonalities = useCallback(() => {
+    setPersonalityCatalog({ status: "loading" });
+    fetchPersonalities()
+      .then((personalities) => setPersonalityCatalog({ status: "ready", personalities }))
+      .catch((error) => setPersonalityCatalog({ status: "error", message: getErrorMessage(error) }));
+  }, []);
+
+  useEffect(() => {
+    fetchCredentials().then(setCredentials).catch(() => setCredentials(null));
+    fetchEndpoints()
+      .then((endpoints) => setEndpointCatalog({ status: "ready", endpoints }))
+      .catch((error) => setEndpointCatalog({ status: "error", message: getErrorMessage(error) }));
+    fetchPersonalities()
+      .then((personalities) => setPersonalityCatalog({ status: "ready", personalities }))
+      .catch((error) => setPersonalityCatalog({ status: "error", message: getErrorMessage(error) }));
+  }, []);
+
+  const handleKeyChange = (provider: string, value: string) => {
+    setUiKeys((prev) => ({ ...prev, [provider]: value }));
+    saveUiKey(provider, value);
+  };
+
+  const runExport = async () => {
+    setExportState({ busy: true });
+    try {
+      const result = await exportResearch();
+      setExportState({ busy: false, files: result.files });
+    } catch (error) {
+      setExportState({ busy: false, error: getErrorMessage(error) });
+    }
+  };
+
+  const endpoints = endpointCatalog.status === "ready" ? endpointCatalog.endpoints : [];
+  const personalities = personalityCatalog.status === "ready" ? personalityCatalog.personalities : [];
+  const themes = themeCatalog.status === "ready" ? themeCatalog.themes : [];
+
   return (
     <>
       <Sidebar collapsible="icon">
@@ -112,7 +159,7 @@ function SettingsLayout({
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
                     isActive={activeTab === item.id}
-                    onClick={() => setActiveTab(item.id)}
+                    onClick={() => onSelectTab(item.id)}
                     tooltip={item.label}
                   >
                     <Icon icon={item.icon} size={16} />
@@ -156,6 +203,15 @@ function SettingsLayout({
         <div className="flex-1 overflow-y-auto px-8 py-6 max-w-4xl w-full mx-auto scrollbar-none">
           {activeTab === "llm" && (
             <Section title="LLM provider chain" description="Ordered failover chain. Reorder by dragging or with the up/down buttons.">
+              <CatalogNotice
+                status={endpointCatalog.status}
+                error={endpointCatalog.status === "error" ? endpointCatalog.message : undefined}
+                empty={endpointCatalog.status === "ready" && endpointCatalog.endpoints.length === 0}
+                loadingText="Loading local endpoint presets…"
+                errorTitle="Could not load local endpoint presets"
+                emptyText="No local endpoint presets are configured. Custom endpoints remain available."
+                onRetry={loadEndpoints}
+              />
               <ChainBuilder
                 chain={config.chatChain}
                 onChange={(next) => updateConfig({ chatChain: next })}
@@ -169,40 +225,49 @@ function SettingsLayout({
             <Section title="Web search" description="Configure web search providers and crawling options.">
               <Card className="flex flex-col gap-4 p-4">
                 <Field label="Search provider">
-                  <Select
-                    value={config.searchProvider}
-                    onChange={(e) => updateConfig({ searchProvider: e.target.value as SearchProvider })}
-                    options={[
-                      { value: "none", label: "None (Disable search)" },
-                      { value: "duckduckgo", label: "DuckDuckGo (HTML scraping)" },
-                      { value: "searxng", label: "SearXNG (Self-hosted)" },
-                      { value: "brave", label: "Brave Search API" },
-                      { value: "tavily", label: "Tavily Search API" },
-                      { value: "exa", label: "Exa AI Search" },
-                      { value: "gemini-native", label: "Gemini Native Google Search" }
-                    ]}
-                  />
+                  {(controlProps) => (
+                    <Select
+                      {...controlProps}
+                      value={config.searchProvider}
+                      onChange={(e) => updateConfig({ searchProvider: e.target.value as SearchProvider })}
+                      options={[
+                        { value: "none", label: "None (Disable search)" },
+                        { value: "duckduckgo", label: "DuckDuckGo (HTML scraping)" },
+                        { value: "searxng", label: "SearXNG (Self-hosted)" },
+                        { value: "brave", label: "Brave Search API" },
+                        { value: "tavily", label: "Tavily Search API" },
+                        { value: "exa", label: "Exa AI Search" },
+                        { value: "gemini-native", label: "Gemini Native Google Search" }
+                      ]}
+                    />
+                  )}
                 </Field>
 
                 {config.searchProvider === "searxng" && (
                   <Field label="SearXNG Base URL" hint="Example: http://localhost:8080">
-                    <Input
-                      type="text"
-                      placeholder="http://localhost:8080"
-                      value={config.searchBaseUrl || ""}
-                      onChange={(e) => updateConfig({ searchBaseUrl: e.target.value || undefined })}
-                    />
+                    {(controlProps) => (
+                      <Input
+                        {...controlProps}
+                        type="text"
+                        placeholder="http://localhost:8080"
+                        value={config.searchBaseUrl || ""}
+                        onChange={(e) => updateConfig({ searchBaseUrl: e.target.value || undefined })}
+                      />
+                    )}
                   </Field>
                 )}
 
                 {["brave", "tavily", "exa"].includes(config.searchProvider) && (
                   <Field label="API key" hint="Saved locally in your browser.">
-                    <Input
-                      type="password"
-                      placeholder="Enter API key"
-                      value={uiKeys[config.searchProvider] || ""}
-                      onChange={(e) => handleKeyChange(config.searchProvider, e.target.value)}
-                    />
+                    {(controlProps) => (
+                      <Input
+                        {...controlProps}
+                        type="password"
+                        placeholder="Enter API key"
+                        value={uiKeys[config.searchProvider] || ""}
+                        onChange={(e) => handleKeyChange(config.searchProvider, e.target.value)}
+                      />
+                    )}
                   </Field>
                 )}
 
@@ -221,17 +286,27 @@ function SettingsLayout({
           {activeTab === "personalization" && (
             <div className="flex flex-col gap-8">
               <Section title="Theme" description="Switching swaps the color set instantly — no reload.">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {themes.map((theme) => {
+                <CatalogNotice
+                  status={themeCatalog.status}
+                  error={themeCatalog.status === "error" ? themeCatalog.message : undefined}
+                  empty={themeCatalog.status === "ready" && themeCatalog.themes.length === 0}
+                  loadingText="Loading themes…"
+                  errorTitle="Could not load themes"
+                  emptyText="No themes are installed. The built-in sage-dark colors remain active."
+                />
+                {themeCatalog.status === "ready" && themes.length > 0 ? (
+                  <ChoiceGroup label="Theme" legendClassName="sr-only" className="grid gap-2 sm:grid-cols-2">
+                    {themes.map((theme) => {
                     const name = theme.theme_name ?? theme.id;
                     const active = name === config.theme;
                     return (
-                      <button
+                      <ChoiceControl
                         key={theme.id}
-                        type="button"
-                        role="radio"
-                        aria-checked={active}
-                        onClick={() => setTheme(name)}
+                        type="radio"
+                        name="theme"
+                        value={name}
+                        checked={active}
+                        onChange={() => setTheme(name)}
                         className={cn(
                           "flex items-center gap-3 rounded-card border bg-surface p-3 text-left transition-colors duration-150 cursor-pointer",
                           active ? "border-accent" : "border-border hover:border-text-muted"
@@ -241,23 +316,35 @@ function SettingsLayout({
                         <span className="flex-1 text-sm text-text">{name}</span>
                         <ThemeSwatch tokens={theme.tokens} />
                         {active ? <Icon icon={Check} size={15} className="text-accent" /> : null}
-                      </button>
+                      </ChoiceControl>
                     );
-                  })}
-                </div>
+                    })}
+                  </ChoiceGroup>
+                ) : null}
               </Section>
 
               <Section title="Personality" description="The tone the sage speaks in.">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {personalities.map((personality) => {
+                <CatalogNotice
+                  status={personalityCatalog.status}
+                  error={personalityCatalog.status === "error" ? personalityCatalog.message : undefined}
+                  empty={personalityCatalog.status === "ready" && personalityCatalog.personalities.length === 0}
+                  loadingText="Loading personalities…"
+                  errorTitle="Could not load personalities"
+                  emptyText="No personalities are installed."
+                  onRetry={loadPersonalities}
+                />
+                {personalityCatalog.status === "ready" && personalities.length > 0 ? (
+                  <ChoiceGroup label="Personality" legendClassName="sr-only" className="grid gap-2 sm:grid-cols-2">
+                    {personalities.map((personality) => {
                     const active = config.personality === personality.id;
                     return (
-                      <button
+                      <ChoiceControl
                         key={personality.id}
-                        type="button"
-                        role="radio"
-                        aria-checked={active}
-                        onClick={() => updateConfig({ personality: personality.id })}
+                        type="radio"
+                        name="personality"
+                        value={personality.id}
+                        checked={active}
+                        onChange={() => updateConfig({ personality: personality.id })}
                         className={cn(
                           "flex flex-col gap-0.5 rounded-card border bg-surface p-3 text-left transition-colors duration-150 cursor-pointer",
                           active ? "border-accent" : "border-border hover:border-text-muted"
@@ -265,10 +352,11 @@ function SettingsLayout({
                       >
                         <span className="text-sm font-medium text-text">{personality.name}</span>
                         <span className="text-caption text-text-secondary">{personality.description}</span>
-                      </button>
+                      </ChoiceControl>
                     );
-                  })}
-                </div>
+                    })}
+                  </ChoiceGroup>
+                ) : null}
               </Section>
             </div>
           )}
@@ -346,57 +434,60 @@ function SettingsLayout({
 }
 
 export function SettingsView() {
-  const { config, themes, updateConfig, setTheme } = useApp();
-  const [credentials, setCredentials] = useState<CredentialAvailability | null>(null);
-  const [endpoints, setEndpoints] = useState<EndpointPreset[]>([]);
-  const [personalities, setPersonalities] = useState<Personality[]>([]);
-  const [exportState, setExportState] = useState<{ busy: boolean; files?: string[]; error?: string }>({ busy: false });
-  // Keys the user types this session. Deliberately not seeded from storage:
-  // saved keys are write-only (see KeyMap in config-store) and reach the server
-  // as headers via apiKeyHeaders, so they never need to be read back into an input.
-  const [uiKeys, setUiKeys] = useState<KeyMap>({});
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
 
   useEffect(() => {
-    fetchCredentials().then(setCredentials).catch(() => setCredentials(null));
-    fetchEndpoints().then(setEndpoints).catch(() => setEndpoints([]));
-    fetchPersonalities().then(setPersonalities).catch(() => setPersonalities([]));
+    const syncFromUrl = () => setActiveTab(settingsTabFromSearch(window.location.search));
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
   }, []);
 
-  const handleKeyChange = (provider: string, value: string) => {
-    setUiKeys((prev) => ({ ...prev, [provider]: value }));
-    saveUiKey(provider, value);
-  };
-
-  const runExport = async () => {
-    setExportState({ busy: true });
-    try {
-      const result = await exportResearch();
-      setExportState({ busy: false, files: result.files });
-    } catch (error) {
-      setExportState({ busy: false, error: (error as Error).message });
-    }
+  const selectTab = (tab: SettingsTab) => {
+    if (tab === activeTab) return;
+    window.history.pushState(null, "", settingsUrlForTab(window.location.href, tab));
+    setActiveTab(tab);
   };
 
   return (
     <SidebarProvider defaultOpen className="h-dvh overflow-hidden bg-bg text-text">
-      <SettingsLayout
-        config={config}
-        themes={themes}
-        updateConfig={updateConfig}
-        setTheme={setTheme}
-        credentials={credentials}
-        endpoints={endpoints}
-        personalities={personalities}
-        exportState={exportState}
-        uiKeys={uiKeys}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        handleKeyChange={handleKeyChange}
-        runExport={runExport}
-      />
+      <SettingsLayout activeTab={activeTab} onSelectTab={selectTab} />
     </SidebarProvider>
   );
+}
+
+function CatalogNotice({
+  status,
+  error,
+  empty,
+  loadingText,
+  errorTitle,
+  emptyText,
+  onRetry
+}: {
+  status: "loading" | "error" | "ready";
+  error?: string;
+  empty: boolean;
+  loadingText: string;
+  errorTitle: string;
+  emptyText: string;
+  onRetry?: () => void;
+}) {
+  if (status === "ready" && !empty) return null;
+  if (status === "loading") {
+    return <p className="text-caption text-text-muted" aria-live="polite">{loadingText}</p>;
+  }
+  if (status === "error") {
+    return (
+      <Card className="flex items-start justify-between gap-3 p-3" role="alert">
+        <div>
+          <p className="text-caption font-medium text-text">{errorTitle}</p>
+          {error ? <p className="text-caption text-text-secondary">{error}</p> : null}
+        </div>
+        {onRetry ? <Button variant="ghost" size="sm" onClick={onRetry}>Retry</Button> : null}
+      </Card>
+    );
+  }
+  return <p className="text-caption text-text-muted">{emptyText}</p>;
 }
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {

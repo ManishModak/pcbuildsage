@@ -2,6 +2,7 @@
 // These intentionally duplicate only the fields the frontend renders.
 
 import type { KeySource, LLMProvider, SearchProvider } from "./config";
+import type { RunOutcome } from "@/contracts/scrape";
 
 export type ChainEntry = {
   id: string;
@@ -106,25 +107,12 @@ export type ScrapeEvent =
       skipped?: boolean;
     }
   | { type: "site_failed"; site: string; category?: string; error: string }
-  | { type: "done"; products_written?: number }
+  | { type: "outcome"; outcome: RunOutcome }
   | { type: "log"; stream: string; message: string }
   | { type: "exit"; code?: number | null; signal?: string | null }
   | { type: "error"; error: string };
 
-export type ScrapeRunConfig = {
-  profile: string;
-  sites?: string[];
-  categories?: string[];
-  quick?: boolean;
-  maxPages?: number;
-  skipFresh?: number;
-  noLlmFallback?: boolean;
-  maxLlmCalls?: number;
-  concurrency?: number;
-  delayMs?: number;
-  headed?: boolean;
-  db?: string;
-};
+export type { ScrapeRunConfig } from "@/contracts/scrape";
 
 // Validation result mirrored from src/lib/rules-engine.
 export type IssueSeverity = "blocking" | "needs_research" | "needs_verification";

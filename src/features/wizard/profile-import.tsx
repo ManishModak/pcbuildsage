@@ -27,7 +27,7 @@ export function ProfileImportDialog({
     try {
       const result = await run();
       if (result.ok) {
-        onImported(result.filename?.replace(/\.json$/, ""));
+        onImported(result.id);
         onClose();
       } else {
         setErrors(result.errors);
@@ -71,23 +71,26 @@ export function ProfileImportDialog({
         </div>
 
         <Field label="Profile URL">
-          <div className="flex gap-2">
-            <Input
-              value={url}
-              mono
-              placeholder="https://…/india.json"
-              onChange={(event) => setUrl(event.target.value)}
-            />
-            <Button
-              variant="ghost"
-              iconLeft={Link2}
-              loading={busy}
-              disabled={!url.trim()}
-              onClick={() => void handle(() => importProfileFromUrl(url.trim()))}
-            >
-              Fetch
-            </Button>
-          </div>
+          {(controlProps) => (
+            <div className="flex gap-2">
+              <Input
+                {...controlProps}
+                value={url}
+                mono
+                placeholder="https://…/india.json"
+                onChange={(event) => setUrl(event.target.value)}
+              />
+              <Button
+                variant="ghost"
+                iconLeft={Link2}
+                loading={busy}
+                disabled={!url.trim()}
+                onClick={() => void handle(() => importProfileFromUrl(url.trim()))}
+              >
+                Fetch
+              </Button>
+            </div>
+          )}
         </Field>
 
         {errors.length ? (

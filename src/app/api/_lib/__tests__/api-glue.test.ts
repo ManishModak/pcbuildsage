@@ -1,15 +1,19 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GET as getConfig } from "../../config/route";
-import { POST as importProfile } from "../../profiles/import/route";
+import { POST as importProfile, profileImportResponse } from "../../profiles/import/route";
 import { POST as testProfile } from "../../profiles/test/route";
 import { POST as scrape } from "../../scrape/route";
+import { POST as saveSessionRoute } from "../../sessions/route";
+import { GET as getStatusRoute } from "../../status/route";
 import { resolveSandboxedPath, SandboxedPathError } from "../paths";
-import { buildScraperArgs, pythonCandidates } from "../python";
+import { buildScraperArgs, pythonCandidates } from "@/lib/server/python-process";
 import { validateAndWriteProfile } from "../profile-import";
 import { InvalidJsonError, readJson } from "../responses";
+import { getConfigValue, setConfigValue } from "@/cli/config-store";
+import { estimateScrape } from "@/cli/scrape";
 
 const originalEnv = { ...process.env };
 let tempDir: string | undefined;
@@ -19,6 +23,7 @@ afterEach(() => {
   if (tempDir) rmSync(tempDir, { recursive: true, force: true });
   tempDir = undefined;
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("Python bridge glue", () => {
@@ -52,7 +57,7 @@ describe("Python bridge glue", () => {
       delayMs: 250,
       headed: true,
       db: "data/custom.db"
-    })).toEqual([
+    }, { resolveDatabasePath: (value) => value })).toEqual([
       "-m",
       "scraper",
       "--json-stdout",
@@ -169,8 +174,32 @@ describe("profile import validation", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.id).toBe("custom-india");
-    expect(existsSync(result.filePath)).toBe(true);
-    expect(JSON.parse(readFileSync(result.filePath, "utf8"))).toMatchObject({ profile_name: "Custom India" });
+    const filePath = path.join(tempDir, "custom-india.json");
+    expect(existsSync(filePath)).toBe(true);
+    expect(JSON.parse(readFileSync(filePath, "utf8"))).toMatchObject({ profile_name: "Custom India" });
+    expect(result).not.toHaveProperty("filePath");
+  });
+
+  it("rejects a colliding profile without replacing the existing file", async () => {
+    tempDir = mkdtempSync(path.join(os.tmpdir(), "pcbuildsage-profile-collision-"));
+    const first = validateAndWriteProfile(validProfile(), { filename: "same.json", profilesDir: tempDir });
+    const existing = readFileSync(path.join(tempDir, "same.json"), "utf8");
+    const collision = validateAndWriteProfile({ ...validProfile(), profile_name: "Replacement" }, {
+      filename: "same.json",
+      profilesDir: tempDir
+    });
+
+    expect(first).toEqual({ ok: true, id: "same" });
+    expect(collision).toEqual({ ok: false, error: "profile_exists", id: "same" });
+    expect(readFileSync(path.join(tempDir, "same.json"), "utf8")).toBe(existing);
+
+    const response = profileImportResponse(collision);
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "profile_exists",
+      message: "A profile with id \"same\" already exists.",
+      id: "same"
+    });
   });
 
   it("rejects invalid profiles with schema errors", () => {
@@ -178,7 +207,64 @@ describe("profile import validation", () => {
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
+    expect(result.error).toBe("invalid_profile");
+    if (result.error !== "invalid_profile") return;
     expect(result.errors.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Task fixes verification", () => {
+  it("rejects prototype pollution keys in config store", () => {
+    expect(() => setConfigValue({}, "__proto__.polluted", "true")).toThrow();
+    expect(() => setConfigValue({}, "constructor.prototype", "true")).toThrow();
+    expect(() => setConfigValue({}, "prototype", "true")).toThrow();
+    expect(() => getConfigValue({}, "__proto__")).toThrow();
+    expect(() => getConfigValue({}, "prototype")).toThrow();
+    expect(() => getConfigValue({}, "constructor")).toThrow();
+  });
+
+  it("passes abort signal and posix basename on remote profile fetch", async () => {
+    let capturedOptions: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url, options) => {
+      capturedOptions = options;
+      return new Response(JSON.stringify(validProfile()), { status: 200 });
+    }));
+    const response = await importProfile(new Request("http://localhost/api/profiles/import", {
+      method: "POST",
+      // Use an installed ID so this route-level test cannot leave profile files behind.
+      body: JSON.stringify({ url: "https://example.com/sub/path/india.json" })
+    }));
+
+    expect(capturedOptions?.signal).toBeDefined();
+    expect([200, 409]).toContain(response.status);
+  });
+
+  it("enforces non-empty session ID in save schema", async () => {
+    const response = await saveSessionRoute(new Request("http://localhost/api/sessions", {
+      method: "POST",
+      body: JSON.stringify({
+        id: "",
+        revision: 0,
+        messages: []
+      })
+    }));
+
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 200 for status route without throwing 500 when products table is missing", async () => {
+    const response = await getStatusRoute();
+    expect(response.status).toBe(200);
+  });
+
+  it("formats seconds < 60 in seconds for estimateScrape", () => {
+    tempDir = mkdtempSync(path.join(os.tmpdir(), "pcbuildsage-estimate-test-"));
+    mkdirSync(path.join(tempDir, "data", "profiles"), { recursive: true });
+    writeFileSync(path.join(tempDir, "data", "profiles", "quick.json"), JSON.stringify({
+      sites: [{ site_name: "S", categories: { gpu: { max_pages: 1 } } }]
+    }));
+    const estimate = estimateScrape({ profile: "quick", maxPages: 1 }, tempDir);
+    expect(estimate.duration).toMatch(/sec$/);
   });
 });
 

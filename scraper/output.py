@@ -24,7 +24,7 @@ def configure_logging(log_path: str | Path = "logs/scraping.log") -> logging.Log
 
 
 class EventEmitter:
-    VALID_TYPES = {"progress", "site_started", "site_failed", "done", "error"}
+    VALID_TYPES = {"progress", "site_started", "site_failed", "sweep_skipped", "done", "error"}
 
     def __init__(self, json_stdout: bool, logger: logging.Logger | None = None) -> None:
         self.json_stdout = json_stdout

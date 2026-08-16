@@ -1,8 +1,14 @@
 import { z } from "zod";
 import { resolveSandboxedPath } from "../_lib/paths";
-import { buildScraperArgs, resolvePython, spawnScraper } from "../_lib/python";
 import { badRequest, json, readJson } from "../_lib/responses";
 import { encodeSse, sseHeaders } from "../_lib/sse";
+import { failedRunOutcome, parseRunOutcome, resolveRunTermination, type RunOutcome } from "@/contracts/scrape";
+import {
+  buildScraperArgs,
+  createProcessTerminator,
+  resolvePython,
+  spawnPython
+} from "@/lib/server/python-process";
 
 export const runtime = "nodejs";
 
@@ -43,14 +49,14 @@ export async function POST(request: Request): Promise<Response> {
   };
 
   try {
-    const body = sandboxScrapeConfig(scrapeSchema.parse(await readJson(request)));
+    const body = scrapeSchema.parse(await readJson(request));
     const resolution = await resolvePython();
     if (!resolution.ok) {
       release();
       return json({ error: "python_unavailable", python: resolution }, { status: 503 });
     }
 
-    const args = buildScraperArgs(body);
+    const args = buildScraperArgs(body, { resolveDatabasePath: resolveSandboxedPath });
     activeScrape = {
       id,
       startedAt: activeScrape.startedAt,
@@ -58,29 +64,42 @@ export async function POST(request: Request): Promise<Response> {
       command: [resolution.label ?? resolution.command, ...args].join(" ")
     };
 
-    let closed = false;
+    let consumerClosed = false;
     let terminate: (() => void) | undefined;
 
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        const child = spawnScraper(resolution, args);
+        const child = spawnPython(resolution, args);
         let stdoutBuffer = "";
-        let termTimer: NodeJS.Timeout | undefined;
+        let finished = false;
+        const terminalCandidates: RunOutcome[] = [];
+        let processError: Error | undefined;
+        const terminator = createProcessTerminator(child);
 
         const enqueue = (chunk: Uint8Array) => {
-          if (closed) return;
+          if (consumerClosed || finished) return;
           try {
             controller.enqueue(chunk);
           } catch {
-            closed = true;
+            consumerClosed = true;
           }
         };
 
-        const close = () => {
-          if (termTimer) clearTimeout(termTimer);
+        const finish = (outcome: RunOutcome) => {
+          if (finished) return;
+          finished = true;
+          terminator.clear();
+          request.signal.removeEventListener("abort", terminate!);
+          if (!consumerClosed) {
+            try {
+              controller.enqueue(encodeSse("outcome", { type: "outcome", outcome }));
+            } catch {
+              consumerClosed = true;
+            }
+          }
           release();
-          if (closed) return;
-          closed = true;
+          if (consumerClosed) return;
+          consumerClosed = true;
           try {
             controller.close();
           } catch {
@@ -89,15 +108,15 @@ export async function POST(request: Request): Promise<Response> {
         };
 
         terminate = () => {
-          if (child.exitCode !== null || child.killed) return;
+          if (terminator.requested || child.exitCode !== null) return;
           if (activeScrape?.id === id) activeScrape.status = "terminating";
-          child.kill("SIGINT");
-          termTimer = setTimeout(() => {
-            if (child.exitCode === null && !child.killed) child.kill("SIGKILL");
-          }, 3000);
+          terminator.terminate();
         };
 
         request.signal.addEventListener("abort", terminate, { once: true });
+        if (request.signal.aborted) {
+          terminate();
+        }
         enqueue(encodeSse("started", { id, scrape: activeScrape }));
 
         child.stdout.on("data", (chunk: Buffer) => {
@@ -107,8 +126,7 @@ export async function POST(request: Request): Promise<Response> {
           for (const line of lines) {
             if (!line.trim()) continue;
             try {
-              const event = JSON.parse(line) as { type?: string };
-              enqueue(encodeSse(event.type ?? "message", event));
+              forwardScraperEvent(JSON.parse(line), enqueue, terminalCandidates);
             } catch {
               enqueue(encodeSse("error", { error: "Invalid JSON emitted by scraper stdout." }));
             }
@@ -120,27 +138,29 @@ export async function POST(request: Request): Promise<Response> {
         });
 
         child.on("error", (error) => {
-          enqueue(encodeSse("error", { error: error.message }));
-          close();
+          processError = error;
         });
 
         child.on("close", (code, signal) => {
+          if (finished) return;
           if (stdoutBuffer.trim()) {
             try {
-              const event = JSON.parse(stdoutBuffer) as { type?: string };
-              enqueue(encodeSse(event.type ?? "message", event));
+              forwardScraperEvent(JSON.parse(stdoutBuffer), enqueue, terminalCandidates);
             } catch {
               enqueue(encodeSse("error", { error: "Invalid trailing JSON emitted by scraper stdout." }));
             }
           }
-          enqueue(encodeSse(code === 0 ? "exit" : "error", { code, signal }));
-          close();
+          finish(
+            processError
+              ? failedRunOutcome(processError.message)
+              : resolveRunTermination(terminalCandidates, code, signal, terminator.requested)
+          );
         });
       },
       cancel() {
         // Client disconnected without an abort signal: stop the child so the
         // single-scrape slot is freed once it exits.
-        closed = true;
+        consumerClosed = true;
         terminate?.();
       }
     });
@@ -152,6 +172,15 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-function sandboxScrapeConfig(config: z.infer<typeof scrapeSchema>): z.infer<typeof scrapeSchema> {
-  return config.db ? { ...config, db: resolveSandboxedPath(config.db) } : config;
+type Enqueue = (chunk: Uint8Array) => void;
+
+function forwardScraperEvent(value: unknown, enqueue: Enqueue, outcomes: RunOutcome[]): void {
+  const event = typeof value === "object" && value !== null ? value as { type?: string } : {};
+  if (event.type === "outcome") {
+    const outcome = parseRunOutcome(value);
+    if (outcome) outcomes.push(outcome);
+    else outcomes.push(failedRunOutcome("The scraper emitted an invalid terminal outcome."));
+    return;
+  }
+  enqueue(encodeSse(event.type ?? "message", event));
 }

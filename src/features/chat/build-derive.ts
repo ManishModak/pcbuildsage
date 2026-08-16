@@ -81,7 +81,26 @@ export function deriveBuild(parts: ToolPart[], fallbackCurrency: string): Derive
   const findProduct = (label: { key?: string; name: string }): ProductRow | undefined => {
     if (label.key && byKey.has(label.key)) return byKey.get(label.key);
     const target = normalize(label.name);
-    return byName.find(({ norm }) => norm.includes(target) || target.includes(norm))?.product;
+    const directMatch = byName.find(({ norm }) => norm.includes(target) || target.includes(norm))?.product;
+    if (directMatch) return directMatch;
+
+    // Token-overlap matching for variations (e.g., "80+ Gold" vs "80 Plus Gold Full Modular")
+    const targetTokens = target.split(" ").filter((t) => t.length > 1);
+    if (targetTokens.length >= 2) {
+      let bestMatch: ProductRow | undefined;
+      let maxScore = 0;
+      for (const { product, norm } of byName) {
+        const normTokens = new Set(norm.split(" "));
+        const matchCount = targetTokens.filter((t) => normTokens.has(t)).length;
+        const score = matchCount / targetTokens.length;
+        if (score >= 0.5 && matchCount > maxScore) {
+          maxScore = matchCount;
+          bestMatch = product;
+        }
+      }
+      if (bestMatch) return bestMatch;
+    }
+    return undefined;
   };
 
   const currency = products[0]?.currency ?? fallbackCurrency;
@@ -116,34 +135,57 @@ export function deriveBuild(parts: ToolPart[], fallbackCurrency: string): Derive
 }
 
 /**
- * Derive every distinct build proposed in a message (deduped by part set,
- * latest verdict wins). Multiple distinct builds render as labelled pill tabs.
+ * Derive proposed builds from explicit present_build tool activity.
+ * Multiple distinct builds render as labelled pill tabs in BuildCard.
  */
 export function deriveBuilds(parts: ToolPart[], fallbackCurrency: string): DerivedBuild[] {
-  const validateParts = parts.filter(
-    (part) => part.type === "tool-validate_build" && part.state === "output-available"
-  );
-  const bySignature = new Map<string, ToolPart>();
-  for (const part of validateParts) {
-    const input = part.input as { parts?: Record<string, unknown> } | undefined;
-    if (!input?.parts || Object.keys(input.parts).length === 0) continue;
-    bySignature.set(partsSignature(input.parts), part);
-  }
-  const builds: DerivedBuild[] = [];
-  for (const part of bySignature.values()) {
-    const build = deriveBuild([...parts.filter((p) => p.type === "tool-search_products"), part], fallbackCurrency);
-    if (build) builds.push(build);
-  }
-  return builds;
-}
+  const presentPart = [...parts]
+    .reverse()
+    .find(
+      (part) =>
+        (part.type === "tool-present_build" || part.toolName === "present_build") &&
+        part.state === "output-available"
+    );
 
-/** Stable, key-order-insensitive signature for a validate_build parts map. */
-function partsSignature(parts: Record<string, unknown>): string {
-  return JSON.stringify(
-    Object.entries(parts)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([category, value]) => [category, JSON.stringify(value)])
-  );
+  if (presentPart) {
+    const input = presentPart.input as
+      | {
+          builds?: Array<{
+            label?: string;
+            parts?: Array<{
+              category: string;
+              name: string;
+              price?: number | null;
+              currency?: string;
+              retailer?: string;
+              url?: string;
+            }>;
+          }>;
+        }
+      | undefined;
+
+    if (input?.builds && Array.isArray(input.builds)) {
+      return input.builds.map((build) => ({
+        label: build.label,
+        currency: build.parts?.find((p) => p.currency)?.currency ?? fallbackCurrency,
+        validation: null,
+        components: (build.parts || [])
+          .map((part) => ({
+            category: part.category,
+            categoryLabel: CATEGORY_LABELS[part.category] ?? part.category,
+            name: part.name,
+            price: typeof part.price === "number" ? part.price : null,
+            currency: part.currency ?? fallbackCurrency,
+            retailer: part.retailer,
+            url: part.url,
+            unverified: false
+          }))
+          .sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category))
+      }));
+    }
+  }
+
+  return [];
 }
 
 function componentNote(issues: BuildIssue[], key: string, name: string): string | undefined {
@@ -154,8 +196,8 @@ function componentNote(issues: BuildIssue[], key: string, name: string): string 
   );
   if (!relevant) return undefined;
   return relevant.severity === "needs_research"
-    ? "specs not found in registry — researched, not community-verified"
-    : "specs researched from the web, not yet community-verified";
+    ? "Advisory specs (unverified clearances)"
+    : "Researched specs (advisory)";
 }
 
 export type StripBadge = { kind: "ok" | "blocking" | "warn" | "unverified"; label: string; title: string };
@@ -168,14 +210,15 @@ export function validationStrip(validation: ValidationResult | null): StripBadge
   const research = validation.issues.filter((issue) => issue.severity === "needs_research");
   const verify = validation.issues.filter((issue) => issue.severity === "needs_verification");
 
-  if (validation.valid && blocking.length === 0 && research.length === 0) {
-    badges.push({ kind: "ok", label: "Compatible", title: "Rules engine passed all Tier 1 checks." });
+  if (validation.valid && blocking.length === 0) {
+    if (research.length === 0 && verify.length === 0) {
+      badges.push({ kind: "ok", label: "Compatible", title: "Rules engine passed all compatibility checks." });
+    } else {
+      badges.push({ kind: "ok", label: "Compatible (Advisory Specs)", title: "Rules engine passed compatibility using advisory/researched specs." });
+    }
   }
   for (const issue of blocking) {
     badges.push({ kind: "blocking", label: ruleLabel(issue.rule), title: issue.detail });
-  }
-  for (const issue of research) {
-    badges.push({ kind: "warn", label: `${ruleLabel(issue.rule)} needs research`, title: issue.detail });
   }
   for (const issue of verify) {
     badges.push({ kind: "unverified", label: `${ruleLabel(issue.rule)} unverified`, title: issue.detail });

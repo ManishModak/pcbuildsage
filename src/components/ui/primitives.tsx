@@ -1,4 +1,10 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
+import type {
+  ButtonHTMLAttributes,
+  HTMLAttributes,
+  InputHTMLAttributes,
+  ReactNode,
+  TextareaHTMLAttributes
+} from "react";
 import { forwardRef, useId } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Loader2 } from "lucide-react";
@@ -91,6 +97,13 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
   }
 );
 
+export type FieldControlProps = {
+  id: string;
+  "aria-describedby"?: string;
+  "aria-errormessage"?: string;
+  "aria-invalid"?: true;
+};
+
 export function Field({
   label,
   hint,
@@ -101,35 +114,83 @@ export function Field({
   label: string;
   hint?: string;
   htmlFor?: string;
-  children: ReactNode;
+  children: (controlProps: FieldControlProps) => ReactNode;
   error?: string;
 }) {
+  const generatedId = useId();
+  const controlId = htmlFor ?? generatedId;
+  const hintId = hint ? `${controlId}-hint` : undefined;
+  const errorId = error ? `${controlId}-error` : undefined;
+  const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
+  const content = children({
+    id: controlId,
+    "aria-describedby": describedBy,
+    "aria-errormessage": errorId,
+    "aria-invalid": error ? true : undefined
+  });
+
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={htmlFor} className="text-caption font-medium text-text-secondary">
+      <label htmlFor={controlId} className="text-caption font-medium text-text-secondary">
         {label}
       </label>
-      {children}
-      {error ? (
-        <p className="text-caption text-warn">{error}</p>
-      ) : hint ? (
-        <p className="text-caption text-text-muted">{hint}</p>
-      ) : null}
+      {content}
+      {hint ? <p id={hintId} className="text-caption text-text-muted">{hint}</p> : null}
+      {error ? <p id={errorId} role="alert" className="text-caption text-warn">{error}</p> : null}
     </div>
+  );
+}
+
+export function ChoiceGroup({
+  label,
+  children,
+  className,
+  legendClassName
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+  legendClassName?: string;
+}) {
+  return (
+    <fieldset className={className}>
+      <legend className={cn("text-caption font-medium text-text-secondary", legendClassName)}>{label}</legend>
+      {children}
+    </fieldset>
+  );
+}
+
+type ChoiceControlProps = Omit<InputHTMLAttributes<HTMLInputElement>, "children" | "type"> & {
+  type: "radio" | "checkbox";
+  children: ReactNode;
+};
+
+export function ChoiceControl({ type, children, className, disabled, ...props }: ChoiceControlProps) {
+  return (
+    <label
+      className={cn(
+        "relative focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent",
+        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+        className
+      )}
+    >
+      <input type={type} disabled={disabled} className="sr-only" {...props} />
+      {children}
+    </label>
   );
 }
 
 export function Card({
   className,
   children,
-  as: Tag = "div"
-}: {
-  className?: string;
+  as: Tag = "div",
+  ...props
+}: Omit<HTMLAttributes<HTMLElement>, "children"> & {
   children: ReactNode;
   as?: "div" | "section" | "article";
 }) {
   return (
-    <Tag className={cn("rounded-card border border-border bg-surface", className)}>{children}</Tag>
+    <Tag className={cn("rounded-card border border-border bg-surface", className)} {...props}>{children}</Tag>
   );
 }
 

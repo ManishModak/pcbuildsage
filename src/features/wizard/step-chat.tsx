@@ -6,7 +6,7 @@ import { useApp } from "@/components/app/app-provider";
 import { fetchPersonalities } from "@/lib/api-client";
 import type { Personality } from "@/types/client";
 import { cn } from "@/components/ui/cn";
-import { Button } from "@/components/ui/primitives";
+import { Button, ChoiceControl, ChoiceGroup } from "@/components/ui/primitives";
 
 export function StepChat({ onBack, onFinish }: { onBack: () => void; onFinish: () => void }) {
   const { config, updateConfig } = useApp();
@@ -25,18 +25,18 @@ export function StepChat({ onBack, onFinish }: { onBack: () => void; onFinish: (
         </p>
       </header>
 
-      <div className="flex flex-col gap-3">
-        <h2 className="text-caption font-medium uppercase tracking-wide text-text-secondary">Personality</h2>
+      <ChoiceGroup label="Personality" className="flex flex-col gap-3" legendClassName="uppercase tracking-wide">
         <div className="grid gap-2 sm:grid-cols-2">
           {personalities.map((personality) => {
             const active = config.personality === personality.id;
             return (
-              <button
+              <ChoiceControl
                 key={personality.id}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => updateConfig({ personality: personality.id })}
+                type="radio"
+                name="personality"
+                value={personality.id}
+                checked={active}
+                onChange={() => updateConfig({ personality: personality.id })}
                 className={cn(
                   "flex flex-col gap-0.5 rounded-card border bg-surface p-3 text-left transition-colors duration-150",
                   active ? "border-accent" : "border-border hover:border-text-muted"
@@ -44,11 +44,11 @@ export function StepChat({ onBack, onFinish }: { onBack: () => void; onFinish: (
               >
                 <span className="text-sm font-medium text-text">{personality.name}</span>
                 <span className="text-caption text-text-secondary">{personality.description}</span>
-              </button>
+              </ChoiceControl>
             );
           })}
         </div>
-      </div>
+      </ChoiceGroup>
 
       <div className="flex items-center justify-between border-t border-border pt-4">
         <Button variant="ghost" iconLeft={ArrowLeft} onClick={onBack}>

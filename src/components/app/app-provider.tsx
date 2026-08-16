@@ -6,9 +6,14 @@ import { DEFAULT_CONFIG, loadConfig, saveConfig, validateConfig } from "@/lib/cl
 import { applyTheme, pickTheme } from "@/lib/theme";
 import type { ClientConfig, ThemeFile } from "@/types/client";
 
+export type ThemeCatalogState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; themes: ThemeFile[] };
+
 type AppContextValue = {
   config: ClientConfig;
-  themes: ThemeFile[];
+  themeCatalog: ThemeCatalogState;
   ready: boolean;
   updateConfig: (patch: Partial<ClientConfig> | ((prev: ClientConfig) => ClientConfig)) => void;
   setTheme: (name: string) => void;
@@ -21,10 +26,14 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   // null = not yet hydrated from localStorage.
   const [storedConfig, setConfig] = useState<ClientConfig | null>(null);
-  const [themes, setThemes] = useState<ThemeFile[]>([]);
+  const [themeCatalog, setThemeCatalog] = useState<ThemeCatalogState>({ status: "loading" });
   const [headerSuffix, setHeaderSuffix] = useState<ReactNode>(null);
   const config = storedConfig ?? DEFAULT_CONFIG;
   const ready = storedConfig !== null;
+  const themes = useMemo(
+    () => themeCatalog.status === "ready" ? themeCatalog.themes : [],
+    [themeCatalog]
+  );
 
   // Hydrate config from localStorage on mount (client-only to avoid SSR mismatch).
   useEffect(() => {
@@ -33,10 +42,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setConfig(stored);
     fetchThemes()
       .then((list) => {
-        setThemes(list);
+        setThemeCatalog({ status: "ready", themes: list });
         applyTheme(pickTheme(list, stored.theme));
       })
-      .catch(() => {
+      .catch((error) => {
+        setThemeCatalog({
+          status: "error",
+          message: error instanceof Error ? error.message : "Could not load themes."
+        });
         // Themes endpoint unreachable: the sage-dark defaults in globals.css stand.
       });
   }, []);
@@ -86,8 +99,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<AppContextValue>(
-    () => ({ config, themes, ready, updateConfig, setTheme, headerSuffix, setHeaderSuffix }),
-    [config, themes, ready, updateConfig, setTheme, headerSuffix]
+    () => ({ config, themeCatalog, ready, updateConfig, setTheme, headerSuffix, setHeaderSuffix }),
+    [config, themeCatalog, ready, updateConfig, setTheme, headerSuffix]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

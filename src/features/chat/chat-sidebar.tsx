@@ -52,10 +52,10 @@ export function ChatSidebar({
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="h-14 flex-row items-center justify-between border-b border-border px-2">
+      <SidebarHeader className="h-14 flex-row items-center justify-between border-b border-border px-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
         <Link
           href="/"
-          className="flex items-center gap-2 rounded-btn px-1"
+          className="flex items-center gap-2 rounded-btn px-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center"
           aria-label="PCBuildSage home"
         >
           <LeafMark size={22} />
@@ -64,20 +64,20 @@ export function ChatSidebar({
         <SidebarTrigger className={cn("group-data-[collapsible=icon]:hidden", TRIGGER_HOVER)} />
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
+      <SidebarContent className="group-data-[collapsible=icon]:overflow-x-hidden">
+        <SidebarGroup className="group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:px-0">
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton tooltip="New chat" onClick={onNew}>
                 <Icon icon={MessageSquarePlus} size={16} />
-                <span>New chat</span>
+                <span className="group-data-[collapsible=icon]:hidden">New chat</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Chats</SidebarGroupLabel>
+        <SidebarGroup className="group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:px-0">
+          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Chats</SidebarGroupLabel>
           <SidebarGroupContent>
             {sessions.length === 0 ? (
               <p className="px-2 py-4 text-caption text-text-muted group-data-[collapsible=icon]:hidden">
@@ -100,7 +100,7 @@ export function ChatSidebar({
                         <Icon icon={MessageSquare} size={16} />
                         {/* Hide the two-line label when the rail collapses to
                             icons, otherwise it leaks as stacked text fragments. */}
-                        <span className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
+                        <span className="flex flex-1 min-w-0 flex-col group-data-[collapsible=icon]:hidden">
                           <span className="truncate text-sm text-text">{title}</span>
                           <span className="truncate text-caption text-text-muted">
                             {formatRelativeTime(session.updated_at)}
@@ -142,13 +142,13 @@ export function ChatSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border">
+      <SidebarFooter className="border-t border-border group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:px-0">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Settings">
               <Link href="/settings">
                 <Icon icon={Settings} size={16} />
-                <span>Settings</span>
+                <span className="group-data-[collapsible=icon]:hidden">Settings</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

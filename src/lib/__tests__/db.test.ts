@@ -13,7 +13,7 @@ vi.mock("better-sqlite3", async (importOriginal) => {
   };
 });
 
-import { getLogsDb, writeDbLog, closeDb } from "../db";
+import { getLogsDb, writeDbLog, closeDb, MAX_LOG_DETAILS_BYTES, serializeLogDetails } from "../db";
 
 describe("db logs", () => {
   beforeEach(() => {
@@ -50,5 +50,17 @@ describe("db logs", () => {
     expect(logs[0].component).toBe("test-component");
     expect(logs[0].message).toBe("test message");
     expect(JSON.parse(logs[0].details)).toEqual({ foo: "bar" });
+  });
+
+  it("redacts secrets and replaces oversized details with bounded metadata", () => {
+    expect(JSON.parse(serializeLogDetails({ apiKey: "secret", key: "standalone-key", privateKey: "pem-data", nested: { authorization: "Bearer token" } }))).toEqual({
+      apiKey: "[redacted]",
+      key: "[redacted]",
+      privateKey: "[redacted]",
+      nested: { authorization: "[redacted]" }
+    });
+    const oversized = serializeLogDetails({ payload: "x".repeat(MAX_LOG_DETAILS_BYTES * 2) });
+    expect(Buffer.byteLength(oversized, "utf8")).toBeLessThanOrEqual(MAX_LOG_DETAILS_BYTES);
+    expect(JSON.parse(oversized)).toMatchObject({ truncated: true });
   });
 });

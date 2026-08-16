@@ -8,13 +8,17 @@
     "ddr": "DDR5",
     "form_factor": "ATX",
     "m2_slots": 5,
-    "aliases": [
-      "ASUS Z790",
-      "ROG Strix Z790-E Gaming WiFi",
-      "Z790 ROG Strix Z790-E Gaming WiFi",
-      "ASUS ROG Strix Z790-E Gaming WiFi"
-    ],
     "sata_ports": 4,
+    "pcie_gen": 5,
+    "aliases": [
+      "ASUS ROG Strix Z790-E Gaming WiFi",
+      "ROG Strix Z790-E Gaming WiFi",
+      "ASUS ROG Strix Z790-E",
+      "ROG Strix Z790-E",
+      "Strix Z790-E Gaming WiFi",
+      "ROG Strix Z790-E Gaming",
+      "ASUS Strix Z790-E Gaming WiFi"
+    ],
     "sources": [
       "https://rog.asus.com/motherboards/rog-strix/rog-strix-z790-e-gaming-wifi-model/"
     ],
@@ -29,13 +33,17 @@
     "ddr": "DDR5",
     "form_factor": "ATX",
     "m2_slots": 4,
+    "sata_ports": 4,
+    "pcie_gen": 5,
     "aliases": [
       "ASUS TUF Gaming Z790-Plus WiFi",
-      "ASUS Z790",
-      "Z790 TUF Gaming Z790-Plus WiFi",
-      "TUF Gaming Z790-Plus WiFi"
+      "TUF Gaming Z790-Plus WiFi",
+      "ASUS TUF Gaming Z790-Plus",
+      "TUF Gaming Z790-Plus",
+      "ASUS TUF Z790-Plus WiFi",
+      "TUF Z790-Plus WiFi",
+      "ASUS TUF Z790-Plus"
     ],
-    "sata_ports": 4,
     "sources": [
       "https://www.asus.com/motherboards-components/motherboards/tuf-gaming/tuf-gaming-z790-plus-wifi/"
     ],
@@ -50,13 +58,18 @@
     "ddr": "DDR5",
     "form_factor": "ATX",
     "m2_slots": 4,
-    "aliases": [
-      "MAG Z790 Tomahawk WiFi",
-      "MSI MAG Z790 Tomahawk WiFi",
-      "MSI Z790",
-      "Z790 MAG Z790 Tomahawk WiFi"
-    ],
     "sata_ports": 7,
+    "pcie_gen": 5,
+    "aliases": [
+      "MSI MAG Z790 Tomahawk WiFi",
+      "MAG Z790 Tomahawk WiFi",
+      "MSI MAG Z790 TOMAHAWK WIFI",
+      "MAG Z790 TOMAHAWK WIFI",
+      "MSI Z790 Tomahawk WiFi",
+      "Z790 Tomahawk WiFi",
+      "MSI MAG Z790 Tomahawk",
+      "MAG Z790 Tomahawk"
+    ],
     "sources": [
       "https://www.msi.com/Motherboard/MAG-Z790-TOMAHAWK-WIFI"
     ],
@@ -71,13 +84,17 @@
     "ddr": "DDR5",
     "form_factor": "ATX",
     "m2_slots": 4,
-    "aliases": [
-      "Gigabyte Z790",
-      "Z790 Z790 Aorus Elite AX",
-      "Z790 Aorus Elite AX",
-      "Gigabyte Z790 Aorus Elite AX"
-    ],
     "sata_ports": 6,
+    "pcie_gen": 5,
+    "aliases": [
+      "Gigabyte Z790 Aorus Elite AX",
+      "Z790 Aorus Elite AX",
+      "Gigabyte Z790 AORUS ELITE AX",
+      "Z790 AORUS ELITE AX",
+      "Gigabyte Z790 Aorus Elite",
+      "Z790 Aorus Elite",
+      "Aorus Elite AX Z790"
+    ],
     "sources": [
       "https://www.gigabyte.com/Motherboard/Z790-AORUS-ELITE-AX-rev-10"
     ],
@@ -92,13 +109,14 @@
     "ddr": "DDR5",
     "form_factor": "E-ATX",
     "m2_slots": 5,
+    "sata_ports": 8,
+    "pcie_gen": 5,
     "aliases": [
       "ASRock Z790 Taichi",
       "Z790 Taichi",
-      "ASRock Z790",
-      "Z790 Z790 Taichi"
+      "ASRock Z790 Taichi E-ATX",
+      "Z790 Taichi E-ATX"
     ],
-    "sata_ports": 8,
     "sources": [
       "https://www.asrock.com/mb/Intel/Z790%20Taichi/index.asp"
     ],
@@ -113,13 +131,17 @@
     "ddr": "DDR5",
     "form_factor": "Micro-ATX",
     "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 5,
     "aliases": [
       "ASUS TUF Gaming B760M-Plus WiFi",
       "TUF Gaming B760M-Plus WiFi",
-      "B760 TUF Gaming B760M-Plus WiFi",
-      "ASUS B760"
+      "ASUS TUF Gaming B760M-Plus",
+      "TUF Gaming B760M-Plus",
+      "ASUS TUF B760M-Plus WiFi",
+      "TUF B760M-Plus WiFi",
+      "ASUS TUF B760M-Plus"
     ],
-    "sata_ports": 4,
     "sources": [
       "https://www.asus.com/motherboards-components/motherboards/tuf-gaming/tuf-gaming-b760m-plus-wifi/"
     ],
@@ -134,13 +156,18 @@
     "ddr": "DDR5",
     "form_factor": "Micro-ATX",
     "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
     "aliases": [
       "MSI PRO B760M-A WiFi",
       "PRO B760M-A WiFi",
-      "MSI B760",
-      "B760 PRO B760M-A WiFi"
+      "MSI PRO B760M-A WIFI",
+      "PRO B760M-A WIFI",
+      "MSI PRO B760M-A",
+      "PRO B760M-A",
+      "MSI B760M-A WiFi",
+      "MSI Pro B760M-A WiFi"
     ],
-    "sata_ports": 4,
     "sources": [
       "https://www.msi.com/Motherboard/PRO-B760M-A-WIFI"
     ],
@@ -155,13 +182,16 @@
     "ddr": "DDR5",
     "form_factor": "Micro-ATX",
     "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
     "aliases": [
       "Gigabyte B760M Aorus Elite AX",
       "B760M Aorus Elite AX",
-      "Gigabyte B760",
-      "B760 B760M Aorus Elite AX"
+      "Gigabyte B760M AORUS ELITE AX",
+      "B760M AORUS ELITE AX",
+      "Gigabyte B760M Aorus Elite",
+      "B760M Aorus Elite"
     ],
-    "sata_ports": 4,
     "sources": [
       "https://www.gigabyte.com/Motherboard/B760M-AORUS-ELITE-AX-rev-1x"
     ],
@@ -176,13 +206,16 @@
     "ddr": "DDR5",
     "form_factor": "ATX",
     "m2_slots": 4,
-    "aliases": [
-      "ROG Strix X670E-E Gaming WiFi",
-      "ASUS ROG Strix X670E-E Gaming WiFi",
-      "X670E ROG Strix X670E-E Gaming WiFi",
-      "ASUS X670E"
-    ],
     "sata_ports": 4,
+    "pcie_gen": 5,
+    "aliases": [
+      "ASUS ROG Strix X670E-E Gaming WiFi",
+      "ROG Strix X670E-E Gaming WiFi",
+      "ASUS ROG Strix X670E-E",
+      "ROG Strix X670E-E",
+      "Strix X670E-E Gaming WiFi",
+      "ASUS ROG Strix X670E-E Gaming"
+    ],
     "sources": [
       "https://rog.asus.com/motherboards/rog-strix/rog-strix-x670e-e-gaming-wifi-model/"
     ],
@@ -197,13 +230,16 @@
     "ddr": "DDR5",
     "form_factor": "ATX",
     "m2_slots": 4,
+    "sata_ports": 6,
+    "pcie_gen": 5,
     "aliases": [
       "MSI MPG X670E Carbon WiFi",
       "MPG X670E Carbon WiFi",
-      "X670E MPG X670E Carbon WiFi",
-      "MSI X670E"
+      "MSI MPG X670E CARBON WIFI",
+      "MPG X670E CARBON WIFI",
+      "MSI X670E Carbon WiFi",
+      "MSI MPG X670E Carbon"
     ],
-    "sata_ports": 6,
     "sources": [
       "https://www.msi.com/Motherboard/MPG-X670E-CARBON-WIFI"
     ],
@@ -218,13 +254,16 @@
     "ddr": "DDR5",
     "form_factor": "ATX",
     "m2_slots": 4,
-    "aliases": [
-      "X670E X670E Aorus Elite AX",
-      "Gigabyte X670E",
-      "X670E Aorus Elite AX",
-      "Gigabyte X670E Aorus Elite AX"
-    ],
     "sata_ports": 4,
+    "pcie_gen": 5,
+    "aliases": [
+      "Gigabyte X670E Aorus Elite AX",
+      "X670E Aorus Elite AX",
+      "Gigabyte X670E AORUS ELITE AX",
+      "X670E AORUS ELITE AX",
+      "Gigabyte X670E Aorus Elite",
+      "X670E Aorus Elite"
+    ],
     "sources": [
       "https://www.gigabyte.com/Motherboard/X670E-AORUS-ELITE-AX-rev-10"
     ],
@@ -239,13 +278,14 @@
     "ddr": "DDR5",
     "form_factor": "E-ATX",
     "m2_slots": 4,
-    "aliases": [
-      "X670E Taichi",
-      "ASRock X670E",
-      "X670E X670E Taichi",
-      "ASRock X670E Taichi"
-    ],
     "sata_ports": 8,
+    "pcie_gen": 5,
+    "aliases": [
+      "ASRock X670E Taichi",
+      "X670E Taichi",
+      "ASRock X670E Taichi E-ATX",
+      "X670E Taichi E-ATX"
+    ],
     "sources": [
       "https://www.asrock.com/mb/AMD/X670E%20Taichi/index.asp"
     ],
@@ -260,13 +300,18 @@
     "ddr": "DDR5",
     "form_factor": "ATX",
     "m2_slots": 3,
-    "aliases": [
-      "ASUS B650",
-      "B650 TUF Gaming B650-Plus WiFi",
-      "TUF Gaming B650-Plus WiFi",
-      "ASUS TUF Gaming B650-Plus WiFi"
-    ],
     "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "ASUS TUF Gaming B650-Plus WiFi",
+      "TUF Gaming B650-Plus WiFi",
+      "ASUS TUF Gaming B650-Plus Wi-Fi",
+      "TUF Gaming B650-Plus Wi-Fi",
+      "ASUS TUF B650-Plus WiFi",
+      "TUF B650-Plus WiFi",
+      "ASUS TUF B650-Plus Wi-Fi",
+      "TUF B650-Plus Wi-Fi"
+    ],
     "sources": [
       "https://www.asus.com/motherboards-components/motherboards/tuf-gaming/tuf-gaming-b650-plus-wifi/"
     ],
@@ -281,13 +326,17 @@
     "ddr": "DDR5",
     "form_factor": "ATX",
     "m2_slots": 3,
+    "sata_ports": 4,
+    "pcie_gen": 4,
     "aliases": [
       "ASUS ROG Strix B650-A Gaming WiFi",
       "ROG Strix B650-A Gaming WiFi",
-      "ASUS B650",
-      "B650 ROG Strix B650-A Gaming WiFi"
+      "ASUS ROG Strix B650-A",
+      "ROG Strix B650-A",
+      "Strix B650-A Gaming WiFi",
+      "ASUS ROG Strix B650-A Gaming",
+      "ASUS Strix B650-A Gaming WiFi"
     ],
-    "sata_ports": 4,
     "sources": [
       "https://rog.asus.com/motherboards/rog-strix/rog-strix-b650-a-gaming-wifi-model/"
     ],
@@ -302,13 +351,18 @@
     "ddr": "DDR5",
     "form_factor": "ATX",
     "m2_slots": 3,
-    "aliases": [
-      "MAG B650 Tomahawk WiFi",
-      "MSI MAG B650 Tomahawk WiFi",
-      "B650 MAG B650 Tomahawk WiFi",
-      "MSI B650"
-    ],
     "sata_ports": 6,
+    "pcie_gen": 4,
+    "aliases": [
+      "MSI MAG B650 Tomahawk WiFi",
+      "MAG B650 Tomahawk WiFi",
+      "MSI MAG B650 TOMAHAWK WIFI",
+      "MAG B650 TOMAHAWK WIFI",
+      "MSI B650 Tomahawk WiFi",
+      "B650 Tomahawk WiFi",
+      "MSI MAG B650 Tomahawk",
+      "MAG B650 Tomahawk"
+    ],
     "sources": [
       "https://www.msi.com/Motherboard/MAG-B650-TOMAHAWK-WIFI"
     ],
@@ -323,13 +377,16 @@
     "ddr": "DDR5",
     "form_factor": "ATX",
     "m2_slots": 3,
-    "aliases": [
-      "B650 Aorus Elite AX",
-      "B650 B650 Aorus Elite AX",
-      "Gigabyte B650",
-      "Gigabyte B650 Aorus Elite AX"
-    ],
     "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "Gigabyte B650 Aorus Elite AX",
+      "B650 Aorus Elite AX",
+      "Gigabyte B650 AORUS ELITE AX",
+      "B650 AORUS ELITE AX",
+      "Gigabyte B650 Aorus Elite",
+      "B650 Aorus Elite"
+    ],
     "sources": [
       "https://www.gigabyte.com/Motherboard/B650-AORUS-ELITE-AX-rev-10-11"
     ],
@@ -344,17 +401,756 @@
     "ddr": "DDR5",
     "form_factor": "Micro-ATX",
     "m2_slots": 3,
-    "aliases": [
-      "B650M Pro RS",
-      "B650 B650M Pro RS",
-      "ASRock B650M Pro RS",
-      "ASRock B650"
-    ],
     "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "ASRock B650M Pro RS",
+      "B650M Pro RS",
+      "ASRock B650M Pro RS WiFi",
+      "B650M Pro RS WiFi",
+      "ASRock B650M Pro RS/WiFi"
+    ],
     "sources": [
       "https://www.asrock.com/mb/AMD/B650M%20Pro%20RS/index.asp"
     ],
     "confidence": "high",
     "researched_at": "2026-07-11T23:07:04Z"
+  },
+  "msi-b550m-pro-vdh-wifi": {
+    "brand": "MSI",
+    "model": "MSI B550M PRO-VDH WIFI",
+    "socket": "AM4",
+    "chipset": "B550",
+    "ddr": "DDR4",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "MSI B550M PRO-VDH WIFI",
+      "MSI B550M PRO-VDH",
+      "B550M PRO-VDH WIFI",
+      "B550M PRO-VDH",
+      "MSI B550 PRO-VDH WIFI",
+      "MSI B550M PRO VDH WIFI",
+      "B550M PRO VDH WIFI",
+      "MSI B550M Pro-VDH WiFi",
+      "MSI B550M PRO-VDH Wi-Fi"
+    ],
+    "sources": [
+      "https://www.msi.com/Motherboard/B550M-PRO-VDH-WIFI"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "msi-b550-a-pro": {
+    "brand": "MSI",
+    "model": "MSI B550-A PRO",
+    "socket": "AM4",
+    "chipset": "B550",
+    "ddr": "DDR4",
+    "form_factor": "ATX",
+    "m2_slots": 2,
+    "sata_ports": 6,
+    "pcie_gen": 4,
+    "aliases": [
+      "MSI B550-A PRO",
+      "B550-A PRO",
+      "MSI B550 A PRO",
+      "B550 A PRO",
+      "MSI B550-A Pro",
+      "MSI B550-A PRO AM4"
+    ],
+    "sources": [
+      "https://www.msi.com/Motherboard/B550-A-PRO"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "msi-mpg-b550-gaming-plus": {
+    "brand": "MSI",
+    "model": "MSI MPG B550 GAMING PLUS",
+    "socket": "AM4",
+    "chipset": "B550",
+    "ddr": "DDR4",
+    "form_factor": "ATX",
+    "m2_slots": 2,
+    "sata_ports": 6,
+    "pcie_gen": 4,
+    "aliases": [
+      "MSI MPG B550 GAMING PLUS",
+      "MPG B550 GAMING PLUS",
+      "MSI MPG B550 Gaming Plus",
+      "MPG B550 Gaming Plus",
+      "MSI B550 GAMING PLUS",
+      "B550 GAMING PLUS",
+      "MSI MPG B550 Gaming Plus AM4"
+    ],
+    "sources": [
+      "https://www.msi.com/Motherboard/MPG-B550-GAMING-PLUS"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "asus-tuf-gaming-b550-plus": {
+    "brand": "ASUS",
+    "model": "ASUS TUF GAMING B550-PLUS",
+    "socket": "AM4",
+    "chipset": "B550",
+    "ddr": "DDR4",
+    "form_factor": "ATX",
+    "m2_slots": 2,
+    "sata_ports": 6,
+    "pcie_gen": 4,
+    "aliases": [
+      "ASUS TUF GAMING B550-PLUS",
+      "TUF GAMING B550-PLUS",
+      "ASUS TUF Gaming B550-Plus",
+      "TUF Gaming B550-Plus",
+      "ASUS TUF B550-PLUS",
+      "TUF B550-PLUS",
+      "ASUS TUF GAMING B550-PLUS WIFI II",
+      "ASUS TUF GAMING B550-PLUS (WI-FI)",
+      "ASUS TUF Gaming B550-Plus WiFi II"
+    ],
+    "sources": [
+      "https://www.asus.com/motherboards-components/motherboards/tuf-gaming/tuf-gaming-b550-plus/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "asus-tuf-gaming-b550m-plus-wifi": {
+    "brand": "ASUS",
+    "model": "ASUS TUF GAMING B550M-PLUS (WI-FI)",
+    "socket": "AM4",
+    "chipset": "B550",
+    "ddr": "DDR4",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "ASUS TUF GAMING B550M-PLUS (WI-FI)",
+      "ASUS TUF GAMING B550M-PLUS WIFI",
+      "TUF GAMING B550M-PLUS WIFI",
+      "ASUS TUF GAMING B550M-PLUS WIFI II",
+      "TUF GAMING B550M-PLUS WIFI II",
+      "ASUS TUF B550M-PLUS WIFI",
+      "ASUS TUF GAMING B550M-PLUS",
+      "TUF GAMING B550M-PLUS",
+      "ASUS TUF Gaming B550M-Plus WiFi",
+      "ASUS TUF Gaming B550M-Plus (Wi-Fi)"
+    ],
+    "sources": [
+      "https://www.asus.com/motherboards-components/motherboards/tuf-gaming/tuf-gaming-b550m-plus-wifi-ii/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "gigabyte-b550m-ds3h": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte B550M DS3H",
+    "socket": "AM4",
+    "chipset": "B550",
+    "ddr": "DDR4",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "Gigabyte B550M DS3H",
+      "B550M DS3H",
+      "Gigabyte B550M DS3H AC",
+      "B550M DS3H AC",
+      "Gigabyte B550M DS3H V2",
+      "B550M DS3H V2",
+      "GIGABYTE B550M DS3H"
+    ],
+    "sources": [
+      "https://www.gigabyte.com/Motherboard/B550M-DS3H-rev-1x"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "gigabyte-b550-gaming-x-v2": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte B550 GAMING X V2",
+    "socket": "AM4",
+    "chipset": "B550",
+    "ddr": "DDR4",
+    "form_factor": "ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "Gigabyte B550 GAMING X V2",
+      "B550 GAMING X V2",
+      "Gigabyte B550 Gaming X V2",
+      "B550 Gaming X V2",
+      "Gigabyte B550 Gaming X",
+      "B550 Gaming X",
+      "GIGABYTE B550 GAMING X V2"
+    ],
+    "sources": [
+      "https://www.gigabyte.com/Motherboard/B550-GAMING-X-V2-rev-1x"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "gigabyte-b450m-ds3h": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte B450M DS3H",
+    "socket": "AM4",
+    "chipset": "B450",
+    "ddr": "DDR4",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 1,
+    "sata_ports": 4,
+    "pcie_gen": 3,
+    "aliases": [
+      "Gigabyte B450M DS3H",
+      "B450M DS3H",
+      "Gigabyte B450M DS3H V2",
+      "B450M DS3H V2",
+      "Gigabyte B450M DS3H WIFI",
+      "B450M DS3H WIFI",
+      "GIGABYTE B450M DS3H"
+    ],
+    "sources": [
+      "https://www.gigabyte.com/Motherboard/B450M-DS3H-rev-1x"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "msi-b450-tomahawk-max": {
+    "brand": "MSI",
+    "model": "MSI B450 TOMAHAWK MAX",
+    "socket": "AM4",
+    "chipset": "B450",
+    "ddr": "DDR4",
+    "form_factor": "ATX",
+    "m2_slots": 1,
+    "sata_ports": 6,
+    "pcie_gen": 3,
+    "aliases": [
+      "MSI B450 TOMAHAWK MAX",
+      "B450 TOMAHAWK MAX",
+      "MSI B450 TOMAHAWK MAX II",
+      "B450 TOMAHAWK MAX II",
+      "MSI B450 TOMAHAWK",
+      "B450 TOMAHAWK",
+      "MSI B450 Tomahawk Max"
+    ],
+    "sources": [
+      "https://www.msi.com/Motherboard/B450-TOMAHAWK-MAX"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "msi-a520m-a-pro": {
+    "brand": "MSI",
+    "model": "MSI A520M-A PRO",
+    "socket": "AM4",
+    "chipset": "A520",
+    "ddr": "DDR4",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 1,
+    "sata_ports": 4,
+    "pcie_gen": 3,
+    "aliases": [
+      "MSI A520M-A PRO",
+      "A520M-A PRO",
+      "MSI A520M A PRO",
+      "A520M A PRO",
+      "MSI A520M-A Pro",
+      "MSI A520M-A PRO AM4"
+    ],
+    "sources": [
+      "https://www.msi.com/Motherboard/A520M-A-PRO"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "asus-prime-a520m-k": {
+    "brand": "ASUS",
+    "model": "ASUS PRIME A520M-K",
+    "socket": "AM4",
+    "chipset": "A520",
+    "ddr": "DDR4",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 1,
+    "sata_ports": 4,
+    "pcie_gen": 3,
+    "aliases": [
+      "ASUS PRIME A520M-K",
+      "PRIME A520M-K",
+      "ASUS A520M-K",
+      "PRIME A520M K",
+      "ASUS Prime A520M-K",
+      "ASUS PRIME A520M-K AM4"
+    ],
+    "sources": [
+      "https://www.asus.com/motherboards-components/motherboards/prime/prime-a520m-k/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "msi-pro-h610m-e-ddr4": {
+    "brand": "MSI",
+    "model": "MSI PRO H610M-E DDR4",
+    "socket": "LGA 1700",
+    "chipset": "H610",
+    "ddr": "DDR4",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 1,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "MSI PRO H610M-E DDR4",
+      "PRO H610M-E DDR4",
+      "MSI H610M-E DDR4",
+      "PRO H610M-E D4",
+      "MSI PRO H610M E DDR4",
+      "MSI PRO H610M-E D4",
+      "MSI Pro H610M-E DDR4"
+    ],
+    "sources": [
+      "https://www.msi.com/Motherboard/PRO-H610M-E-DDR4"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "asus-prime-h610m-e-d4": {
+    "brand": "ASUS",
+    "model": "ASUS PRIME H610M-E D4",
+    "socket": "LGA 1700",
+    "chipset": "H610",
+    "ddr": "DDR4",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "ASUS PRIME H610M-E D4",
+      "PRIME H610M-E D4",
+      "ASUS PRIME H610M-E DDR4",
+      "PRIME H610M-E DDR4",
+      "ASUS H610M-E D4",
+      "ASUS PRIME H610M-E D4-CSM",
+      "ASUS Prime H610M-E D4"
+    ],
+    "sources": [
+      "https://www.asus.com/motherboards-components/motherboards/prime/prime-h610m-e-d4/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "msi-pro-b660m-a-ddr4": {
+    "brand": "MSI",
+    "model": "MSI PRO B660M-A DDR4",
+    "socket": "LGA 1700",
+    "chipset": "B660",
+    "ddr": "DDR4",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "MSI PRO B660M-A DDR4",
+      "PRO B660M-A DDR4",
+      "MSI PRO B660M-A WIFI DDR4",
+      "PRO B660M-A WIFI DDR4",
+      "MSI B660M-A DDR4",
+      "MSI PRO B660M-A D4",
+      "MSI Pro B660M-A DDR4"
+    ],
+    "sources": [
+      "https://www.msi.com/Motherboard/PRO-B660M-A-DDR4"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "gigabyte-b760m-ds3h-ddr4": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte B760M DS3H DDR4",
+    "socket": "LGA 1700",
+    "chipset": "B760",
+    "ddr": "DDR4",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "Gigabyte B760M DS3H DDR4",
+      "B760M DS3H DDR4",
+      "Gigabyte B760M DS3H AX DDR4",
+      "B760M DS3H AX DDR4",
+      "Gigabyte B760M DS3H D4",
+      "B760M DS3H D4",
+      "GIGABYTE B760M DS3H DDR4"
+    ],
+    "sources": [
+      "https://www.gigabyte.com/Motherboard/B760M-DS3H-DDR4-rev-10"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "asus-tuf-gaming-b760m-plus-d4": {
+    "brand": "ASUS",
+    "model": "ASUS TUF GAMING B760M-PLUS D4",
+    "socket": "LGA 1700",
+    "chipset": "B760",
+    "ddr": "DDR4",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 5,
+    "aliases": [
+      "ASUS TUF GAMING B760M-PLUS D4",
+      "TUF GAMING B760M-PLUS D4",
+      "ASUS TUF GAMING B760M-PLUS WIFI D4",
+      "TUF GAMING B760M-PLUS WIFI D4",
+      "ASUS TUF B760M-PLUS D4",
+      "ASUS TUF B760M-PLUS DDR4",
+      "ASUS TUF Gaming B760M-Plus D4",
+      "TUF Gaming B760M-Plus D4"
+    ],
+    "sources": [
+      "https://www.asus.com/motherboards-components/motherboards/tuf-gaming/tuf-gaming-b760m-plus-d4/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "msi-mag-b760-tomahawk-wifi": {
+    "brand": "MSI",
+    "model": "MSI MAG B760 TOMAHAWK WIFI",
+    "socket": "LGA 1700",
+    "chipset": "B760",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 3,
+    "sata_ports": 4,
+    "pcie_gen": 5,
+    "aliases": [
+      "MSI MAG B760 TOMAHAWK WIFI",
+      "MAG B760 TOMAHAWK WIFI",
+      "MSI B760 TOMAHAWK WIFI",
+      "B760 TOMAHAWK WIFI",
+      "MSI MAG B760 TOMAHAWK WIFI DDR5",
+      "MSI MAG B760 Tomahawk WiFi",
+      "MAG B760 Tomahawk WiFi",
+      "MSI MAG B760 Tomahawk"
+    ],
+    "sources": [
+      "https://www.msi.com/Motherboard/MAG-B760-TOMAHAWK-WIFI"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "msi-pro-b650m-p": {
+    "brand": "MSI",
+    "model": "MSI PRO B650M-P",
+    "socket": "AM5",
+    "chipset": "B650",
+    "ddr": "DDR5",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "MSI PRO B650M-P",
+      "PRO B650M-P",
+      "MSI B650M-P",
+      "B650M-P",
+      "MSI PRO B650M P AM5",
+      "MSI Pro B650M-P"
+    ],
+    "sources": [
+      "https://www.msi.com/Motherboard/PRO-B650M-P"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "msi-pro-b650m-a-wifi": {
+    "brand": "MSI",
+    "model": "MSI PRO B650M-A WIFI",
+    "socket": "AM5",
+    "chipset": "B650",
+    "ddr": "DDR5",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "MSI PRO B650M-A WIFI",
+      "PRO B650M-A WIFI",
+      "MSI B650M-A WIFI",
+      "B650M-A WIFI",
+      "MSI PRO B650M-A",
+      "PRO B650M-A",
+      "MSI PRO B650M-A WiFi",
+      "PRO B650M-A WiFi",
+      "MSI Pro B650M-A WiFi"
+    ],
+    "sources": [
+      "https://www.msi.com/Motherboard/PRO-B650M-A-WIFI"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "gigabyte-b650-gaming-x-ax-v2": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte B650 GAMING X AX V2",
+    "socket": "AM5",
+    "chipset": "B650",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 3,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "Gigabyte B650 GAMING X AX V2",
+      "B650 GAMING X AX V2",
+      "Gigabyte B650 Gaming X AX V2",
+      "B650 Gaming X AX V2",
+      "Gigabyte B650 Gaming X AX",
+      "B650 Gaming X AX",
+      "Gigabyte B650 GAMING X AX",
+      "B650 GAMING X AX"
+    ],
+    "sources": [
+      "https://www.gigabyte.com/Motherboard/B650-GAMING-X-AX-V2-rev-1x"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "gigabyte-b650m-d3hp": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte B650M D3HP",
+    "socket": "AM5",
+    "chipset": "B650",
+    "ddr": "DDR5",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "Gigabyte B650M D3HP",
+      "B650M D3HP",
+      "Gigabyte B650M D3HP AX",
+      "B650M D3HP AX",
+      "GIGABYTE B650M D3HP"
+    ],
+    "sources": [
+      "https://www.gigabyte.com/Motherboard/B650M-D3HP-rev-10"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "asus-tuf-gaming-b650-plus": {
+    "brand": "ASUS",
+    "model": "ASUS TUF GAMING B650-PLUS",
+    "socket": "AM5",
+    "chipset": "B650",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 3,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "ASUS TUF GAMING B650-PLUS",
+      "TUF GAMING B650-PLUS",
+      "ASUS TUF B650-PLUS",
+      "TUF B650-PLUS",
+      "ASUS TUF GAMING B650-PLUS Non-WiFi",
+      "ASUS TUF Gaming B650-Plus",
+      "TUF Gaming B650-Plus"
+    ],
+    "sources": [
+      "https://www.asus.com/motherboards-components/motherboards/tuf-gaming/tuf-gaming-b650-plus/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "asus-prime-b650m-a": {
+    "brand": "ASUS",
+    "model": "ASUS PRIME B650M-A",
+    "socket": "AM5",
+    "chipset": "B650",
+    "ddr": "DDR5",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "ASUS PRIME B650M-A",
+      "PRIME B650M-A",
+      "ASUS PRIME B650M-A WIFI",
+      "PRIME B650M-A WIFI",
+      "ASUS PRIME B650M-A II",
+      "PRIME B650M-A II",
+      "ASUS PRIME B650M-A AX6",
+      "ASUS Prime B650M-A"
+    ],
+    "sources": [
+      "https://www.asus.com/motherboards-components/motherboards/prime/prime-b650m-a/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "asrock-b650m-hdv-m-2": {
+    "brand": "ASRock",
+    "model": "ASRock B650M-HDV/M.2",
+    "socket": "AM5",
+    "chipset": "B650",
+    "ddr": "DDR5",
+    "form_factor": "Micro-ATX",
+    "m2_slots": 2,
+    "sata_ports": 4,
+    "pcie_gen": 4,
+    "aliases": [
+      "ASRock B650M-HDV/M.2",
+      "B650M-HDV/M.2",
+      "ASRock B650M-HDV M.2",
+      "B650M-HDV M.2",
+      "ASRock B650M HDV",
+      "ASRock B650M-HDV",
+      "B650M-HDV"
+    ],
+    "sources": [
+      "https://www.asrock.com/mb/AMD/B650M-HDVM.2/index.asp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "asus-rog-strix-x870e-e-gaming-wifi": {
+    "brand": "ASUS",
+    "model": "ASUS ROG STRIX X870E-E GAMING WIFI",
+    "socket": "AM5",
+    "chipset": "X870E",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 5,
+    "sata_ports": 4,
+    "pcie_gen": 5,
+    "aliases": [
+      "ASUS ROG STRIX X870E-E GAMING WIFI",
+      "ROG STRIX X870E-E GAMING WIFI",
+      "ASUS ROG Strix X870E-E Gaming WiFi",
+      "ROG Strix X870E-E Gaming WiFi",
+      "ASUS ROG STRIX X870E-E",
+      "ROG Strix X870E-E",
+      "ROG Strix X870E-E Gaming",
+      "ASUS ROG Strix X870E-E Gaming"
+    ],
+    "sources": [
+      "https://rog.asus.com/motherboards/rog-strix/rog-strix-x870e-e-gaming-wifi-model/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "msi-mag-x870-tomahawk-wifi": {
+    "brand": "MSI",
+    "model": "MSI MAG X870 TOMAHAWK WIFI",
+    "socket": "AM5",
+    "chipset": "X870",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 4,
+    "sata_ports": 4,
+    "pcie_gen": 5,
+    "aliases": [
+      "MSI MAG X870 TOMAHAWK WIFI",
+      "MAG X870 TOMAHAWK WIFI",
+      "MSI MAG X870 Tomahawk WiFi",
+      "MAG X870 Tomahawk WiFi",
+      "MSI X870 TOMAHAWK WIFI",
+      "X870 TOMAHAWK WIFI",
+      "MSI MAG X870 Tomahawk",
+      "MAG X870 Tomahawk"
+    ],
+    "sources": [
+      "https://www.msi.com/Motherboard/MAG-X870-TOMAHAWK-WIFI"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "asus-rog-maximus-z890-hero": {
+    "brand": "ASUS",
+    "model": "ASUS ROG MAXIMUS Z890 HERO",
+    "socket": "LGA 1851",
+    "chipset": "Z890",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 6,
+    "sata_ports": 4,
+    "pcie_gen": 5,
+    "aliases": [
+      "ASUS ROG MAXIMUS Z890 HERO",
+      "ROG MAXIMUS Z890 HERO",
+      "ASUS ROG Maximus Z890 Hero",
+      "ROG Maximus Z890 Hero",
+      "ASUS MAXIMUS Z890 HERO",
+      "ROG Z890 HERO",
+      "Maximus Z890 Hero",
+      "ASUS ROG Maximus Z890"
+    ],
+    "sources": [
+      "https://rog.asus.com/motherboards/rog-maximus/rog-maximus-z890-hero-model/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "msi-pro-z890-a-wifi": {
+    "brand": "MSI",
+    "model": "MSI PRO Z890-A WIFI",
+    "socket": "LGA 1851",
+    "chipset": "Z890",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 4,
+    "sata_ports": 4,
+    "pcie_gen": 5,
+    "aliases": [
+      "MSI PRO Z890-A WIFI",
+      "PRO Z890-A WIFI",
+      "MSI PRO Z890-A WiFi",
+      "PRO Z890-A WiFi",
+      "MSI Z890-A WIFI",
+      "MSI PRO Z890-A",
+      "MSI PRO Z890-A Wifi",
+      "MSI Pro Z890-A WiFi"
+    ],
+    "sources": [
+      "https://www.msi.com/Motherboard/PRO-Z890-A-WIFI"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
+  },
+  "gigabyte-z890-aorus-elite-wifi7": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte Z890 AORUS ELITE WIFI7",
+    "socket": "LGA 1851",
+    "chipset": "Z890",
+    "ddr": "DDR5",
+    "form_factor": "ATX",
+    "m2_slots": 4,
+    "sata_ports": 4,
+    "pcie_gen": 5,
+    "aliases": [
+      "Gigabyte Z890 AORUS ELITE WIFI7",
+      "Z890 AORUS ELITE WIFI7",
+      "Gigabyte Z890 Aorus Elite WiFi 7",
+      "Z890 Aorus Elite WiFi 7",
+      "Gigabyte Z890 AORUS ELITE WIFI 7",
+      "GIGABYTE Z890 AORUS ELITE WIFI7",
+      "Gigabyte Z890 Aorus Elite",
+      "Z890 Aorus Elite WiFi7"
+    ],
+    "sources": [
+      "https://www.gigabyte.com/Motherboard/Z890-AORUS-ELITE-WIFI7"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T10:05:00Z"
   }
 }

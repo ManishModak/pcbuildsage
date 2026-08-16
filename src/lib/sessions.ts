@@ -35,11 +35,21 @@ export function getSessionsDb(dbPath = DEFAULT_SESSIONS_DB_PATH): Database.Datab
       country_code TEXT,
       currency TEXT,
       messages TEXT NOT NULL,
-      build_state TEXT
+      build_state TEXT,
+      revision INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS session_tombstones (
+      id TEXT PRIMARY KEY,
+      deleted_at TEXT NOT NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at DESC);
   `);
+  const sessionColumns = db.pragma("table_info(sessions)") as Array<{ name: string }>;
+  if (!sessionColumns.some((column) => column.name === "revision")) {
+    db.exec("ALTER TABLE sessions ADD COLUMN revision INTEGER NOT NULL DEFAULT 0");
+  }
 
   sessionsDb = db;
   return db;
@@ -61,10 +71,12 @@ export type SessionRecord = {
   currency: string | null;
   messages: unknown[];
   build_state: unknown | null;
+  revision: number;
 };
 
 export type SaveSessionInput = {
   id: string;
+  revision: number;
   messages?: unknown[];
   title?: string | null;
   countryCode?: string | null;
@@ -72,27 +84,69 @@ export type SaveSessionInput = {
   buildState?: unknown;
 };
 
+export type SaveSessionResult =
+  | { status: "saved"; revision: number }
+  | { status: "stale"; revision: number }
+  | { status: "deleted" };
+
+export class CorruptSessionError extends Error {
+  constructor(readonly sessionId: string) {
+    super(`Session ${sessionId} contains invalid stored data.`);
+    this.name = "CorruptSessionError";
+  }
+}
+
 /**
  * Upsert a session. `created_at` is set only on insert; `updated_at` (and
  * the rest of the mutable columns) always refreshes on conflict.
  */
-export function saveSession(input: SaveSessionInput): void {
+export function saveSession(input: SaveSessionInput): SaveSessionResult {
   const db = getSessionsDb();
-  const now = new Date().toISOString();
-  const messagesJson = input.messages !== undefined ? JSON.stringify(input.messages) : null;
-  const buildStateJson = input.buildState !== undefined ? JSON.stringify(input.buildState) : null;
+  return db.transaction((): SaveSessionResult => {
+    const tombstone = db.prepare("SELECT 1 FROM session_tombstones WHERE id = ?").get(input.id);
+    if (tombstone) return { status: "deleted" };
 
-  db.prepare(
-    `INSERT INTO sessions (id, created_at, updated_at, title, country_code, currency, messages, build_state)
-     VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, '[]'), ?)
-     ON CONFLICT(id) DO UPDATE SET
-       messages = COALESCE(?, messages),
-       title = COALESCE(excluded.title, title),
-       country_code = COALESCE(excluded.country_code, country_code),
-       currency = COALESCE(excluded.currency, currency),
-       updated_at = excluded.updated_at,
-       build_state = COALESCE(excluded.build_state, build_state)`
-  ).run(input.id, now, now, input.title ?? null, input.countryCode ?? null, input.currency ?? null, messagesJson, buildStateJson, messagesJson);
+    const current = db.prepare("SELECT revision FROM sessions WHERE id = ?").get(input.id) as
+      | { revision: number }
+      | undefined;
+    if (current && input.revision <= current.revision) {
+      return { status: "stale", revision: current.revision };
+    }
+
+    const now = new Date().toISOString();
+    const messagesJson = input.messages !== undefined ? JSON.stringify(input.messages) : null;
+    const buildStateJson =
+      input.buildState !== undefined && input.buildState !== null ? JSON.stringify(input.buildState) : null;
+
+    db.prepare(
+      `INSERT INTO sessions (id, created_at, updated_at, title, country_code, currency, messages, build_state, revision)
+       VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, '[]'), ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         messages = CASE WHEN ? THEN excluded.messages ELSE sessions.messages END,
+         title = CASE WHEN ? THEN excluded.title ELSE sessions.title END,
+         country_code = CASE WHEN ? THEN excluded.country_code ELSE sessions.country_code END,
+         currency = CASE WHEN ? THEN excluded.currency ELSE sessions.currency END,
+         updated_at = excluded.updated_at,
+         build_state = CASE WHEN ? THEN excluded.build_state ELSE sessions.build_state END,
+         revision = excluded.revision`
+    ).run(
+      input.id,
+      now,
+      now,
+      input.title ?? null,
+      input.countryCode ?? null,
+      input.currency ?? null,
+      messagesJson,
+      buildStateJson,
+      input.revision,
+      input.messages !== undefined ? 1 : 0,
+      input.title !== undefined ? 1 : 0,
+      input.countryCode !== undefined ? 1 : 0,
+      input.currency !== undefined ? 1 : 0,
+      input.buildState !== undefined ? 1 : 0
+    );
+    return { status: "saved", revision: input.revision };
+  })();
 }
 
 /** List sessions newest-first, without the (potentially large) messages blob. */
@@ -116,24 +170,35 @@ export function getSession(id: string): SessionRecord | null {
         currency: string | null;
         messages: string;
         build_state: string | null;
+        revision: number;
       }
     | undefined;
 
   if (!row) return null;
 
-  return {
-    id: row.id,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    title: row.title,
-    country_code: row.country_code,
-    currency: row.currency,
-    messages: JSON.parse(row.messages) as unknown[],
-    build_state: row.build_state ? (JSON.parse(row.build_state) as unknown) : null
-  };
+  try {
+    const messages: unknown = JSON.parse(row.messages);
+    if (!Array.isArray(messages)) throw new Error("messages must be an array");
+    return {
+      id: row.id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      title: row.title,
+      country_code: row.country_code,
+      currency: row.currency,
+      messages,
+      build_state: row.build_state ? (JSON.parse(row.build_state) as unknown) : null,
+      revision: row.revision
+    };
+  } catch {
+    throw new CorruptSessionError(row.id);
+  }
 }
 
 export function deleteSession(id: string): void {
   const db = getSessionsDb();
-  db.prepare(`DELETE FROM sessions WHERE id = ?`).run(id);
+  db.transaction(() => {
+    db.prepare(`INSERT OR IGNORE INTO session_tombstones (id, deleted_at) VALUES (?, ?)`).run(id, new Date().toISOString());
+    db.prepare(`DELETE FROM sessions WHERE id = ?`).run(id);
+  })();
 }

@@ -5,7 +5,8 @@ import asyncio
 import json
 import logging
 import sys
-from dataclasses import replace
+from dataclasses import asdict, dataclass, replace
+from typing import Literal
 
 from .config import ProfileError, REPO_ROOT, filter_sites, load_profile, resolve_categories
 from .crawler import CrawlError, ScraperCrawler, category_page_url
@@ -21,6 +22,47 @@ logger = logging.getLogger(__name__)
 # A run must find at least this fraction of the retailer/category's on-record
 # in-stock count before it is trusted to retire the rows it did not see.
 DEFAULT_SWEEP_MIN_RATIO = 0.5
+
+RunStatus = Literal["succeeded", "partial", "failed", "cancelled"]
+JobStatus = Literal["succeeded", "failed", "skipped"]
+
+
+@dataclass(frozen=True)
+class JobOutcome:
+    status: JobStatus
+    products_written: int = 0
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class RunOutcome:
+    status: RunStatus
+    jobs_total: int
+    jobs_succeeded: int
+    jobs_failed: int
+    jobs_skipped: int
+    products_written: int | None
+    errors: list[str]
+
+
+def summarize_run(jobs: list[JobOutcome]) -> RunOutcome:
+    succeeded = sum(job.status == "succeeded" for job in jobs)
+    failed = sum(job.status == "failed" for job in jobs)
+    skipped = sum(job.status == "skipped" for job in jobs)
+    status: RunStatus = "succeeded" if failed == 0 else "failed" if failed == len(jobs) else "partial"
+    return RunOutcome(
+        status=status,
+        jobs_total=len(jobs),
+        jobs_succeeded=succeeded,
+        jobs_failed=failed,
+        jobs_skipped=skipped,
+        products_written=sum(job.products_written for job in jobs),
+        errors=[job.error for job in jobs if job.error],
+    )
+
+
+def emit_outcome(emitter: EventEmitter, outcome: RunOutcome) -> None:
+    emitter.emit("outcome", outcome=asdict(outcome))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -79,9 +121,11 @@ def page_limit(category: CategoryConfig, args: argparse.Namespace) -> int:
     return category.max_pages
 
 
-def estimate_seconds(work: list[tuple[SiteConfig, CategoryConfig, int]], delay_ms: int) -> int:
+def estimate_seconds(work: list[tuple[SiteConfig, CategoryConfig, int]], delay_ms: int, concurrency: int = 1) -> int:
     pages = sum(limit for _, _, limit in work)
-    return max(1, int(pages * (2.5 + delay_ms / 1000)))
+    unique_sites = len({site.site_name for site, _, _ in work})
+    effective_workers = max(1, min(unique_sites, max(1, concurrency)))
+    return max(1, int((pages * (2.5 + delay_ms / 1000)) / effective_workers))
 
 
 def format_duration(seconds: int) -> str:
@@ -169,43 +213,15 @@ def write_products(
     first_seen, and the product URL survive a listing disappearing.
     """
     with ProductStore(db_path) as store:
-        # Read the baseline before upserting, or this run's own writes count toward it.
-        previous_in_stock = store.count_in_stock(site.site_name, category.name)
-        written = store.upsert_products(products, scraped_at=scraped_at)
-
-        skip_reason = sweep_skip_reason(
-            found=len(products),
-            previous_in_stock=previous_in_stock,
-            min_ratio=sweep_min_ratio,
-            force=force_sweep,
+        return store.apply_category_snapshot(
+            products,
+            retailer=site.site_name,
+            category=category.name,
+            run_started_at=run_started_at,
+            scraped_at=scraped_at,
+            sweep_min_ratio=sweep_min_ratio,
+            force_sweep=force_sweep,
         )
-        if skip_reason is None:
-            store.sweep_stale_stock(site.site_name, category.name, run_started_at)
-        return written, skip_reason
-
-
-def sweep_skip_reason(found: int, previous_in_stock: int, min_ratio: float, force: bool) -> str | None:
-    """Why the stale-stock sweep should be skipped for this job, or None to sweep.
-
-    A crawl that collapses relative to what is already on record is far more
-    likely to be a blocked or partially rendered listing page than a retailer
-    genuinely dropping its catalogue, and sweeping on it would mark healthy
-    stock as unavailable. `force` overrides this for a genuine inventory purge.
-    """
-    if force:
-        return None
-    # An empty crawl is indistinguishable from an anti-bot block page.
-    if found == 0:
-        return "crawl returned no products"
-    # Nothing on record yet, so there is no baseline to collapse against.
-    if previous_in_stock == 0:
-        return None
-    if found < previous_in_stock * min_ratio:
-        return (
-            f"found {found} products but {previous_in_stock} were in stock "
-            f"(below the {min_ratio:.0%} threshold); suspected partial crawl"
-        )
-    return None
 
 
 async def run_test_profile(args: argparse.Namespace, emitter: EventEmitter) -> int:
@@ -235,7 +251,7 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
     if not args.profile:
         raise ProfileError("--profile is required unless --test-profile or --list-models is used")
     work, _profile = build_work(args.profile, args)
-    estimate = format_duration(estimate_seconds(work, args.delay_ms))
+    estimate = format_duration(estimate_seconds(work, args.delay_ms, args.concurrency))
     emitter.logger.info("Estimated crawl time: %s (%d site/category jobs)", estimate, len(work))
     with ProductStore(args.db):
         pass
@@ -266,122 +282,135 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
         max_llm_calls=args.max_llm_calls,
     )
     matcher = RegistryMatcher()
-    semaphore = asyncio.Semaphore(max(1, args.concurrency))
-    total_written = 0
 
-    async def run_job(site: SiteConfig, category: CategoryConfig, limit: int) -> int:
-        nonlocal crawler
-        async with semaphore:
-            run_started_at = utc_now_iso()
-            emitter.emit("site_started", site=site.site_name, category=category.name)
-            logger.info("Job started: %s/%s", site.site_name, category.name, extra={"component": "scraper"})
-            if args.skip_fresh:
-                with ProductStore(args.db) as store:
-                    if store.was_scraped_since(site.site_name, category.name, args.skip_fresh):
-                        emitter.progress(site=site.site_name, category=category.name, percent=100, skipped=True)
-                        logger.info("Job skipped (scraped recently): %s/%s", site.site_name, category.name, extra={"component": "scraper"})
-                        return 0
-            try:
-                if site.scraping_type == "search":
-                    terms = search_terms_for_category(category.name)
-                    raw_products = await crawler.crawl_search(
-                        site,
-                        category,
-                        terms,
-                        limit,
-                        on_page=lambda page, products, _html: emitter.progress(
-                            site=site.site_name,
-                            category=category.name,
-                            page=page,
-                            pages_total=limit,
-                            products_seen=len(products),
-                            percent=min(99, int(page / limit * 100)),
-                        ),
-                    )
-                else:
-                    raw_products = await crawler.crawl_category(
-                        site,
-                        category,
-                        limit,
-                        on_page=lambda page, products, _html: emitter.progress(
-                            site=site.site_name,
-                            category=category.name,
-                            page=page,
-                            pages_total=limit,
-                            products_seen=len(products),
-                            percent=min(99, int(page / limit * 100)),
-                        ),
-                    )
-                scraped_at = utc_now_iso()
-                products = [
-                    product
-                    for raw in raw_products
-                    if (product := make_product(raw, site, category.name, matcher, scraped_at)) is not None
-                ]
-                written, sweep_skipped = await asyncio.to_thread(
-                    write_products,
-                    args.db,
-                    products,
-                    scraped_at,
+    async def run_job(site: SiteConfig, category: CategoryConfig, limit: int) -> JobOutcome:
+        run_started_at = utc_now_iso()
+        emitter.emit("site_started", site=site.site_name, category=category.name)
+        logger.info("Job started: %s/%s", site.site_name, category.name, extra={"component": "scraper"})
+        if args.skip_fresh:
+            with ProductStore(args.db) as store:
+                if store.was_scraped_since(site.site_name, category.name, args.skip_fresh):
+                    emitter.progress(site=site.site_name, category=category.name, percent=100, skipped=True)
+                    logger.info("Job skipped (scraped recently): %s/%s", site.site_name, category.name, extra={"component": "scraper"})
+                    return JobOutcome("skipped")
+        try:
+            if site.scraping_type == "search":
+                terms = search_terms_for_category(category.name)
+                raw_products = await crawler.crawl_search(
                     site,
                     category,
-                    run_started_at,
-                    args.sweep_min_ratio,
-                    args.force_sweep,
-                )
-                if sweep_skipped:
-                    # Surfaced rather than silent: skipping leaves rows that may
-                    # genuinely be gone still marked in stock.
-                    emitter.emit(
-                        "sweep_skipped",
+                    terms,
+                    limit,
+                    on_page=lambda page, products, _html: emitter.progress(
                         site=site.site_name,
                         category=category.name,
-                        reason=sweep_skipped,
-                    )
-                    logger.warning(
-                        "Stale-stock sweep skipped for %s/%s: %s. Existing rows keep their stock status; "
-                        "re-run with --force-sweep if the drop is real.",
-                        site.site_name,
-                        category.name,
-                        sweep_skipped,
-                        extra={"component": "scraper"},
-                    )
-                emitter.progress(site=site.site_name, category=category.name, percent=100, products_seen=len(products))
-                logger.info(
-                    "Job completed: %s/%s. Found %d products, wrote %d to DB.",
+                        page=page,
+                        pages_total=limit,
+                        products_seen=len(products),
+                        percent=min(99, int(page / limit * 100)),
+                    ),
+                )
+            else:
+                raw_products = await crawler.crawl_category(
+                    site,
+                    category,
+                    limit,
+                    on_page=lambda page, products, _html: emitter.progress(
+                        site=site.site_name,
+                        category=category.name,
+                        page=page,
+                        pages_total=limit,
+                        products_seen=len(products),
+                        percent=min(99, int(page / limit * 100)),
+                    ),
+                )
+            scraped_at = utc_now_iso()
+            products = [
+                product
+                for raw in raw_products
+                if (product := make_product(raw, site, category.name, matcher, scraped_at)) is not None
+            ]
+            written, sweep_skipped = await asyncio.to_thread(
+                write_products,
+                args.db,
+                products,
+                scraped_at,
+                site,
+                category,
+                run_started_at,
+                args.sweep_min_ratio,
+                args.force_sweep,
+            )
+            if sweep_skipped:
+                # Surfaced rather than silent: skipping leaves rows that may
+                # genuinely be gone still marked in stock.
+                emitter.emit(
+                    "sweep_skipped",
+                    site=site.site_name,
+                    category=category.name,
+                    reason=sweep_skipped,
+                )
+                logger.warning(
+                    "Stale-stock sweep skipped for %s/%s: %s. Existing rows keep their stock status; "
+                    "re-run with --force-sweep if the drop is real.",
                     site.site_name,
                     category.name,
-                    len(products),
-                    written,
-                    extra={"component": "scraper"}
+                    sweep_skipped,
+                    extra={"component": "scraper"},
                 )
-                return written
-            except Exception as exc:
-                import traceback
-                error_details = {
-                    "error": str(exc),
-                    "traceback": traceback.format_exc()
-                }
-                logger.error(
-                    "Job failed: %s/%s",
-                    site.site_name,
-                    category.name,
-                    extra={"component": "scraper", "details": error_details}
-                )
-                emitter.emit("site_failed", site=site.site_name, category=category.name, error=str(exc))
-                return 0
+            emitter.progress(site=site.site_name, category=category.name, percent=100, products_seen=len(products))
+            logger.info(
+                "Job completed: %s/%s. Found %d products, wrote %d to DB.",
+                site.site_name,
+                category.name,
+                len(products),
+                written,
+                extra={"component": "scraper"}
+            )
+            return JobOutcome("succeeded", products_written=written)
+        except Exception as exc:
+            import traceback
+            error_details = {
+                "error": str(exc),
+                "traceback": traceback.format_exc()
+            }
+            logger.error(
+                "Job failed: %s/%s",
+                site.site_name,
+                category.name,
+                extra={"component": "scraper", "details": error_details}
+            )
+            emitter.emit("site_failed", site=site.site_name, category=category.name, error=str(exc))
+            return JobOutcome("failed", error=f"{site.site_name}/{category.name}: {exc}")
+
+    # Group work by site so each site's categories run sequentially,
+    # but up to `concurrency` distinct sites run in parallel.
+    site_jobs: dict[str, list[tuple[SiteConfig, CategoryConfig, int]]] = {}
+    for site, category, limit in work:
+        site_jobs.setdefault(site.site_name, []).append((site, category, limit))
+
+    site_semaphore = asyncio.Semaphore(max(1, args.concurrency))
+
+    async def run_site_worker(jobs: list[tuple[SiteConfig, CategoryConfig, int]]) -> list[JobOutcome]:
+        async with site_semaphore:
+            site_results: list[JobOutcome] = []
+            for site, category, limit in jobs:
+                outcome = await run_job(site, category, limit)
+                site_results.append(outcome)
+            return site_results
 
     async with crawler.fetcher:
-        results = await asyncio.gather(*(run_job(site, category, limit) for site, category, limit in work))
-    total_written = sum(results)
+        nested_results = await asyncio.gather(*(run_site_worker(jobs) for jobs in site_jobs.values()))
+        results = [outcome for site_res in nested_results for outcome in site_res]
+    outcome = summarize_run(results)
     logger.info(
         "Scrape finished for profile %s. Total products written: %d",
         args.profile,
-        total_written,
+        outcome.products_written,
         extra={"component": "scraper"}
     )
-    emitter.emit("done", products_written=total_written)
-    return 0
+    emit_outcome(emitter, outcome)
+    return 0 if outcome.status == "succeeded" else 1
 
 
 def main() -> int:
@@ -416,8 +445,17 @@ def main() -> int:
             parser.print_help(sys.stderr)
             return 2
         return asyncio.run(run_scrape(args, emitter))
-    except (ProfileError, CrawlError, RuntimeError, ValueError) as exc:
-        emitter.emit("error", error=str(exc))
+    except KeyboardInterrupt:
+        if not args.test_profile and not args.list_models:
+            emit_outcome(emitter, RunOutcome("cancelled", 0, 0, 0, 0, None, []))
+        return 130
+    except Exception as exc:
+        if not isinstance(exc, (ProfileError, CrawlError, RuntimeError, ValueError)):
+            logger.exception("Scraper terminated unexpectedly")
+        if not args.test_profile and not args.list_models:
+            emit_outcome(emitter, RunOutcome("failed", 0, 0, 0, 0, None, [str(exc)]))
+        else:
+            emitter.emit("error", error=str(exc))
         return 1
     finally:
         if log_listener:

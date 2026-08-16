@@ -1,15 +1,163 @@
 {
   "$schema": "../schemas/registry.schema.json",
+  "crucial-8gb-ddr4-3200": {
+    "brand": "Crucial",
+    "model": "Crucial 8GB DDR4 3200MHz CL22 UDIMM",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "8GB",
+    "aliases": [
+      "Crucial 8GB DDR4-3200",
+      "Crucial 8GB (1x8GB) DDR4-3200",
+      "Crucial 8GB DDR4 3200MHz",
+      "CT8G4DFRA32A",
+      "Crucial Basics 8GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr4/ct8g4dfra32a"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "crucial-16gb-ddr4-3200": {
+    "brand": "Crucial",
+    "model": "Crucial 16GB DDR4 3200MHz CL22 UDIMM",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Crucial 16GB DDR4-3200",
+      "Crucial 16GB (1x16GB) DDR4-3200",
+      "Crucial 16GB DDR4 3200MHz",
+      "CT16G4DFRA32A",
+      "Crucial 1x16GB DDR4-3200"
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr4/ct16g4dfra32a"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "crucial-16gb-2x8gb-ddr4-3200": {
+    "brand": "Crucial",
+    "model": "Crucial 16GB (2x8GB) DDR4 3200MHz CL22 UDIMM Kit",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Crucial 16GB (2x8GB) DDR4-3200",
+      "Crucial 16GB 2x8GB DDR4 3200MHz",
+      "CT2K8G4DFRA32A",
+      "Crucial 2x8GB DDR4-3200 Kit"
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr4/ct2k8g4dfra32a"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "crucial-32gb-2x16gb-ddr4-3200": {
+    "brand": "Crucial",
+    "model": "Crucial 32GB (2x16GB) DDR4 3200MHz CL22 UDIMM Kit",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Crucial 32GB (2x16GB) DDR4-3200",
+      "Crucial 32GB 2x16GB DDR4 3200MHz",
+      "CT2K16G4DFRA32A",
+      "Crucial 2x16GB DDR4-3200 Kit"
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr4/ct2k16g4dfra32a"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "crucial-64gb-2x32gb-ddr4-3200": {
+    "brand": "Crucial",
+    "model": "Crucial 64GB (2x32GB) DDR4 3200MHz CL22 UDIMM Kit",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "Crucial 64GB (2x32GB) DDR4-3200",
+      "Crucial 64GB 2x32GB DDR4 3200MHz",
+      "CT2K32G4DFRA32A",
+      "Crucial 2x32GB DDR4-3200 Kit"
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr4/ct2k32g4dfra32a"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "crucial-pro-32gb-2x16gb-ddr4-3200": {
+    "brand": "Crucial",
+    "model": "Crucial Pro 32GB (2x16GB) DDR4 3200MHz CL22",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Crucial Pro 32GB (2x16GB) DDR4-3200",
+      "Crucial Pro 32GB DDR4-3200",
+      "Crucial Pro 32GB 2x16GB DDR4 3200MHz",
+      "CP2K16G4DFRA32A"
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr4/cp2k16g4dfra32a"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "crucial-16gb-ddr5-4800": {
+    "brand": "Crucial",
+    "model": "Crucial 16GB DDR5 4800MHz CL40 UDIMM",
+    "ddr": "DDR5",
+    "speed": "4800MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Crucial 16GB DDR5-4800",
+      "Crucial 16GB (1x16GB) DDR5-4800",
+      "Crucial 16GB DDR5 4800MHz",
+      "CT16G48C40U5"
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr5/ct16g48c40u5"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "crucial-16gb-ddr5-5600": {
+    "brand": "Crucial",
+    "model": "Crucial 16GB DDR5 5600MHz CL46 UDIMM",
+    "ddr": "DDR5",
+    "speed": "5600MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Crucial 16GB DDR5-5600",
+      "Crucial 16GB (1x16GB) DDR5-5600",
+      "Crucial 16GB DDR5 5600MHz",
+      "CT16G56C46U5"
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr5/ct16g56c46u5"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
   "crucial-pro-32gb-ddr5-5600": {
     "brand": "Crucial",
-    "model": "Crucial Pro 32GB DDR5-5600",
+    "model": "Crucial Pro 32GB (2x16GB) DDR5 5600MHz CL46",
     "ddr": "DDR5",
     "speed": "5600MHz",
     "capacity": "32GB",
     "aliases": [
-      "Crucial 32GB 2x16GB",
-      "Crucial DDR5 32GB",
-      "Crucial Pro 32GB DDR5-5600"
+      "Crucial Pro 32GB (2x16GB) DDR5-5600",
+      "Crucial Pro 32GB DDR5-5600",
+      "Crucial Pro 32GB DDR5 5600MHz",
+      "Crucial Pro 32GB 2x16GB DDR5 5600",
+      "CP2K16G56C46U5"
     ],
     "sources": [
       "https://www.crucial.com/memory/ddr5/cp2k16g56c46u5"
@@ -17,35 +165,1034 @@
     "confidence": "high",
     "researched_at": "2026-07-11T17:34:06Z"
   },
-  "corsair-vengeance-32gb-ddr5-6000": {
-    "brand": "Corsair",
-    "model": "Corsair Vengeance 32GB DDR5-6000",
+  "crucial-pro-32gb-2x16gb-ddr5-6000": {
+    "brand": "Crucial",
+    "model": "Crucial Pro Overclocking 32GB (2x16GB) DDR5 6000MHz CL36",
     "ddr": "DDR5",
     "speed": "6000MHz",
     "capacity": "32GB",
     "aliases": [
+      "Crucial Pro 32GB (2x16GB) DDR5-6000",
+      "Crucial Pro OC 32GB DDR5-6000",
+      "Crucial Pro 32GB DDR5 6000MHz CL36",
+      "Crucial Pro 32GB 2x16GB DDR5 6000",
+      "CP2K16G60C36U5B"
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr5/cp2k16g60c36u5b"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "crucial-pro-64gb-2x32gb-ddr5-5600": {
+    "brand": "Crucial",
+    "model": "Crucial Pro 64GB (2x32GB) DDR5 5600MHz CL46",
+    "ddr": "DDR5",
+    "speed": "5600MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "Crucial Pro 64GB (2x32GB) DDR5-5600",
+      "Crucial Pro 64GB DDR5-5600",
+      "Crucial Pro 64GB 2x32GB DDR5 5600",
+      "CP2K32G56C46U5"
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr5/cp2k32g56c46u5"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "crucial-pro-64gb-2x32gb-ddr5-6000": {
+    "brand": "Crucial",
+    "model": "Crucial Pro Overclocking 64GB (2x32GB) DDR5 6000MHz CL36",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "Crucial Pro 64GB (2x32GB) DDR5-6000",
+      "Crucial Pro OC 64GB DDR5-6000",
+      "Crucial Pro 64GB 2x32GB DDR5 6000",
+      "CP2K32G60C36U5B"
+    ],
+    "sources": [
+      "https://www.crucial.com/memory/ddr5/cp2k32g60c36u5b"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-lpx-8gb-ddr4-3200": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance LPX 8GB (1x8GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "8GB",
+    "aliases": [
+      "Corsair Vengeance LPX 8GB DDR4-3200",
+      "Corsair Vengeance LPX 8GB (1x8GB) DDR4-3200",
+      "Vengeance LPX DDR4 3200 8GB",
+      "CMK8GX4M1E3200C16",
+      "Corsair 8GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk8gx4m1e3200c16/vengeance-lpx-8gb-1-x-8gb-ddr4-dram-3200mhz-c16-memory-kit-black-cmk8gx4m1e3200c16"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-lpx-8gb-ddr4-3600": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance LPX 8GB (1x8GB) DDR4 3600MHz CL18",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "8GB",
+    "aliases": [
+      "Corsair Vengeance LPX 8GB DDR4-3600",
+      "Corsair Vengeance LPX 8GB (1x8GB) DDR4-3600",
+      "Vengeance LPX DDR4 3600 8GB",
+      "CMK8GX4M1Z3600C18",
+      "Corsair 8GB DDR4 3600"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk8gx4m1z3600c18/vengeance-lpx-8gb-1-x-8gb-ddr4-dram-3600mhz-c18-amd-ryzen-memory-kit-black-cmk8gx4m1z3600c18"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-lpx-16gb-1x16gb-ddr4-3200": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance LPX 16GB (1x16GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Corsair Vengeance LPX 16GB (1x16GB) DDR4-3200",
+      "Corsair Vengeance LPX 16GB DDR4-3200 Single",
+      "CMK16GX4M1E3200C16",
+      "Vengeance LPX 16GB DDR4 3200 Single"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk16gx4m1e3200c16/vengeance-lpx-16gb-1-x-16gb-ddr4-dram-3200mhz-c16-memory-kit-black-cmk16gx4m1e3200c16"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-lpx-16gb-2x8gb-ddr4-3200": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance LPX 16GB (2x8GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Corsair Vengeance LPX 16GB (2x8GB) DDR4-3200",
+      "Corsair Vengeance LPX 16GB DDR4-3200",
+      "Vengeance LPX DDR4 3200 16GB",
+      "CMK16GX4M2B3200C16",
+      "Corsair 16GB DDR4 3200",
+      "Corsair Vengeance LPX 16GB 2x8GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk16gx4m2b3200c16/vengeancea-lpx-16gb-2-x-8gb-ddr4-dram-3200mhz-c16-memory-kit-black-cmk16gx4m2b3200c16"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-16gb-ddr4-3600": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance LPX 16GB (2x8GB) DDR4 3600MHz CL18",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Corsair Vengeance LPX 16GB (2x8GB) DDR4-3600",
+      "Corsair Vengeance LPX 16GB DDR4-3600",
+      "Corsair Vengeance 16GB DDR4-3600",
+      "Vengeance 16GB DDR4-3600",
+      "Vengeance LPX DDR4 3600 16GB",
+      "CMK16GX4M2D3600C18",
+      "Corsair 16GB DDR4 3600",
+      "Corsair Vengeance LPX 16GB 2x8GB DDR4 3600"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk16gx4m2d3600c18/vengeancea-lpx-16gb-2-x-8gb-ddr4-dram-3600mhz-c18-memory-kit-black-cmk16gx4m2d3600c18"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-lpx-32gb-2x16gb-ddr4-3200": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance LPX 32GB (2x16GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Corsair Vengeance LPX 32GB (2x16GB) DDR4-3200",
+      "Corsair Vengeance LPX 32GB DDR4-3200",
+      "Vengeance LPX DDR4 3200 32GB",
+      "CMK32GX4M2E3200C16",
+      "Corsair 32GB DDR4 3200",
+      "Corsair Vengeance LPX 32GB 2x16GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk32gx4m2e3200c16/vengeance-lpx-32gb-2-x-16gb-ddr4-dram-3200mhz-c16-memory-kit-black-cmk32gx4m2e3200c16"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-lpx-32gb-2x16gb-ddr4-3600": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance LPX 32GB (2x16GB) DDR4 3600MHz CL18",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Corsair Vengeance LPX 32GB (2x16GB) DDR4-3600",
+      "Corsair Vengeance LPX 32GB DDR4-3600",
+      "Vengeance LPX DDR4 3600 32GB",
+      "CMK32GX4M2D3600C18",
+      "Corsair 32GB DDR4 3600",
+      "Corsair Vengeance LPX 32GB 2x16GB DDR4 3600"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk32gx4m2d3600c18/vengeance-lpx-32gb-2-x-16gb-ddr4-dram-3600mhz-c18-memory-kit-black-cmk32gx4m2d3600c18"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-lpx-64gb-2x32gb-ddr4-3200": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance LPX 64GB (2x32GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "Corsair Vengeance LPX 64GB (2x32GB) DDR4-3200",
+      "Corsair Vengeance LPX 64GB DDR4-3200",
+      "Vengeance LPX DDR4 3200 64GB",
+      "CMK64GX4M2E3200C16",
+      "Corsair 64GB DDR4 3200",
+      "Corsair Vengeance LPX 64GB 2x32GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk64gx4m2e3200c16/vengeance-lpx-64gb-2-x-32gb-ddr4-dram-3200mhz-c16-memory-kit-black-cmk64gx4m2e3200c16"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-lpx-64gb-2x32gb-ddr4-3600": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance LPX 64GB (2x32GB) DDR4 3600MHz CL18",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "Corsair Vengeance LPX 64GB (2x32GB) DDR4-3600",
+      "Corsair Vengeance LPX 64GB DDR4-3600",
+      "Vengeance LPX DDR4 3600 64GB",
+      "CMK64GX4M2D3600C18",
+      "Corsair 64GB DDR4 3600",
+      "Corsair Vengeance LPX 64GB 2x32GB DDR4 3600"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk64gx4m2d3600c18/vengeance-lpx-64gb-2-x-32gb-ddr4-dram-3600mhz-c18-memory-kit-black-cmk64gx4m2d3600c18"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-16gb-ddr5-5200": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance 16GB (1x16GB) DDR5 5200MHz CL40",
+    "ddr": "DDR5",
+    "speed": "5200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Corsair Vengeance 16GB DDR5-5200",
+      "Corsair Vengeance 16GB (1x16GB) DDR5-5200",
+      "CMK16GX5M1B5200C40",
+      "Corsair 16GB DDR5 5200"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk16gx5m1b5200c40/vengeance-16gb-1x16gb-ddr5-dram-5200mhz-c40-memory-kit-black-cmk16gx5m1b5200c40"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-32gb-2x16gb-ddr5-5200": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance 32GB (2x16GB) DDR5 5200MHz CL40",
+    "ddr": "DDR5",
+    "speed": "5200MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Corsair Vengeance 32GB (2x16GB) DDR5-5200",
+      "Corsair Vengeance 32GB DDR5-5200",
+      "Vengeance DDR5 5200 32GB",
+      "CMK32GX5M2B5200C40",
+      "Corsair 32GB DDR5 5200",
+      "Corsair Vengeance 32GB 2x16GB DDR5 5200"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk32gx5m2b5200c40/vengeance-32gb-2x16gb-ddr5-dram-5200mhz-c40-memory-kit-black-cmk32gx5m2b5200c40"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-32gb-2x16gb-ddr5-5600": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance 32GB (2x16GB) DDR5 5600MHz CL36",
+    "ddr": "DDR5",
+    "speed": "5600MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Corsair Vengeance 32GB (2x16GB) DDR5-5600",
+      "Corsair Vengeance 32GB DDR5-5600",
+      "Vengeance DDR5 5600 32GB",
+      "CMK32GX5M2B5600C36",
+      "Corsair 32GB DDR5 5600",
+      "Corsair Vengeance 32GB 2x16GB DDR5 5600"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk32gx5m2b5600c36/vengeance-32gb-2x16gb-ddr5-dram-5600mhz-c36-memory-kit-black-cmk32gx5m2b5600c36"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-32gb-ddr5-6000": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance 32GB (2x16GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Corsair Vengeance 32GB (2x16GB) DDR5-6000",
       "Corsair Vengeance 32GB DDR5-6000",
-      "Corsair DDR5 32GB",
       "Vengeance 32GB DDR5-6000",
-      "Corsair 32GB 2x16GB"
+      "Corsair 32GB DDR5 6000",
+      "Corsair Vengeance 32GB 2x16GB DDR5 6000",
+      "CMK32GX5M2B6000C30",
+      "Corsair Vengeance 32GB DDR5-6000 RAM Kit",
+      "Corsair Vengeance 32GB (2x16GB) DDR5 6000MHz CL30"
     ],
     "sources": [
       "https://www.corsair.com/us/en/p/memory/cmk32gx5m2b6000c30/vengeance-32gb-2x16gb-ddr5-dram-6000mt-s-c30-memory-kit-black-cmk32gx5m2b6000c30"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T17:34:06Z"
+    "researched_at": "2026-08-16T15:34:56Z"
   },
-  "kingston-fury-beast-32gb-ddr5-6000": {
-    "brand": "Kingston",
-    "model": "Kingston Fury Beast 32GB DDR5-6000",
+  "corsair-vengeance-rgb-32gb-2x16gb-ddr5-6000-cl30": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance RGB 32GB (2x16GB) DDR5 6000MHz CL30",
     "ddr": "DDR5",
     "speed": "6000MHz",
     "capacity": "32GB",
     "aliases": [
-      "Kingston 32GB 2x16GB",
+      "Corsair Vengeance RGB 32GB (2x16GB) DDR5-6000 CL30",
+      "Corsair Vengeance RGB 32GB DDR5-6000 CL30",
+      "Vengeance RGB DDR5 6000 32GB CL30",
+      "CMH32GX5M2B6000C30",
+      "Corsair Vengeance RGB 32GB DDR5 6000",
+      "Corsair Vengeance RGB 32GB 2x16GB DDR5 6000"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmh32gx5m2b6000c30/vengeance-rgb-32gb-2x16gb-ddr5-dram-6000mt-s-c30-memory-kit-black-cmh32gx5m2b6000c30"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-64gb-2x32gb-ddr5-6000": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance 64GB (2x32GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "Corsair Vengeance 64GB (2x32GB) DDR5-6000",
+      "Corsair Vengeance 64GB DDR5-6000",
+      "Vengeance DDR5 6000 64GB",
+      "CMK64GX5M2B6000C30",
+      "Corsair 64GB DDR5 6000",
+      "Corsair Vengeance 64GB 2x32GB DDR5 6000"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmk64gx5m2b6000c30/vengeance-64gb-2x32gb-ddr5-dram-6000mt-s-c30-memory-kit-black-cmk64gx5m2b6000c30"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "corsair-vengeance-rgb-64gb-2x32gb-ddr5-6000-cl30": {
+    "brand": "Corsair",
+    "model": "Corsair Vengeance RGB 64GB (2x32GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "Corsair Vengeance RGB 64GB (2x32GB) DDR5-6000 CL30",
+      "Corsair Vengeance RGB 64GB DDR5-6000",
+      "Vengeance RGB DDR5 6000 64GB CL30",
+      "CMH64GX5M2B6000C30",
+      "Corsair Vengeance RGB 64GB DDR5 6000",
+      "Corsair Vengeance RGB 64GB 2x32GB DDR5 6000"
+    ],
+    "sources": [
+      "https://www.corsair.com/us/en/p/memory/cmh64gx5m2b6000c30/vengeance-rgb-64gb-2x32gb-ddr5-dram-6000mt-s-c30-memory-kit-black-cmh64gx5m2b6000c30"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-ripjaws-v-8gb-ddr4-3200": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws V 8GB (1x8GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "8GB",
+    "aliases": [
+      "G.Skill Ripjaws V 8GB DDR4-3200",
+      "G.Skill Ripjaws V 8GB (1x8GB) DDR4-3200",
+      "Ripjaws V DDR4 3200 8GB",
+      "F4-3200C16S-8GVK",
+      "G.Skill Ripjaws V 8GB 1x8GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/74/1535010260/F4-3200C16S-8GVK"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-ripjaws-v-16gb-ddr4-3200": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws V 16GB (2x8GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "G.Skill Ripjaws V 16GB DDR4-3200",
+      "Ripjaws V 16GB DDR4-3200",
+      "G.Skill Ripjaws V 16GB 2x8GB DDR4-3200",
+      "G.Skill Ripjaws V DDR4-3200 16GB"
+    ],
+    "sources": [
+      "https://www.newegg.com/g-skill-ripjaws-v-series-16gb-ddr4-3200-cas-latency-cl16-desktop-memory-black/p/N82E16820231902"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:34:06Z"
+  },
+  "g-skill-ripjaws-v-16gb-1x16gb-ddr4-3200": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws V 16GB (1x16GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "G.Skill Ripjaws V 16GB (1x16GB) DDR4-3200",
+      "Ripjaws V 16GB 1x16GB DDR4 3200",
+      "F4-3200C16S-16GVK",
+      "G.Skill 1x16GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/74/1535010317/F4-3200C16S-16GVK"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-ripjaws-v-16gb-2x8gb-ddr4-3200": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws V 16GB (2x8GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "G.Skill Ripjaws V 16GB (2x8GB) DDR4-3200",
+      "Ripjaws V DDR4 3200 16GB",
+      "F4-3200C16D-16GVKB",
+      "G.Skill Ripjaws V 16GB 2x8GB 3200MHz",
+      "G.Skill 16GB 2x8GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/74/1535010370/F4-3200C16D-16GVKB"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-ripjaws-v-16gb-2x8gb-ddr4-3600": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws V 16GB (2x8GB) DDR4 3600MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "G.Skill Ripjaws V 16GB (2x8GB) DDR4-3600",
+      "G.Skill Ripjaws V 16GB DDR4-3600",
+      "Ripjaws V DDR4 3600 16GB",
+      "F4-3600C16D-16GVKC",
+      "G.Skill 16GB DDR4 3600",
+      "G.Skill Ripjaws V 16GB 2x8GB DDR4 3600"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/74/1562723007/F4-3600C16D-16GVKC"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-ripjaws-v-32gb-2x16gb-ddr4-3200": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws V 32GB (2x16GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Ripjaws V 32GB (2x16GB) DDR4-3200",
+      "G.Skill Ripjaws V 32GB DDR4-3200",
+      "Ripjaws V DDR4 3200 32GB",
+      "F4-3200C16D-32GVK",
+      "G.Skill 32GB DDR4 3200",
+      "G.Skill Ripjaws V 32GB 2x16GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/74/1535010461/F4-3200C16D-32GVK"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-ripjaws-v-32gb-2x16gb-ddr4-3600": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws V 32GB (2x16GB) DDR4 3600MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Ripjaws V 32GB (2x16GB) DDR4-3600",
+      "G.Skill Ripjaws V 32GB DDR4-3600",
+      "Ripjaws V DDR4 3600 32GB",
+      "F4-3600C16D-32GVKC",
+      "G.Skill 32GB DDR4 3600",
+      "G.Skill Ripjaws V 32GB 2x16GB DDR4 3600"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/74/1562723145/F4-3600C16D-32GVKC"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-ripjaws-v-64gb-2x32gb-ddr4-3200": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws V 64GB (2x32GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "G.Skill Ripjaws V 64GB (2x32GB) DDR4-3200",
+      "G.Skill Ripjaws V 64GB DDR4-3200",
+      "Ripjaws V DDR4 3200 64GB",
+      "F4-3200C16D-64GVK",
+      "G.Skill 64GB DDR4 3200",
+      "G.Skill Ripjaws V 64GB 2x32GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/74/1562723368/F4-3200C16D-64GVK"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-ripjaws-v-64gb-2x32gb-ddr4-3600": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws V 64GB (2x32GB) DDR4 3600MHz CL18",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "G.Skill Ripjaws V 64GB (2x32GB) DDR4-3600",
+      "G.Skill Ripjaws V 64GB DDR4-3600",
+      "Ripjaws V DDR4 3600 64GB",
+      "F4-3600C18D-64GVK",
+      "G.Skill 64GB DDR4 3600",
+      "G.Skill Ripjaws V 64GB 2x32GB DDR4 3600"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/74/1562723432/F4-3600C18D-64GVK"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-flare-x5-32gb-2x16gb-ddr5-6000-cl30": {
+    "brand": "G.Skill",
+    "model": "G.Skill Flare X5 32GB (2x16GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Flare X5 32GB (2x16GB) DDR5-6000 CL30",
+      "G.Skill Flare X5 32GB DDR5-6000 CL30",
+      "Flare X5 AMD EXPO DDR5 6000 32GB CL30",
+      "F5-6000J3038F16GX2-FX5",
+      "Flare X5 32GB DDR5 6000 CL30",
+      "G.Skill Flare X5 32GB 2x16GB DDR5 6000 CL30"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/396/1673491771/F5-6000J3038F16GX2-FX5"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-flare-x5-32gb-2x16gb-ddr5-6000-cl32": {
+    "brand": "G.Skill",
+    "model": "G.Skill Flare X5 32GB (2x16GB) DDR5 6000MHz CL32",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Flare X5 32GB (2x16GB) DDR5-6000 CL32",
+      "G.Skill Flare X5 32GB DDR5-6000 CL32",
+      "Flare X5 AMD EXPO DDR5 6000 32GB CL32",
+      "F5-6000J3238F16GX2-FX5",
+      "Flare X5 32GB DDR5 6000 CL32",
+      "G.Skill Flare X5 32GB 2x16GB DDR5 6000 CL32"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/396/1662687980/F5-6000J3238F16GX2-FX5"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-flare-x5-32gb-2x16gb-ddr5-6000-cl36": {
+    "brand": "G.Skill",
+    "model": "G.Skill Flare X5 32GB (2x16GB) DDR5 6000MHz CL36",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Flare X5 32GB (2x16GB) DDR5-6000 CL36",
+      "G.Skill Flare X5 32GB DDR5-6000 CL36",
+      "Flare X5 AMD EXPO DDR5 6000 32GB CL36",
+      "F5-6000J3636F16GX2-FX5",
+      "Flare X5 32GB DDR5 6000 CL36",
+      "G.Skill Flare X5 32GB 2x16GB DDR5 6000 CL36"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/396/1662688048/F5-6000J3636F16GX2-FX5"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-flare-x5-64gb-2x32gb-ddr5-6000-cl30": {
+    "brand": "G.Skill",
+    "model": "G.Skill Flare X5 64GB (2x32GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "G.Skill Flare X5 64GB (2x32GB) DDR5-6000 CL30",
+      "G.Skill Flare X5 64GB DDR5-6000 CL30",
+      "Flare X5 AMD EXPO DDR5 6000 64GB CL30",
+      "F5-6000J3040G32GX2-FX5",
+      "Flare X5 64GB DDR5 6000 CL30",
+      "G.Skill Flare X5 64GB 2x32GB DDR5 6000 CL30"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/396/1673491953/F5-6000J3040G32GX2-FX5"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-ripjaws-s5-32gb-2x16gb-ddr5-5600": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws S5 32GB (2x16GB) DDR5 5600MHz CL28",
+    "ddr": "DDR5",
+    "speed": "5600MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Ripjaws S5 32GB (2x16GB) DDR5-5600",
+      "G.Skill Ripjaws S5 32GB DDR5-5600",
+      "Ripjaws S5 DDR5 5600 32GB",
+      "F5-5600J2834F16GX2-RS5K",
+      "G.Skill Ripjaws S5 32GB 2x16GB DDR5 5600"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/377/1649749168/F5-5600J2834F16GX2-RS5K"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-ripjaws-s5-32gb-2x16gb-ddr5-6000": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws S5 32GB (2x16GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Ripjaws S5 32GB (2x16GB) DDR5-6000",
+      "G.Skill Ripjaws S5 32GB DDR5-6000",
+      "Ripjaws S5 DDR5 6000 32GB",
+      "F5-6000J3040F16GX2-RS5K",
+      "G.Skill Ripjaws S5 32GB 2x16GB DDR5 6000"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/377/1649749447/F5-6000J3040F16GX2-RS5K"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-ripjaws-s5-64gb-2x32gb-ddr5-6000": {
+    "brand": "G.Skill",
+    "model": "G.Skill Ripjaws S5 64GB (2x32GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "G.Skill Ripjaws S5 64GB (2x32GB) DDR5-6000",
+      "G.Skill Ripjaws S5 64GB DDR5-6000",
+      "Ripjaws S5 DDR5 6000 64GB",
+      "F5-6000J3040G32GX2-RS5K",
+      "G.Skill Ripjaws S5 64GB 2x32GB DDR5 6000"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/377/1673492484/F5-6000J3040G32GX2-RS5K"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-trident-z5-rgb-32gb-ddr5-6000": {
+    "brand": "G.Skill",
+    "model": "G.Skill Trident Z5 RGB 32GB (2x16GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Trident Z5 RGB 32GB (2x16GB) DDR5-6000",
+      "G.Skill Trident Z5 RGB 32GB DDR5-6000",
+      "Trident Z5 RGB DDR5 6000 32GB",
+      "F5-6000J3040F16GX2-TZ5RK",
+      "G.Skill Trident Z5 RGB 32GB 2x16GB DDR5 6000"
+    ],
+    "sources": [
+      "https://www.gskill.com/specification/165/374/1649235161/F5-6000J3040F16GX2-TZ5RK-F5-6000J3040F16GA2-TZ5RK-Specification"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-trident-z5-rgb-32gb-ddr5-6400": {
+    "brand": "G.Skill",
+    "model": "G.Skill Trident Z5 RGB 32GB (2x16GB) DDR5 6400MHz CL32",
+    "ddr": "DDR5",
+    "speed": "6400MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Trident Z5 RGB 32GB (2x16GB) DDR5-6400",
+      "G.Skill Trident Z5 RGB 32GB DDR5-6400",
+      "Trident Z5 RGB DDR5 6400 32GB",
+      "F5-6400J3239G16GX2-TZ5RK",
+      "G.Skill Trident Z5 RGB 32GB 2x16GB DDR5 6400"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/374/1649234797/F5-6400J3239G16GX2-TZ5RK-F5-6400J3239G16GA2-TZ5RK"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-trident-z5-rgb-32gb-2x16gb-ddr5-7200": {
+    "brand": "G.Skill",
+    "model": "G.Skill Trident Z5 RGB 32GB (2x16GB) DDR5 7200MHz CL34",
+    "ddr": "DDR5",
+    "speed": "7200MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Trident Z5 RGB 32GB (2x16GB) DDR5-7200",
+      "G.Skill Trident Z5 RGB 32GB DDR5-7200",
+      "Trident Z5 RGB DDR5 7200 32GB",
+      "F5-7200J3445G16GX2-TZ5RK",
+      "Trident Z5 RGB 32GB DDR5 7200",
+      "G.Skill Trident Z5 RGB 32GB 2x16GB DDR5 7200"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/374/1665648873/F5-7200J3445G16GX2-TZ5RK"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-trident-z5-neo-32gb-2x16gb-ddr5-6000-cl30": {
+    "brand": "G.Skill",
+    "model": "G.Skill Trident Z5 Neo RGB 32GB (2x16GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "G.Skill Trident Z5 Neo RGB 32GB (2x16GB) DDR5-6000 CL30",
+      "G.Skill Trident Z5 Neo 32GB DDR5-6000 CL30",
+      "Trident Z5 Neo AMD EXPO DDR5 6000 32GB CL30",
+      "F5-6000J3038F16GX2-TZ5NR",
+      "Trident Z5 Neo RGB 32GB DDR5 6000 CL30",
+      "G.Skill Trident Z5 Neo RGB 32GB 2x16GB DDR5 6000"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/390/1665020865/F5-6000J3038F16GX2-TZ5NR"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-trident-z5-rgb-64gb-2x32gb-ddr5-6000": {
+    "brand": "G.Skill",
+    "model": "G.Skill Trident Z5 RGB 64GB (2x32GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "G.Skill Trident Z5 RGB 64GB (2x32GB) DDR5-6000",
+      "G.Skill Trident Z5 RGB 64GB DDR5-6000",
+      "Trident Z5 RGB DDR5 6000 64GB",
+      "F5-6000J3040G32GX2-TZ5RK",
+      "G.Skill Trident Z5 RGB 64GB 2x32GB DDR5 6000"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/374/1665019859/F5-6000J3040G32GX2-TZ5RK"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "g-skill-trident-z5-neo-64gb-2x32gb-ddr5-6000-cl30": {
+    "brand": "G.Skill",
+    "model": "G.Skill Trident Z5 Neo RGB 64GB (2x32GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "G.Skill Trident Z5 Neo RGB 64GB (2x32GB) DDR5-6000 CL30",
+      "G.Skill Trident Z5 Neo 64GB DDR5-6000 CL30",
+      "Trident Z5 Neo AMD EXPO DDR5 6000 64GB CL30",
+      "F5-6000J3040G32GX2-TZ5NR",
+      "Trident Z5 Neo RGB 64GB DDR5 6000 CL30",
+      "G.Skill Trident Z5 Neo RGB 64GB 2x32GB DDR5 6000"
+    ],
+    "sources": [
+      "https://www.gskill.com/product/165/390/1665021020/F5-6000J3040G32GX2-TZ5NR"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "kingston-fury-beast-8gb-ddr4-3200": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 8GB (1x8GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "8GB",
+    "aliases": [
+      "Kingston Fury Beast 8GB DDR4-3200",
+      "Kingston Fury Beast 8GB (1x8GB) DDR4-3200",
+      "Fury Beast 8GB DDR4-3200",
+      "KF432C16BB/8",
+      "Kingston 8GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.kingston.com/datasheets/KF432C16BB_8.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "kingston-fury-beast-8gb-ddr4-3600": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 8GB (1x8GB) DDR4 3600MHz CL17",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "8GB",
+    "aliases": [
+      "Kingston Fury Beast 8GB DDR4-3600",
+      "Kingston Fury Beast 8GB (1x8GB) DDR4-3600",
+      "Fury Beast 8GB DDR4-3600",
+      "KF436C17BB/8",
+      "Kingston 8GB DDR4 3600"
+    ],
+    "sources": [
+      "https://www.kingston.com/datasheets/KF436C17BB_8.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "kingston-fury-beast-16gb-ddr4-3600": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 16GB (1x16GB) DDR4 3600MHz CL18",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Kingston Fury Beast 16GB DDR4-3600",
+      "Kingston Fury Beast 16GB (1x16GB) DDR4-3600",
+      "Fury Beast 16GB DDR4-3600",
+      "KF436C18BB/16",
+      "Kingston 16GB DDR4 3600"
+    ],
+    "sources": [
+      "https://www.kingston.com/dataSheets/KF436C18BB_16.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-07-11T17:34:06Z"
+  },
+  "kingston-fury-beast-16gb-2x8gb-ddr4-3200": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 16GB (2x8GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Kingston Fury Beast 16GB (2x8GB) DDR4-3200",
+      "Kingston Fury Beast 16GB 2x8GB DDR4-3200",
+      "Fury Beast DDR4 3200 16GB 2x8GB",
+      "KF432C16BBK2/16",
+      "Kingston 16GB 2x8GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.kingston.com/datasheets/KF432C16BBK2_16.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "kingston-fury-beast-16gb-2x8gb-ddr4-3600": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 16GB (2x8GB) DDR4 3600MHz CL18",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Kingston Fury Beast 16GB (2x8GB) DDR4-3600",
+      "Kingston Fury Beast 16GB 2x8GB DDR4-3600",
+      "Fury Beast DDR4 3600 16GB 2x8GB",
+      "KF436C18BBK2/16",
+      "Kingston 16GB 2x8GB DDR4 3600"
+    ],
+    "sources": [
+      "https://www.kingston.com/datasheets/KF436C18BBK2_16.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "kingston-fury-beast-32gb-2x16gb-ddr4-3200": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 32GB (2x16GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Kingston Fury Beast 32GB (2x16GB) DDR4-3200",
+      "Kingston Fury Beast 32GB DDR4-3200",
+      "Fury Beast DDR4 3200 32GB",
+      "KF432C16BBK2/32",
+      "Kingston 32GB DDR4 3200",
+      "Kingston Fury Beast 32GB 2x16GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.kingston.com/datasheets/KF432C16BBK2_32.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "kingston-fury-beast-32gb-2x16gb-ddr4-3600": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 32GB (2x16GB) DDR4 3600MHz CL18",
+    "ddr": "DDR4",
+    "speed": "3600MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Kingston Fury Beast 32GB (2x16GB) DDR4-3600",
+      "Kingston Fury Beast 32GB DDR4-3600",
+      "Fury Beast DDR4 3600 32GB",
+      "KF436C18BBK2/32",
+      "Kingston 32GB DDR4 3600",
+      "Kingston Fury Beast 32GB 2x16GB DDR4 3600"
+    ],
+    "sources": [
+      "https://www.kingston.com/datasheets/KF436C18BBK2_32.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "kingston-fury-beast-64gb-2x32gb-ddr4-3200": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 64GB (2x32GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "Kingston Fury Beast 64GB (2x32GB) DDR4-3200",
+      "Kingston Fury Beast 64GB DDR4-3200",
+      "Fury Beast DDR4 3200 64GB",
+      "KF432C16BBK2/64",
+      "Kingston 64GB DDR4 3200",
+      "Kingston Fury Beast 64GB 2x32GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.kingston.com/datasheets/KF432C16BBK2_64.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "kingston-fury-beast-16gb-ddr5-5600": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 16GB (1x16GB) DDR5 5600MHz CL36",
+    "ddr": "DDR5",
+    "speed": "5600MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Kingston Fury Beast 16GB DDR5-5600",
+      "Kingston Fury Beast 16GB (1x16GB) DDR5-5600",
+      "Fury Beast 16GB DDR5-5600",
+      "KF556C36BBE-16",
+      "Kingston 16GB DDR5 5600"
+    ],
+    "sources": [
+      "https://www.kingston.com/datasheets/KF556C36BBE-16.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "kingston-fury-beast-16gb-ddr5-6000": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 16GB (1x16GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "Kingston Fury Beast 16GB DDR5-6000",
+      "Kingston Fury Beast 16GB (1x16GB) DDR5-6000",
+      "Fury Beast 16GB DDR5-6000",
+      "KF560C30BBE-16",
+      "Kingston 16GB DDR5 6000"
+    ],
+    "sources": [
+      "https://www.kingston.com/datasheets/KF560C30BBE-16.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "kingston-fury-beast-32gb-2x16gb-ddr5-5600": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 32GB (2x16GB) DDR5 5600MHz CL36",
+    "ddr": "DDR5",
+    "speed": "5600MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Kingston Fury Beast 32GB (2x16GB) DDR5-5600",
+      "Kingston Fury Beast 32GB DDR5-5600",
+      "Fury Beast 32GB DDR5-5600",
+      "KF556C36BBEK2-32",
+      "Kingston 32GB DDR5 5600",
+      "Kingston Fury Beast 32GB 2x16GB DDR5 5600"
+    ],
+    "sources": [
+      "https://www.kingston.com/datasheets/KF556C36BBEK2-32.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "kingston-fury-beast-32gb-ddr5-6000": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 32GB (2x16GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "Kingston Fury Beast 32GB (2x16GB) DDR5-6000",
+      "Kingston Fury Beast 32GB DDR5-6000",
       "Fury Beast 32GB DDR5-6000",
-      "Kingston DDR5 32GB",
-      "Kingston Fury Beast 32GB DDR5-6000"
+      "Kingston 32GB DDR5 6000",
+      "Kingston Fury Beast 32GB 2x16GB DDR5 6000",
+      "KF560C30BBEK2-32",
+      "KF560C30BBEAK2-32"
     ],
     "sources": [
       "https://www.kingston.com/datasheets/KF560C30BBEK2-32.pdf",
@@ -54,113 +1201,200 @@
     "confidence": "high",
     "researched_at": "2026-07-11T17:34:06Z"
   },
-  "g-skill-trident-z5-rgb-32gb-ddr5-6000": {
-    "brand": "G.Skill",
-    "model": "G.Skill Trident Z5 RGB 32GB DDR5-6000",
+  "kingston-fury-beast-64gb-2x32gb-ddr5-6000": {
+    "brand": "Kingston",
+    "model": "Kingston Fury Beast 64GB (2x32GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "Kingston Fury Beast 64GB (2x32GB) DDR5-6000",
+      "Kingston Fury Beast 64GB DDR5-6000",
+      "Fury Beast 64GB DDR5-6000",
+      "KF560C30BBEK2-64",
+      "Kingston 64GB DDR5 6000",
+      "Kingston Fury Beast 64GB 2x32GB DDR5 6000"
+    ],
+    "sources": [
+      "https://www.kingston.com/datasheets/KF560C30BBEK2-64.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "adata-xpg-gammix-d30-8gb-ddr4-3200": {
+    "brand": "ADATA",
+    "model": "ADATA XPG GAMMIX D30 8GB (1x8GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "8GB",
+    "aliases": [
+      "ADATA XPG GAMMIX D30 8GB (1x8GB) DDR4-3200",
+      "ADATA XPG GAMMIX D30 8GB DDR4-3200",
+      "XPG Gammix D30 DDR4 3200 8GB",
+      "AX4U32008G16A-SB30",
+      "ADATA 8GB DDR4 3200 Gammix D30"
+    ],
+    "sources": [
+      "https://www.xpg.com/en/xpg/588"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "adata-xpg-gammix-d30-16gb-2x8gb-ddr4-3200": {
+    "brand": "ADATA",
+    "model": "ADATA XPG GAMMIX D30 16GB (2x8GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "ADATA XPG GAMMIX D30 16GB (2x8GB) DDR4-3200",
+      "ADATA XPG GAMMIX D30 16GB DDR4-3200",
+      "XPG Gammix D30 DDR4 3200 16GB",
+      "AX4U32008G16A-DB30",
+      "ADATA 16GB DDR4 3200 Gammix D30",
+      "Adata XPG Gammix D30 16GB DDR4 CL16 3200MHz",
+      "ADATA XPG GAMMIX D30 16GB 2x8GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.xpg.com/en/xpg/588"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "adata-xpg-gammix-d30-32gb-2x16gb-ddr4-3200": {
+    "brand": "ADATA",
+    "model": "ADATA XPG GAMMIX D30 32GB (2x16GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "32GB",
+    "aliases": [
+      "ADATA XPG GAMMIX D30 32GB (2x16GB) DDR4-3200",
+      "ADATA XPG GAMMIX D30 32GB DDR4-3200",
+      "XPG Gammix D30 DDR4 3200 32GB",
+      "AX4U320016G16A-DB30",
+      "ADATA 32GB DDR4 3200 Gammix D30",
+      "ADATA XPG GAMMIX D30 32GB 2x16GB DDR4 3200"
+    ],
+    "sources": [
+      "https://www.xpg.com/en/xpg/588"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "adata-xpg-lancer-rgb-32gb-2x16gb-ddr5-6000-cl30": {
+    "brand": "ADATA",
+    "model": "ADATA XPG LANCER RGB 32GB (2x16GB) DDR5 6000MHz CL30",
     "ddr": "DDR5",
     "speed": "6000MHz",
     "capacity": "32GB",
     "aliases": [
-      "G.Skill Trident Z5 RGB 32GB DDR5-6000",
-      "G.Skill 32GB 2x16GB",
-      "G.Skill DDR5 32GB",
-      "Trident Z5 RGB 32GB DDR5-6000"
+      "ADATA XPG LANCER RGB 32GB (2x16GB) DDR5-6000 CL30",
+      "ADATA XPG LANCER RGB 32GB DDR5-6000",
+      "XPG Lancer DDR5 6000 32GB CL30",
+      "AX5U6000C3016G-DCLARBK",
+      "ADATA 32GB DDR5 6000 XPG Lancer",
+      "ADATA XPG LANCER RGB 32GB 2x16GB DDR5 6000"
     ],
     "sources": [
-      "https://www.gskill.com/specification/165/374/1649235161/F5-6000J3040F16GX2-TZ5RK-F5-6000J3040F16GA2-TZ5RK-Specification",
-      "https://www.gskill.com/specification/165/374/1640229752/F5-6000J3636F16GX2-TZ5RK-F5-6000J3636F16GA2-TZ5RK-Specification"
+      "https://www.xpg.com/en/xpg/829"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T17:34:06Z"
+    "researched_at": "2026-08-16T15:34:56Z"
   },
-  "g-skill-trident-z5-rgb-32gb-ddr5-6400": {
-    "brand": "G.Skill",
-    "model": "G.Skill Trident Z5 RGB 32GB DDR5-6400",
+  "adata-xpg-lancer-rgb-64gb-2x32gb-ddr5-6000-cl30": {
+    "brand": "ADATA",
+    "model": "ADATA XPG LANCER RGB 64GB (2x32GB) DDR5 6000MHz CL30",
     "ddr": "DDR5",
-    "speed": "6400MHz",
+    "speed": "6000MHz",
+    "capacity": "64GB",
+    "aliases": [
+      "ADATA XPG LANCER RGB 64GB (2x32GB) DDR5-6000 CL30",
+      "ADATA XPG LANCER RGB 64GB DDR5-6000",
+      "XPG Lancer DDR5 6000 64GB CL30",
+      "AX5U6000C3032G-DCLARBK",
+      "ADATA 64GB DDR5 6000 XPG Lancer",
+      "ADATA XPG LANCER RGB 64GB 2x32GB DDR5 6000"
+    ],
+    "sources": [
+      "https://www.xpg.com/en/xpg/829"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "teamgroup-t-force-vulcan-z-16gb-2x8gb-ddr4-3200": {
+    "brand": "TeamGroup",
+    "model": "TeamGroup T-Force Vulcan Z 16GB (2x8GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
+    "capacity": "16GB",
+    "aliases": [
+      "TeamGroup T-Force Vulcan Z 16GB (2x8GB) DDR4-3200",
+      "T-Force Vulcan Z 16GB DDR4-3200",
+      "TLZGD416G3200HC16CDC01",
+      "TeamGroup Vulcan Z 16GB 2x8GB DDR4 3200",
+      "TeamGroup 16GB DDR4 3200 Vulcan Z"
+    ],
+    "sources": [
+      "https://www.teamgroupinc.com/en/product-detail/memory/T-FORCE/vulcan-z-ddr4-gray/vulcan-z-ddr4-gray-TLZGD416G3200HC16CDC01/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56Z"
+  },
+  "teamgroup-t-force-vulcan-z-32gb-2x16gb-ddr4-3200": {
+    "brand": "TeamGroup",
+    "model": "TeamGroup T-Force Vulcan Z 32GB (2x16GB) DDR4 3200MHz CL16",
+    "ddr": "DDR4",
+    "speed": "3200MHz",
     "capacity": "32GB",
     "aliases": [
-      "G.Skill Trident Z5 RGB 32GB DDR5-6400",
-      "Trident Z5 RGB 32GB DDR5-6400",
-      "G.Skill DDR5 32GB",
-      "G.Skill 32GB 2x16GB"
+      "TeamGroup T-Force Vulcan Z 32GB (2x16GB) DDR4-3200",
+      "T-Force Vulcan Z 32GB DDR4-3200",
+      "TLZGD432G3200HC16FDC01",
+      "TeamGroup Vulcan Z 32GB 2x16GB DDR4 3200",
+      "TeamGroup 32GB DDR4 3200 Vulcan Z"
     ],
     "sources": [
-      "https://www.newegg.com/g-skill-trident-z5-rgb-series-32gb-ddr5-6400-cas-latency-cl32-desktop-memory-black/p/N82E16820374358"
+      "https://www.teamgroupinc.com/en/product-detail/memory/T-FORCE/vulcan-z-ddr4-gray/vulcan-z-ddr4-gray-TLZGD432G3200HC16FDC01/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T17:34:06Z"
+    "researched_at": "2026-08-16T15:34:56Z"
   },
-  "g-skill-ripjaws-v-16gb-ddr4-3200": {
-    "brand": "G.Skill",
-    "model": "G.Skill Ripjaws V 16GB DDR4-3200",
-    "ddr": "DDR4",
-    "speed": "3200MHz",
-    "capacity": "16GB",
+  "teamgroup-t-force-delta-rgb-32gb-2x16gb-ddr5-6000-cl30": {
+    "brand": "TeamGroup",
+    "model": "TeamGroup T-Force Delta RGB 32GB (2x16GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "32GB",
     "aliases": [
-      "G.Skill Ripjaws V 16GB DDR4-3200",
-      "G.Skill DDR4 16GB",
-      "G.Skill 16GB 2x8GB",
-      "Ripjaws V 16GB DDR4-3200"
+      "TeamGroup T-Force Delta RGB 32GB (2x16GB) DDR5-6000 CL30",
+      "T-Force Delta RGB DDR5 6000 32GB CL30",
+      "FF3D532G6000HC30DC01",
+      "TeamGroup Delta RGB 32GB 2x16GB DDR5 6000",
+      "TeamGroup 32GB DDR5 6000 Delta RGB"
     ],
     "sources": [
-      "https://www.newegg.com/g-skill-ripjaws-v-series-16gb-ddr4-3200-cas-latency-cl16-desktop-memory-black/p/N82E16820231902"
+      "https://www.teamgroupinc.com/en/product-detail/memory/T-FORCE/delta-rgb-ddr5-black/delta-rgb-ddr5-black-FF3D532G6000HC30DC01/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T17:34:06Z"
+    "researched_at": "2026-08-16T15:34:56Z"
   },
-  "crucial-16gb-ddr4-3200": {
-    "brand": "Crucial",
-    "model": "Crucial 16GB DDR4-3200",
-    "ddr": "DDR4",
-    "speed": "3200MHz",
-    "capacity": "16GB",
+  "teamgroup-t-force-delta-rgb-64gb-2x32gb-ddr5-6000-cl30": {
+    "brand": "TeamGroup",
+    "model": "TeamGroup T-Force Delta RGB 64GB (2x32GB) DDR5 6000MHz CL30",
+    "ddr": "DDR5",
+    "speed": "6000MHz",
+    "capacity": "64GB",
     "aliases": [
-      "Crucial DDR4 16GB",
-      "Crucial 16GB 2x8GB",
-      "Crucial 16GB DDR4-3200",
-      "16GB DDR4-3200"
+      "TeamGroup T-Force Delta RGB 64GB (2x32GB) DDR5-6000 CL30",
+      "T-Force Delta RGB DDR5 6000 64GB CL30",
+      "FF3D564G6000HC38DC01",
+      "TeamGroup Delta RGB 64GB 2x32GB DDR5 6000",
+      "TeamGroup 64GB DDR5 6000 Delta RGB"
     ],
     "sources": [
-      "https://www.crucial.com/memory/ddr4/ct8g4dfra32a"
+      "https://www.teamgroupinc.com/en/product-detail/memory/T-FORCE/delta-rgb-ddr5-black/delta-rgb-ddr5-black-FF3D564G6000HC38DC01/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-11T17:34:06Z"
-  },
-  "corsair-vengeance-16gb-ddr4-3600": {
-    "brand": "Corsair",
-    "model": "Corsair Vengeance 16GB DDR4-3600",
-    "ddr": "DDR4",
-    "speed": "3600MHz",
-    "capacity": "16GB",
-    "aliases": [
-      "Corsair Vengeance 16GB DDR4-3600",
-      "Corsair 16GB 2x8GB",
-      "Corsair DDR4 16GB",
-      "Vengeance 16GB DDR4-3600"
-    ],
-    "sources": [
-      "https://www.corsair.com/us/en/p/memory/cmk16gx4m2d3600c18/vengeancea-lpx-16gb-2-x-8gb-ddr4-dram-3600mhz-c18-memory-kit-black-cmk16gx4m2d3600c18"
-    ],
-    "confidence": "high",
-    "researched_at": "2026-07-11T17:34:06Z"
-  },
-  "kingston-fury-beast-16gb-ddr4-3600": {
-    "brand": "Kingston",
-    "model": "Kingston Fury Beast 16GB DDR4-3600",
-    "ddr": "DDR4",
-    "speed": "3600MHz",
-    "capacity": "16GB",
-    "aliases": [
-      "Kingston 16GB 2x8GB",
-      "Kingston Fury Beast 16GB DDR4-3600",
-      "Fury Beast 16GB DDR4-3600",
-      "Kingston DDR4 16GB"
-    ],
-    "sources": [
-      "https://www.kingston.com/dataSheets/KF436C18BB_16.pdf"
-    ],
-    "confidence": "high",
-    "researched_at": "2026-07-11T17:34:06Z"
+    "researched_at": "2026-08-16T15:34:56Z"
   }
 }

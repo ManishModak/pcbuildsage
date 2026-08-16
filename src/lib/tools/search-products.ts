@@ -113,12 +113,58 @@ export async function searchProducts(input: SearchProductsInput, scope: { dbPath
       specs: registry?.spec ?? null
     }));
 
-  // Category coverage baseline: how many products exist in this category within
-  // scope, ignoring price/brand/registry filters. This lets the model tell an
-  // empty catalog category ("give up") apart from an over-tight filter ("adjust").
   const baseline = input.category ? categoryBaseline(db, scope, input.category, input.subcategory) : null;
-
   const sliceName = input.subcategory ? `${input.subcategory} ${input.category}` : `build-relevant ${input.category}`;
+
+  const baseParams = input.subcategory
+    ? [scope.countryCode, scope.currency, input.category, input.subcategory]
+    : [scope.countryCode, scope.currency, input.category];
+  const clause = input.subcategory ? "subcategory = ?" : BUILD_RELEVANT_SQL;
+
+  let nearestAbove: { name: string; price: number | null; retailer?: string; registry_key?: string | null } | undefined;
+  let nearestBelow: { name: string; price: number | null; retailer?: string; registry_key?: string | null } | undefined;
+
+  if (baseline && baseline.in_stock_total > 0 && input.category) {
+    if (input.price_max !== undefined) {
+      const aboveRow = db
+        .prepare(
+          `SELECT * FROM products
+           WHERE country_code = ? AND currency = ? AND category = ? AND in_stock = 1 AND ${clause} AND price > ?
+           ORDER BY price ASC LIMIT 1`
+        )
+        .get(...baseParams, input.price_max) as Product | undefined;
+
+      if (aboveRow) {
+        const reg = resolveProductSpec(aboveRow, db);
+        nearestAbove = {
+          name: aboveRow.name,
+          price: aboveRow.price,
+          retailer: aboveRow.retailer,
+          registry_key: reg?.key ?? aboveRow.registry_key
+        };
+      }
+    }
+
+    if (input.price_min !== undefined) {
+      const belowRow = db
+        .prepare(
+          `SELECT * FROM products
+           WHERE country_code = ? AND currency = ? AND category = ? AND in_stock = 1 AND ${clause} AND price < ?
+           ORDER BY price DESC LIMIT 1`
+        )
+        .get(...baseParams, input.price_min) as Product | undefined;
+
+      if (belowRow) {
+        const reg = resolveProductSpec(belowRow, db);
+        nearestBelow = {
+          name: belowRow.name,
+          price: belowRow.price,
+          retailer: belowRow.retailer,
+          registry_key: reg?.key ?? belowRow.registry_key
+        };
+      }
+    }
+  }
 
   if (!results.length) {
     if (baseline && baseline.total === 0) {
@@ -137,12 +183,26 @@ export async function searchProducts(input: SearchProductsInput, scope: { dbPath
       };
     }
     if (baseline) {
+      let hint = `${baseline.in_stock_total} of ${baseline.total} ${sliceName} products are in stock but none match these filters. In-stock prices range ${baseline.min_price}-${baseline.max_price} in standard major units (e.g. Rupees/Dollars).`;
+
+      if (nearestBelow && nearestAbove) {
+        hint += ` Nearest cheaper option is ${nearestBelow.name} at ${nearestBelow.price}; nearest higher option is ${nearestAbove.name} at ${nearestAbove.price}.`;
+      } else if (nearestAbove && input.price_max !== undefined) {
+        hint += ` Closest in-stock option above your price_max (${input.price_max}) is ${nearestAbove.name} at ${nearestAbove.price}. Increase price_max to at least ${nearestAbove.price}.`;
+      } else if (nearestBelow && input.price_min !== undefined) {
+        hint += ` Closest in-stock option below your price_min (${input.price_min}) is ${nearestBelow.name} at ${nearestBelow.price}. Lower price_min to at least ${nearestBelow.price}.`;
+      } else {
+        hint += " Adjust price bounds into that range or relax brand/spec filters.";
+      }
+
       return {
         results: [],
         category_total: baseline.total,
         in_stock_total: baseline.in_stock_total,
         category_price_range: { min: baseline.min_price, max: baseline.max_price },
-        hint: `${baseline.in_stock_total} of ${baseline.total} ${sliceName} products are in stock but none match these filters. In-stock prices range ${baseline.min_price}-${baseline.max_price} in standard major units (e.g. Rupees/Dollars). Adjust price bounds into that range or relax brand/spec filters.`
+        ...(nearestAbove ? { nearest_above: nearestAbove } : {}),
+        ...(nearestBelow ? { nearest_below: nearestBelow } : {}),
+        hint
       };
     }
     return { results: [], hint: "try widening the price range, removing the brand filter, or relaxing registry spec filters" };
@@ -150,7 +210,9 @@ export async function searchProducts(input: SearchProductsInput, scope: { dbPath
   return {
     results,
     scope: { country_code: scope.countryCode, currency: scope.currency },
-    ...(baseline ? { category_total: baseline.total } : {})
+    ...(baseline ? { category_total: baseline.total } : {}),
+    ...(nearestAbove ? { nearest_above: nearestAbove } : {}),
+    ...(nearestBelow ? { nearest_below: nearestBelow } : {})
   };
 }
 

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import gzip
 import logging
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 from urllib.parse import quote, urljoin
@@ -12,6 +15,30 @@ from .models import BrowserConfig, CategoryConfig, RawProduct, SiteConfig
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_HTTP_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate",
+    "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Windows"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+}
+
+WAF_MARKERS = (
+    "<title>just a moment...</title>",
+    "<title>attention required! | cloudflare</title>",
+    "<title>ddos-guard</title>",
+    "challenge-platform",
+    "cf-browser-verification",
+    "ray id:",
+)
+
 
 class CrawlError(RuntimeError):
     """Raised when crawling or fallback extraction cannot continue."""
@@ -21,6 +48,40 @@ class CrawlError(RuntimeError):
 class ExtractionFallbackState:
     selector_failures: int = 0
     failed_products: list[RawProduct] = field(default_factory=list)
+
+
+def validate_extracted_products(
+    raw_products: list[RawProduct],
+    html: str,
+    site: SiteConfig,
+    is_first_page: bool = True,
+) -> tuple[bool, str]:
+    """Validate HTML content and extracted product quality before accepting an engine result."""
+    if not html or not html.strip():
+        return False, "Empty HTML response"
+
+    html_lower = html[:4000].lower()
+    for marker in WAF_MARKERS:
+        if marker in html_lower:
+            return False, f"WAF/Anti-bot challenge detected ({marker})"
+
+    if is_first_page:
+        if not raw_products:
+            return False, f"0 products extracted using container '{site.selectors.get('product_container')}'"
+
+        complete = [p for p in raw_products if p.title and p.price_text and p.url]
+        if not complete:
+            return False, "Extracted products missing title, price, or url"
+
+        complete_ratio = len(complete) / len(raw_products)
+        if complete_ratio < 0.5:
+            return False, f"Low field extraction coverage ({len(complete)}/{len(raw_products)} complete)"
+
+        urls = [p.url for p in complete if p.url]
+        if urls and (len(set(urls)) / len(urls)) < 0.5:
+            return False, f"High URL duplication ({len(set(urls))} unique out of {len(urls)})"
+
+    return True, "OK"
 
 
 class Crawl4AIFetcher:
@@ -79,74 +140,123 @@ class Crawl4AIFetcher:
             self._cache_mode = CacheMode
             return crawler
 
-    async def fetch(self, url: str, site: SiteConfig) -> str:
-        try:
-            crawler = await self._ensure_crawler(site)
-            run_cfg = self._crawler_run_config(
-                cache_mode=self._cache_mode.BYPASS,
-                wait_for=f"css:{site.browser_config.wait_for_selector}" if site.browser_config.wait_for_selector else None,
-                page_timeout=site.browser_config.timeout_ms,
-                scan_full_page=site.browser_config.scroll_down,
-                scroll_delay=0.5 if site.browser_config.scroll_down else 0,
-                delay_before_return_html=0.5,
-            )
-            result = await crawler.arun(url=url, config=run_cfg)
-            success = bool(getattr(result, "success", False))
-            if success:
-                html = getattr(result, "html", None) or getattr(result, "cleaned_html", "")
+    async def fetch_http(self, url: str, site: SiteConfig, retries: int = 2) -> str:
+        """Fetch a page via direct HTTP GET with full browser headers and 429 backoff."""
+        def _sync_http_get() -> str:
+            req = urllib.request.Request(url, headers=DEFAULT_HTTP_HEADERS)
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = resp.read()
+                content_encoding = resp.info().get("Content-Encoding", "").lower()
+                if "gzip" in content_encoding:
+                    try:
+                        data = gzip.decompress(data)
+                    except Exception:
+                        pass
+                return data.decode("utf-8", errors="ignore")
+
+        last_error = None
+        for attempt in range(1, retries + 1):
+            try:
+                html = await asyncio.to_thread(_sync_http_get)
                 if html:
                     return html
-            else:
-                err_msg = str(getattr(result, "error_message", "unknown error"))
+            except urllib.error.HTTPError as http_err:
+                last_error = http_err
+                if http_err.code == 429:
+                    logger.warning(
+                        "HTTP 429 Rate Limit for %s (attempt %d/%d). Backing off...",
+                        url,
+                        attempt,
+                        retries,
+                        extra={"component": "scraper"},
+                    )
+                    if attempt < retries:
+                        await asyncio.sleep(2.0 * attempt)
+                        continue
                 logger.warning(
-                    "Crawl4AI fetch failed for %s. Error: %s",
+                    "HTTP request failed for %s (attempt %d/%d): status %d",
                     url,
+                    attempt,
+                    retries,
+                    http_err.code,
+                    extra={"component": "scraper"},
+                )
+                if attempt < retries:
+                    await asyncio.sleep(1.0 * attempt)
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "HTTP fetch exception for %s (attempt %d/%d): %s",
+                    url,
+                    attempt,
+                    retries,
+                    str(exc),
+                    extra={"component": "scraper"},
+                )
+                if attempt < retries:
+                    await asyncio.sleep(1.0 * attempt)
+
+        raise CrawlError(f"HTTP fetch failed for {url} after {retries} attempts: {last_error}")
+
+    async def fetch_browser(self, url: str, site: SiteConfig, retries: int = 2) -> str:
+        """Fetch a page using Crawl4AI headless browser."""
+        last_error = None
+        for attempt in range(1, retries + 1):
+            try:
+                crawler = await self._ensure_crawler(site)
+                run_cfg = self._crawler_run_config(
+                    cache_mode=self._cache_mode.BYPASS,
+                    wait_for=f"css:{site.browser_config.wait_for_selector}" if site.browser_config.wait_for_selector else None,
+                    page_timeout=site.browser_config.timeout_ms,
+                    scan_full_page=site.browser_config.scroll_down,
+                    scroll_delay=0.5 if site.browser_config.scroll_down else 0,
+                    delay_before_return_html=0.5,
+                )
+                result = await crawler.arun(url=url, config=run_cfg)
+                success = bool(getattr(result, "success", False))
+                status_code = getattr(result, "status_code", 200) or 200
+                if success and status_code < 400:
+                    html = getattr(result, "html", None) or getattr(result, "cleaned_html", "")
+                    if html:
+                        return html
+                err_msg = str(getattr(result, "error_message", f"status {status_code}"))
+                last_error = CrawlError(err_msg)
+                logger.warning(
+                    "Crawl4AI browser fetch failed for %s (attempt %d/%d): %s",
+                    url,
+                    attempt,
+                    retries,
                     err_msg,
-                    extra={"component": "scraper"}
+                    extra={"component": "scraper"},
                 )
-        except Exception as e:
-            logger.warning(
-                "Crawl4AI raised exception for %s: %s",
-                url,
-                str(e),
-                extra={"component": "scraper"}
-            )
-
-        # Fallback to standard HTTP fetch for robust bot-bypass
-        logger.info(
-            "Triggering self-healing HTTP fallback for %s",
-            url,
-            extra={"component": "scraper"}
-        )
-        try:
-            import urllib.request
-            req = urllib.request.Request(
-                url,
-                headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                }
-            )
-            def _http_get():
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    return resp.read().decode('utf-8', errors='ignore')
-            html = await asyncio.to_thread(_http_get)
-            if html:
-                logger.info(
-                    "HTTP fallback succeeded for %s",
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "Crawl4AI browser exception for %s (attempt %d/%d): %s",
                     url,
-                    extra={"component": "scraper"}
+                    attempt,
+                    retries,
+                    str(exc),
+                    extra={"component": "scraper"},
                 )
-                return html
-        except Exception as http_exc:
-            logger.error(
-                "Crawl4AI and HTTP fallback both failed for %s. Error: %s",
-                url,
-                http_exc,
-                extra={"component": "scraper"}
-            )
-            raise CrawlError(f"Crawl4AI and HTTP fallback both failed. HTTP error: {http_exc}") from http_exc
+            if attempt < retries:
+                await asyncio.sleep(1.0 * attempt)
 
-        raise CrawlError("Crawl failed")
+        raise CrawlError(f"Browser fetch failed for {url} after {retries} attempts: {last_error}")
+
+    async def fetch(self, url: str, site: SiteConfig, retries: int = 2) -> str:
+        """Default fetch dispatcher honoring site.engine ('http' or 'browser')."""
+        engine = getattr(site, "engine", "browser") or "browser"
+        if engine == "http":
+            try:
+                return await self.fetch_http(url, site, retries=retries)
+            except Exception:
+                return await self.fetch_browser(url, site, retries=retries)
+        else:
+            try:
+                return await self.fetch_browser(url, site, retries=retries)
+            except Exception:
+                return await self.fetch_http(url, site, retries=retries)
 
 
 def category_page_url(site: SiteConfig, category: CategoryConfig, page: int) -> str:
@@ -169,12 +279,12 @@ def detect_max_pages(html: str, pagination_pattern: str) -> int | None:
         return None
     import re
     from bs4 import BeautifulSoup
-    
+
     escaped_pattern = re.escape(pagination_pattern)
     pattern_regex = escaped_pattern.replace(r"\{page\}", r"(\d+)")
     soup = BeautifulSoup(html, "html.parser")
     page_numbers = []
-    
+
     for a in soup.find_all("a", href=True):
         href = a["href"]
         match = re.search(pattern_regex, href)
@@ -183,7 +293,7 @@ def detect_max_pages(html: str, pagination_pattern: str) -> int | None:
                 page_numbers.append(int(match.group(1)))
             except ValueError:
                 pass
-                
+
     if page_numbers:
         return max(page_numbers)
     return None
@@ -206,6 +316,7 @@ class ScraperCrawler:
         self.llm_enabled = llm_enabled
         self.max_llm_calls = max_llm_calls
         self.llm_calls = 0
+        self.active_engines: dict[str, str] = {}
 
     def _should_invoke_llm(self, failed: list[RawProduct], cumulative_selector_failures: int) -> bool:
         return bool(
@@ -234,24 +345,24 @@ class ScraperCrawler:
         query_details = {
             "site": site.site_name,
             "failed_count": len(fallback_state.failed_products),
-            "failed_products_html": [item.source_html[:500] for item in fallback_state.failed_products]
+            "failed_products_html": [item.source_html[:500] for item in fallback_state.failed_products],
         }
         logger.info(
             "Invoking LLM extraction fallback for %s",
             site.site_name,
-            extra={"component": "llm", "details": query_details}
+            extra={"component": "llm", "details": query_details},
         )
 
         payload = await asyncio.to_thread(self.llm_client.extract_products, [item.source_html for item in fallback_state.failed_products])
-        
+
         response_details = {
             "site": site.site_name,
-            "payload": payload
+            "payload": payload,
         }
         logger.info(
             "LLM extraction fallback response received for %s",
             site.site_name,
-            extra={"component": "llm", "details": response_details}
+            extra={"component": "llm", "details": response_details},
         )
 
         fallback = raw_from_llm_payload(payload, site.base_url)
@@ -260,6 +371,75 @@ class ScraperCrawler:
             fallback_state.failed_products.clear()
             return valid_products + fallback, fallback_state
         raise CrawlError(f"{site.site_name}: selector and LLM extraction both failed")
+
+    async def _fetch_and_extract(
+        self,
+        url: str,
+        site: SiteConfig,
+        page: int,
+    ) -> tuple[str, list[RawProduct]]:
+        """Extraction-aware dual-engine fetcher with sticky failover."""
+        has_dual = hasattr(self.fetcher, "fetch_http") and hasattr(self.fetcher, "fetch_browser")
+        if not has_dual:
+            html = await self.fetcher.fetch(url, site)
+            raw_products = extract_products(html, site.selectors, site.base_url)
+            return html, raw_products
+
+        primary = self.active_engines.get(site.site_name, getattr(site, "engine", "browser") or "browser")
+        secondary = "browser" if primary == "http" else "http"
+
+        async def _try_engine(engine_name: str) -> tuple[str, list[RawProduct], bool, str]:
+            try:
+                if engine_name == "http":
+                    fetched_html = await self.fetcher.fetch_http(url, site)
+                else:
+                    fetched_html = await self.fetcher.fetch_browser(url, site)
+                extracted = extract_products(fetched_html, site.selectors, site.base_url)
+                is_valid, reason = validate_extracted_products(extracted, fetched_html, site, is_first_page=(page == 1))
+                return fetched_html, extracted, is_valid, reason
+            except Exception as exc:
+                return "", [], False, str(exc)
+
+        # 1. Try primary engine
+        html, raw_products, is_valid, reason = await _try_engine(primary)
+        if is_valid or (page > 1 and not raw_products and "WAF" not in reason):
+            return html, raw_products
+
+        logger.warning(
+            "%s: %s engine validation failed on %s (reason: %s). Attempting %s fallback.",
+            site.site_name,
+            primary,
+            url,
+            reason,
+            secondary,
+            extra={"component": "scraper"},
+        )
+
+        # 2. Try secondary fallback engine
+        fb_html, fb_products, fb_valid, fb_reason = await _try_engine(secondary)
+        if fb_valid or (page > 1 and not fb_products and "WAF" not in fb_reason):
+            self.active_engines[site.site_name] = secondary
+            logger.info(
+                "%s: sticky failover activated, switched to %s engine.",
+                site.site_name,
+                secondary,
+                extra={"component": "scraper"},
+            )
+            return fb_html, fb_products
+
+        logger.error(
+            "%s: both %s (%s) and %s (%s) engines failed validation on %s.",
+            site.site_name,
+            primary,
+            reason,
+            secondary,
+            fb_reason,
+            url,
+            extra={"component": "scraper"},
+        )
+        if page == 1:
+            raise CrawlError(f"{site.site_name}: both {primary} and {secondary} engines failed validation for {url}")
+        return "", []
 
     async def crawl_category(
         self,
@@ -270,25 +450,40 @@ class ScraperCrawler:
     ) -> list[RawProduct]:
         products: list[RawProduct] = []
         fallback_state = ExtractionFallbackState()
+        seen_urls: set[str] = set()
         page = 1
         while page <= page_limit:
             url = category_page_url(site, category, page)
             try:
-                html = await self.fetcher.fetch(url, site)
+                html, raw_products = await self._fetch_and_extract(url, site, page)
             except CrawlError:
                 if page > 1:
                     break
                 raise
-            
+
+            if not raw_products:
+                break
+
+            # Pagination duplicate-signature guard (avoid infinite loops on repeating catalogs)
+            page_urls = {p.url for p in raw_products if p.url}
+            if page > 1 and page_urls and page_urls.issubset(seen_urls):
+                logger.info(
+                    "Pagination duplicate signature detected for %s/%s on page %d (all %d URLs already seen). Stopping pagination.",
+                    site.site_name,
+                    category.name,
+                    page,
+                    len(page_urls),
+                    extra={"component": "scraper"},
+                )
+                break
+            seen_urls.update(page_urls)
+
             # Detect actual page count from page 1 dynamically
             if page == 1 and category.pagination_pattern:
                 detected_pages = detect_max_pages(html, category.pagination_pattern)
                 if detected_pages:
                     page_limit = min(page_limit, detected_pages)
 
-            raw_products = extract_products(html, site.selectors, site.base_url)
-            if not raw_products:
-                break
             raw_products, fallback_state = await self._apply_extraction_fallback(site, raw_products, fallback_state)
             products.extend(raw_products)
             if on_page:
@@ -311,10 +506,16 @@ class ScraperCrawler:
         one_page_site = replace(site, scraping_type="category")
         limited_terms = terms[:term_limit]
         for index, term in enumerate(limited_terms, start=1):
-            html = await self.fetcher.fetch(search_page_url(site, category, term), one_page_site)
-            raw_products = extract_products(html, site.selectors, site.base_url)
-            raw_products, fallback_state = await self._apply_extraction_fallback(site, raw_products, fallback_state)
-            products.extend(raw_products)
+            url = search_page_url(site, category, term)
+            try:
+                html, raw_products = await self._fetch_and_extract(url, one_page_site, 1)
+            except CrawlError:
+                if index > 1:
+                    continue
+                raise
+            if raw_products:
+                raw_products, fallback_state = await self._apply_extraction_fallback(site, raw_products, fallback_state)
+                products.extend(raw_products)
             if on_page:
                 on_page(index, raw_products, html)
             if self.delay_ms > 0 and index < len(limited_terms):

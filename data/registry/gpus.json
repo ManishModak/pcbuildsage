@@ -2,354 +2,482 @@
   "$schema": "../schemas/registry.schema.json",
   "nvidia-rtx-5090": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 5090",
-    "length_mm": 304,
-    "tdp_w": 575,
-    "recommended_psu_w": 950,
-    "vram_gb": 32,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 5090",
     "aliases": [
       "GeForce RTX 5090",
+      "RTX 5090",
       "5090",
       "NVIDIA RTX 5090",
-      "RTX 5090"
+      "NVIDIA GeForce RTX 5090",
+      "RTX 5090 32GB",
+      "GeForce RTX 5090 32GB"
     ],
+    "length_mm": 304,
+    "tdp_w": 575,
+    "recommended_psu_w": 1000,
+    "vram_gb": 32,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5090.c4220",
-      "https://en.wikipedia.org/wiki/GeForce_RTX_50_series"
+      "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-5080": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 5080",
+    "model": "NVIDIA GeForce RTX 5080",
+    "aliases": [
+      "GeForce RTX 5080",
+      "RTX 5080",
+      "5080",
+      "NVIDIA RTX 5080",
+      "NVIDIA GeForce RTX 5080",
+      "RTX 5080 16GB",
+      "GeForce RTX 5080 16GB"
+    ],
     "length_mm": 304,
-    "tdp_w": 360,
+    "tdp_w": 400,
     "recommended_psu_w": 750,
     "vram_gb": 16,
     "slot_width": 2,
-    "aliases": [
-      "5080",
-      "GeForce RTX 5080",
-      "RTX 5080",
-      "NVIDIA RTX 5080"
-    ],
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5080.c4221",
-      "https://en.wikipedia.org/wiki/GeForce_RTX_50_series"
+      "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5080/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-5070-ti": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 5070 Ti",
-    "length_mm": 304,
-    "tdp_w": 300,
-    "recommended_psu_w": 700,
-    "vram_gb": 16,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 5070 Ti",
     "aliases": [
-      "NVIDIA RTX 5070 Ti",
+      "GeForce RTX 5070 Ti",
       "RTX 5070 Ti",
       "5070 Ti",
-      "GeForce RTX 5070 Ti"
+      "5070Ti",
+      "NVIDIA RTX 5070 Ti",
+      "NVIDIA GeForce RTX 5070 Ti",
+      "RTX 5070 Ti 16GB",
+      "GeForce RTX 5070 Ti 16GB"
     ],
+    "length_mm": 304,
+    "tdp_w": 300,
+    "recommended_psu_w": 750,
+    "vram_gb": 16,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5070-ti.c4223",
-      "https://en.wikipedia.org/wiki/GeForce_RTX_50_series"
+      "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5070-family/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-5070": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 5070",
-    "length_mm": 245,
-    "tdp_w": 250,
-    "recommended_psu_w": 600,
-    "vram_gb": 12,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 5070",
     "aliases": [
-      "NVIDIA RTX 5070",
+      "GeForce RTX 5070",
       "RTX 5070",
       "5070",
-      "GeForce RTX 5070"
+      "NVIDIA RTX 5070",
+      "NVIDIA GeForce RTX 5070",
+      "RTX 5070 12GB",
+      "GeForce RTX 5070 12GB"
     ],
+    "length_mm": 245,
+    "tdp_w": 250,
+    "recommended_psu_w": 650,
+    "vram_gb": 12,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5070.c4224",
-      "https://en.wikipedia.org/wiki/GeForce_RTX_50_series"
+      "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5070-family/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
-  "nvidia-rtx-5060-ti": {
+  "nvidia-rtx-5060-ti-16gb": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 5060 Ti",
+    "model": "NVIDIA GeForce RTX 5060 Ti 16GB",
+    "aliases": [
+      "GeForce RTX 5060 Ti 16GB",
+      "RTX 5060 Ti 16GB",
+      "5060 Ti 16GB",
+      "5060Ti 16GB",
+      "NVIDIA RTX 5060 Ti 16GB",
+      "NVIDIA GeForce RTX 5060 Ti 16GB"
+    ],
     "length_mm": 241,
     "tdp_w": 180,
-    "recommended_psu_w": 450,
+    "recommended_psu_w": 550,
+    "vram_gb": 16,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-5060-ti-16-gb.c4266",
+      "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5060-family/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-5060-ti-8gb": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce RTX 5060 Ti 8GB",
+    "aliases": [
+      "GeForce RTX 5060 Ti 8GB",
+      "RTX 5060 Ti 8GB",
+      "5060 Ti 8GB",
+      "5060Ti 8GB",
+      "NVIDIA RTX 5060 Ti 8GB",
+      "NVIDIA GeForce RTX 5060 Ti 8GB",
+      "GeForce RTX 5060 Ti",
+      "RTX 5060 Ti",
+      "5060 Ti",
+      "5060Ti",
+      "NVIDIA RTX 5060 Ti",
+      "NVIDIA GeForce RTX 5060 Ti"
+    ],
+    "length_mm": 241,
+    "tdp_w": 180,
+    "recommended_psu_w": 550,
     "vram_gb": 8,
     "slot_width": 2,
-    "aliases": [
-      "5060 Ti",
-      "GeForce RTX 5060 Ti",
-      "NVIDIA RTX 5060 Ti",
-      "RTX 5060 Ti"
-    ],
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5060-ti.c4225",
-      "https://en.wikipedia.org/wiki/GeForce_RTX_50_series"
+      "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5060-family/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-5060": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 5060",
-    "length_mm": 241,
-    "tdp_w": 145,
-    "recommended_psu_w": 300,
-    "vram_gb": 8,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 5060",
     "aliases": [
-      "5060",
       "GeForce RTX 5060",
       "RTX 5060",
-      "NVIDIA RTX 5060"
+      "5060",
+      "NVIDIA RTX 5060",
+      "NVIDIA GeForce RTX 5060",
+      "RTX 5060 8GB",
+      "GeForce RTX 5060 8GB"
     ],
+    "length_mm": 241,
+    "tdp_w": 145,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5060.c4226",
-      "https://en.wikipedia.org/wiki/GeForce_RTX_50_series"
+      "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5060-family/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-5050": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 5050",
-    "length_mm": 221,
-    "tdp_w": 130,
-    "recommended_psu_w": 300,
-    "vram_gb": 8,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 5050",
     "aliases": [
       "NVIDIA RTX 5050",
       "5050",
       "GeForce RTX 5050",
-      "RTX 5050"
+      "RTX 5050",
+      "RTX 5050 8GB",
+      "GeForce RTX 5050 8GB",
+      "NVIDIA GeForce RTX 5050"
     ],
+    "length_mm": 221,
+    "tdp_w": 130,
+    "recommended_psu_w": 450,
+    "vram_gb": 8,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
-      "https://www.techpowerup.com/gpu-specs/geforce-rtx-5050.c4220",
-      "https://en.wikipedia.org/wiki/GeForce_RTX_50_series"
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-5050.c4220"
     ],
-    "confidence": "medium"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-4090": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 4090",
+    "model": "NVIDIA GeForce RTX 4090",
+    "aliases": [
+      "GeForce RTX 4090",
+      "RTX 4090",
+      "4090",
+      "NVIDIA RTX 4090",
+      "NVIDIA GeForce RTX 4090",
+      "RTX 4090 24GB",
+      "GeForce RTX 4090 24GB"
+    ],
     "length_mm": 304,
     "tdp_w": 450,
     "recommended_psu_w": 850,
     "vram_gb": 24,
     "slot_width": 3,
-    "aliases": [
-      "GeForce RTX 4090",
-      "NVIDIA RTX 4090",
-      "4090",
-      "RTX 4090"
-    ],
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4090.c3889",
       "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4090/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-4080-super": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 4080 Super",
+    "model": "NVIDIA GeForce RTX 4080 Super",
+    "aliases": [
+      "GeForce RTX 4080 Super",
+      "RTX 4080 Super",
+      "4080 Super",
+      "4080Super",
+      "NVIDIA RTX 4080 Super",
+      "NVIDIA GeForce RTX 4080 Super",
+      "RTX 4080 Super 16GB",
+      "GeForce RTX 4080 Super 16GB"
+    ],
     "length_mm": 310,
     "tdp_w": 320,
-    "recommended_psu_w": 700,
+    "recommended_psu_w": 750,
     "vram_gb": 16,
     "slot_width": 3,
-    "aliases": [
-      "4080 Super",
-      "RTX 4080 Super",
-      "NVIDIA RTX 4080 Super",
-      "GeForce RTX 4080 Super"
-    ],
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4080-super.c3981",
       "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4080-family/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-4080": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 4080",
-    "length_mm": 310,
-    "tdp_w": 320,
-    "recommended_psu_w": 700,
-    "vram_gb": 16,
-    "slot_width": 3,
+    "model": "NVIDIA GeForce RTX 4080",
     "aliases": [
       "NVIDIA RTX 4080",
       "GeForce RTX 4080",
       "RTX 4080",
-      "4080"
+      "4080",
+      "NVIDIA GeForce RTX 4080",
+      "RTX 4080 16GB",
+      "GeForce RTX 4080 16GB"
     ],
+    "length_mm": 310,
+    "tdp_w": 320,
+    "recommended_psu_w": 750,
+    "vram_gb": 16,
+    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4080.c3888",
       "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4080-family/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-4070-ti-super": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 4070 Ti Super",
-    "length_mm": 310,
-    "tdp_w": 285,
-    "recommended_psu_w": 600,
-    "vram_gb": 16,
-    "slot_width": 3,
+    "model": "NVIDIA GeForce RTX 4070 Ti Super",
     "aliases": [
+      "GeForce RTX 4070 Ti Super",
       "RTX 4070 Ti Super",
       "4070 Ti Super",
-      "GeForce RTX 4070 Ti Super",
-      "NVIDIA RTX 4070 Ti Super"
+      "4070Ti Super",
+      "NVIDIA RTX 4070 Ti Super",
+      "NVIDIA GeForce RTX 4070 Ti Super",
+      "RTX 4070 Ti Super 16GB",
+      "GeForce RTX 4070 Ti Super 16GB"
     ],
+    "length_mm": 310,
+    "tdp_w": 285,
+    "recommended_psu_w": 700,
+    "vram_gb": 16,
+    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070-ti-super.c4187",
       "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4070-family/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-4070-ti": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 4070 Ti",
-    "length_mm": 285,
-    "tdp_w": 285,
-    "recommended_psu_w": 600,
-    "vram_gb": 12,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 4070 Ti",
     "aliases": [
       "GeForce RTX 4070 Ti",
       "NVIDIA RTX 4070 Ti",
       "RTX 4070 Ti",
-      "4070 Ti"
+      "4070 Ti",
+      "4070Ti",
+      "NVIDIA GeForce RTX 4070 Ti",
+      "RTX 4070 Ti 12GB",
+      "GeForce RTX 4070 Ti 12GB"
     ],
+    "length_mm": 285,
+    "tdp_w": 285,
+    "recommended_psu_w": 700,
+    "vram_gb": 12,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070-ti.c3950",
       "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4070-family/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-4070-super": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 4070 Super",
-    "length_mm": 240,
-    "tdp_w": 220,
-    "recommended_psu_w": 550,
-    "vram_gb": 12,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 4070 Super",
     "aliases": [
       "GeForce RTX 4070 Super",
+      "RTX 4070 Super",
       "4070 Super",
+      "4070Super",
       "NVIDIA RTX 4070 Super",
-      "RTX 4070 Super"
+      "NVIDIA GeForce RTX 4070 Super",
+      "RTX 4070 Super 12GB",
+      "GeForce RTX 4070 Super 12GB"
     ],
+    "length_mm": 242,
+    "tdp_w": 220,
+    "recommended_psu_w": 650,
+    "vram_gb": 12,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070-super.c4186",
       "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4070-family/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-4070": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 4070",
-    "length_mm": 240,
+    "model": "NVIDIA GeForce RTX 4070",
+    "aliases": [
+      "GeForce RTX 4070",
+      "RTX 4070",
+      "4070",
+      "NVIDIA RTX 4070",
+      "NVIDIA GeForce RTX 4070",
+      "RTX 4070 12GB",
+      "GeForce RTX 4070 12GB"
+    ],
+    "length_mm": 242,
     "tdp_w": 200,
-    "recommended_psu_w": 550,
+    "recommended_psu_w": 650,
     "vram_gb": 12,
     "slot_width": 2,
-    "aliases": [
-      "RTX 4070",
-      "NVIDIA RTX 4070",
-      "4070",
-      "GeForce RTX 4070"
-    ],
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070.c3924",
       "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4070-family/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
-  "nvidia-rtx-4060-ti": {
+  "nvidia-rtx-4060-ti-16gb": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 4060 Ti",
+    "model": "NVIDIA GeForce RTX 4060 Ti 16GB",
+    "aliases": [
+      "GeForce RTX 4060 Ti 16GB",
+      "RTX 4060 Ti 16GB",
+      "4060 Ti 16GB",
+      "4060Ti 16GB",
+      "NVIDIA RTX 4060 Ti 16GB",
+      "NVIDIA GeForce RTX 4060 Ti 16GB"
+    ],
+    "length_mm": 240,
+    "tdp_w": 165,
+    "recommended_psu_w": 550,
+    "vram_gb": 16,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-4060-ti-16-gb.c4185",
+      "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4060-family/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-4060-ti-8gb": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce RTX 4060 Ti 8GB",
+    "aliases": [
+      "GeForce RTX 4060 Ti 8GB",
+      "RTX 4060 Ti 8GB",
+      "4060 Ti 8GB",
+      "4060Ti 8GB",
+      "NVIDIA RTX 4060 Ti 8GB",
+      "NVIDIA GeForce RTX 4060 Ti 8GB",
+      "GeForce RTX 4060 Ti",
+      "RTX 4060 Ti",
+      "4060 Ti",
+      "4060Ti",
+      "NVIDIA RTX 4060 Ti",
+      "NVIDIA GeForce RTX 4060 Ti"
+    ],
     "length_mm": 240,
     "tdp_w": 160,
-    "recommended_psu_w": 450,
+    "recommended_psu_w": 550,
     "vram_gb": 8,
     "slot_width": 2,
-    "aliases": [
-      "4060 Ti",
-      "RTX 4060 Ti",
-      "GeForce RTX 4060 Ti",
-      "NVIDIA RTX 4060 Ti"
-    ],
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4060-ti-8-gb.c3899",
       "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4060-family/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-4060": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 4060",
-    "length_mm": 240,
-    "tdp_w": 115,
-    "recommended_psu_w": 300,
-    "vram_gb": 8,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 4060",
     "aliases": [
       "GeForce RTX 4060",
       "RTX 4060",
+      "4060",
       "NVIDIA RTX 4060",
-      "4060"
+      "NVIDIA GeForce RTX 4060",
+      "RTX 4060 8GB",
+      "GeForce RTX 4060 8GB"
     ],
+    "length_mm": 240,
+    "tdp_w": 115,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4060.c4107",
       "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4060-family/"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-4050": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 4050",
-    "length_mm": 240,
-    "tdp_w": 100,
-    "recommended_psu_w": 300,
-    "vram_gb": 6,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 4050",
     "aliases": [
       "RTX 4050",
       "NVIDIA RTX 4050",
       "GeForce RTX 4050",
-      "4050"
+      "4050",
+      "RTX 4050 6GB",
+      "NVIDIA GeForce RTX 4050"
     ],
+    "length_mm": 240,
+    "tdp_w": 100,
+    "recommended_psu_w": 350,
+    "vram_gb": 6,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4050.c3983"
@@ -358,951 +486,1602 @@
   },
   "nvidia-rtx-3090-ti": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 3090 Ti",
+    "model": "NVIDIA GeForce RTX 3090 Ti",
+    "aliases": [
+      "3090 Ti",
+      "3090Ti",
+      "RTX 3090 Ti",
+      "NVIDIA RTX 3090 Ti",
+      "GeForce RTX 3090 Ti",
+      "NVIDIA GeForce RTX 3090 Ti",
+      "RTX 3090 Ti 24GB"
+    ],
     "length_mm": 336,
     "tdp_w": 450,
     "recommended_psu_w": 850,
     "vram_gb": 24,
     "slot_width": 3,
-    "aliases": [
-      "3090 Ti",
-      "RTX 3090 Ti",
-      "NVIDIA RTX 3090 Ti",
-      "GeForce RTX 3090 Ti"
-    ],
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3090-ti.c3829"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-3090": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 3090",
+    "model": "NVIDIA GeForce RTX 3090",
+    "aliases": [
+      "3090",
+      "RTX 3090",
+      "GeForce RTX 3090",
+      "NVIDIA RTX 3090",
+      "NVIDIA GeForce RTX 3090",
+      "RTX 3090 24GB"
+    ],
     "length_mm": 313,
     "tdp_w": 350,
     "recommended_psu_w": 750,
     "vram_gb": 24,
     "slot_width": 3,
-    "aliases": [
-      "3090",
-      "RTX 3090",
-      "GeForce RTX 3090",
-      "NVIDIA RTX 3090"
-    ],
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3090.c3622"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-3080-ti": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 3080 Ti",
+    "model": "NVIDIA GeForce RTX 3080 Ti",
+    "aliases": [
+      "3080 Ti",
+      "3080Ti",
+      "NVIDIA RTX 3080 Ti",
+      "RTX 3080 Ti",
+      "GeForce RTX 3080 Ti",
+      "NVIDIA GeForce RTX 3080 Ti",
+      "RTX 3080 Ti 12GB"
+    ],
     "length_mm": 285,
     "tdp_w": 350,
     "recommended_psu_w": 750,
     "vram_gb": 12,
     "slot_width": 2,
-    "aliases": [
-      "3080 Ti",
-      "NVIDIA RTX 3080 Ti",
-      "RTX 3080 Ti",
-      "GeForce RTX 3080 Ti"
-    ],
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3080-ti.c3735"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
-  "nvidia-rtx-3080": {
+  "nvidia-rtx-3080-12gb": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 3080",
+    "model": "NVIDIA GeForce RTX 3080 12GB",
+    "aliases": [
+      "RTX 3080 12GB",
+      "GeForce RTX 3080 12GB",
+      "3080 12GB",
+      "NVIDIA RTX 3080 12GB",
+      "NVIDIA GeForce RTX 3080 12GB"
+    ],
     "length_mm": 285,
-    "tdp_w": 320,
-    "recommended_psu_w": 700,
-    "vram_gb": 10,
+    "tdp_w": 350,
+    "recommended_psu_w": 750,
+    "vram_gb": 12,
     "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-3080-12-gb.c3833"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-3080-10gb": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce RTX 3080 10GB",
     "aliases": [
       "RTX 3080",
       "NVIDIA RTX 3080",
       "GeForce RTX 3080",
-      "3080"
+      "3080",
+      "NVIDIA GeForce RTX 3080",
+      "RTX 3080 10GB",
+      "GeForce RTX 3080 10GB",
+      "3080 10GB",
+      "NVIDIA RTX 3080 10GB",
+      "NVIDIA GeForce RTX 3080 10GB"
     ],
+    "length_mm": 285,
+    "tdp_w": 320,
+    "recommended_psu_w": 750,
+    "vram_gb": 10,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3080.c3621"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-3070-ti": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 3070 Ti",
-    "length_mm": 270,
-    "tdp_w": 290,
-    "recommended_psu_w": 600,
-    "vram_gb": 8,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 3070 Ti",
     "aliases": [
       "GeForce RTX 3070 Ti",
       "3070 Ti",
+      "3070Ti",
       "NVIDIA RTX 3070 Ti",
-      "RTX 3070 Ti"
+      "RTX 3070 Ti",
+      "NVIDIA GeForce RTX 3070 Ti",
+      "RTX 3070 Ti 8GB"
     ],
+    "length_mm": 270,
+    "tdp_w": 290,
+    "recommended_psu_w": 750,
+    "vram_gb": 8,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3070-ti.c3675"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-3070": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 3070",
-    "length_mm": 242,
-    "tdp_w": 220,
-    "recommended_psu_w": 650,
-    "vram_gb": 8,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 3070",
     "aliases": [
       "NVIDIA RTX 3070",
       "RTX 3070",
       "3070",
-      "GeForce RTX 3070"
+      "GeForce RTX 3070",
+      "NVIDIA GeForce RTX 3070",
+      "RTX 3070 8GB"
     ],
+    "length_mm": 242,
+    "tdp_w": 220,
+    "recommended_psu_w": 650,
+    "vram_gb": 8,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3070.c3674"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-3060-ti": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 3060 Ti",
-    "length_mm": 242,
-    "tdp_w": 200,
-    "recommended_psu_w": 550,
-    "vram_gb": 8,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 3060 Ti",
     "aliases": [
       "GeForce RTX 3060 Ti",
       "NVIDIA RTX 3060 Ti",
       "3060 Ti",
-      "RTX 3060 Ti"
+      "3060Ti",
+      "RTX 3060 Ti",
+      "NVIDIA GeForce RTX 3060 Ti",
+      "RTX 3060 Ti 8GB"
     ],
+    "length_mm": 242,
+    "tdp_w": 200,
+    "recommended_psu_w": 600,
+    "vram_gb": 8,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3060-ti.c3681"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
-  "nvidia-rtx-3060": {
+  "nvidia-rtx-3060-12gb": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 3060",
-    "length_mm": 242,
-    "tdp_w": 170,
-    "recommended_psu_w": 450,
-    "vram_gb": 12,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce RTX 3060 12GB",
     "aliases": [
-      "3060",
+      "GeForce RTX 3060 12GB",
+      "RTX 3060 12GB",
+      "3060 12GB",
+      "NVIDIA RTX 3060 12GB",
+      "NVIDIA GeForce RTX 3060 12GB",
       "GeForce RTX 3060",
       "RTX 3060",
-      "NVIDIA RTX 3060"
+      "3060",
+      "NVIDIA RTX 3060",
+      "NVIDIA GeForce RTX 3060"
     ],
+    "length_mm": 242,
+    "tdp_w": 170,
+    "recommended_psu_w": 550,
+    "vram_gb": 12,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3060-12-gb.c3682"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
-  "nvidia-rtx-3050": {
+  "nvidia-rtx-3060-8gb": {
     "brand": "NVIDIA",
-    "model": "NVIDIA RTX 3050",
+    "model": "NVIDIA GeForce RTX 3060 8GB",
+    "aliases": [
+      "GeForce RTX 3060 8GB",
+      "RTX 3060 8GB",
+      "3060 8GB",
+      "NVIDIA RTX 3060 8GB",
+      "NVIDIA GeForce RTX 3060 8GB"
+    ],
     "length_mm": 242,
-    "tdp_w": 130,
-    "recommended_psu_w": 300,
+    "tdp_w": 170,
+    "recommended_psu_w": 550,
     "vram_gb": 8,
     "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-3060-8-gb.c3932"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-3050-8gb": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce RTX 3050 8GB",
     "aliases": [
+      "GeForce RTX 3050 8GB",
+      "RTX 3050 8GB",
+      "3050 8GB",
+      "NVIDIA RTX 3050 8GB",
+      "NVIDIA GeForce RTX 3050 8GB",
       "3050",
       "NVIDIA RTX 3050",
       "GeForce RTX 3050",
-      "RTX 3050"
+      "RTX 3050",
+      "NVIDIA GeForce RTX 3050"
     ],
+    "length_mm": 242,
+    "tdp_w": 130,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3050-8-gb.c3858"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
-  "nvidia-gtx-1660-ti": {
+  "nvidia-rtx-3050-6gb": {
     "brand": "NVIDIA",
-    "model": "NVIDIA GTX 1660 Ti",
-    "length_mm": 229,
-    "tdp_w": 120,
+    "model": "NVIDIA GeForce RTX 3050 6GB",
+    "aliases": [
+      "GeForce RTX 3050 6GB",
+      "RTX 3050 6GB",
+      "3050 6GB",
+      "NVIDIA RTX 3050 6GB",
+      "NVIDIA GeForce RTX 3050 6GB"
+    ],
+    "length_mm": 200,
+    "tdp_w": 70,
     "recommended_psu_w": 300,
     "vram_gb": 6,
     "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-3050-6-gb.c4188"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-2080-ti": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce RTX 2080 Ti",
+    "aliases": [
+      "GeForce RTX 2080 Ti",
+      "RTX 2080 Ti",
+      "2080 Ti",
+      "2080Ti",
+      "NVIDIA RTX 2080 Ti",
+      "NVIDIA GeForce RTX 2080 Ti",
+      "RTX 2080 Ti 11GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 250,
+    "recommended_psu_w": 650,
+    "vram_gb": 11,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-2080-ti.c3305"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-2080-super": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce RTX 2080 Super",
+    "aliases": [
+      "GeForce RTX 2080 Super",
+      "RTX 2080 Super",
+      "2080 Super",
+      "2080Super",
+      "NVIDIA RTX 2080 Super",
+      "NVIDIA GeForce RTX 2080 Super",
+      "RTX 2080 Super 8GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 250,
+    "recommended_psu_w": 650,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-2080-super.c3434"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-2080": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce RTX 2080",
+    "aliases": [
+      "GeForce RTX 2080",
+      "RTX 2080",
+      "2080",
+      "NVIDIA RTX 2080",
+      "NVIDIA GeForce RTX 2080",
+      "RTX 2080 8GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 215,
+    "recommended_psu_w": 650,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-2080.c3224"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-2070-super": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce RTX 2070 Super",
+    "aliases": [
+      "GeForce RTX 2070 Super",
+      "RTX 2070 Super",
+      "2070 Super",
+      "2070Super",
+      "NVIDIA RTX 2070 Super",
+      "NVIDIA GeForce RTX 2070 Super",
+      "RTX 2070 Super 8GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 215,
+    "recommended_psu_w": 650,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-2070-super.c3440"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-2070": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce RTX 2070",
+    "aliases": [
+      "GeForce RTX 2070",
+      "RTX 2070",
+      "2070",
+      "NVIDIA RTX 2070",
+      "NVIDIA GeForce RTX 2070",
+      "RTX 2070 8GB"
+    ],
+    "length_mm": 229,
+    "tdp_w": 175,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-2070.c3252"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-2060-super": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce RTX 2060 Super",
+    "aliases": [
+      "GeForce RTX 2060 Super",
+      "RTX 2060 Super",
+      "2060 Super",
+      "2060Super",
+      "NVIDIA RTX 2060 Super",
+      "NVIDIA GeForce RTX 2060 Super",
+      "RTX 2060 Super 8GB"
+    ],
+    "length_mm": 229,
+    "tdp_w": 175,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-2060-super.c3441"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-2060-12gb": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce RTX 2060 12GB",
+    "aliases": [
+      "GeForce RTX 2060 12GB",
+      "RTX 2060 12GB",
+      "2060 12GB",
+      "NVIDIA RTX 2060 12GB",
+      "NVIDIA GeForce RTX 2060 12GB"
+    ],
+    "length_mm": 229,
+    "tdp_w": 184,
+    "recommended_psu_w": 550,
+    "vram_gb": 12,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-2060-12-gb.c3836"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-2060-6gb": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce RTX 2060 6GB",
+    "aliases": [
+      "GeForce RTX 2060 6GB",
+      "RTX 2060 6GB",
+      "2060 6GB",
+      "NVIDIA RTX 2060 6GB",
+      "NVIDIA GeForce RTX 2060 6GB",
+      "GeForce RTX 2060",
+      "RTX 2060",
+      "2060",
+      "NVIDIA RTX 2060",
+      "NVIDIA GeForce RTX 2060"
+    ],
+    "length_mm": 229,
+    "tdp_w": 160,
+    "recommended_psu_w": 500,
+    "vram_gb": 6,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/geforce-rtx-2060.c3310"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-gtx-1660-ti": {
+    "brand": "NVIDIA",
+    "model": "NVIDIA GeForce GTX 1660 Ti",
     "aliases": [
       "1660 Ti",
+      "1660Ti",
       "GeForce GTX 1660 Ti",
       "GTX 1660 Ti",
-      "NVIDIA GTX 1660 Ti"
+      "NVIDIA GTX 1660 Ti",
+      "NVIDIA GeForce GTX 1660 Ti",
+      "GTX 1660 Ti 6GB"
     ],
+    "length_mm": 229,
+    "tdp_w": 120,
+    "recommended_psu_w": 450,
+    "vram_gb": 6,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-gtx-1660-ti.c3364"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-gtx-1660-super": {
     "brand": "NVIDIA",
-    "model": "NVIDIA GTX 1660 Super",
-    "length_mm": 229,
-    "tdp_w": 125,
-    "recommended_psu_w": 300,
-    "vram_gb": 6,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce GTX 1660 Super",
     "aliases": [
       "1660 Super",
+      "1660Super",
       "GeForce GTX 1660 Super",
       "NVIDIA GTX 1660 Super",
-      "GTX 1660 Super"
+      "GTX 1660 Super",
+      "NVIDIA GeForce GTX 1660 Super",
+      "GTX 1660 Super 6GB"
     ],
+    "length_mm": 229,
+    "tdp_w": 125,
+    "recommended_psu_w": 450,
+    "vram_gb": 6,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-gtx-1660-super.c3458"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-gtx-1660": {
     "brand": "NVIDIA",
-    "model": "NVIDIA GTX 1660",
-    "length_mm": 229,
-    "tdp_w": 120,
-    "recommended_psu_w": 300,
-    "vram_gb": 6,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce GTX 1660",
     "aliases": [
       "NVIDIA GTX 1660",
       "GTX 1660",
       "1660",
-      "GeForce GTX 1660"
+      "GeForce GTX 1660",
+      "NVIDIA GeForce GTX 1660",
+      "GTX 1660 6GB"
     ],
+    "length_mm": 229,
+    "tdp_w": 120,
+    "recommended_psu_w": 450,
+    "vram_gb": 6,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-gtx-1660.c3365"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-gtx-1650-super": {
     "brand": "NVIDIA",
-    "model": "NVIDIA GTX 1650 Super",
-    "length_mm": 229,
-    "tdp_w": 100,
-    "recommended_psu_w": 300,
-    "vram_gb": 4,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce GTX 1650 Super",
     "aliases": [
       "NVIDIA GTX 1650 Super",
       "GTX 1650 Super",
       "GeForce GTX 1650 Super",
-      "1650 Super"
+      "1650 Super",
+      "1650Super",
+      "NVIDIA GeForce GTX 1650 Super",
+      "GTX 1650 Super 4GB"
     ],
+    "length_mm": 229,
+    "tdp_w": 100,
+    "recommended_psu_w": 350,
+    "vram_gb": 4,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-gtx-1650-super.c3462"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-gtx-1650": {
     "brand": "NVIDIA",
-    "model": "NVIDIA GTX 1650",
-    "length_mm": 229,
-    "tdp_w": 75,
-    "recommended_psu_w": 250,
-    "vram_gb": 4,
-    "slot_width": 2,
+    "model": "NVIDIA GeForce GTX 1650",
     "aliases": [
       "1650",
       "GeForce GTX 1650",
       "GTX 1650",
-      "NVIDIA GTX 1650"
+      "NVIDIA GTX 1650",
+      "NVIDIA GeForce GTX 1650",
+      "GTX 1650 4GB"
     ],
+    "length_mm": 229,
+    "tdp_w": 75,
+    "recommended_psu_w": 300,
+    "vram_gb": 4,
+    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-gtx-1650.c3366"
     ],
-    "confidence": "high"
-  },
-  "amd-rx-9070-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 9070 XT",
-    "tdp_w": 304,
-    "recommended_psu_w": 750,
-    "vram_gb": 16,
-    "slot_width": 2,
-    "aliases": [
-      "RX 9070 XT",
-      "AMD RX 9070 XT",
-      "9070 XT",
-      "Radeon RX 9070 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-9070-xt.c4228"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-9070-gre": {
-    "brand": "AMD",
-    "model": "AMD RX 9070 GRE",
-    "tdp_w": 220,
-    "recommended_psu_w": 650,
-    "vram_gb": 12,
-    "slot_width": 2,
-    "aliases": [
-      "AMD RX 9070 GRE",
-      "9070 GRE",
-      "RX 9070 GRE",
-      "Radeon RX 9070 GRE"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-9070-gre.c4262"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-9070": {
-    "brand": "AMD",
-    "model": "AMD RX 9070",
-    "tdp_w": 220,
-    "recommended_psu_w": 650,
-    "vram_gb": 16,
-    "slot_width": 2,
-    "aliases": [
-      "RX 9070",
-      "9070",
-      "Radeon RX 9070",
-      "AMD RX 9070"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-9070.c4229"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-9060-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 9060 XT",
-    "tdp_w": 140,
-    "recommended_psu_w": 450,
-    "vram_gb": 8,
-    "slot_width": 2,
-    "aliases": [
-      "Radeon RX 9060 XT",
-      "RX 9060 XT",
-      "9060 XT",
-      "AMD RX 9060 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-9060-xt.c4263"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-9060": {
-    "brand": "AMD",
-    "model": "AMD RX 9060",
-    "tdp_w": 132,
-    "recommended_psu_w": 300,
-    "vram_gb": 8,
-    "slot_width": 2,
-    "aliases": [
-      "9060",
-      "RX 9060",
-      "Radeon RX 9060",
-      "AMD RX 9060"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-9060.c4264"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-7900-xtx": {
-    "brand": "AMD",
-    "model": "AMD RX 7900 XTX",
-    "length_mm": 287,
-    "tdp_w": 355,
-    "recommended_psu_w": 750,
-    "vram_gb": 24,
-    "slot_width": 3,
-    "aliases": [
-      "7900 XTX",
-      "Radeon RX 7900 XTX",
-      "AMD RX 7900 XTX",
-      "RX 7900 XTX"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-7900-xtx.c3917"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-7900-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 7900 XT",
-    "length_mm": 276,
-    "tdp_w": 300,
-    "recommended_psu_w": 700,
-    "vram_gb": 20,
-    "slot_width": 3,
-    "aliases": [
-      "RX 7900 XT",
-      "7900 XT",
-      "Radeon RX 7900 XT",
-      "AMD RX 7900 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-7900-xt.c3912"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-7900-gre": {
-    "brand": "AMD",
-    "model": "AMD RX 7900 GRE",
-    "length_mm": 276,
-    "tdp_w": 260,
-    "recommended_psu_w": 600,
-    "vram_gb": 16,
-    "slot_width": 3,
-    "aliases": [
-      "AMD RX 7900 GRE",
-      "Radeon RX 7900 GRE",
-      "RX 7900 GRE",
-      "7900 GRE"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-7900-gre.c4166"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-7800-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 7800 XT",
-    "length_mm": 267,
-    "tdp_w": 263,
-    "recommended_psu_w": 600,
-    "vram_gb": 16,
-    "slot_width": 3,
-    "aliases": [
-      "AMD RX 7800 XT",
-      "Radeon RX 7800 XT",
-      "7800 XT",
-      "RX 7800 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-7800-xt.c3831"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-7700-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 7700 XT",
-    "length_mm": 267,
-    "tdp_w": 245,
-    "recommended_psu_w": 550,
-    "vram_gb": 12,
-    "slot_width": 2,
-    "aliases": [
-      "Radeon RX 7700 XT",
-      "RX 7700 XT",
-      "AMD RX 7700 XT",
-      "7700 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-7700-xt.c3911"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-7600": {
-    "brand": "AMD",
-    "model": "AMD RX 7600",
-    "length_mm": 204,
-    "tdp_w": 165,
-    "recommended_psu_w": 450,
-    "vram_gb": 8,
-    "slot_width": 2,
-    "aliases": [
-      "Radeon RX 7600",
-      "7600",
-      "AMD RX 7600",
-      "RX 7600"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-7600.c4139"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-7600-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 7600 XT",
-    "length_mm": 204,
-    "tdp_w": 190,
-    "recommended_psu_w": 450,
-    "vram_gb": 16,
-    "slot_width": 2,
-    "aliases": [
-      "7600 XT",
-      "RX 7600 XT",
-      "AMD RX 7600 XT",
-      "Radeon RX 7600 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-7600-xt.c4193"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-6950-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 6950 XT",
-    "length_mm": 267,
-    "tdp_w": 335,
-    "recommended_psu_w": 700,
-    "vram_gb": 16,
-    "slot_width": 3,
-    "aliases": [
-      "AMD RX 6950 XT",
-      "Radeon RX 6950 XT",
-      "6950 XT",
-      "RX 6950 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-6950-xt.c3875"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-6900-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 6900 XT",
-    "length_mm": 267,
-    "tdp_w": 300,
-    "recommended_psu_w": 700,
-    "vram_gb": 16,
-    "slot_width": 2.5,
-    "aliases": [
-      "Radeon RX 6900 XT",
-      "AMD RX 6900 XT",
-      "RX 6900 XT",
-      "6900 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-6900-xt.c3481"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-6800-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 6800 XT",
-    "length_mm": 267,
-    "tdp_w": 300,
-    "recommended_psu_w": 700,
-    "vram_gb": 16,
-    "slot_width": 2,
-    "aliases": [
-      "Radeon RX 6800 XT",
-      "6800 XT",
-      "AMD RX 6800 XT",
-      "RX 6800 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-6800-xt.c3694"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-6800": {
-    "brand": "AMD",
-    "model": "AMD RX 6800",
-    "length_mm": 267,
-    "tdp_w": 250,
-    "recommended_psu_w": 600,
-    "vram_gb": 16,
-    "slot_width": 2,
-    "aliases": [
-      "Radeon RX 6800",
-      "RX 6800",
-      "AMD RX 6800",
-      "6800"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-6800.c3713"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-6750-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 6750 XT",
-    "length_mm": 267,
-    "tdp_w": 250,
-    "recommended_psu_w": 600,
-    "vram_gb": 12,
-    "slot_width": 2,
-    "aliases": [
-      "Radeon RX 6750 XT",
-      "RX 6750 XT",
-      "6750 XT",
-      "AMD RX 6750 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-6750-xt.c3879"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-6700-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 6700 XT",
-    "length_mm": 267,
-    "tdp_w": 230,
-    "recommended_psu_w": 550,
-    "vram_gb": 12,
-    "slot_width": 2,
-    "aliases": [
-      "RX 6700 XT",
-      "Radeon RX 6700 XT",
-      "6700 XT",
-      "AMD RX 6700 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-6700-xt.c3695"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-6650-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 6650 XT",
-    "length_mm": 240,
-    "tdp_w": 176,
-    "recommended_psu_w": 500,
-    "vram_gb": 8,
-    "slot_width": 2,
-    "aliases": [
-      "RX 6650 XT",
-      "Radeon RX 6650 XT",
-      "6650 XT",
-      "AMD RX 6650 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-6650-xt.c3898"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-6600-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 6600 XT",
-    "length_mm": 190,
-    "tdp_w": 160,
-    "recommended_psu_w": 450,
-    "vram_gb": 8,
-    "slot_width": 2,
-    "aliases": [
-      "Radeon RX 6600 XT",
-      "6600 XT",
-      "AMD RX 6600 XT",
-      "RX 6600 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-6600-xt.c3774"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-6600": {
-    "brand": "AMD",
-    "model": "AMD RX 6600",
-    "length_mm": 190,
-    "tdp_w": 132,
-    "recommended_psu_w": 450,
-    "vram_gb": 8,
-    "slot_width": 2,
-    "aliases": [
-      "AMD RX 6600",
-      "Radeon RX 6600",
-      "6600",
-      "RX 6600"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-6600.c3785"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-6500-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 6500 XT",
-    "length_mm": 194,
-    "tdp_w": 107,
-    "recommended_psu_w": 300,
-    "vram_gb": 4,
-    "slot_width": 2,
-    "aliases": [
-      "AMD RX 6500 XT",
-      "6500 XT",
-      "RX 6500 XT",
-      "Radeon RX 6500 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-6500-xt.c3837"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-6400": {
-    "brand": "AMD",
-    "model": "AMD RX 6400",
-    "length_mm": 152,
-    "tdp_w": 53,
-    "recommended_psu_w": 250,
-    "vram_gb": 4,
-    "slot_width": 1,
-    "aliases": [
-      "AMD RX 6400",
-      "Radeon RX 6400",
-      "RX 6400",
-      "6400"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-6400.c3813"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-5700-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 5700 XT",
-    "length_mm": 272,
-    "tdp_w": 225,
-    "recommended_psu_w": 550,
-    "vram_gb": 8,
-    "slot_width": 2,
-    "aliases": [
-      "RX 5700 XT",
-      "AMD RX 5700 XT",
-      "Radeon RX 5700 XT",
-      "5700 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-5700-xt.c3439"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-5700": {
-    "brand": "AMD",
-    "model": "AMD RX 5700",
-    "length_mm": 268,
-    "tdp_w": 180,
-    "recommended_psu_w": 450,
-    "vram_gb": 8,
-    "slot_width": 2,
-    "aliases": [
-      "AMD RX 5700",
-      "Radeon RX 5700",
-      "RX 5700",
-      "5700"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-5700.c3437"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-5600-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 5600 XT",
-    "length_mm": 267,
-    "tdp_w": 150,
-    "recommended_psu_w": 450,
-    "vram_gb": 6,
-    "slot_width": 2,
-    "aliases": [
-      "5600 XT",
-      "AMD RX 5600 XT",
-      "RX 5600 XT",
-      "Radeon RX 5600 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-5600-xt.c3474"
-    ],
-    "confidence": "high"
-  },
-  "amd-rx-5500-xt": {
-    "brand": "AMD",
-    "model": "AMD RX 5500 XT",
-    "length_mm": 180,
-    "tdp_w": 130,
-    "recommended_psu_w": 300,
-    "vram_gb": 8,
-    "slot_width": 2,
-    "aliases": [
-      "RX 5500 XT",
-      "Radeon RX 5500 XT",
-      "AMD RX 5500 XT",
-      "5500 XT"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/radeon-rx-5500-xt.c3470"
-    ],
-    "confidence": "high"
-  },
-  "intel-arc-b580": {
-    "brand": "Intel",
-    "model": "Intel Arc B580",
-    "length_mm": 272,
-    "tdp_w": 190,
-    "recommended_psu_w": 450,
-    "vram_gb": 12,
-    "slot_width": 2,
-    "aliases": [
-      "Arc B580",
-      "Intel Arc B580",
-      "B580"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/intel-arc-b580.c4227"
-    ],
-    "confidence": "high"
-  },
-  "intel-arc-b570": {
-    "brand": "Intel",
-    "model": "Intel Arc B570",
-    "length_mm": 249,
-    "tdp_w": 150,
-    "recommended_psu_w": 450,
-    "vram_gb": 10,
-    "slot_width": 2,
-    "aliases": [
-      "B570",
-      "Arc B570",
-      "Intel Arc B570"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/intel-arc-b570.c4246"
-    ],
-    "confidence": "high"
-  },
-  "intel-arc-a770": {
-    "brand": "Intel",
-    "model": "Intel Arc A770",
-    "length_mm": 270,
-    "tdp_w": 225,
-    "recommended_psu_w": 550,
-    "vram_gb": 16,
-    "slot_width": 2,
-    "aliases": [
-      "A770",
-      "Intel Arc A770",
-      "Arc A770"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/intel-arc-a770-limited-edition.c3937"
-    ],
-    "confidence": "high"
-  },
-  "intel-arc-a750": {
-    "brand": "Intel",
-    "model": "Intel Arc A750",
-    "length_mm": 270,
-    "tdp_w": 225,
-    "recommended_psu_w": 550,
-    "vram_gb": 8,
-    "slot_width": 2,
-    "aliases": [
-      "Intel Arc A750",
-      "Arc A750",
-      "A750"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/intel-arc-a750-limited-edition.c3938"
-    ],
-    "confidence": "high"
-  },
-  "intel-arc-a580": {
-    "brand": "Intel",
-    "model": "Intel Arc A580",
-    "length_mm": 225,
-    "tdp_w": 175,
-    "recommended_psu_w": 450,
-    "vram_gb": 8,
-    "slot_width": 2,
-    "aliases": [
-      "Intel Arc A580",
-      "A580",
-      "Arc A580"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/intel-arc-a580.c3918"
-    ],
-    "confidence": "high"
-  },
-  "intel-arc-a380": {
-    "brand": "Intel",
-    "model": "Intel Arc A380",
-    "length_mm": 222,
-    "tdp_w": 75,
-    "recommended_psu_w": 250,
-    "vram_gb": 6,
-    "slot_width": 2,
-    "aliases": [
-      "A380",
-      "Arc A380",
-      "Intel Arc A380"
-    ],
-    "segment": "gaming",
-    "sources": [
-      "https://www.techpowerup.com/gpu-specs/intel-arc-a380.c3917"
-    ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   },
   "nvidia-rtx-a400": {
     "brand": "NVIDIA",
     "model": "RTX A400",
+    "aliases": [
+      "RTX A400",
+      "Quadro RTX A400",
+      "NVIDIA Quadro RTX A400",
+      "A400",
+      "NVIDIA RTX A400",
+      "RTX A400 4GB"
+    ],
     "length_mm": 163,
     "tdp_w": 50,
     "recommended_psu_w": 300,
     "vram_gb": 4,
     "slot_width": 1,
     "segment": "workstation",
-    "aliases": [
-      "RTX A400",
-      "Quadro RTX A400",
-      "NVIDIA Quadro RTX A400",
-      "A400"
-    ],
     "sources": [
       "https://www.techpowerup.com/gpu-specs/rtx-a400.c4217"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "nvidia-rtx-a1000": {
+    "brand": "NVIDIA",
+    "model": "RTX A1000",
+    "aliases": [
+      "RTX A1000",
+      "Quadro RTX A1000",
+      "NVIDIA Quadro RTX A1000",
+      "A1000",
+      "NVIDIA RTX A1000",
+      "RTX A1000 8GB"
+    ],
+    "length_mm": 163,
+    "tdp_w": 50,
+    "recommended_psu_w": 300,
+    "vram_gb": 8,
+    "slot_width": 1,
+    "segment": "workstation",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/rtx-a1000.c4218"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-9070-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 9070 XT",
+    "aliases": [
+      "Radeon RX 9070 XT",
+      "RX 9070 XT",
+      "9070 XT",
+      "9070XT",
+      "AMD RX 9070 XT",
+      "AMD Radeon RX 9070 XT",
+      "RX 9070 XT 16GB"
+    ],
+    "length_mm": 280,
+    "tdp_w": 304,
+    "recommended_psu_w": 750,
+    "vram_gb": 16,
+    "slot_width": 2.5,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-9070-xt.c4228"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-9070-gre": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 9070 GRE",
+    "aliases": [
+      "AMD RX 9070 GRE",
+      "9070 GRE",
+      "9070GRE",
+      "RX 9070 GRE",
+      "Radeon RX 9070 GRE",
+      "AMD Radeon RX 9070 GRE",
+      "RX 9070 GRE 12GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 220,
+    "recommended_psu_w": 650,
+    "vram_gb": 12,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-9070-gre.c4262"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-9070": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 9070",
+    "aliases": [
+      "Radeon RX 9070",
+      "RX 9070",
+      "9070",
+      "AMD RX 9070",
+      "AMD Radeon RX 9070",
+      "RX 9070 16GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 220,
+    "recommended_psu_w": 650,
+    "vram_gb": 16,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-9070.c4229"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-9060-xt-16gb": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 9060 XT 16GB",
+    "aliases": [
+      "Radeon RX 9060 XT 16GB",
+      "RX 9060 XT 16GB",
+      "9060 XT 16GB",
+      "9060XT 16GB",
+      "AMD RX 9060 XT 16GB",
+      "AMD Radeon RX 9060 XT 16GB",
+      "Radeon RX 9060 XT",
+      "RX 9060 XT",
+      "9060 XT",
+      "9060XT",
+      "AMD RX 9060 XT",
+      "AMD Radeon RX 9060 XT"
+    ],
+    "length_mm": 241,
+    "tdp_w": 160,
+    "recommended_psu_w": 500,
+    "vram_gb": 16,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-9060-xt.c4263"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-9060-xt-8gb": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 9060 XT 8GB",
+    "aliases": [
+      "Radeon RX 9060 XT 8GB",
+      "RX 9060 XT 8GB",
+      "9060 XT 8GB",
+      "9060XT 8GB",
+      "AMD RX 9060 XT 8GB",
+      "AMD Radeon RX 9060 XT 8GB"
+    ],
+    "length_mm": 241,
+    "tdp_w": 160,
+    "recommended_psu_w": 500,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-9060-xt.c4263"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-9060": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 9060",
+    "aliases": [
+      "9060",
+      "RX 9060",
+      "Radeon RX 9060",
+      "AMD RX 9060",
+      "AMD Radeon RX 9060",
+      "RX 9060 8GB"
+    ],
+    "length_mm": 240,
+    "tdp_w": 132,
+    "recommended_psu_w": 450,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-9060.c4264"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-9050": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 9050",
+    "aliases": [
+      "9050",
+      "RX 9050",
+      "Radeon RX 9050",
+      "AMD RX 9050",
+      "AMD Radeon RX 9050",
+      "RX 9050 8GB"
+    ],
+    "length_mm": 190,
+    "tdp_w": 100,
+    "recommended_psu_w": 350,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-9050.c4265"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-7900-xtx": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 7900 XTX",
+    "aliases": [
+      "Radeon RX 7900 XTX",
+      "RX 7900 XTX",
+      "7900 XTX",
+      "7900XTX",
+      "AMD RX 7900 XTX",
+      "AMD Radeon RX 7900 XTX",
+      "RX 7900 XTX 24GB"
+    ],
+    "length_mm": 287,
+    "tdp_w": 355,
+    "recommended_psu_w": 800,
+    "vram_gb": 24,
+    "slot_width": 3,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-7900-xtx.c3917",
+      "https://www.amd.com/en/products/graphics/amd-radeon-rx-7900xtx"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-7900-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 7900 XT",
+    "aliases": [
+      "Radeon RX 7900 XT",
+      "RX 7900 XT",
+      "7900 XT",
+      "7900XT",
+      "AMD RX 7900 XT",
+      "AMD Radeon RX 7900 XT",
+      "RX 7900 XT 20GB"
+    ],
+    "length_mm": 276,
+    "tdp_w": 315,
+    "recommended_psu_w": 750,
+    "vram_gb": 20,
+    "slot_width": 3,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-7900-xt.c3912",
+      "https://www.amd.com/en/products/graphics/amd-radeon-rx-7900xt"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-7900-gre": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 7900 GRE",
+    "aliases": [
+      "AMD RX 7900 GRE",
+      "Radeon RX 7900 GRE",
+      "RX 7900 GRE",
+      "7900 GRE",
+      "7900GRE",
+      "AMD Radeon RX 7900 GRE",
+      "RX 7900 GRE 16GB"
+    ],
+    "length_mm": 276,
+    "tdp_w": 260,
+    "recommended_psu_w": 700,
+    "vram_gb": 16,
+    "slot_width": 3,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-7900-gre.c4166"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-7800-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 7800 XT",
+    "aliases": [
+      "Radeon RX 7800 XT",
+      "RX 7800 XT",
+      "7800 XT",
+      "7800XT",
+      "AMD RX 7800 XT",
+      "AMD Radeon RX 7800 XT",
+      "RX 7800 XT 16GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 263,
+    "recommended_psu_w": 700,
+    "vram_gb": 16,
+    "slot_width": 3,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-7800-xt.c3831",
+      "https://www.amd.com/en/products/graphics/amd-radeon-rx-7800-xt"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-7700-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 7700 XT",
+    "aliases": [
+      "Radeon RX 7700 XT",
+      "RX 7700 XT",
+      "7700 XT",
+      "7700XT",
+      "AMD RX 7700 XT",
+      "AMD Radeon RX 7700 XT",
+      "RX 7700 XT 12GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 245,
+    "recommended_psu_w": 700,
+    "vram_gb": 12,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-7700-xt.c3911",
+      "https://www.amd.com/en/products/graphics/amd-radeon-rx-7700-xt"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-7600-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 7600 XT",
+    "aliases": [
+      "Radeon RX 7600 XT",
+      "RX 7600 XT",
+      "7600 XT",
+      "7600XT",
+      "AMD RX 7600 XT",
+      "AMD Radeon RX 7600 XT",
+      "RX 7600 XT 16GB"
+    ],
+    "length_mm": 204,
+    "tdp_w": 190,
+    "recommended_psu_w": 600,
+    "vram_gb": 16,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-7600-xt.c4193",
+      "https://www.amd.com/en/products/graphics/amd-radeon-rx-7600-xt"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-7600": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 7600",
+    "aliases": [
+      "Radeon RX 7600",
+      "RX 7600",
+      "7600",
+      "AMD RX 7600",
+      "AMD Radeon RX 7600",
+      "RX 7600 8GB"
+    ],
+    "length_mm": 204,
+    "tdp_w": 165,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-7600.c4139",
+      "https://www.amd.com/en/products/graphics/amd-radeon-rx-7600"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6950-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6950 XT",
+    "aliases": [
+      "AMD RX 6950 XT",
+      "Radeon RX 6950 XT",
+      "6950 XT",
+      "6950XT",
+      "RX 6950 XT",
+      "AMD Radeon RX 6950 XT",
+      "RX 6950 XT 16GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 335,
+    "recommended_psu_w": 850,
+    "vram_gb": 16,
+    "slot_width": 3,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6950-xt.c3875"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6900-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6900 XT",
+    "aliases": [
+      "Radeon RX 6900 XT",
+      "AMD RX 6900 XT",
+      "RX 6900 XT",
+      "6900 XT",
+      "6900XT",
+      "AMD Radeon RX 6900 XT",
+      "RX 6900 XT 16GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 300,
+    "recommended_psu_w": 850,
+    "vram_gb": 16,
+    "slot_width": 2.5,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6900-xt.c3481"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6800-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6800 XT",
+    "aliases": [
+      "Radeon RX 6800 XT",
+      "6800 XT",
+      "6800XT",
+      "AMD RX 6800 XT",
+      "RX 6800 XT",
+      "AMD Radeon RX 6800 XT",
+      "RX 6800 XT 16GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 300,
+    "recommended_psu_w": 750,
+    "vram_gb": 16,
+    "slot_width": 2.5,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6800-xt.c3694"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6800": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6800",
+    "aliases": [
+      "Radeon RX 6800",
+      "RX 6800",
+      "AMD RX 6800",
+      "6800",
+      "AMD Radeon RX 6800",
+      "RX 6800 16GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 250,
+    "recommended_psu_w": 650,
+    "vram_gb": 16,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6800.c3713"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6750-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6750 XT",
+    "aliases": [
+      "Radeon RX 6750 XT",
+      "RX 6750 XT",
+      "6750 XT",
+      "6750XT",
+      "AMD RX 6750 XT",
+      "AMD Radeon RX 6750 XT",
+      "RX 6750 XT 12GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 250,
+    "recommended_psu_w": 650,
+    "vram_gb": 12,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6750-xt.c3879"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6700-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6700 XT",
+    "aliases": [
+      "Radeon RX 6700 XT",
+      "RX 6700 XT",
+      "6700 XT",
+      "6700XT",
+      "AMD RX 6700 XT",
+      "AMD Radeon RX 6700 XT",
+      "RX 6700 XT 12GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 230,
+    "recommended_psu_w": 650,
+    "vram_gb": 12,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6700-xt.c3695"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6700": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6700",
+    "aliases": [
+      "Radeon RX 6700",
+      "RX 6700",
+      "6700",
+      "AMD RX 6700",
+      "AMD Radeon RX 6700",
+      "RX 6700 10GB"
+    ],
+    "length_mm": 242,
+    "tdp_w": 175,
+    "recommended_psu_w": 500,
+    "vram_gb": 10,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6700.c3866"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6650-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6650 XT",
+    "aliases": [
+      "RX 6650 XT",
+      "Radeon RX 6650 XT",
+      "6650 XT",
+      "6650XT",
+      "AMD RX 6650 XT",
+      "AMD Radeon RX 6650 XT",
+      "RX 6650 XT 8GB"
+    ],
+    "length_mm": 240,
+    "tdp_w": 180,
+    "recommended_psu_w": 500,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6650-xt.c3898"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6600-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6600 XT",
+    "aliases": [
+      "Radeon RX 6600 XT",
+      "6600 XT",
+      "6600XT",
+      "AMD RX 6600 XT",
+      "RX 6600 XT",
+      "AMD Radeon RX 6600 XT",
+      "RX 6600 XT 8GB"
+    ],
+    "length_mm": 190,
+    "tdp_w": 160,
+    "recommended_psu_w": 500,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6600-xt.c3774"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6600": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6600",
+    "aliases": [
+      "Radeon RX 6600",
+      "RX 6600",
+      "6600",
+      "AMD RX 6600",
+      "AMD Radeon RX 6600",
+      "RX 6600 8GB"
+    ],
+    "length_mm": 190,
+    "tdp_w": 132,
+    "recommended_psu_w": 450,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6600.c3785"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6500-xt-8gb": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6500 XT 8GB",
+    "aliases": [
+      "AMD RX 6500 XT 8GB",
+      "6500 XT 8GB",
+      "6500XT 8GB",
+      "RX 6500 XT 8GB",
+      "Radeon RX 6500 XT 8GB",
+      "AMD Radeon RX 6500 XT 8GB"
+    ],
+    "length_mm": 194,
+    "tdp_w": 107,
+    "recommended_psu_w": 400,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6500-xt.c3837"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6500-xt-4gb": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6500 XT 4GB",
+    "aliases": [
+      "AMD RX 6500 XT 4GB",
+      "6500 XT 4GB",
+      "6500XT 4GB",
+      "RX 6500 XT 4GB",
+      "Radeon RX 6500 XT 4GB",
+      "AMD Radeon RX 6500 XT 4GB",
+      "AMD RX 6500 XT",
+      "6500 XT",
+      "6500XT",
+      "RX 6500 XT",
+      "Radeon RX 6500 XT",
+      "AMD Radeon RX 6500 XT"
+    ],
+    "length_mm": 194,
+    "tdp_w": 107,
+    "recommended_psu_w": 400,
+    "vram_gb": 4,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6500-xt.c3837"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-6400": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 6400",
+    "aliases": [
+      "AMD RX 6400",
+      "Radeon RX 6400",
+      "RX 6400",
+      "6400",
+      "AMD Radeon RX 6400",
+      "RX 6400 4GB"
+    ],
+    "length_mm": 152,
+    "tdp_w": 53,
+    "recommended_psu_w": 350,
+    "vram_gb": 4,
+    "slot_width": 1,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-6400.c3813"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-5700-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 5700 XT",
+    "aliases": [
+      "RX 5700 XT",
+      "AMD RX 5700 XT",
+      "Radeon RX 5700 XT",
+      "5700 XT",
+      "5700XT",
+      "AMD Radeon RX 5700 XT",
+      "RX 5700 XT 8GB"
+    ],
+    "length_mm": 272,
+    "tdp_w": 225,
+    "recommended_psu_w": 600,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-5700-xt.c3439"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-5700": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 5700",
+    "aliases": [
+      "AMD RX 5700",
+      "Radeon RX 5700",
+      "RX 5700",
+      "5700",
+      "AMD Radeon RX 5700",
+      "RX 5700 8GB"
+    ],
+    "length_mm": 268,
+    "tdp_w": 180,
+    "recommended_psu_w": 500,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-5700.c3437"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-5600-xt": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 5600 XT",
+    "aliases": [
+      "5600 XT",
+      "5600XT",
+      "AMD RX 5600 XT",
+      "RX 5600 XT",
+      "Radeon RX 5600 XT",
+      "AMD Radeon RX 5600 XT",
+      "RX 5600 XT 6GB"
+    ],
+    "length_mm": 267,
+    "tdp_w": 150,
+    "recommended_psu_w": 450,
+    "vram_gb": 6,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-5600-xt.c3474"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-5500-xt-8gb": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 5500 XT 8GB",
+    "aliases": [
+      "RX 5500 XT 8GB",
+      "Radeon RX 5500 XT 8GB",
+      "AMD RX 5500 XT 8GB",
+      "5500 XT 8GB",
+      "5500XT 8GB",
+      "AMD Radeon RX 5500 XT 8GB",
+      "RX 5500 XT",
+      "Radeon RX 5500 XT",
+      "AMD RX 5500 XT",
+      "5500 XT",
+      "5500XT",
+      "AMD Radeon RX 5500 XT"
+    ],
+    "length_mm": 180,
+    "tdp_w": 130,
+    "recommended_psu_w": 450,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-5500-xt.c3470"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "amd-rx-5500-xt-4gb": {
+    "brand": "AMD",
+    "model": "AMD Radeon RX 5500 XT 4GB",
+    "aliases": [
+      "RX 5500 XT 4GB",
+      "Radeon RX 5500 XT 4GB",
+      "AMD RX 5500 XT 4GB",
+      "5500 XT 4GB",
+      "5500XT 4GB",
+      "AMD Radeon RX 5500 XT 4GB"
+    ],
+    "length_mm": 180,
+    "tdp_w": 130,
+    "recommended_psu_w": 450,
+    "vram_gb": 4,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/radeon-rx-5500-xt.c3470"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "intel-arc-b580": {
+    "brand": "Intel",
+    "model": "Intel Arc B580",
+    "aliases": [
+      "Intel Arc B580",
+      "Arc B580",
+      "B580",
+      "Battlemage B580",
+      "Arc B580 12GB",
+      "Intel Arc B580 12GB"
+    ],
+    "length_mm": 272,
+    "tdp_w": 190,
+    "recommended_psu_w": 550,
+    "vram_gb": 12,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/intel-arc-b580.c4227"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "intel-arc-b570": {
+    "brand": "Intel",
+    "model": "Intel Arc B570",
+    "aliases": [
+      "Intel Arc B570",
+      "Arc B570",
+      "B570",
+      "Battlemage B570",
+      "Arc B570 10GB",
+      "Intel Arc B570 10GB"
+    ],
+    "length_mm": 249,
+    "tdp_w": 150,
+    "recommended_psu_w": 500,
+    "vram_gb": 10,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/intel-arc-b570.c4246"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "intel-arc-a770-16gb": {
+    "brand": "Intel",
+    "model": "Intel Arc A770 16GB",
+    "aliases": [
+      "Intel Arc A770 16GB",
+      "Arc A770 16GB",
+      "A770 16GB",
+      "Intel Arc A770",
+      "Arc A770",
+      "A770"
+    ],
+    "length_mm": 270,
+    "tdp_w": 225,
+    "recommended_psu_w": 550,
+    "vram_gb": 16,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/intel-arc-a770-limited-edition.c3937",
+      "https://www.intel.com/content/www/us/en/products/sku/229151/intel-arc-a770-graphics-16gb/specifications.html"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "intel-arc-a770-8gb": {
+    "brand": "Intel",
+    "model": "Intel Arc A770 8GB",
+    "aliases": [
+      "Intel Arc A770 8GB",
+      "Arc A770 8GB",
+      "A770 8GB"
+    ],
+    "length_mm": 270,
+    "tdp_w": 225,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/intel-arc-a770-8-gb.c3914"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "intel-arc-a750": {
+    "brand": "Intel",
+    "model": "Intel Arc A750",
+    "aliases": [
+      "Intel Arc A750",
+      "Arc A750",
+      "A750",
+      "Arc A750 8GB",
+      "Intel Arc A750 8GB"
+    ],
+    "length_mm": 270,
+    "tdp_w": 225,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/intel-arc-a750-limited-edition.c3938",
+      "https://www.intel.com/content/www/us/en/products/sku/227954/intel-arc-a750-graphics/specifications.html"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "intel-arc-a580": {
+    "brand": "Intel",
+    "model": "Intel Arc A580",
+    "aliases": [
+      "Intel Arc A580",
+      "A580",
+      "Arc A580",
+      "Arc A580 8GB",
+      "Intel Arc A580 8GB"
+    ],
+    "length_mm": 225,
+    "tdp_w": 185,
+    "recommended_psu_w": 500,
+    "vram_gb": 8,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/intel-arc-a580.c3918"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "intel-arc-a380": {
+    "brand": "Intel",
+    "model": "Intel Arc A380",
+    "aliases": [
+      "A380",
+      "Arc A380",
+      "Intel Arc A380",
+      "Arc A380 6GB",
+      "Intel Arc A380 6GB"
+    ],
+    "length_mm": 222,
+    "tdp_w": 75,
+    "recommended_psu_w": 300,
+    "vram_gb": 6,
+    "slot_width": 2,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/intel-arc-a380.c3917"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "intel-arc-a310": {
+    "brand": "Intel",
+    "model": "Intel Arc A310",
+    "aliases": [
+      "A310",
+      "Arc A310",
+      "Intel Arc A310",
+      "Arc A310 4GB",
+      "Intel Arc A310 4GB"
+    ],
+    "length_mm": 155,
+    "tdp_w": 75,
+    "recommended_psu_w": 250,
+    "vram_gb": 4,
+    "slot_width": 1,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/intel-arc-a310.c3930"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:35:00Z"
   }
 }

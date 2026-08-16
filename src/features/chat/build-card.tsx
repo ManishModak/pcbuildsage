@@ -6,13 +6,14 @@ import { formatPrice, sumPrices } from "@/lib/format";
 import { Icon } from "@/components/ui/icon";
 import { PillTabs } from "@/components/ui/pill-tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { cn } from "@/components/ui/cn";
 import type { DerivedBuild } from "./build-derive";
 import { validationStrip } from "./build-derive";
 
 // The flagship artifact. One card per proposed build, presented as pill tabs
 // above a shared card body. Tab labels name the tradeoff each build makes and
 // come from the model via validate_build. Prices are mono, right-aligned, tabular.
-export function BuildCard({ builds }: { builds: DerivedBuild[] }) {
+export function BuildCard({ builds, inSidePanel }: { builds: DerivedBuild[]; inSidePanel?: boolean }) {
   const [index, setIndex] = useState(0);
   const active = builds[Math.min(index, builds.length - 1)];
   if (!active) return null;
@@ -25,7 +26,13 @@ export function BuildCard({ builds }: { builds: DerivedBuild[] }) {
   const strip = validationStrip(active.validation);
 
   return (
-    <section className="my-3 overflow-hidden rounded-card border border-border bg-surface" aria-label="Proposed build">
+    <section
+      className={cn(
+        "overflow-hidden rounded-card border border-border bg-surface",
+        !inSidePanel && "my-3"
+      )}
+      aria-label="Proposed build"
+    >
       {tabs.length > 1 ? (
         <div className="border-b border-border px-4 pt-4">
           <PillTabs
@@ -71,9 +78,9 @@ export function BuildCard({ builds }: { builds: DerivedBuild[] }) {
                       <span className="text-caption text-text-secondary">{component.retailer}</span>
                     )
                   ) : (
-                    <span className="text-caption text-text-muted">no local listing</span>
+                    <span className="text-caption text-text-muted italic">Derived requirement</span>
                   )}
-                  {component.unverified ? (
+                  {component.unverified && component.retailer ? (
                     <span
                       className="inline-flex items-center gap-1 text-caption"
                       style={{ color: "var(--unverified)" }}

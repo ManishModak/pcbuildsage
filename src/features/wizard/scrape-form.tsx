@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,12 +12,13 @@ import {
   X
 } from "lucide-react";
 import { fetchProfiles, postSse, testProfile } from "@/lib/api-client";
+import { cancelledRunOutcome, failedRunOutcome } from "@/contracts/scrape";
 import { loadLastScrape, saveLastScrape } from "@/lib/client-config-store";
-import { estimateScrapeMinutes } from "@/lib/format";
+import { estimateScrapeMinutes, getErrorMessage } from "@/lib/format";
 import type { ProfileSummary, ScrapeRunConfig } from "@/types/client";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
-import { Button, Card, Field, Input, Toggle } from "@/components/ui/primitives";
+import { Button, Card, ChoiceControl, ChoiceGroup, Field, Input, Spinner, Toggle } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/select";
 import { ProfileImportDialog } from "./profile-import";
 import { ScrapeProgress } from "./scrape-progress";
@@ -28,10 +29,14 @@ import {
 } from "./scrape-stream-reducer";
 
 type Depth = "quick" | "full" | "custom";
-type Phase = "config" | "running" | "done";
+type Phase = "config" | "running" | "settled";
+type ProfileLoadState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; profiles: ProfileSummary[] };
 
 export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
-  const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
+  const [profileState, setProfileState] = useState<ProfileLoadState>({ status: "loading" });
   const [profileId, setProfileId] = useState("");
   const [sites, setSites] = useState<Set<string>>(new Set());
   const [categories, setCategories] = useState<Set<string>>(new Set());
@@ -64,38 +69,41 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
     []
   );
 
-  const loadProfiles = (preferred?: string) =>
-    fetchProfiles().then((list) => {
-      setProfiles(list);
-      const chosen = preferred && list.some((p) => p.id === preferred) ? preferred : list[0]?.id ?? "";
-      if (chosen && chosen !== profileId) selectProfile(chosen, list);
-    });
-
-  useEffect(() => {
-    const last = loadLastScrape();
-    fetchProfiles().then((list) => {
-      setProfiles(list);
-      const chosen = last?.profile && list.some((p) => p.id === last.profile) ? last.profile : list[0]?.id ?? "";
-      if (chosen) {
-        selectProfile(chosen, list, last ?? undefined);
-        if (last?.quick === false && last.maxPages) {
-          setDepth("custom");
-          setMaxPages(last.maxPages);
-        }
-      }
-    });
-  }, []);
-
-  const activeProfile = profiles.find((profile) => profile.id === profileId);
-
-  function selectProfile(id: string, list: ProfileSummary[], last?: Partial<ScrapeRunConfig>) {
+  const selectProfile = useCallback((id: string, list: ProfileSummary[], last?: Partial<ScrapeRunConfig>) => {
     const profile = list.find((item) => item.id === id);
     setProfileId(id);
     const allSites = new Set(profile?.sites.map((site) => site.name ?? "").filter(Boolean));
     const allCategories = new Set(profile?.sites.flatMap((site) => site.categories) ?? []);
     setSites(last?.sites?.length ? new Set(last.sites) : allSites);
     setCategories(last?.categories?.length ? new Set(last.categories) : allCategories);
-  }
+  }, []);
+
+  const loadProfiles = useCallback(async (preferred?: string, last?: Partial<ScrapeRunConfig>) => {
+    setProfileState({ status: "loading" });
+    try {
+      const list = await fetchProfiles();
+      setProfileState({ status: "ready", profiles: list });
+      const chosen = preferred && list.some((profile) => profile.id === preferred) ? preferred : list[0]?.id ?? "";
+      if (chosen) selectProfile(chosen, list, last);
+    } catch (error) {
+      setProfileState({ status: "error", message: getErrorMessage(error) });
+    }
+  }, [selectProfile]);
+
+  useEffect(() => {
+    const last = loadLastScrape();
+    // One-time client hydration from localStorage plus the profile endpoint.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadProfiles(last?.profile, last ?? undefined);
+    if (last?.quick === false && last.maxPages) {
+      setDepth("custom");
+      setMaxPages(last.maxPages);
+    }
+  }, [loadProfiles]);
+
+  const profiles = profileState.status === "ready" ? profileState.profiles : [];
+
+  const activeProfile = profiles.find((profile) => profile.id === profileId);
 
   const availableSites = useMemo(
     () => activeProfile?.sites.map((site) => site.name ?? "").filter(Boolean) ?? [],
@@ -107,16 +115,21 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
   );
 
   const estimate = useMemo(() => {
-    const jobs = availableSites
-      .filter((site) => sites.has(site))
-      .reduce((count, site) => {
-        const profileSite = activeProfile?.sites.find((item) => item.name === site);
-        const cats = profileSite?.categories.filter((cat) => categories.has(cat)) ?? [];
-        return count + cats.length;
-      }, 0);
+    const selectedSitesList = availableSites.filter((site) => sites.has(site));
+    const jobs = selectedSitesList.reduce((count, site) => {
+      const profileSite = activeProfile?.sites.find((item) => item.name === site);
+      const cats = profileSite?.categories.filter((cat) => categories.has(cat)) ?? [];
+      return count + cats.length;
+    }, 0);
     const depthPages = depth === "quick" ? 2 : depth === "custom" ? maxPages : 3;
-    return estimateScrapeMinutes(jobs, jobs * depthPages, advanced.delayMs);
-  }, [availableSites, sites, categories, depth, maxPages, advanced.delayMs, activeProfile]);
+    return estimateScrapeMinutes(
+      jobs,
+      jobs * depthPages,
+      advanced.delayMs,
+      advanced.concurrency,
+      selectedSitesList.length
+    );
+  }, [availableSites, sites, categories, depth, maxPages, advanced.delayMs, advanced.concurrency, activeProfile]);
 
   const buildRunConfig = (): ScrapeRunConfig => ({
     profile: profileId,
@@ -141,16 +154,23 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
     const controller = new AbortController();
     abortRef.current = controller;
 
-    await postSse("/api/scrape", config, (event, data) => {
+    try {
+      const outcome = await postSse("/api/scrape", config, (event, data) => {
+        if (controller.signal.aborted) return;
+        const action = toScrapeStreamAction(event, data);
+        if (action) dispatch(action);
+      }, controller.signal);
       if (controller.signal.aborted) return;
-      const action = toScrapeStreamAction(event, data);
-      if (action) dispatch(action);
-    }, controller.signal).catch((error) => {
-      if (!controller.signal.aborted) dispatch({ type: "stream_failed", message: (error as Error).message });
-    });
-    if (controller.signal.aborted) return;
-    setPhase("done");
-    abortRef.current = null;
+      dispatch({ type: "outcome", outcome });
+      setPhase("settled");
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const outcome = failedRunOutcome((error as Error).message);
+      dispatch({ type: "outcome", outcome });
+      setPhase("settled");
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+    }
   };
 
   const stopScrape = () => {
@@ -158,7 +178,9 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
       abortRef.current.abort();
       abortRef.current = null;
     }
-    setPhase("config");
+    const outcome = cancelledRunOutcome();
+    dispatch({ type: "outcome", outcome });
+    setPhase("settled");
   };
 
   const runTest = async () => {
@@ -189,6 +211,7 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
           </p>
         </header>
         {stream.runError ? <RunError message={stream.runError} /> : null}
+        {stream.outcome?.status === "cancelled" ? <RunNotice message="Scrape cancelled. Completed writes were kept." /> : null}
         <ScrapeProgress
           rows={Array.from(stream.rows.values())}
           logs={stream.logs}
@@ -205,7 +228,7 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
               Back to options
             </Button>
           )}
-          <Button iconRight={ArrowRight} onClick={onNext} disabled={phase === "running"}>
+          <Button iconRight={ArrowRight} onClick={onNext} disabled={stream.outcome?.status !== "succeeded"}>
             Continue
           </Button>
         </div>
@@ -213,31 +236,67 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
     );
   }
 
+  if (profileState.status !== "ready" || profileState.profiles.length === 0) {
+    return (
+      <section className="flex flex-col gap-6">
+        <ScrapeConfigHeader />
+        <Card className="flex flex-col items-start gap-3 p-4" aria-live="polite">
+          {profileState.status === "loading" ? (
+            <div className="flex items-center gap-3 text-sm text-text-secondary">
+              <Spinner />
+              Loading scrape profiles…
+            </div>
+          ) : profileState.status === "error" ? (
+            <>
+              <div role="alert">
+                <p className="text-sm font-medium text-text">Could not load scrape profiles</p>
+                <p className="text-caption text-text-secondary">{profileState.message}</p>
+              </div>
+              <Button variant="ghost" onClick={() => void loadProfiles()}>Retry</Button>
+            </>
+          ) : (
+            <>
+              <div>
+                <p className="text-sm font-medium text-text">No scrape profiles installed</p>
+                <p className="text-caption text-text-secondary">Import a community profile before configuring a scrape.</p>
+              </div>
+              <Button variant="ghost" iconLeft={Upload} onClick={() => setImportOpen(true)}>Import profile</Button>
+            </>
+          )}
+        </Card>
+        <Button variant="ghost" iconLeft={ArrowLeft} onClick={onBack} className="self-start">Back</Button>
+        <ProfileImportDialog
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          onImported={(id) => void loadProfiles(id)}
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-text">Configure the scrape</h1>
-        <p className="text-base text-text-secondary">
-          Community profiles define how each site is crawled. Choose what to fetch right now.
-        </p>
-      </header>
+      <ScrapeConfigHeader />
 
       <div className="flex flex-col gap-5">
         <Field label="Profile">
-          <div className="flex gap-2">
-            <Select
-              className="flex-1"
-              value={profileId}
-              options={profiles.map((profile) => ({
-                value: profile.id,
-                label: `${profile.flag ? `${profile.flag} ` : ""}${profile.profileName ?? profile.id} · ${profile.siteCount} sites`
-              }))}
-              onChange={(event) => selectProfile(event.target.value, profiles)}
-            />
-            <Button variant="ghost" iconLeft={Upload} onClick={() => setImportOpen(true)}>
-              Import
-            </Button>
-          </div>
+          {(controlProps) => (
+            <div className="flex gap-2">
+              <Select
+                {...controlProps}
+                className="flex-1"
+                value={profileId}
+                options={profiles.map((profile) => ({
+                  value: profile.id,
+                  label: `${profile.flag ? `${profile.flag} ` : ""}${profile.profileName ?? profile.id} · ${profile.siteCount} sites`
+                }))}
+                onChange={(event) => selectProfile(event.target.value, profiles)}
+              />
+              <Button variant="ghost" iconLeft={Upload} onClick={() => setImportOpen(true)}>
+                Import
+              </Button>
+            </div>
+          )}
         </Field>
 
         <CheckboxGroup
@@ -254,7 +313,7 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
           onToggle={(value) => setCategories((prev) => toggle(prev, value))}
         />
 
-        <Field label="Depth">
+        <ChoiceGroup label="Depth" className="flex flex-col gap-1.5">
           <div className="flex flex-wrap gap-2">
             <DepthOption value="quick" active={depth === "quick"} onSelect={setDepth} label="Quick" sub="2 pages/category" />
             <DepthOption value="full" active={depth === "full"} onSelect={setDepth} label="Full" sub="profile max_pages" />
@@ -271,7 +330,7 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
               />
             ) : null}
           </div>
-        </Field>
+        </ChoiceGroup>
 
         {/* Advanced — collapsed by default (layout discipline). */}
         <div className="rounded-card border border-border">
@@ -300,40 +359,52 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
               />
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Per-site LLM call budget">
-                  <Input
-                    type="number"
-                    min={0}
-                    mono
-                    disabled={advanced.noLlmFallback}
-                    value={advanced.maxLlmCalls}
-                    onChange={(event) => setAdvanced((prev) => ({ ...prev, maxLlmCalls: Number(event.target.value) || 0 }))}
-                  />
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      type="number"
+                      min={0}
+                      mono
+                      disabled={advanced.noLlmFallback}
+                      value={advanced.maxLlmCalls}
+                      onChange={(event) => setAdvanced((prev) => ({ ...prev, maxLlmCalls: Number(event.target.value) || 0 }))}
+                    />
+                  )}
                 </Field>
-                <Field label="Concurrent sites">
-                  <Input
-                    type="number"
-                    min={1}
-                    mono
-                    value={advanced.concurrency}
-                    onChange={(event) => setAdvanced((prev) => ({ ...prev, concurrency: Math.max(1, Number(event.target.value) || 1) }))}
-                  />
+                <Field label="Concurrent sites" hint="Each parallel worker uses ~200–300 MB RAM (recommended: 2–4).">
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      type="number"
+                      min={1}
+                      mono
+                      value={advanced.concurrency}
+                      onChange={(event) => setAdvanced((prev) => ({ ...prev, concurrency: Math.max(1, Number(event.target.value) || 1) }))}
+                    />
+                  )}
                 </Field>
                 <Field label="Delay between requests (ms)">
-                  <Input
-                    type="number"
-                    min={0}
-                    mono
-                    value={advanced.delayMs}
-                    onChange={(event) => setAdvanced((prev) => ({ ...prev, delayMs: Number(event.target.value) || 0 }))}
-                  />
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      type="number"
+                      min={0}
+                      mono
+                      value={advanced.delayMs}
+                      onChange={(event) => setAdvanced((prev) => ({ ...prev, delayMs: Number(event.target.value) || 0 }))}
+                    />
+                  )}
                 </Field>
                 <Field label="Database path" hint="Defaults to data/products.db">
-                  <Input
-                    mono
-                    value={advanced.dbPath}
-                    placeholder="data/products.db"
-                    onChange={(event) => setAdvanced((prev) => ({ ...prev, dbPath: event.target.value }))}
-                  />
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      mono
+                      value={advanced.dbPath}
+                      placeholder="data/products.db"
+                      onChange={(event) => setAdvanced((prev) => ({ ...prev, dbPath: event.target.value }))}
+                    />
+                  )}
                 </Field>
               </div>
               <Toggle
@@ -380,6 +451,17 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
   );
 }
 
+function ScrapeConfigHeader() {
+  return (
+    <header className="flex flex-col gap-1">
+      <h1 className="text-2xl font-semibold text-text">Configure the scrape</h1>
+      <p className="text-base text-text-secondary">
+        Community profiles define how each site is crawled. Choose what to fetch right now.
+      </p>
+    </header>
+  );
+}
+
 function RunError({ message }: { message: string }) {
   return (
     <div
@@ -389,6 +471,10 @@ function RunError({ message }: { message: string }) {
       {message}
     </div>
   );
+}
+
+function RunNotice({ message }: { message: string }) {
+  return <div className="rounded-card border border-border px-4 py-3 text-caption text-text-secondary">{message}</div>;
 }
 
 function DepthOption({
@@ -405,11 +491,12 @@ function DepthOption({
   sub: string;
 }) {
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      onClick={() => onSelect(value)}
+    <ChoiceControl
+      type="radio"
+      name="scrape-depth"
+      value={value}
+      checked={active}
+      onChange={() => onSelect(value)}
       className={cn(
         "flex min-h-11 flex-col items-start rounded-btn border px-3 py-1.5 text-left transition-colors duration-150",
         active ? "border-accent" : "border-border hover:border-text-muted"
@@ -417,7 +504,7 @@ function DepthOption({
     >
       <span className="text-sm text-text">{label}</span>
       <span className="font-mono text-caption text-text-muted">{sub}</span>
-    </button>
+    </ChoiceControl>
   );
 }
 
@@ -434,34 +521,35 @@ function CheckboxGroup({
 }) {
   if (options.length === 0) {
     return (
-      <Field label={label}>
+      <ChoiceGroup label={label} className="flex flex-col gap-1.5">
         <p className="text-caption text-text-muted">None available in this profile.</p>
-      </Field>
+      </ChoiceGroup>
     );
   }
   return (
-    <Field label={label}>
+    <ChoiceGroup label={label} className="flex flex-col gap-1.5">
       <div className="flex flex-wrap gap-2">
         {options.map((option) => {
           const checked = selected.has(option);
           return (
-            <button
+            <ChoiceControl
               key={option}
-              type="button"
-              role="checkbox"
-              aria-checked={checked}
-              onClick={() => onToggle(option)}
+              type="checkbox"
+              name={label.toLowerCase()}
+              value={option}
+              checked={checked}
+              onChange={() => onToggle(option)}
               className={cn(
-                "min-h-9 rounded-chip border px-3 text-caption transition-colors duration-150",
+                "flex min-h-11 items-center rounded-chip border px-3 text-caption transition-colors duration-150",
                 checked ? "border-accent text-text" : "border-border text-text-secondary hover:border-text-muted"
               )}
             >
               {option}
-            </button>
+            </ChoiceControl>
           );
         })}
       </div>
-    </Field>
+    </ChoiceGroup>
   );
 }
 

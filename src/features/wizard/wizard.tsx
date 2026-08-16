@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import { useApp } from "@/components/app/app-provider";
 import { fetchCredentials, fetchEndpoints, fetchStatus } from "@/lib/api-client";
-import type { ChainEntry, CredentialAvailability, EndpointPreset, StatusResponse } from "@/types/client";
+import { getErrorMessage } from "@/lib/format";
+import type { ChainEntry, CredentialAvailability } from "@/types/client";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
 import { StepChat } from "./step-chat";
-import { StepDataSource, type DataSourceChoice } from "./step-data-source";
-import { StepLLM } from "./step-llm";
+import { StepDataSource, type DataSourceChoice, type StatusLoadState } from "./step-data-source";
+import { StepLLM, type EndpointLoadState } from "./step-llm";
 import { StepScrape } from "./step-scrape";
 
 const STEPS = ["Data source", "Fetch data", "AI providers", "Personalize"];
@@ -19,17 +20,41 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
 
-  const [status, setStatus] = useState<StatusResponse | null>(null);
+  const [statusState, setStatusState] = useState<StatusLoadState>({ status: "loading" });
   const [credentials, setCredentials] = useState<CredentialAvailability | null>(null);
-  const [endpoints, setEndpoints] = useState<EndpointPreset[]>([]);
+  const [endpointState, setEndpointState] = useState<EndpointLoadState>({ status: "loading" });
   const [dataSource, setDataSource] = useState<DataSourceChoice | null>(null);
   const [chain, setChain] = useState<ChainEntry[]>(config.chatChain);
 
+  const requestStatus = useCallback(
+    () => fetchStatus()
+      .then((data) => setStatusState({ status: "ready", data }))
+      .catch((error) => setStatusState({ status: "error", message: getErrorMessage(error) })),
+    []
+  );
+
+  const loadStatus = useCallback(() => {
+    setStatusState({ status: "loading" });
+    void requestStatus();
+  }, [requestStatus]);
+
+  const requestEndpoints = useCallback(
+    () => fetchEndpoints()
+      .then((endpoints) => setEndpointState({ status: "ready", endpoints }))
+      .catch((error) => setEndpointState({ status: "error", message: getErrorMessage(error) })),
+    []
+  );
+
+  const loadEndpoints = useCallback(() => {
+    setEndpointState({ status: "loading" });
+    void requestEndpoints();
+  }, [requestEndpoints]);
+
   useEffect(() => {
-    fetchStatus().then(setStatus).catch(() => setStatus(null));
+    void requestStatus();
     fetchCredentials().then(setCredentials).catch(() => setCredentials(null));
-    fetchEndpoints().then(setEndpoints).catch(() => setEndpoints([]));
-  }, []);
+    void requestEndpoints();
+  }, [requestStatus, requestEndpoints]);
 
   const go = (next: number) => {
     setDirection(next > step ? "forward" : "back");
@@ -58,16 +83,16 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
         <div key={step} className={direction === "forward" ? "pcbs-slide-forward" : "pcbs-slide-back"}>
           {step === 0 ? (
             <StepDataSource
-              status={status}
+              statusState={statusState}
               choice={dataSource}
               onChoose={setDataSource}
+              onRetry={loadStatus}
               onNext={() => go(1)}
             />
           ) : null}
           {step === 1 ? (
             <StepScrape
               dataSource={dataSource}
-              status={status}
               onBack={() => go(0)}
               onNext={() => go(2)}
             />
@@ -77,7 +102,8 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
               chain={chain}
               onChange={setChain}
               credentials={credentials}
-              endpoints={endpoints}
+              endpointState={endpointState}
+              onRetryEndpoints={loadEndpoints}
               onBack={() => go(1)}
               onNext={() => go(3)}
               canAdvance={primaryReady}

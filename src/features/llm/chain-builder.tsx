@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { fetchModels, probeEntry } from "@/lib/api-client";
 import { saveUiKey } from "@/lib/client-config-store";
-import { formatLatency } from "@/lib/format";
+import { formatLatency, getErrorMessage } from "@/lib/format";
 import type {
   ChainEntry,
   CredentialAvailability,
@@ -106,6 +106,15 @@ export function ChainBuilder({
     try {
       const result = await probeEntry(entry, keyDraft[entry.id]);
       update(entry.id, { ping: result });
+    } catch (error) {
+      update(entry.id, {
+        ping: {
+          reachable: false,
+          latencyMs: 0,
+          toolCapable: false,
+          hint: getErrorMessage(error instanceof Error ? error : new Error(String(error)))
+        }
+      });
     } finally {
       setProbing((prev) => ({ ...prev, [entry.id]: false }));
     }
@@ -241,64 +250,79 @@ function ChainCard({
 
       <div className="grid gap-3 p-3 sm:grid-cols-2">
         <Field label="Provider">
-          <Select
-            options={PROVIDERS}
-            value={entry.provider}
-            onChange={(event) =>
-              onUpdate({ provider: event.target.value as LLMProvider, model: "", ping: undefined, hasSavedKey: false })
-            }
-          />
+          {(controlProps) => (
+            <Select
+              {...controlProps}
+              options={PROVIDERS}
+              value={entry.provider}
+              onChange={(event) =>
+                onUpdate({ provider: event.target.value as LLMProvider, model: "", ping: undefined, hasSavedKey: false })
+              }
+            />
+          )}
         </Field>
 
         {entry.provider === "openai-compatible" ? (
           <Field label="Local preset">
-            <Select
-              placeholder="Custom endpoint"
-              value={entry.presetName ?? ""}
-              options={endpoints.map((preset) => ({ value: preset.name, label: preset.name }))}
-              onChange={(event) => {
-                const preset = endpoints.find((item) => item.name === event.target.value);
-                onUpdate(
-                  preset
-                    ? {
-                        presetName: preset.name,
-                        baseUrl: preset.base_url,
-                        keySource: preset.requires_key ? "ui" : "none",
-                        ping: undefined
-                      }
-                    : { presetName: undefined }
-                );
-              }}
-            />
+            {(controlProps) => (
+              <Select
+                {...controlProps}
+                placeholder="Custom endpoint"
+                value={entry.presetName ?? ""}
+                options={endpoints.map((preset) => ({ value: preset.name, label: preset.name }))}
+                onChange={(event) => {
+                  const preset = endpoints.find((item) => item.name === event.target.value);
+                  onUpdate(
+                    preset
+                      ? {
+                          presetName: preset.name,
+                          baseUrl: preset.base_url,
+                          keySource: preset.requires_key ? "ui" : "none",
+                          ping: undefined
+                        }
+                      : { presetName: undefined }
+                  );
+                }}
+              />
+            )}
           </Field>
         ) : (
           <Field label="Key source">
-            <Select
-              options={keySourceOptions}
-              value={entry.keySource}
-              onChange={(event) => onUpdate({ keySource: event.target.value as KeySource, ping: undefined })}
-            />
+            {(controlProps) => (
+              <Select
+                {...controlProps}
+                options={keySourceOptions}
+                value={entry.keySource}
+                onChange={(event) => onUpdate({ keySource: event.target.value as KeySource, ping: undefined })}
+              />
+            )}
           </Field>
         )}
 
         {isLocal ? (
           <Field label="Base URL" hint="host:port or …/v1 — normalized automatically">
-            <Input
-              mono
-              value={entry.baseUrl ?? ""}
-              placeholder={entry.provider === "ollama" ? "http://localhost:11434" : "http://localhost:8000/v1"}
-              onChange={(event) => onUpdate({ baseUrl: event.target.value, ping: undefined })}
-            />
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                mono
+                value={entry.baseUrl ?? ""}
+                placeholder={entry.provider === "ollama" ? "http://localhost:11434" : "http://localhost:8000/v1"}
+                onChange={(event) => onUpdate({ baseUrl: event.target.value, ping: undefined })}
+              />
+            )}
           </Field>
         ) : null}
 
         {entry.provider === "openai-compatible" ? (
           <Field label="Key source">
-            <Select
-              options={keySourceOptions}
-              value={entry.keySource}
-              onChange={(event) => onUpdate({ keySource: event.target.value as KeySource, ping: undefined })}
-            />
+            {(controlProps) => (
+              <Select
+                {...controlProps}
+                options={keySourceOptions}
+                value={entry.keySource}
+                onChange={(event) => onUpdate({ keySource: event.target.value as KeySource, ping: undefined })}
+              />
+            )}
           </Field>
         ) : null}
 
@@ -307,8 +331,9 @@ function ChainCard({
             label="API key"
             hint={entry.hasSavedKey ? "A key is saved for this provider (write-only)." : "Stored locally, sent only as a request header."}
           >
-            <div className="flex gap-2">
+            {(controlProps) => (
               <Input
+                {...controlProps}
                 type="password"
                 autoComplete="off"
                 value={keyDraft}
@@ -316,34 +341,37 @@ function ChainCard({
                 onChange={(event) => onKeyDraft(event.target.value)}
                 onBlur={onCommitKey}
               />
-            </div>
+            )}
           </Field>
         ) : entry.keySource === "env" ? (
-          <Field label="Credential">
+          <ReadOnlyValue label="Credential">
             <span className="inline-flex h-11 items-center gap-2 rounded-btn border border-border bg-surface px-3 text-caption text-text-secondary">
               <Icon icon={CircleCheck} size={15} className="text-accent" />
               Using detected environment key
             </span>
-          </Field>
+          </ReadOnlyValue>
         ) : (
-          <Field label="Credential">
+          <ReadOnlyValue label="Credential">
             <span className="inline-flex h-11 items-center gap-2 rounded-btn border border-border bg-surface px-3 text-caption text-text-secondary">
               <Icon icon={Server} size={15} />
               Keyless local endpoint
             </span>
-          </Field>
+          </ReadOnlyValue>
         )}
 
         <div className="sm:col-span-2">
           <Field label="Model">
-            <ModelField
-              value={entry.model}
-              onChange={(value) => onUpdate({ model: value, ping: undefined })}
-              models={modelState.models}
-              loading={modelState.loading}
-              onRefresh={onLoadModels}
-              error={modelState.error}
-            />
+            {(controlProps) => (
+              <ModelField
+                inputProps={controlProps}
+                value={entry.model}
+                onChange={(value) => onUpdate({ model: value, ping: undefined })}
+                models={modelState.models}
+                loading={modelState.loading}
+                onRefresh={onLoadModels}
+                error={modelState.error}
+              />
+            )}
           </Field>
         </div>
       </div>
@@ -361,6 +389,15 @@ function ChainCard({
           </span>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function ReadOnlyValue({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-caption font-medium text-text-secondary">{label}</p>
+      {children}
     </div>
   );
 }

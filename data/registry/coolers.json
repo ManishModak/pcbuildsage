@@ -182,7 +182,7 @@
       "LGA 1156",
       "LGA 1851"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 180,
     "aliases": [
       "Noctua NH-D12L",
       "NH-D12L"
@@ -210,7 +210,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 169,
+    "tdp_rating_w": 230,
     "aliases": [
       "Noctua NH-U12A",
       "NH-U12A"
@@ -238,7 +238,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 169,
+    "tdp_rating_w": 230,
     "aliases": [
       "Noctua NH-U12A chromax.black",
       "NH-U12A chromax.black",
@@ -267,7 +267,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 129,
+    "tdp_rating_w": 160,
     "aliases": [
       "NH-U12S",
       "Noctua NH-U12S"
@@ -295,7 +295,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 129,
+    "tdp_rating_w": 150,
     "aliases": [
       "Noctua Redux U12S",
       "NH-U12S Redux",
@@ -324,7 +324,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 129,
+    "tdp_rating_w": 160,
     "aliases": [
       "NH-U12S chromax.black",
       "NH-U12S black",
@@ -353,7 +353,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 162,
+    "tdp_rating_w": 220,
     "aliases": [
       "Noctua NH-U14S",
       "NH-U14S"
@@ -381,7 +381,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 162,
+    "tdp_rating_w": 220,
     "aliases": [
       "NH-U14S chromax.black",
       "NH-U14S black",
@@ -409,7 +409,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 93,
+    "tdp_rating_w": 140,
     "aliases": [
       "Noctua NH-U9S",
       "NH-U9S"
@@ -437,7 +437,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 93,
+    "tdp_rating_w": 140,
     "aliases": [
       "NH-U9S black",
       "Noctua NH-U9S chromax.black",
@@ -531,19 +531,19 @@
   "noctua-nh-l12s": {
     "brand": "Noctua",
     "model": "Noctua NH-L12S",
-    "height_mm": 70.0,
+    "height_mm": 70,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156",
-      "LGA1851"
+      "LGA 1700",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 1851"
     ],
-    "tdp_rating_w": 95.0,
+    "tdp_rating_w": 95,
     "aliases": [
       "Noctua NH-L12S",
       "NH-L12S"
@@ -563,18 +563,19 @@
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156",
-      "LGA1366",
-      "LGA2011",
-      "LGA2011-3",
-      "LGA2066"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 1366",
+      "LGA 2011",
+      "LGA 2011-3",
+      "LGA 2066"
     ],
-    "tdp_rating_w": 250.0,
+    "tdp_rating_w": 250,
     "aliases": [
       "be quiet Dark Rock Pro 4",
       "Dark Rock Pro 4",
@@ -595,18 +596,19 @@
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156",
-      "LGA1366",
-      "LGA2011",
-      "LGA2011-3",
-      "LGA2066"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 1366",
+      "LGA 2011",
+      "LGA 2011-3",
+      "LGA 2066"
     ],
-    "tdp_rating_w": 200.0,
+    "tdp_rating_w": 200,
     "aliases": [
       "Dark Rock 4",
       "be quiet! Dark Rock 4",
@@ -623,21 +625,22 @@
   "be-quiet-pure-rock-2": {
     "brand": "be quiet!",
     "model": "be quiet! Pure Rock 2",
-    "height_mm": 155.0,
+    "height_mm": 155,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156",
-      "LGA2011",
-      "LGA2011-3",
-      "LGA2066"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 2011",
+      "LGA 2011-3",
+      "LGA 2066"
     ],
-    "tdp_rating_w": 150.0,
+    "tdp_rating_w": 150,
     "aliases": [
       "be quiet! Pure Rock 2",
       "be quiet Pure Rock 2",
@@ -654,22 +657,23 @@
   "be-quiet-silent-loop-2-240": {
     "brand": "be quiet!",
     "model": "be quiet! Silent Loop 2 240",
-    "height_mm": 54.0,
+    "height_mm": 54,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA2011",
-      "LGA2011-3",
-      "LGA2066",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 2011",
+      "LGA 2011-3",
+      "LGA 2066",
       "sTRX4",
       "TR4"
     ],
-    "tdp_rating_w": 280.0,
+    "tdp_rating_w": 280,
     "aliases": [
       "be quiet Silent Loop 2 240",
       "Silent Loop 2 240",
@@ -686,22 +690,23 @@
   "be-quiet-silent-loop-2-280": {
     "brand": "be quiet!",
     "model": "be quiet! Silent Loop 2 280",
-    "height_mm": 54.0,
+    "height_mm": 54,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA2011",
-      "LGA2011-3",
-      "LGA2066",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 2011",
+      "LGA 2011-3",
+      "LGA 2066",
       "sTRX4",
       "TR4"
     ],
-    "tdp_rating_w": 300.0,
+    "tdp_rating_w": 300,
     "aliases": [
       "be quiet! Silent Loop 2 280",
       "Silent Loop 2 280",
@@ -718,22 +723,23 @@
   "be-quiet-silent-loop-2-360": {
     "brand": "be quiet!",
     "model": "be quiet! Silent Loop 2 360",
-    "height_mm": 54.0,
+    "height_mm": 54,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA2011",
-      "LGA2011-3",
-      "LGA2066",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 2011",
+      "LGA 2011-3",
+      "LGA 2066",
       "sTRX4",
       "TR4"
     ],
-    "tdp_rating_w": 350.0,
+    "tdp_rating_w": 350,
     "aliases": [
       "be quiet Silent Loop 2 360",
       "Silent Loop 2 360",
@@ -754,14 +760,15 @@
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156"
     ],
-    "tdp_rating_w": 150.0,
+    "tdp_rating_w": 180,
     "aliases": [
       "Hyper 212 Spectrum V3",
       "Cooler Master Hyper 212 Spectrum V3",
@@ -782,17 +789,18 @@
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156",
-      "LGA2011",
-      "LGA2011-3",
-      "LGA2066"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 2011",
+      "LGA 2011-3",
+      "LGA 2066"
     ],
-    "tdp_rating_w": 150.0,
+    "tdp_rating_w": 180,
     "aliases": [
       "Cooler Master Hyper 212 RGB",
       "Hyper 212 RGB"
@@ -812,17 +820,18 @@
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156",
-      "LGA2011",
-      "LGA2011-3",
-      "LGA2066"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 2011",
+      "LGA 2011-3",
+      "LGA 2066"
     ],
-    "tdp_rating_w": 150.0,
+    "tdp_rating_w": 180,
     "aliases": [
       "Cooler Master Hyper 212 Black",
       "Hyper 212 Black Edition",
@@ -839,45 +848,47 @@
   "cooler-master-hyper-212-halo": {
     "brand": "Cooler Master",
     "model": "Cooler Master Hyper 212 Halo",
-    "height_mm": 154.0,
+    "height_mm": 154,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156"
     ],
-    "tdp_rating_w": 150.0,
+    "tdp_rating_w": 180,
     "aliases": [
       "Hyper 212 Halo",
-      "Cooler Master Hyper 212 Halo"
+      "Cooler Master Hyper 212 Halo",
+      "Hyper 212 Halo Black",
+      "Hyper 212 Halo ARGB"
     ],
     "sources": [
-      "https://legacy.coolermaster.com/en-us/products/hyper-212-halo-black/",
-      "https://www.coolermaster.com/en-in/products/hyper-212-halo-black.html",
-      "https://pcspecchart.com/pc_parts/cpu_cooler/155/"
+      "https://www.coolermaster.com/en-global/products/hyper-212-halo-black/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-08-16T15:34:56+05:30"
   },
   "cooler-master-hyper-212-halo-white": {
     "brand": "Cooler Master",
     "model": "Cooler Master Hyper 212 Halo White",
-    "height_mm": 154.0,
+    "height_mm": 154,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156"
     ],
-    "tdp_rating_w": 150.0,
+    "tdp_rating_w": 180,
     "aliases": [
       "Hyper 212 Halo White",
       "Cooler Master Hyper 212 Halo White"
@@ -893,19 +904,19 @@
   "cooler-master-hyper-212-3dhp": {
     "brand": "Cooler Master",
     "model": "Cooler Master Hyper 212 3DHP",
-    "height_mm": 158.0,
+    "height_mm": 158,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156",
-      "LGA1851"
+      "LGA 1700",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 1851"
     ],
-    "tdp_rating_w": 150.0,
+    "tdp_rating_w": 180,
     "aliases": [
       "Cooler Master Hyper 212 3DHP",
       "Hyper 212 3DHP"
@@ -921,19 +932,19 @@
   "cooler-master-hyper-612-apex": {
     "brand": "Cooler Master",
     "model": "Cooler Master Hyper 612 APEX",
-    "height_mm": 159.0,
+    "height_mm": 159,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156",
-      "LGA1851"
+      "LGA 1700",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 1851"
     ],
-    "tdp_rating_w": 260.0,
+    "tdp_rating_w": 260,
     "aliases": [
       "Cooler Master Hyper 612 APEX",
       "Hyper 612 APEX"
@@ -953,14 +964,15 @@
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156"
     ],
-    "tdp_rating_w": 200.0,
+    "tdp_rating_w": 240,
     "aliases": [
       "Cooler Master Hyper 620S",
       "Hyper 620S"
@@ -976,18 +988,19 @@
   "cooler-master-hyper-h410r": {
     "brand": "Cooler Master",
     "model": "Cooler Master Hyper H410R",
-    "height_mm": 136.0,
+    "height_mm": 136,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156"
     ],
-    "tdp_rating_w": 100.0,
+    "tdp_rating_w": 100,
     "aliases": [
       "Hyper H410R",
       "Cooler Master Hyper H410R"
@@ -1003,21 +1016,22 @@
   "cooler-master-ma620m": {
     "brand": "Cooler Master",
     "model": "Cooler Master MA620M",
-    "height_mm": 165.0,
+    "height_mm": 165,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156",
-      "LGA2011",
-      "LGA2011-3",
-      "LGA2066"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 2011",
+      "LGA 2011-3",
+      "LGA 2066"
     ],
-    "tdp_rating_w": 200.0,
+    "tdp_rating_w": 250,
     "aliases": [
       "Cooler Master MA620M",
       "MA620M"
@@ -1033,21 +1047,22 @@
   "cooler-master-ml240l-v2": {
     "brand": "Cooler Master",
     "model": "Cooler Master ML240L V2",
-    "height_mm": 47.0,
+    "height_mm": 47,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156",
-      "LGA2011",
-      "LGA2011-3",
-      "LGA2066"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 2011",
+      "LGA 2011-3",
+      "LGA 2066"
     ],
-    "tdp_rating_w": 220.0,
+    "tdp_rating_w": 250,
     "aliases": [
       "ML240L V2 ARGB",
       "Cooler Master ML240L V2",
@@ -1064,21 +1079,22 @@
   "cooler-master-ml360l-v2": {
     "brand": "Cooler Master",
     "model": "Cooler Master ML360L V2",
-    "height_mm": 47.0,
+    "height_mm": 47,
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156",
-      "LGA2011",
-      "LGA2011-3",
-      "LGA2066"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 2011",
+      "LGA 2011-3",
+      "LGA 2066"
     ],
-    "tdp_rating_w": 250.0,
+    "tdp_rating_w": 300,
     "aliases": [
       "Cooler Master ML360L V2",
       "ML360L V2",
@@ -1099,17 +1115,18 @@
     "sockets": [
       "AM4",
       "AM5",
-      "LGA1700",
-      "LGA1200",
-      "LGA1150",
-      "LGA1151",
-      "LGA1155",
-      "LGA1156",
-      "LGA2011",
-      "LGA2011-3",
-      "LGA2066"
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1150",
+      "LGA 1151",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 2011",
+      "LGA 2011-3",
+      "LGA 2066"
     ],
-    "tdp_rating_w": 250.0,
+    "tdp_rating_w": 300,
     "aliases": [
       "Cooler Master ML360R RGB",
       "ML360R RGB",
@@ -1130,6 +1147,7 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1155,13 +1173,14 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 230,
+    "tdp_rating_w": 250,
     "aliases": [
       "ML240R RGB",
       "Cooler Master ML240R",
@@ -1181,13 +1200,14 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 270,
+    "tdp_rating_w": 260,
     "aliases": [
       "ML 240 Core NEX",
       "MasterLiquid Core 240 NEX",
@@ -1207,13 +1227,14 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 270,
+    "tdp_rating_w": 260,
     "aliases": [
       "Cooler Master MasterLiquid Core 240 NEX White",
       "MasterLiquid Core 240 NEX White",
@@ -1233,13 +1254,14 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 290,
+    "tdp_rating_w": 300,
     "aliases": [
       "MasterLiquid Core 360 NEX",
       "ML 360 Core NEX",
@@ -1259,13 +1281,14 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 290,
+    "tdp_rating_w": 300,
     "aliases": [
       "ML 360 Core NEX ARGB White",
       "Cooler Master MasterLiquid Core 360 NEX White",
@@ -1285,15 +1308,16 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 250,
+    "tdp_rating_w": 300,
     "aliases": [
-      "Cooler Master ML360L Core",
+      "Cooler Master ML360L Core Gen S",
       "ML360L Core Gen S",
       "MasterLiquid ML360L Core Gen S",
       "Cooler Master MasterLiquid ML360L Core Gen S"
@@ -1312,13 +1336,14 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 280,
+    "tdp_rating_w": 300,
     "aliases": [
       "Cooler Master MasterLiquid Atmos II 360",
       "MasterLiquid Atmos II 360"
@@ -1337,6 +1362,7 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1363,6 +1389,7 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1389,6 +1416,7 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1415,6 +1443,7 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1441,6 +1470,7 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1467,13 +1497,14 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 325,
+    "tdp_rating_w": 350,
     "aliases": [
       "H170i Elite",
       "Corsair H170i Elite"
@@ -1492,6 +1523,7 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1518,6 +1550,7 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1544,6 +1577,7 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1569,6 +1603,7 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1594,6 +1629,7 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1619,6 +1655,7 @@
       "AM5",
       "AM4",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1644,6 +1681,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1653,7 +1691,7 @@
       "LGA 2011-3",
       "LGA 2066"
     ],
-    "tdp_rating_w": 250,
+    "tdp_rating_w": 280,
     "aliases": [
       "NZXT Kraken Z63",
       "Kraken Z63"
@@ -1673,6 +1711,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1702,6 +1741,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1728,6 +1768,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1754,13 +1795,14 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 320,
+    "tdp_rating_w": 350,
     "aliases": [
       "NZXT Kraken Elite 420",
       "Kraken Elite 420"
@@ -1779,6 +1821,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1804,6 +1847,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1829,6 +1873,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1854,6 +1899,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1862,7 +1908,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 180,
     "aliases": [
       "Freezer 34",
       "Arctic Freezer 34"
@@ -1882,6 +1928,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1955,6 +2002,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -1980,6 +2028,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2008,6 +2057,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2016,7 +2066,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 270,
+    "tdp_rating_w": 280,
     "aliases": [
       "Liquid Freezer II 280",
       "Arctic Liquid Freezer II 280"
@@ -2036,6 +2086,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2064,6 +2115,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2072,7 +2124,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 320,
+    "tdp_rating_w": 350,
     "aliases": [
       "Liquid Freezer II 420",
       "Arctic Liquid Freezer II 420"
@@ -2091,19 +2143,25 @@
       "AM4",
       "AM5",
       "LGA 1700",
-      "LGA 1851"
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156"
     ],
     "tdp_rating_w": 250,
     "aliases": [
+      "Arctic Liquid Freezer III 240",
       "Liquid Freezer III 240",
-      "Arctic Liquid Freezer III 240"
+      "Liquid Freezer III 240 A-RGB",
+      "Arctic Liquid Freezer III 240 AIO"
     ],
     "sources": [
-      "https://www.arctic.de/en/Liquid-Freezer-III-240/ACFRE00134A",
-      "https://www.techpowerup.com/review/arctic-liquid-freezer-iii-240-a-rgb-liquid-cpu-cooler/"
+      "https://www.arctic.de/en/Liquid-Freezer-III-240/ACFRE00134A"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-08-16T15:34:56+05:30"
   },
   "arctic-liquid-freezer-iii-280": {
     "brand": "Arctic",
@@ -2135,19 +2193,25 @@
       "AM4",
       "AM5",
       "LGA 1700",
-      "LGA 1851"
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156"
     ],
     "tdp_rating_w": 300,
     "aliases": [
       "Arctic Liquid Freezer III 360",
-      "Liquid Freezer III 360"
+      "Liquid Freezer III 360",
+      "Liquid Freezer III 360 A-RGB",
+      "Arctic Liquid Freezer III 360 AIO"
     ],
     "sources": [
-      "https://www.arctic.de/en/Liquid-Freezer-III-360/ACFRE00136A",
-      "https://www.techpowerup.com/review/arctic-liquid-freezer-iii-360-a-rgb-liquid-cpu-cooler/"
+      "https://www.arctic.de/en/Liquid-Freezer-III-360/ACFRE00136A"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-08-16T15:34:56+05:30"
   },
   "arctic-liquid-freezer-iii-pro-240": {
     "brand": "Arctic",
@@ -2214,7 +2278,7 @@
   },
   "deepcool-ak620": {
     "brand": "DeepCool",
-    "model": "DeepCool AK620",
+    "model": "DeepCool AK620 High-Performance Dual-Tower CPU Cooler",
     "height_mm": 160,
     "sockets": [
       "AM4",
@@ -2222,18 +2286,24 @@
       "LGA 1700",
       "LGA 1851",
       "LGA 1200",
-      "LGA 1151"
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 2011",
+      "LGA 2066"
     ],
     "tdp_rating_w": 260,
     "aliases": [
       "DeepCool AK620",
-      "AK620"
+      "AK620",
+      "DeepCool AK620 Cooler",
+      "AK620 Dual Tower"
     ],
     "sources": [
-      "https://www.deepcool.com/products/Coolers/cpuaircoolers/AK620/2021/13067.shtml"
+      "https://www.deepcool.com/products/Coolers/cpuaircoolers/AK620-High-Performance-CPU-Cooler-1700/2021/13067.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-08-16T15:34:56+05:30"
   },
   "deepcool-ak620-zero-dark": {
     "brand": "DeepCool",
@@ -2260,7 +2330,7 @@
   },
   "deepcool-ak400": {
     "brand": "DeepCool",
-    "model": "DeepCool AK400",
+    "model": "DeepCool AK400 Performance CPU Cooler",
     "height_mm": 155,
     "sockets": [
       "AM4",
@@ -2268,22 +2338,26 @@
       "LGA 1700",
       "LGA 1851",
       "LGA 1200",
-      "LGA 1151"
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155"
     ],
     "tdp_rating_w": 220,
     "aliases": [
+      "DeepCool AK400",
       "AK400",
-      "DeepCool AK400"
+      "DeepCool AK400 Cooler",
+      "AK400 Performance Cooler"
     ],
     "sources": [
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AK400-Performance-CPU-Cooler/2021/15222.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-08-16T15:34:56+05:30"
   },
   "deepcool-ak400-digital": {
     "brand": "DeepCool",
-    "model": "DeepCool AK400 DIGITAL",
+    "model": "DeepCool AK400 DIGITAL CPU Cooler",
     "height_mm": 156,
     "sockets": [
       "AM4",
@@ -2291,22 +2365,26 @@
       "LGA 1700",
       "LGA 1851",
       "LGA 1200",
-      "LGA 1151"
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155"
     ],
     "tdp_rating_w": 220,
     "aliases": [
+      "DeepCool AK400 DIGITAL",
       "AK400 DIGITAL",
-      "DeepCool AK400 DIGITAL"
+      "AK400 Digital Display",
+      "AK400 Digital"
     ],
     "sources": [
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AK400-Digital-CPU-Cooler-With-Status-Display/2023/17203.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-08-16T15:34:56+05:30"
   },
   "deepcool-ag400-argb": {
     "brand": "DeepCool",
-    "model": "DeepCool AG400 ARGB",
+    "model": "DeepCool AG400 ARGB Single-Tower CPU Cooler",
     "height_mm": 150,
     "sockets": [
       "AM4",
@@ -2314,18 +2392,21 @@
       "LGA 1700",
       "LGA 1851",
       "LGA 1200",
-      "LGA 1151"
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155"
     ],
     "tdp_rating_w": 220,
     "aliases": [
       "DeepCool AG400 ARGB",
-      "AG400 ARGB"
+      "AG400 ARGB",
+      "AG400 ARGB Single-Tower CPU Cooler"
     ],
     "sources": [
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG400-ARGB-Single-Tower-CPU-Cooler/2022/15898.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-08-16T15:34:56+05:30"
   },
   "deepcool-ag400-plus": {
     "brand": "DeepCool",
@@ -2609,6 +2690,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2635,6 +2717,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2660,6 +2743,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2686,6 +2770,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2714,6 +2799,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2724,13 +2810,14 @@
     "aliases": [
       "PA120 SE",
       "Peerless Assassin 120 SE",
-      "Thermalright Peerless Assassin 120 SE"
+      "Thermalright Peerless Assassin 120 SE",
+      "Thermalright PA120 SE"
     ],
     "sources": [
       "https://www.thermalright.com/product/peerless-assassin-120-se/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-08-16T15:34:56+05:30"
   },
   "thermalright-peerless-assassin-120-white": {
     "brand": "Thermalright",
@@ -2740,6 +2827,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2767,7 +2855,8 @@
     "sockets": [
       "AM4",
       "AM5",
-      "LGA 1700"
+      "LGA 1700",
+      "LGA 1851"
     ],
     "tdp_rating_w": 240,
     "aliases": [
@@ -2788,6 +2877,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2796,7 +2886,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 250,
     "aliases": [
       "MSI MAG CORELIQUID 240R",
       "MAG CORELIQUID 240R"
@@ -2815,6 +2905,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2823,7 +2914,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 300,
     "aliases": [
       "MSI MAG CORELIQUID 360R",
       "MAG CORELIQUID 360R"
@@ -2842,6 +2933,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2850,7 +2942,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 300,
     "aliases": [
       "MAG CORELIQUID C360",
       "MSI MAG CORELIQUID C360"
@@ -2868,9 +2960,10 @@
     "sockets": [
       "AM4",
       "AM5",
-      "LGA 1700"
+      "LGA 1700",
+      "LGA 1851"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 250,
     "aliases": [
       "MAG CORELIQUID A13 240",
       "MAG CORELIQUID A13",
@@ -2889,9 +2982,10 @@
     "sockets": [
       "AM4",
       "AM5",
-      "LGA 1700"
+      "LGA 1700",
+      "LGA 1851"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 300,
     "aliases": [
       "MAG CORELIQUID A15",
       "MAG CORELIQUID A15 360",
@@ -2911,13 +3005,14 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 250,
     "aliases": [
       "MSI MAG CORELIQUID E240",
       "MAG CORELIQUID E240"
@@ -2936,13 +3031,14 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 300,
     "aliases": [
       "MSI MAG CORELIQUID I360",
       "MAG CORELIQUID I360"
@@ -2960,9 +3056,10 @@
     "sockets": [
       "AM4",
       "AM5",
-      "LGA 1700"
+      "LGA 1700",
+      "LGA 1851"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 300,
     "aliases": [
       "MPG CORELIQUID P13",
       "MSI MPG CORELIQUID P13"
@@ -2981,6 +3078,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -2989,7 +3087,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 250,
     "aliases": [
       "ROG Strix LC II 240",
       "ASUS ROG Strix LC II 240"
@@ -3008,6 +3106,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -3016,7 +3115,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 300,
     "aliases": [
       "ASUS ROG Strix LC II 360",
       "ROG Strix LC II 360"
@@ -3035,13 +3134,14 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 350,
     "aliases": [
       "ROG Ryujin III 360",
       "ASUS ROG Ryujin III 360"
@@ -3060,13 +3160,14 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 250,
     "aliases": [
       "ASUS TUF Gaming LC 240 ARGB",
       "ASUS TUF Gaming LC 240",
@@ -3086,13 +3187,14 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
       "LGA 1155",
       "LGA 1156"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 300,
     "aliases": [
       "ASUS TUF Gaming LC 360 ARGB",
       "TUF Gaming LC 360 ARGB",
@@ -3190,10 +3292,11 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 250,
     "aliases": [
       "UX600 ARGB",
       "Thermaltake UX600 ARGB"
@@ -3294,6 +3397,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -3302,7 +3406,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 250,
     "aliases": [
       "TH240 ARGB Sync",
       "Thermaltake TH240 ARGB Sync",
@@ -3322,6 +3426,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -3330,7 +3435,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 300,
     "aliases": [
       "Thermaltake TH360 ARGB",
       "TH360 ARGB Sync",
@@ -3359,7 +3464,7 @@
       "LGA 2066",
       "LGA 1851"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 250,
     "aliases": [
       "TH240 V2 ARGB",
       "Thermaltake TH240 V2",
@@ -3388,7 +3493,7 @@
       "LGA 2066",
       "LGA 1851"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 300,
     "aliases": [
       "TH360 V2",
       "Thermaltake TH360 V2",
@@ -3417,7 +3522,7 @@
       "LGA 2066",
       "LGA 1851"
     ],
-    "tdp_rating_w": 355,
+    "tdp_rating_w": 280,
     "aliases": [
       "TH240 V3",
       "Thermaltake TH240 V3",
@@ -3446,7 +3551,7 @@
       "LGA 2066",
       "LGA 1851"
     ],
-    "tdp_rating_w": 365,
+    "tdp_rating_w": 350,
     "aliases": [
       "Thermaltake TH360 V3",
       "TH360 V3",
@@ -3466,6 +3571,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -3474,7 +3580,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 250,
     "aliases": [
       "Water 3.0 240",
       "Thermaltake Water 3.0 240 ARGB",
@@ -3492,7 +3598,9 @@
     "height_mm": 55,
     "sockets": [
       "AM4",
+      "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151",
       "LGA 1150",
@@ -3501,7 +3609,7 @@
       "LGA 2011",
       "LGA 2066"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 300,
     "aliases": [
       "Thermaltake Water 3.0 360 ARGB",
       "Water 3.0 360 ARGB",
@@ -3528,7 +3636,7 @@
       "LGA 1156",
       "LGA 1851"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 250,
     "aliases": [
       "Thermaltake LA240",
       "LA240",
@@ -3555,7 +3663,7 @@
       "LGA 1156",
       "LGA 1851"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 300,
     "aliases": [
       "LA360",
       "Thermaltake LA360",
@@ -3584,7 +3692,7 @@
       "LGA 2066",
       "LGA 1851"
     ],
-    "tdp_rating_w": 355,
+    "tdp_rating_w": 350,
     "aliases": [
       "Thermaltake Magfloe 360",
       "Magfloe 360"
@@ -3603,10 +3711,11 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1151"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 250,
     "aliases": [
       "Thermaltake Magfloe 240",
       "Magfloe 240"
@@ -3632,7 +3741,7 @@
       "LGA 2066",
       "LGA 1851"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 250,
     "aliases": [
       "Toughliquid Ultra 240",
       "Thermaltake Toughliquid Ultra 240"
@@ -3722,6 +3831,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1150",
       "LGA 1151",
@@ -3747,6 +3857,7 @@
       "AM4",
       "AM5",
       "LGA 1700",
+      "LGA 1851",
       "LGA 1200",
       "LGA 1150",
       "LGA 1151",
@@ -3829,6 +3940,7 @@
       "LGA 1200",
       "LGA 1366",
       "LGA 1700",
+      "LGA 1851",
       "LGA 2011",
       "LGA 2011-3",
       "LGA 2066"
@@ -3959,11 +4071,12 @@
       "LGA 1200",
       "LGA 1366",
       "LGA 1700",
+      "LGA 1851",
       "LGA 2011",
       "LGA 2011-3",
       "LGA 2066"
     ],
-    "tdp_rating_w": 150,
+    "tdp_rating_w": 160,
     "aliases": [
       "Gamdias Boreas E1",
       "Boreas E1"
@@ -4024,6 +4137,7 @@
       "LGA 1200",
       "LGA 1366",
       "LGA 1700",
+      "LGA 1851",
       "LGA 2011",
       "LGA 2011-3",
       "LGA 2066"
@@ -4093,7 +4207,7 @@
       "LGA 2011-3",
       "LGA 2066"
     ],
-    "tdp_rating_w": 230,
+    "tdp_rating_w": 250,
     "aliases": [
       "Gamdias AURA GL 240",
       "AURA GL 240"
@@ -4130,7 +4244,7 @@
       "LGA 2011-3",
       "LGA 2066"
     ],
-    "tdp_rating_w": 250,
+    "tdp_rating_w": 300,
     "aliases": [
       "AURA GL 360",
       "Gamdias AURA GL 360"
@@ -4140,5 +4254,486 @@
     ],
     "confidence": "high",
     "researched_at": "2026-07-17T07:42:00Z"
+  },
+  "ant-esports-ice-c400": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports ICE-C400",
+    "height_mm": 148,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 1366",
+      "LGA 775"
+    ],
+    "tdp_rating_w": 110,
+    "aliases": [
+      "Ant Esports ICE-C400",
+      "ICE-C400",
+      "Ant Esports ICE C400",
+      "ICE C400 Rainbow LED"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-ice-c400-cpu-air-cooler/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "ant-esports-ice-c612": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports ICE-C612 V2 ARGB",
+    "height_mm": 153,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 1366",
+      "LGA 2011",
+      "LGA 2066"
+    ],
+    "tdp_rating_w": 180,
+    "aliases": [
+      "Ant Esports ICE-C612",
+      "ICE-C612",
+      "Ant Esports ICE-C612 V2",
+      "ICE-C612 V2",
+      "Ant Esports ICE C612",
+      "ICE-C612 ARGB"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-ice-c612-v2-cpu-air-cooler/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "ant-esports-ice-c621": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports ICE-C621 Dual-Tower CPU Cooler",
+    "height_mm": 153,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 1366",
+      "LGA 2011",
+      "LGA 2066"
+    ],
+    "tdp_rating_w": 220,
+    "aliases": [
+      "Ant Esports ICE-C621",
+      "ICE-C621",
+      "Ant Esports ICE C621",
+      "ICE-C621 Dual Tower",
+      "Ant Esports ICE-C621 ARGB"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-ice-c621-cpu-air-cooler/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "ant-esports-ice-flow-240-argb": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports ICE-Flow 240 ARGB",
+    "height_mm": 55.5,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 1366",
+      "LGA 2011",
+      "LGA 2066"
+    ],
+    "tdp_rating_w": 250,
+    "aliases": [
+      "Ant Esports ICE-Flow 240 ARGB",
+      "ICE-Flow 240",
+      "Ant Esports ICE-Flow 240",
+      "ICE Flow 240",
+      "ICE-Flow 240 ARGB Liquid Cooler"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-ice-flow-240-argb-cpu-liquid-cooler/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "ant-esports-ice-flow-360-argb": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports ICE-Flow 360 ARGB",
+    "height_mm": 55.5,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 1366",
+      "LGA 2011",
+      "LGA 2066"
+    ],
+    "tdp_rating_w": 300,
+    "aliases": [
+      "Ant Esports ICE-Flow 360 ARGB",
+      "ICE-Flow 360",
+      "Ant Esports ICE-Flow 360",
+      "ICE Flow 360",
+      "ICE-Flow 360 ARGB Liquid Cooler"
+    ],
+    "sources": [
+      "https://antesports.com/product/ant-esports-ice-flow-360-argb-cpu-liquid-cooler/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "deepcool-ag400": {
+    "brand": "DeepCool",
+    "model": "DeepCool AG400 Single-Tower CPU Cooler",
+    "height_mm": 150,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155"
+    ],
+    "tdp_rating_w": 220,
+    "aliases": [
+      "DeepCool AG400",
+      "AG400",
+      "DeepCool AG400 Cooler",
+      "AG400 Single Tower"
+    ],
+    "sources": [
+      "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG400-Single-Tower-CPU-Cooler/2022/15897.shtml"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "deepcool-ag620": {
+    "brand": "DeepCool",
+    "model": "DeepCool AG620 Dual-Tower CPU Cooler",
+    "height_mm": 157,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 2011",
+      "LGA 2066"
+    ],
+    "tdp_rating_w": 260,
+    "aliases": [
+      "DeepCool AG620",
+      "AG620",
+      "AG620 Dual Tower",
+      "DeepCool AG620 Cooler"
+    ],
+    "sources": [
+      "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG620-Dual-Tower-CPU-Cooler/2022/15900.shtml"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "deepcool-le520": {
+    "brand": "DeepCool",
+    "model": "DeepCool LE520 240mm ARGB Liquid CPU Cooler",
+    "height_mm": 52,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155"
+    ],
+    "tdp_rating_w": 250,
+    "aliases": [
+      "DeepCool LE520",
+      "LE520",
+      "DeepCool LE520 240mm AIO",
+      "LE520 ARGB",
+      "DeepCool LE520 Liquid Cooler"
+    ],
+    "sources": [
+      "https://www.deepcool.com/products/Coolers/liquidaio/LE520-240mm-Liquid-CPU-Cooler-1700-AM5/2023/17094.shtml"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "deepcool-ls720": {
+    "brand": "DeepCool",
+    "model": "DeepCool LS720 360mm High-Performance Liquid CPU Cooler",
+    "height_mm": 57,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "sTR4",
+      "sTRX4",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 2011",
+      "LGA 2066"
+    ],
+    "tdp_rating_w": 300,
+    "aliases": [
+      "DeepCool LS720",
+      "LS720",
+      "DeepCool LS720 360mm AIO",
+      "LS720 ARGB",
+      "DeepCool LS720 Liquid Cooler"
+    ],
+    "sources": [
+      "https://www.deepcool.com/products/Coolers/liquidaio/LS720-High-Performance-360mm-Liquid-CPU-Cooler-1700-AM5/2022/15857.shtml"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "deepcool-lt720": {
+    "brand": "DeepCool",
+    "model": "DeepCool LT720 360mm High-Performance Liquid CPU Cooler",
+    "height_mm": 68,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "sTR4",
+      "sTRX4",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 2011",
+      "LGA 2066"
+    ],
+    "tdp_rating_w": 300,
+    "aliases": [
+      "DeepCool LT720",
+      "LT720",
+      "DeepCool LT720 360mm AIO",
+      "LT720 ARGB",
+      "DeepCool LT720 Liquid Cooler"
+    ],
+    "sources": [
+      "https://www.deepcool.com/products/Coolers/liquidaio/LT720-360mm-Liquid-CPU-Cooler-1700-AM5/2022/16286.shtml"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "thermalright-phantom-spirit-120-se": {
+    "brand": "Thermalright",
+    "model": "Thermalright Phantom Spirit 120 SE",
+    "height_mm": 154,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156"
+    ],
+    "tdp_rating_w": 280,
+    "aliases": [
+      "PS120 SE",
+      "Phantom Spirit 120 SE",
+      "Thermalright Phantom Spirit 120 SE",
+      "Thermalright PS120 SE",
+      "Phantom Spirit 120 SE ARGB"
+    ],
+    "sources": [
+      "https://www.thermalright.com/product/phantom-spirit-120-se/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "thermalright-assassin-x-120-refined-se": {
+    "brand": "Thermalright",
+    "model": "Thermalright Assassin X 120 Refined SE",
+    "height_mm": 148,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156"
+    ],
+    "tdp_rating_w": 225,
+    "aliases": [
+      "AX120 R SE",
+      "Assassin X 120 Refined SE",
+      "Thermalright Assassin X 120 Refined SE",
+      "AX120 Refined SE",
+      "Assassin X 120 SE"
+    ],
+    "sources": [
+      "https://www.thermalright.com/product/assassin-x-120-refined-se/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "thermalright-assassin-king-120-se": {
+    "brand": "Thermalright",
+    "model": "Thermalright Assassin King 120 SE",
+    "height_mm": 148,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156"
+    ],
+    "tdp_rating_w": 235,
+    "aliases": [
+      "AK120 SE",
+      "Assassin King 120 SE",
+      "Thermalright Assassin King 120 SE",
+      "Assassin King 120 SE ARGB"
+    ],
+    "sources": [
+      "https://www.thermalright.com/product/assassin-king-120-se/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "thermalright-aqua-elite-360-v3": {
+    "brand": "Thermalright",
+    "model": "Thermalright Aqua Elite 360 V3 ARGB",
+    "height_mm": 53,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156",
+      "LGA 2011",
+      "LGA 2066"
+    ],
+    "tdp_rating_w": 300,
+    "aliases": [
+      "Aqua Elite 360 V3",
+      "Thermalright Aqua Elite 360 V3",
+      "Aqua Elite 360 V3 ARGB",
+      "Thermalright Aqua Elite 360"
+    ],
+    "sources": [
+      "https://www.thermalright.com/product/aqua-elite-360-v3/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "cooler-master-masterliquid-240l-core": {
+    "brand": "Cooler Master",
+    "model": "Cooler Master MasterLiquid 240L Core ARGB",
+    "height_mm": 47,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156"
+    ],
+    "tdp_rating_w": 250,
+    "aliases": [
+      "Cooler Master MasterLiquid 240L Core",
+      "MasterLiquid 240L Core",
+      "ML240L Core ARGB",
+      "MasterLiquid 240L Core ARGB",
+      "Cooler Master ML240L Core"
+    ],
+    "sources": [
+      "https://www.coolermaster.com/en-global/products/masterliquid-240l-core-argb/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "cooler-master-masterliquid-360l-core": {
+    "brand": "Cooler Master",
+    "model": "Cooler Master MasterLiquid 360L Core ARGB",
+    "height_mm": 47,
+    "sockets": [
+      "AM4",
+      "AM5",
+      "LGA 1700",
+      "LGA 1851",
+      "LGA 1200",
+      "LGA 1151",
+      "LGA 1150",
+      "LGA 1155",
+      "LGA 1156"
+    ],
+    "tdp_rating_w": 300,
+    "aliases": [
+      "Cooler Master MasterLiquid 360L Core",
+      "MasterLiquid 360L Core",
+      "ML360L Core ARGB",
+      "MasterLiquid 360L Core ARGB",
+      "Cooler Master ML360L Core"
+    ],
+    "sources": [
+      "https://www.coolermaster.com/en-global/products/masterliquid-360l-core-argb/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-08-16T15:34:56+05:30"
   }
 }
