@@ -429,7 +429,7 @@ function HighlightItem<T extends React.ElementType>({
   const refCallback = React.useCallback(
     (node: HTMLElement | null) => {
       localRef.current = node as HTMLDivElement;
-      const origRef = (element as any)?.ref;
+      const origRef = (element as any)?.props?.ref;
       if (typeof origRef === 'function') {
         origRef(node);
       } else if (origRef && typeof origRef === 'object' && 'current' in origRef) {

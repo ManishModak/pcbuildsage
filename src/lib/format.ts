@@ -105,6 +105,9 @@ export function titleCase(value: string): string {
 
 export function getErrorMessageText(msg: string): string {
   if (!msg) return "";
+  if (msg.includes("Headers Timeout Error")) {
+    return "Connection timed out waiting for the model to respond (Headers Timeout Error). If you are using a local model (Ollama / Unsloth / vLLM), verify the local server is running and finished loading the model weights into memory, or add a fallback provider in Settings.";
+  }
   try {
     const parsed = JSON.parse(msg);
     if (parsed && typeof parsed === "object") {
