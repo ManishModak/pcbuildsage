@@ -24,6 +24,7 @@ import {
   SidebarRail,
   SidebarTrigger
 } from "@/components/animate-ui/components/radix/sidebar";
+import { SettingsDialog } from "@/features/settings/settings-dialog";
 
 // Neutral hover for the base shadcn Button (ghost) behind SidebarTrigger:
 // twMerge overrides the component's default green `hover:bg-accent`.
@@ -49,116 +50,122 @@ export function ChatSidebar({
   onDelete: (id: string) => void;
 }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="h-14 flex-row items-center justify-between border-b border-border px-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
-        <Link
-          href="/"
-          className="flex items-center gap-2 rounded-btn px-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center"
-          aria-label="PCBuildSage home"
-        >
-          <LeafMark size={22} />
-          <Wordmark className="text-base group-data-[collapsible=icon]:hidden" />
-        </Link>
-        <SidebarTrigger className={cn("group-data-[collapsible=icon]:hidden", TRIGGER_HOVER)} />
-      </SidebarHeader>
+    <>
+      <Sidebar collapsible="icon">
+        <SidebarHeader className="h-14 flex-row items-center justify-between border-b border-border px-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
+          <Link
+            href="/"
+            className="flex items-center gap-2 rounded-btn px-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center"
+            aria-label="PCBuildSage home"
+          >
+            <LeafMark size={22} />
+            <Wordmark className="text-base group-data-[collapsible=icon]:hidden" />
+          </Link>
+          <SidebarTrigger className={cn("group-data-[collapsible=icon]:hidden", TRIGGER_HOVER)} />
+        </SidebarHeader>
 
-      <SidebarContent className="group-data-[collapsible=icon]:overflow-x-hidden">
-        <SidebarGroup className="group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:px-0">
+        <SidebarContent className="group-data-[collapsible=icon]:overflow-x-hidden">
+          <SidebarGroup className="group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:px-0">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton tooltip="New chat" onClick={onNew}>
+                  <Icon icon={MessageSquarePlus} size={16} />
+                  <span className="group-data-[collapsible=icon]:hidden">New chat</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+
+          <SidebarGroup className="group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:px-0">
+            <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Chats</SidebarGroupLabel>
+            <SidebarGroupContent>
+              {sessions.length === 0 ? (
+                <p className="px-2 py-4 text-caption text-text-muted group-data-[collapsible=icon]:hidden">
+                  No saved chats yet.
+                </p>
+              ) : (
+                <SidebarMenu>
+                  {sessions.map((session) => {
+                    const title = session.title || "New chat";
+                    const active = session.id === currentSessionId;
+                    return (
+                      <SidebarMenuItem key={session.id}>
+                        <SidebarMenuButton
+                          size="lg"
+                          isActive={active}
+                          tooltip={title}
+                          onClick={() => onSelect(session.id)}
+                          aria-current={active ? "true" : undefined}
+                        >
+                          <Icon icon={MessageSquare} size={16} />
+                          {/* Hide the two-line label when the rail collapses to
+                              icons, otherwise it leaks as stacked text fragments. */}
+                          <span className="flex flex-1 min-w-0 flex-col group-data-[collapsible=icon]:hidden">
+                            <span className="truncate text-sm text-text">{title}</span>
+                            <span className="truncate text-caption text-text-muted">
+                              {formatRelativeTime(session.updated_at)}
+                            </span>
+                          </span>
+                        </SidebarMenuButton>
+                        <SidebarMenuAction
+                          showOnHover
+                          aria-label="Copy session ID"
+                          title="Copy session ID"
+                          className={cn(TRIGGER_HOVER, "text-text-secondary right-8 md:invisible md:group-hover/menu-item:visible md:group-focus-within/menu-item:visible")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void navigator.clipboard.writeText(session.id);
+                            setCopiedId(session.id);
+                            setTimeout(() => setCopiedId(null), 2000);
+                          }}
+                        >
+                          <Icon icon={copiedId === session.id ? Check : Copy} size={13} className={copiedId === session.id ? "text-accent" : ""} />
+                        </SidebarMenuAction>
+                        <SidebarMenuAction
+                          showOnHover
+                          aria-label="Delete chat"
+                          title="Delete chat"
+                          className={cn(TRIGGER_HOVER, "text-text-secondary md:invisible md:group-hover/menu-item:visible md:group-focus-within/menu-item:visible")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Delete "${title}"? This can't be undone.`)) onDelete(session.id);
+                          }}
+                        >
+                          <Icon icon={Trash2} size={14} />
+                        </SidebarMenuAction>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              )}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter className="border-t border-border group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:px-0">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton tooltip="New chat" onClick={onNew}>
-                <Icon icon={MessageSquarePlus} size={16} />
-                <span className="group-data-[collapsible=icon]:hidden">New chat</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup className="group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:px-0">
-          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Chats</SidebarGroupLabel>
-          <SidebarGroupContent>
-            {sessions.length === 0 ? (
-              <p className="px-2 py-4 text-caption text-text-muted group-data-[collapsible=icon]:hidden">
-                No saved chats yet.
-              </p>
-            ) : (
-              <SidebarMenu>
-                {sessions.map((session) => {
-                  const title = session.title || "New chat";
-                  const active = session.id === currentSessionId;
-                  return (
-                    <SidebarMenuItem key={session.id}>
-                      <SidebarMenuButton
-                        size="lg"
-                        isActive={active}
-                        tooltip={title}
-                        onClick={() => onSelect(session.id)}
-                        aria-current={active ? "true" : undefined}
-                      >
-                        <Icon icon={MessageSquare} size={16} />
-                        {/* Hide the two-line label when the rail collapses to
-                            icons, otherwise it leaks as stacked text fragments. */}
-                        <span className="flex flex-1 min-w-0 flex-col group-data-[collapsible=icon]:hidden">
-                          <span className="truncate text-sm text-text">{title}</span>
-                          <span className="truncate text-caption text-text-muted">
-                            {formatRelativeTime(session.updated_at)}
-                          </span>
-                        </span>
-                      </SidebarMenuButton>
-                      <SidebarMenuAction
-                        showOnHover
-                        aria-label="Copy session ID"
-                        title="Copy session ID"
-                        className={cn(TRIGGER_HOVER, "text-text-secondary right-8 md:invisible md:group-hover/menu-item:visible md:group-focus-within/menu-item:visible")}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void navigator.clipboard.writeText(session.id);
-                          setCopiedId(session.id);
-                          setTimeout(() => setCopiedId(null), 2000);
-                        }}
-                      >
-                        <Icon icon={copiedId === session.id ? Check : Copy} size={13} className={copiedId === session.id ? "text-accent" : ""} />
-                      </SidebarMenuAction>
-                      <SidebarMenuAction
-                        showOnHover
-                        aria-label="Delete chat"
-                        title="Delete chat"
-                        className={cn(TRIGGER_HOVER, "text-text-secondary md:invisible md:group-hover/menu-item:visible md:group-focus-within/menu-item:visible")}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm(`Delete "${title}"? This can't be undone.`)) onDelete(session.id);
-                        }}
-                      >
-                        <Icon icon={Trash2} size={14} />
-                      </SidebarMenuAction>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            )}
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter className="border-t border-border group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:px-0">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Settings">
-              <Link href="/settings">
+              <SidebarMenuButton
+                type="button"
+                tooltip="Settings"
+                onClick={() => setSettingsOpen(true)}
+              >
                 <Icon icon={Settings} size={16} />
                 <span className="group-data-[collapsible=icon]:hidden">Settings</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <ThemeSwitcher variant="sidebar" />
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <ThemeSwitcher variant="sidebar" />
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
 
-      <SidebarRail />
-    </Sidebar>
+        <SidebarRail />
+      </Sidebar>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+    </>
   );
 }

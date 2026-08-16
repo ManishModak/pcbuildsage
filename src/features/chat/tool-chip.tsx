@@ -13,8 +13,7 @@ import {
   AlertCircle,
   HelpCircle,
   Sparkles,
-  Layers,
-  Terminal
+  Layers
 } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
@@ -208,7 +207,6 @@ export function ToolChip({ part }: { part: ToolPart }) {
 }
 
 function ConsultRunningCard({ input, activeStageIndex = 0 }: { input?: Record<string, unknown>; activeStageIndex?: number }) {
-  const mode = input?.mode;
   const name = typeof input?.name === "string" ? input.name : undefined;
   const category = typeof input?.category === "string" ? input.category : undefined;
 

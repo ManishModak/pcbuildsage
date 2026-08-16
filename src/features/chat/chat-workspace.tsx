@@ -27,31 +27,51 @@ function HeaderSidebarTrigger() {
   return <SidebarTrigger className={TRIGGER_HOVER} />;
 }
 
+interface ActiveSessionEntry {
+  id: string;
+  messages: ChatUIMessage[];
+  queue: SessionSaveQueue;
+  lastActiveAt: number;
+}
+
+const MAX_ACTIVE_SESSIONS = 8;
+
 /**
- * Owns chat-session state (current id, the history list, and the messages to
- * hydrate) and renders the history sidebar alongside a keyed <ChatView>, so
- * switching sessions cleanly remounts useChat. The whole shell is wrapped in
- * SidebarProvider so both the sidebar and the mobile trigger share its context.
+ * Owns chat-session state with Option A background multi-session streaming:
+ * maintains a pool of active recent sessions rendered as concurrent tabs
+ * (active tab flex, background tabs hidden). Switching chats preserves active
+ * streams and avoids unmounting useChat.
  */
 export function ChatWorkspace({ config }: { config: ClientConfig }) {
-  const [initialSession] = useState(() => {
+  const [initialEntry] = useState<ActiveSessionEntry>(() => {
     const id = crypto.randomUUID();
     const messages: ChatUIMessage[] = [];
     return {
       id,
       messages,
       queue: new SessionSaveQueue(saveSession, sessionSignature(messages)),
+      lastActiveAt: Date.now()
     };
   });
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState(initialSession.id);
-  const [initialMessages, setInitialMessages] = useState(initialSession.messages);
-  const [saveQueue, setSaveQueue] = useState(initialSession.queue);
-  const currentSessionIdRef = useRef(currentSessionId);
-  const selectionGuardRef = useRef({ generation: 0 });
-  const saveQueuesRef = useRef(new Map([[initialSession.id, initialSession.queue]]));
 
-  const commitSession = useCallback((id: string, messages: ChatUIMessage[], revision = 0) => {
+  const [activeSessions, setActiveSessions] = useState<ActiveSessionEntry[]>([initialEntry]);
+  const [currentSessionId, setCurrentSessionId] = useState<string>(initialEntry.id);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+
+  const currentSessionIdRef = useRef(currentSessionId);
+  useEffect(() => {
+    currentSessionIdRef.current = currentSessionId;
+  }, [currentSessionId]);
+
+  const activeSessionsRef = useRef(activeSessions);
+  useEffect(() => {
+    activeSessionsRef.current = activeSessions;
+  }, [activeSessions]);
+
+  const selectionGuardRef = useRef({ generation: 0 });
+  const saveQueuesRef = useRef(new Map<string, SessionSaveQueue>([[initialEntry.id, initialEntry.queue]]));
+
+  const activateSessionInPool = useCallback((id: string, messages: ChatUIMessage[], revision = 0) => {
     let queue = saveQueuesRef.current.get(id);
     if (!queue) {
       queue = new SessionSaveQueue(saveSession, sessionSignature(messages), revision);
@@ -59,9 +79,39 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
     } else {
       queue.observeRevision(revision);
     }
-    currentSessionIdRef.current = id;
-    setInitialMessages(messages);
-    setSaveQueue(queue);
+
+    const now = Date.now();
+    setActiveSessions((prev) => {
+      const existingIndex = prev.findIndex((s) => s.id === id);
+      if (existingIndex !== -1) {
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          lastActiveAt: now
+        };
+        return updated;
+      }
+
+      let nextList = prev;
+      if (nextList.length >= MAX_ACTIVE_SESSIONS) {
+        const currentActive = currentSessionIdRef.current;
+        let oldestIndex = -1;
+        let oldestTime = Infinity;
+        for (let i = 0; i < nextList.length; i++) {
+          const item = nextList[i];
+          if (item.id !== currentActive && item.lastActiveAt < oldestTime) {
+            oldestTime = item.lastActiveAt;
+            oldestIndex = i;
+          }
+        }
+        if (oldestIndex !== -1) {
+          nextList = nextList.filter((_, i) => i !== oldestIndex);
+        }
+      }
+
+      return [...nextList, { id, messages, queue, lastActiveAt: now }];
+    });
+
     setCurrentSessionId(id);
   }, []);
 
@@ -79,8 +129,9 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
 
   const handleNew = useCallback(() => {
     invalidateSessionSelection(selectionGuardRef.current);
-    commitSession(crypto.randomUUID(), []);
-  }, [commitSession]);
+    const newId = crypto.randomUUID();
+    activateSessionInPool(newId, []);
+  }, [activateSessionInPool]);
 
   const handleSelect = useCallback(
     async (id: string) => {
@@ -88,11 +139,23 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
         invalidateSessionSelection(selectionGuardRef.current);
         return;
       }
+
+      const existing = activeSessionsRef.current.find((s) => s.id === id);
+      if (existing) {
+        invalidateSessionSelection(selectionGuardRef.current);
+        const now = Date.now();
+        setActiveSessions((prev) =>
+          prev.map((s) => (s.id === id ? { ...s, lastActiveAt: now } : s))
+        );
+        setCurrentSessionId(id);
+        return;
+      }
+
       await selectLatestSession(selectionGuardRef.current, id, fetchSession, (session) => {
-        commitSession(session.id, session.messages, session.revision);
+        activateSessionInPool(session.id, session.messages, session.revision);
       });
     },
-    [commitSession]
+    [activateSessionInPool]
   );
 
   const handleDelete = useCallback(
@@ -103,13 +166,36 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
         return;
       }
       invalidateSessionSelection(selectionGuardRef.current);
-      if (id === currentSessionIdRef.current) {
-        commitSession(crypto.randomUUID(), []);
-      }
       saveQueuesRef.current.delete(id);
+
+      setActiveSessions((prev) => {
+        const filtered = prev.filter((s) => s.id !== id);
+        if (filtered.length === 0) {
+          const newId = crypto.randomUUID();
+          const messages: ChatUIMessage[] = [];
+          const newQueue = new SessionSaveQueue(saveSession, sessionSignature(messages));
+          saveQueuesRef.current.set(newId, newQueue);
+          const newEntry: ActiveSessionEntry = {
+            id: newId,
+            messages,
+            queue: newQueue,
+            lastActiveAt: Date.now()
+          };
+          setCurrentSessionId(newId);
+          return [newEntry];
+        }
+
+        if (id === currentSessionIdRef.current) {
+          const mostRecent = [...filtered].sort((a, b) => b.lastActiveAt - a.lastActiveAt)[0];
+          setCurrentSessionId(mostRecent.id);
+        }
+
+        return filtered;
+      });
+
       refresh();
     },
-    [commitSession, refresh]
+    [refresh]
   );
 
   return (
@@ -126,14 +212,27 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
         }
         actions={<HeaderSidebarTrigger />}
       >
-        <ChatView
-          key={currentSessionId}
-          config={config}
-          sessionId={currentSessionId}
-          initialMessages={initialMessages}
-          saveQueue={saveQueue}
-          onPersisted={refresh}
-        />
+        <div className="relative flex flex-1 h-full w-full min-w-0">
+          {activeSessions.map((session) => (
+            <div
+              key={session.id}
+              className={
+                session.id === currentSessionId
+                  ? "flex flex-1 h-full w-full min-w-0"
+                  : "hidden"
+              }
+            >
+              <ChatView
+                config={config}
+                sessionId={session.id}
+                initialMessages={session.messages}
+                saveQueue={session.queue}
+                onPersisted={refresh}
+                isActive={session.id === currentSessionId}
+              />
+            </div>
+          ))}
+        </div>
       </AppShell>
     </SidebarProvider>
   );

@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Settings } from "lucide-react";
 import { IconButton } from "../ui/primitives";
 import { LeafMark, Wordmark } from "./brand";
 import { ThemeSwitcher } from "./theme-switcher";
+import { SettingsDialog } from "@/features/settings/settings-dialog";
 
 import { useApp } from "./app-provider";
 
@@ -21,6 +22,7 @@ export function AppShell({
   sidebar?: ReactNode;
 }) {
   const { headerSuffix } = useApp();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   if (sidebar) {
     return (
@@ -56,14 +58,17 @@ export function AppShell({
             {actions}
             <ThemeSwitcher />
             {showSettings ? (
-              <Link href="/settings" aria-label="Settings">
-                <IconButton icon={Settings} label="Settings" />
-              </Link>
+              <IconButton
+                icon={Settings}
+                label="Settings"
+                onClick={() => setSettingsOpen(true)}
+              />
             ) : null}
           </div>
         </div>
       </header>
       <main className="flex-1">{children}</main>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }

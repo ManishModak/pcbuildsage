@@ -76,13 +76,23 @@ export function MessageView({
   const rawDate = message.createdAt ?? null;
   const timestamp = hasMounted && rawDate ? formatClock(rawDate.toISOString()) : "";
   const isUser = message.role === "user";
-  const toolParts = message.parts.filter(isToolPart);
+
+  const rawContent = (message as unknown as { content?: unknown }).content;
+  const parts = Array.isArray(message.parts)
+    ? message.parts
+    : typeof rawContent === "string"
+      ? [{ type: "text" as const, text: rawContent }]
+      : [];
+
+  const toolParts = parts.filter(isToolPart);
   const builds = isUser ? [] : deriveBuilds(toolParts, currency);
 
-  const textContent = message.parts
-    .filter(isTextPart)
-    .map((part) => part.text)
-    .join("\n");
+  const textContent =
+    parts
+      .filter(isTextPart)
+      .map((part) => part.text)
+      .join("\n") ||
+    (typeof rawContent === "string" ? rawContent : "");
 
   const startEditing = () => {
     setEditText(textContent);
@@ -138,14 +148,22 @@ export function MessageView({
       );
     }
 
+    const textParts = parts.filter(isTextPart);
+
     return (
       <div className="flex flex-col items-end gap-1.5 group w-full">
         <div className="max-w-[85%] rounded-card border border-border bg-surface px-4 py-2.5">
-          {message.parts.filter(isTextPart).map((part, index) => (
-            <p key={index} className="whitespace-pre-wrap text-base leading-relaxed text-text">
-              {part.text}
+          {textParts.length > 0 ? (
+            textParts.map((part, index) => (
+              <p key={index} className="whitespace-pre-wrap text-base leading-relaxed text-text">
+                {part.text}
+              </p>
+            ))
+          ) : textContent ? (
+            <p className="whitespace-pre-wrap text-base leading-relaxed text-text">
+              {textContent}
             </p>
-          ))}
+          ) : null}
           {timestamp ? <p className="mt-1 text-right text-caption text-text-muted">{timestamp}</p> : null}
         </div>
         {onEdit && (
@@ -177,7 +195,7 @@ export function MessageView({
   return (
     <div className="flex flex-col">
       <FailoverPill meta={message.metadata} />
-      {message.parts.map((part, index) => {
+      {parts.map((part, index) => {
         if (isReasoningPart(part)) {
           if (part.text) {
             return <ThinkingTrace key={index} text={part.text} />;

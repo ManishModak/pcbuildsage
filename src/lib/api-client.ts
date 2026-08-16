@@ -291,6 +291,35 @@ interface SessionDetailRaw {
   [key: string]: unknown;
 }
 
+export function normalizeUIMessage(m: unknown, index = 0): ChatUIMessage {
+  if (typeof m !== "object" || m === null) {
+    return {
+      id: `msg-${index}-${crypto.randomUUID()}`,
+      role: "user",
+      parts: []
+    } as ChatUIMessage;
+  }
+  const rec = m as Record<string, unknown>;
+  const id = typeof rec.id === "string" && rec.id ? rec.id : `msg-${index}-${crypto.randomUUID()}`;
+  const role = (rec.role === "user" || rec.role === "assistant" || rec.role === "system") ? rec.role : "user";
+  const createdAt = rec.createdAt ? new Date(rec.createdAt as string | number) : undefined;
+
+  let parts: ChatUIMessage["parts"] = [];
+  if (Array.isArray(rec.parts)) {
+    parts = rec.parts as ChatUIMessage["parts"];
+  } else if (typeof rec.content === "string") {
+    parts = [{ type: "text", text: rec.content }];
+  }
+
+  return {
+    ...rec,
+    id,
+    role,
+    createdAt,
+    parts
+  } as ChatUIMessage;
+}
+
 export async function fetchSessions(): Promise<SessionSummary[]> {
   const data = await getJson<{ sessions: SessionSummaryRaw[] }>("/api/sessions");
   return data.sessions.map((s) => ({
@@ -313,13 +342,9 @@ export async function fetchSession(id: string): Promise<SessionDetail | null> {
     country_code: (data.session.country_code as string | undefined) ?? null,
     currency: (data.session.currency as string | undefined) ?? null,
     build_state: data.session.build_state ?? null,
-    messages: data.session.messages.map((m) => {
-      const { createdAt, ...rest } = m;
-      return {
-        ...rest,
-        createdAt: createdAt ? new Date(createdAt) : undefined
-      } as unknown as ChatUIMessage;
-    })
+    messages: Array.isArray(data.session.messages)
+      ? data.session.messages.map((m, idx) => normalizeUIMessage(m, idx))
+      : []
   };
 }
 

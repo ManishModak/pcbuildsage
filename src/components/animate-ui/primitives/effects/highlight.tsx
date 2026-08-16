@@ -426,9 +426,18 @@ function HighlightItem<T extends React.ElementType>({
   const localRef = React.useRef<HTMLDivElement>(null);
   React.useImperativeHandle(ref, () => localRef.current as HTMLDivElement);
 
-  const refCallback = React.useCallback((node: HTMLElement | null) => {
-    localRef.current = node as HTMLDivElement;
-  }, []);
+  const refCallback = React.useCallback(
+    (node: HTMLElement | null) => {
+      localRef.current = node as HTMLDivElement;
+      const origRef = (element as any)?.ref;
+      if (typeof origRef === 'function') {
+        origRef(node);
+      } else if (origRef && typeof origRef === 'object' && 'current' in origRef) {
+        origRef.current = node;
+      }
+    },
+    [element],
+  );
 
   React.useEffect(() => {
     if (mode !== 'parent') return;
@@ -573,6 +582,7 @@ function HighlightItem<T extends React.ElementType>({
         'data-slot': 'motion-highlight-item',
       }),
       ...commonHandlers,
+      ...props,
     });
   }
 

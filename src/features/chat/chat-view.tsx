@@ -29,11 +29,22 @@ import { sessionSignature, type SessionSaveQueue } from "./session-save-queue";
 
 function deriveTitle(messages: ChatUIMessage[]): string {
   const firstUser = messages.find((message) => message.role === "user");
-  const textPart = firstUser?.parts.find(
+  if (!firstUser) return "New chat";
+
+  const rawContent = (firstUser as unknown as { content?: unknown }).content;
+  const parts = Array.isArray(firstUser.parts)
+    ? firstUser.parts
+    : typeof rawContent === "string"
+      ? [{ type: "text" as const, text: rawContent }]
+      : [];
+
+  const textPart = parts.find(
     (part): part is { type: "text"; text: string } =>
       part.type === "text" && typeof (part as { text?: unknown }).text === "string"
   );
-  const text = textPart?.text.trim();
+  const text =
+    textPart?.text.trim() ||
+    (typeof rawContent === "string" ? rawContent.trim() : "");
   if (!text) return "New chat";
   return text.length > 60 ? `${text.slice(0, 60)}…` : text;
 }
@@ -41,7 +52,7 @@ function deriveTitle(messages: ChatUIMessage[]): string {
 function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedBuild[] | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
-    if (msg.role === "assistant") {
+    if (msg.role === "assistant" && Array.isArray(msg.parts)) {
       const toolParts = msg.parts.filter(isToolPart);
       const builds = deriveBuilds(toolParts, currency);
       if (builds.length > 0) return builds;
@@ -103,13 +114,15 @@ export function ChatView({
   sessionId,
   initialMessages,
   saveQueue,
-  onPersisted
+  onPersisted,
+  isActive = true
 }: {
   config: ClientConfig;
   sessionId: string;
   initialMessages: ChatUIMessage[];
   saveQueue: SessionSaveQueue;
   onPersisted?: () => void;
+  isActive?: boolean;
 }) {
   const { setHeaderSuffix, updateConfig } = useApp();
   const configRef = useRef(config);
@@ -241,12 +254,14 @@ export function ChatView({
     const currentSig = buildsSignature(latestBuilds);
     if (latestBuilds && currentSig && currentSig !== lastSigRef.current) {
       lastSigRef.current = currentSig;
-      setActiveBuilds(latestBuilds);
-      if (typeof window !== "undefined" && window.innerWidth >= 1024) {
-        setSidePanelOpen(true);
-      }
+      queueMicrotask(() => {
+        setActiveBuilds(latestBuilds);
+        if (isActive && typeof window !== "undefined" && window.innerWidth >= 1024) {
+          setSidePanelOpen(true);
+        }
+      });
     }
-  }, [latestBuilds]);
+  }, [latestBuilds, isActive]);
 
   const streaming = status === "streaming" || status === "submitted";
   const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
@@ -261,6 +276,7 @@ export function ChatView({
     : null;
 
   useEffect(() => {
+    if (!isActive) return;
     setHeaderSuffix(
       <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
         <ModelStatus modelName={activeModel} streaming={streaming} />
@@ -293,9 +309,12 @@ export function ChatView({
       </div>
     );
     return () => {
-      setHeaderSuffix(null);
+      if (isActive) {
+        setHeaderSuffix(null);
+      }
     };
   }, [
+    isActive,
     setHeaderSuffix,
     activeModel,
     streaming,
@@ -307,6 +326,7 @@ export function ChatView({
   ]);
 
   useEffect(() => {
+    if (!isActive) return;
     const el = scrollRef.current;
     if (!el) return;
 
@@ -316,23 +336,61 @@ export function ChatView({
     if (isLastMessageUser || isAtBottomRef.current) {
       el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     }
-  }, [messages, streaming]);
+  }, [messages, streaming, isActive]);
 
-  // Persist the full UIMessage[] to the sessions store after each completed turn.
+  const persistSnapshot = useCallback(
+    (currentMessages: ChatUIMessage[]) => {
+      if (currentMessages.length === 0) return;
+      const signature = sessionSignature(currentMessages);
+
+      void saveQueue.enqueue(signature, {
+        id: sessionIdRef.current,
+        messages: currentMessages,
+        title: deriveTitle(currentMessages),
+        countryCode: configRef.current.countryCode,
+        currency: configRef.current.currency
+      });
+    },
+    [saveQueue]
+  );
+
+  // Persist the full UIMessage[] to the sessions store after each completed turn or state change.
   useEffect(() => {
     if (status !== "ready" || messages.length === 0) return;
-    const signature = sessionSignature(messages);
+    persistSnapshot(messages);
+  }, [status, messages, persistSnapshot]);
 
-    void saveQueue.enqueue(signature, {
-      id: sessionIdRef.current,
-      messages,
-      title: deriveTitle(messages),
-      countryCode: configRef.current.countryCode,
-      currency: configRef.current.currency
-    });
-  }, [status, messages, saveQueue]);
+  // Keep a ref to latest messages for unmount saving so no state is ever lost.
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
-  const send = (text: string) => sendMessage({ text });
+  useEffect(() => {
+    return () => {
+      if (messagesRef.current.length > 0) {
+        const msgs = messagesRef.current;
+        const signature = sessionSignature(msgs);
+        void saveQueue.enqueue(signature, {
+          id: sessionIdRef.current,
+          messages: msgs,
+          title: deriveTitle(msgs),
+          countryCode: configRef.current.countryCode,
+          currency: configRef.current.currency
+        });
+      }
+    };
+  }, [saveQueue]);
+
+  const send = (text: string) => {
+    sendMessage({ text });
+    const userMsg: ChatUIMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text }]
+    };
+    persistSnapshot([...messages, userMsg]);
+  };
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] w-full overflow-hidden">
@@ -346,7 +404,7 @@ export function ChatView({
               <div className="flex flex-col gap-6 pt-6">
                 {messages.map((message, index) => (
                   <MessageView
-                    key={message.id}
+                    key={message.id || `msg-${index}`}
                     message={message}
                     currency={config.currency}
                     onViewBuild={(builds) => {
@@ -359,6 +417,12 @@ export function ChatView({
                             const truncated = messages.slice(0, index);
                             setMessages(truncated);
                             sendMessage({ text: newText });
+                            const editedUserMsg: ChatUIMessage = {
+                              id: crypto.randomUUID(),
+                              role: "user",
+                              parts: [{ type: "text", text: newText }]
+                            };
+                            persistSnapshot([...truncated, editedUserMsg]);
                           }
                         : undefined
                     }

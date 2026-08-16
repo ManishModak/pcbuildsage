@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Database, Download, Globe, Moon, Sliders, Sparkles, Sun, Wand2 } from "lucide-react";
+import { ArrowLeft, Check, Database, Download, Globe, Moon, Sliders, Sparkles, Sun, Wand2, X } from "lucide-react";
 import { useApp } from "@/components/app/app-provider";
 import {
   exportResearch,
@@ -16,7 +16,7 @@ import { getErrorMessage } from "@/lib/format";
 import { ChainBuilder } from "@/features/llm/chain-builder";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
-import { Button, Card, ChoiceControl, ChoiceGroup, Toggle, Input, Field } from "@/components/ui/primitives";
+import { Button, Card, ChoiceControl, ChoiceGroup, Toggle, Input, Field, IconButton } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/select";
 import { LeafMark, Wordmark } from "@/components/app/brand";
 import { ThemeSwitcher } from "@/components/app/theme-switcher";
@@ -81,11 +81,13 @@ function initialTab(): SettingsTab {
 interface SettingsLayoutProps {
   activeTab: SettingsTab;
   onSelectTab: (tab: SettingsTab) => void;
+  onClose?: () => void;
 }
 
 function SettingsLayout({
   activeTab,
-  onSelectTab
+  onSelectTab,
+  onClose
 }: SettingsLayoutProps) {
   const { config, themeCatalog, updateConfig, setTheme } = useApp();
   const [credentials, setCredentials] = useState<CredentialAvailability | null>(null);
@@ -141,14 +143,26 @@ function SettingsLayout({
     <>
       <Sidebar collapsible="icon">
         <SidebarHeader className="h-14 flex-row items-center justify-between border-b border-border px-2">
-          <Link
-            href="/"
-            className="flex items-center gap-2 rounded-btn px-1"
-            aria-label="PCBuildSage home"
-          >
-            <LeafMark size={22} />
-            <Wordmark className="text-base group-data-[collapsible=icon]:hidden" />
-          </Link>
+          {onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center gap-2 rounded-btn px-1 cursor-pointer text-left"
+              aria-label="PCBuildSage home"
+            >
+              <LeafMark size={22} />
+              <Wordmark className="text-base group-data-[collapsible=icon]:hidden" />
+            </button>
+          ) : (
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-btn px-1"
+              aria-label="PCBuildSage home"
+            >
+              <LeafMark size={22} />
+              <Wordmark className="text-base group-data-[collapsible=icon]:hidden" />
+            </Link>
+          )}
           <SidebarTrigger className={cn("group-data-[collapsible=icon]:hidden", TRIGGER_HOVER)} />
         </SidebarHeader>
         <SidebarContent>
@@ -173,12 +187,19 @@ function SettingsLayout({
         <SidebarFooter className="border-t border-border">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Back to chat">
-                <Link href="/">
+              {onClose ? (
+                <SidebarMenuButton tooltip="Back to chat" onClick={onClose}>
                   <Icon icon={ArrowLeft} size={16} />
                   <span>Back to chat</span>
-                </Link>
-              </SidebarMenuButton>
+                </SidebarMenuButton>
+              ) : (
+                <SidebarMenuButton asChild tooltip="Back to chat">
+                  <Link href="/">
+                    <Icon icon={ArrowLeft} size={16} />
+                    <span>Back to chat</span>
+                  </Link>
+                </SidebarMenuButton>
+              )}
             </SidebarMenuItem>
             <SidebarMenuItem>
               <ThemeSwitcher variant="sidebar" />
@@ -189,15 +210,20 @@ function SettingsLayout({
       </Sidebar>
 
       {/* Main Settings Content */}
-      <div className="flex h-dvh min-w-0 flex-1 flex-col bg-bg">
-        <header className="flex h-14 items-center gap-3 border-b border-border px-8 shrink-0 bg-surface">
-          {/* Mobile-only opener: on phones the sidebar collapses to a Sheet
-              whose own trigger is hidden, so surface one in the header. */}
-          <SidebarTrigger className={cn("md:hidden", TRIGGER_HOVER)} />
-          <div className="flex flex-col gap-0.5">
-            <h1 className="text-md font-semibold text-text">Settings</h1>
-            <p className="text-xs text-text-secondary">Providers, appearance, and build preferences.</p>
+      <div className="flex h-full min-w-0 flex-1 flex-col bg-bg overflow-hidden">
+        <header className="flex h-14 items-center justify-between gap-3 border-b border-border px-8 shrink-0 bg-surface">
+          <div className="flex items-center gap-3">
+            {/* Mobile-only opener: on phones the sidebar collapses to a Sheet
+                whose own trigger is hidden, so surface one in the header. */}
+            <SidebarTrigger className={cn("md:hidden", TRIGGER_HOVER)} />
+            <div className="flex flex-col gap-0.5">
+              <h1 className="text-md font-semibold text-text">Settings</h1>
+              <p className="text-xs text-text-secondary">Providers, appearance, and build preferences.</p>
+            </div>
           </div>
+          {onClose ? (
+            <IconButton icon={X} label="Close settings" onClick={onClose} />
+          ) : null}
         </header>
 
         <div className="flex-1 overflow-y-auto px-8 py-6 max-w-4xl w-full mx-auto scrollbar-none">
@@ -433,24 +459,35 @@ function SettingsLayout({
   );
 }
 
-export function SettingsView() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
+export function SettingsView({
+  isModal = false,
+  initialTabProp,
+  onClose
+}: {
+  isModal?: boolean;
+  initialTabProp?: SettingsTab;
+  onClose?: () => void;
+} = {}) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => initialTabProp ?? initialTab());
 
   useEffect(() => {
+    if (isModal) return;
     const syncFromUrl = () => setActiveTab(settingsTabFromSearch(window.location.search));
     window.addEventListener("popstate", syncFromUrl);
     return () => window.removeEventListener("popstate", syncFromUrl);
-  }, []);
+  }, [isModal]);
 
   const selectTab = (tab: SettingsTab) => {
     if (tab === activeTab) return;
-    window.history.pushState(null, "", settingsUrlForTab(window.location.href, tab));
+    if (!isModal) {
+      window.history.pushState(null, "", settingsUrlForTab(window.location.href, tab));
+    }
     setActiveTab(tab);
   };
 
   return (
-    <SidebarProvider defaultOpen className="h-dvh overflow-hidden bg-bg text-text">
-      <SettingsLayout activeTab={activeTab} onSelectTab={selectTab} />
+    <SidebarProvider defaultOpen className={cn("overflow-hidden bg-bg text-text", isModal ? "h-full w-full" : "h-dvh")}>
+      <SettingsLayout activeTab={activeTab} onSelectTab={selectTab} onClose={onClose} />
     </SidebarProvider>
   );
 }

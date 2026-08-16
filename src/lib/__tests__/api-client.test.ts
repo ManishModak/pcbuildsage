@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   deleteSession,
+  fetchSession,
   importProfileFromFile,
+  normalizeUIMessage,
   postSse,
   probeEntry,
   requestJson,
@@ -134,6 +136,57 @@ describe("scrape terminal outcomes", () => {
     ])));
 
     await expect(postSse("/api/scrape", {}, () => undefined)).rejects.toThrow("more than one terminal outcome");
+  });
+});
+
+describe("normalizeUIMessage", () => {
+  it("converts legacy string content to text parts and generates missing id", () => {
+    const legacy = { role: "user", content: "Build a pc" };
+    const normalized = normalizeUIMessage(legacy, 0);
+
+    expect(normalized.role).toBe("user");
+    expect(normalized.id).toBeDefined();
+    expect(normalized.parts).toEqual([{ type: "text", text: "Build a pc" }]);
+  });
+
+  it("preserves modern UIMessage parts and id", () => {
+    const modern = {
+      id: "msg-123",
+      role: "assistant" as const,
+      parts: [{ type: "text" as const, text: "Here is your build" }]
+    };
+    const normalized = normalizeUIMessage(modern, 0);
+
+    expect(normalized.id).toBe("msg-123");
+    expect(normalized.role).toBe("assistant");
+    expect(normalized.parts).toEqual([{ type: "text", text: "Here is your build" }]);
+  });
+});
+
+describe("fetchSession", () => {
+  it("normalizes legacy messages in session payload", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            session: {
+              id: "sess-1",
+              revision: 1,
+              created_at: "2026-01-01T00:00:00.000Z",
+              updated_at: "2026-01-01T00:00:00.000Z",
+              messages: [{ role: "user", content: "Hello world" }]
+            }
+          }),
+          { headers: { "content-type": "application/json" } }
+        )
+      )
+    );
+
+    const result = await fetchSession("sess-1");
+    expect(result).not.toBeNull();
+    expect(result!.messages[0].id).toBeDefined();
+    expect(result!.messages[0].parts).toEqual([{ type: "text", text: "Hello world" }]);
   });
 });
 
