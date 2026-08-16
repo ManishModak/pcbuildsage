@@ -13,10 +13,9 @@ import { Composer } from "./composer";
 import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
 import { BuildCard } from "./build-card";
-import { deriveBuilds, type DerivedBuild } from "./build-derive";
+import { extractBuildsFromMessage, type DerivedBuild } from "./build-derive";
 import { useApp } from "@/components/app/app-provider";
 import { getErrorMessage, formatRelativeTime, formatPrice, sumPrices, formatModelName } from "@/lib/format";
-import { isToolPart } from "@/lib/message-parts";
 import { useIsDesktop } from "@/hooks/use-mobile";
 import {
   Sheet,
@@ -52,9 +51,8 @@ function deriveTitle(messages: ChatUIMessage[]): string {
 function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedBuild[] | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
-    if (msg.role === "assistant" && Array.isArray(msg.parts)) {
-      const toolParts = msg.parts.filter(isToolPart);
-      const builds = deriveBuilds(toolParts, currency);
+    if (msg.role === "assistant") {
+      const builds = extractBuildsFromMessage(msg, currency);
       if (builds.length > 0) return builds;
     }
   }

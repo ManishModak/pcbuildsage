@@ -8,7 +8,7 @@ import type { ChatMetadata } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/components/ui/cn";
 import { Button } from "@/components/ui/button";
-import { deriveBuilds, type DerivedBuild } from "./build-derive";
+import { extractBuildsFromMessage, type DerivedBuild } from "./build-derive";
 import { FailoverPill } from "./failover-pill";
 import { Markdown } from "./markdown";
 import { ToolChip } from "./tool-chip";
@@ -84,8 +84,7 @@ export function MessageView({
       ? [{ type: "text" as const, text: rawContent }]
       : [];
 
-  const toolParts = parts.filter(isToolPart);
-  const builds = isUser ? [] : deriveBuilds(toolParts, currency);
+  const builds = isUser ? [] : extractBuildsFromMessage(message, currency);
 
   const textContent =
     parts
