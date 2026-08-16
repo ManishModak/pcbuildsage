@@ -50,7 +50,7 @@ export function buildSystemPrompt(config: AppConfig): string {
     .join("\n");
 }
 
-export async function streamChat(config: AppConfig, messages: ChatMessage[], sessionId?: string) {
+export async function streamChat(config: AppConfig, messages: ChatMessage[], sessionId?: string, abortSignal?: AbortSignal) {
   const lastUser = messages.filter((message) => message.role === "user").at(-1);
   if (lastUser) {
     await appendChatLog({ role: "user", content: lastUser.content ?? "", session_id: sessionId });
@@ -81,6 +81,7 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
     messages: modelMessages,
     tools: createToolRegistry(config),
     stopWhen: isStepCount(25),
+    abortSignal,
     onStepFinish: async (step: OnStepFinishEvent<ToolSet>) => {
       const resultsById = new Map((step.toolResults || []).map((result) => [result.toolCallId, result]));
       const promises = [];

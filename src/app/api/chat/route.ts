@@ -25,7 +25,7 @@ export async function POST(request: Request): Promise<Response> {
     const body = chatRequestSchema.parse(await readJson(request));
     const config = buildAppConfig(request.headers, body.config ?? {});
     
-    const result = await streamChat(config, compactChatMessages(body.messages), body.sessionId);
+    const result = await streamChat(config, compactChatMessages(body.messages), body.sessionId, request.signal);
     return result.toUIMessageStreamResponse<UIMessage<{ provider: string; model: string; fallbackIndex: number; primaryError?: string }>>({
       messageMetadata: () => ({
         provider: result.provider,

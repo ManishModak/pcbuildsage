@@ -79,6 +79,7 @@ export async function streamTextWithFallback(args: {
   maxSteps?: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   stopWhen?: StopCondition<any> | Array<StopCondition<any>>;
+  abortSignal?: AbortSignal;
   onStepFinish?: (event: OnStepFinishEvent<ToolSet>) => void | Promise<void>;
   onFinish?: (event: OnFinishEvent<ToolSet>) => void | Promise<void>;
 }) {
@@ -89,7 +90,8 @@ export async function streamTextWithFallback(args: {
       const result = streamText({
         ...args,
         model: createLanguageModel(entry),
-        maxRetries: 0
+        maxRetries: 0,
+        abortSignal: args.abortSignal
       });
       const started = await probeStarted(result);
       return withServedStreams(result, started.fullStream, entry, index, errors);
