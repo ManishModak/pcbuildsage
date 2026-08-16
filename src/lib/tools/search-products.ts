@@ -207,12 +207,46 @@ export async function searchProducts(input: SearchProductsInput, scope: { dbPath
     }
     return { results: [], hint: "try widening the price range, removing the brand filter, or relaxing registry spec filters" };
   }
+
+  const countRow = db.prepare(`SELECT COUNT(*) AS total_matches FROM products WHERE ${where.join(" AND ")}`).get(...params) as { total_matches: number } | undefined;
+  const totalMatching = countRow?.total_matches ?? results.length;
+  const hasMore = totalMatching > results.length;
+
+  const batchPrices = results.map((r) => r.price).filter((p): p is number => typeof p === "number" && !isNaN(p));
+  const batchMin = batchPrices.length ? Math.min(...batchPrices) : null;
+  const batchMax = batchPrices.length ? Math.max(...batchPrices) : null;
+
+  const hintParts: string[] = [];
+
+  if (hasMore) {
+    hintParts.push(
+      `Showing ${results.length} of ${totalMatching} matching in-stock products (prices in this batch: ${batchMin}–${batchMax}). More matching products exist up to your price_max (${input.price_max ?? "catalog max"}). Tweak price_min/price_max, use sort order: 'desc' to see higher-tier options, or increase limit.`
+    );
+  }
+
+  if (nearestAbove && input.price_max !== undefined) {
+    hintParts.push(`Closest in-stock option above your price_max (${input.price_max}) is ${nearestAbove.name} at ${nearestAbove.price}.`);
+  }
+
+  if (nearestBelow && input.price_min !== undefined) {
+    hintParts.push(`Closest in-stock option below your price_min (${input.price_min}) is ${nearestBelow.name} at ${nearestBelow.price}.`);
+  }
+
   return {
     results,
     scope: { country_code: scope.countryCode, currency: scope.currency },
     ...(baseline ? { category_total: baseline.total } : {}),
+    ...(hasMore
+      ? {
+          total_matching: totalMatching,
+          returned: results.length,
+          has_more: true,
+          batch_price_range: { min: batchMin, max: batchMax }
+        }
+      : {}),
     ...(nearestAbove ? { nearest_above: nearestAbove } : {}),
-    ...(nearestBelow ? { nearest_below: nearestBelow } : {})
+    ...(nearestBelow ? { nearest_below: nearestBelow } : {}),
+    ...(hintParts.length ? { hint: hintParts.join(" ") } : {})
   };
 }
 

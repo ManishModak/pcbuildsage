@@ -316,6 +316,31 @@ describe("searchProducts", () => {
     });
   });
 
+  it("reports pagination metadata and composable hints when results exceed limit", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    for (let i = 1; i <= 10; i++) {
+      addProduct({ id: `gpu-${i}`, name: `GPU Model ${i}`, price: 10000 + i * 2000, category: "gpu", in_stock: 1 });
+    }
+    // Also add one item above price_max to test nearest_above preservation
+    addProduct({ id: "gpu-expensive", name: "GPU Super", price: 50000, category: "gpu", in_stock: 1 });
+
+    const result = await searchProducts(
+      { category: "gpu", price_max: 35000, in_stock: true, sort_by: "price", order: "asc", limit: 3 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+
+    expect(result).toMatchObject({
+      returned: 3,
+      total_matching: 10,
+      has_more: true,
+      batch_price_range: { min: 12000, max: 16000 },
+      nearest_above: expect.objectContaining({ name: "GPU Super", price: 50000 })
+    });
+    expect((result as { hint: string }).hint).toContain("Showing 3 of 10 matching in-stock products");
+    expect((result as { hint: string }).hint).toContain("Closest in-stock option above your price_max (35000) is GPU Super at 50000");
+  });
+
   it("enforces the schema limit cap", () => {
     return import("../tools/search-products").then(({ searchProductsInputSchema }) => {
       expect(searchProductsInputSchema.safeParse({ limit: 50 }).success).toBe(true);
