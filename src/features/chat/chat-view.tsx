@@ -264,14 +264,18 @@ export function ChatView({
     if (latestBuilds && currentSig) {
       if (currentSig !== lastSigRef.current) {
         lastSigRef.current = currentSig;
-        setActiveBuilds(latestBuilds);
-        if (isActive && typeof window !== "undefined" && window.innerWidth >= 768) {
-          setSidePanelOpen(true);
-          hasInitializedOpenRef.current = true;
-        }
+        queueMicrotask(() => {
+          setActiveBuilds(latestBuilds);
+          if (isActive && typeof window !== "undefined" && window.innerWidth >= 768) {
+            setSidePanelOpen(true);
+            hasInitializedOpenRef.current = true;
+          }
+        });
       } else if (isActive && !hasInitializedOpenRef.current && typeof window !== "undefined" && window.innerWidth >= 768) {
         hasInitializedOpenRef.current = true;
-        setSidePanelOpen(true);
+        queueMicrotask(() => {
+          setSidePanelOpen(true);
+        });
       }
     }
   }, [latestBuilds, isActive]);

@@ -359,7 +359,7 @@ describe("searchProducts", () => {
       { dbPath, countryCode: "IN", currency: "INR" }
     );
 
-    expect(result.results.map((r: { id: string }) => r.id)).toEqual(["drive-512-nvme", "drive-1000-nvme"]);
+    expect((result as { results: Array<{ id: string }> }).results.map((r) => r.id)).toEqual(["drive-512-nvme", "drive-1000-nvme"]);
   });
 
   it("filters PSU by min_wattage", async () => {
@@ -378,7 +378,7 @@ describe("searchProducts", () => {
       { dbPath, countryCode: "IN", currency: "INR" }
     );
 
-    expect(result.results.map((r: { id: string }) => r.id)).toEqual(["psu-650", "psu-750"]);
+    expect((result as { results: Array<{ id: string }> }).results.map((r) => r.id)).toEqual(["psu-650", "psu-750"]);
   });
 
   it("enforces the schema limit cap", () => {

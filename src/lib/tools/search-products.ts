@@ -70,7 +70,7 @@ export const searchProductsInputSchema = z.object({
   limit: z.number().int().positive().max(50).default(20).describe("Maximum result count. Defaults to 20 and cannot exceed 50.")
 });
 
-export type SearchProductsInput = z.infer<typeof searchProductsInputSchema>;
+export type SearchProductsInput = z.input<typeof searchProductsInputSchema>;
 
 export function createSearchProductsTool(scope: { dbPath?: string; countryCode: string; currency: string }) {
   return tool({
@@ -121,23 +121,24 @@ export async function searchProducts(input: SearchProductsInput, scope: { dbPath
   // Quadro ended up at the top of gaming builds. For price, "best I can afford"
   // is what a build consultant means, so default to descending within the band.
   const order = input.order ?? (sortBy === "price" ? "desc" : "asc");
+  const limit = Math.min(input.limit ?? 20, 50);
   const batchSize = 250;
   const maxScannedRows = 5000;
   const query = db.prepare(`SELECT * FROM products WHERE ${where.join(" AND ")} ORDER BY ${sortColumn} ${order === "desc" ? "DESC" : "ASC"} LIMIT ? OFFSET ?`);
   const matches: Array<{ product: Product; registry: ReturnType<typeof resolveProductSpec> }> = [];
 
-  for (let offset = 0; offset < maxScannedRows && matches.length < input.limit; offset += batchSize) {
+  for (let offset = 0; offset < maxScannedRows && matches.length < limit; offset += batchSize) {
     const rows = query.all(...params, batchSize, offset) as Product[];
     for (const product of rows) {
       const registry = resolveProductSpec(product, db);
       if (matchesRegistryFilters(product, registry?.spec, input)) matches.push({ product, registry });
-      if (matches.length >= input.limit) break;
+      if (matches.length >= limit) break;
     }
     if (rows.length < batchSize) break;
   }
 
   const results = matches
-    .slice(0, input.limit)
+    .slice(0, limit)
     .map(({ product, registry }) => ({
       id: product.id,
       name: product.name,
