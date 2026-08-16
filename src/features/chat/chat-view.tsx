@@ -14,6 +14,8 @@ import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
 import { BuildCard } from "./build-card";
 import { extractBuildsFromMessage, type DerivedBuild } from "./build-derive";
+import { isToolPart } from "@/lib/message-parts";
+import type { ToolPart } from "./tool-chip";
 import { useApp } from "@/components/app/app-provider";
 import { getErrorMessage, formatRelativeTime, formatPrice, sumPrices, formatModelName } from "@/lib/format";
 import { useIsDesktop } from "@/hooks/use-mobile";
@@ -49,10 +51,17 @@ function deriveTitle(messages: ChatUIMessage[]): string {
 }
 
 function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedBuild[] | null {
+  const allToolParts: ToolPart[] = [];
+  for (const m of messages) {
+    if (Array.isArray(m.parts)) {
+      allToolParts.push(...m.parts.filter(isToolPart));
+    }
+  }
+
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     if (msg.role === "assistant") {
-      const builds = extractBuildsFromMessage(msg, currency);
+      const builds = extractBuildsFromMessage(msg, currency, allToolParts);
       if (builds.length > 0) return builds;
     }
   }
@@ -238,7 +247,7 @@ export function ChatView({
     window.addEventListener("mouseup", onMouseUp);
   }, [panelWidth]);
 
-  const isDesktop = useIsDesktop(1024);
+  const isDesktop = useIsDesktop(768);
 
   const latestBuilds = useMemo(
     () => findLatestBuilds(messages, config.currency),
@@ -248,17 +257,22 @@ export function ChatView({
   const displayBuilds = activeBuilds ?? latestBuilds;
 
   const lastSigRef = useRef<string>("");
+  const hasInitializedOpenRef = useRef(false);
 
   useEffect(() => {
     const currentSig = buildsSignature(latestBuilds);
-    if (latestBuilds && currentSig && currentSig !== lastSigRef.current) {
-      lastSigRef.current = currentSig;
-      queueMicrotask(() => {
+    if (latestBuilds && currentSig) {
+      if (currentSig !== lastSigRef.current) {
+        lastSigRef.current = currentSig;
         setActiveBuilds(latestBuilds);
-        if (isActive && typeof window !== "undefined" && window.innerWidth >= 1024) {
+        if (isActive && typeof window !== "undefined" && window.innerWidth >= 768) {
           setSidePanelOpen(true);
+          hasInitializedOpenRef.current = true;
         }
-      });
+      } else if (isActive && !hasInitializedOpenRef.current && typeof window !== "undefined" && window.innerWidth >= 768) {
+        hasInitializedOpenRef.current = true;
+        setSidePanelOpen(true);
+      }
     }
   }, [latestBuilds, isActive]);
 
@@ -304,11 +318,6 @@ export function ChatView({
         ) : null}
       </div>
     );
-    return () => {
-      if (isActive) {
-        setHeaderSuffix(null);
-      }
-    };
   }, [
     isActive,
     setHeaderSuffix,
@@ -482,7 +491,7 @@ export function ChatView({
             }}
             title="Drag to resize panel (double-click to reset)"
             className={cn(
-              "hidden lg:block w-1.5 -ml-1.5 shrink-0 cursor-col-resize relative select-none z-10 hover:bg-accent/30 active:bg-accent transition-colors duration-150",
+              "hidden md:block w-1.5 -ml-1.5 shrink-0 cursor-col-resize relative select-none z-10 hover:bg-accent/30 active:bg-accent transition-colors duration-150",
               isDragging && "bg-accent"
             )}
           />
@@ -490,7 +499,7 @@ export function ChatView({
           <aside
             style={{ width: `${panelWidth}px` }}
             className={cn(
-              "hidden lg:flex shrink-0 flex-col border-l border-border bg-surface h-full overflow-hidden",
+              "hidden md:flex shrink-0 flex-col border-l border-border bg-surface h-full overflow-hidden",
               !isDragging && "transition-[width] duration-150 ease-out",
               isDragging && "select-none"
             )}

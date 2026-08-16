@@ -213,6 +213,7 @@ export function parseTableToBuild(
   label?: string
 ): DerivedBuild | null {
   if (tableLines.length < 2) return null;
+  if (label && /tradeoff|comparison|difference|factor|metric|vs\b/i.test(label)) return null;
 
   const parseRow = (line: string): string[] => {
     let trimmed = line.trim();
@@ -225,6 +226,8 @@ export function parseTableToBuild(
   if (rows.length < 2) return null;
 
   const header = rows[0];
+  if (header.some((cell) => /tradeoff|comparison|difference|factor|metric/i.test(cell))) return null;
+
   let categoryCol = -1;
   let nameCol = -1;
   let priceCol = -1;
@@ -324,7 +327,8 @@ export function parseTableToBuild(
     });
   }
 
-  if (components.length < 2) return null;
+  const pricedCount = components.filter((c) => c.price != null && c.price >= 500).length;
+  if (components.length < 2 || pricedCount < 2) return null;
 
   components.sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category));
 
@@ -422,7 +426,8 @@ export function parseBulletListToBuild(
     });
   }
 
-  if (components.length < 2) return null;
+  const pricedCount = components.filter((c) => c.price != null && c.price >= 500).length;
+  if (components.length < 2 || pricedCount < 2) return null;
 
   components.sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category));
 
@@ -545,7 +550,7 @@ export function deriveBuildsFromToolParts(parts: ToolPart[], fallbackCurrency: s
     .find(
       (part) =>
         (part.type === "tool-present_build" || part.toolName === "present_build") &&
-        part.state === "output-available"
+        (part.state === "output-available" || part.state === "input-available")
     );
 
   if (presentPart) {
@@ -589,6 +594,63 @@ export function deriveBuildsFromToolParts(parts: ToolPart[], fallbackCurrency: s
   return [];
 }
 
+export function enrichBuildsWithToolProducts(builds: DerivedBuild[], toolParts: ToolPart[]): DerivedBuild[] {
+  const products: ProductRow[] = [];
+  for (const part of toolParts) {
+    if (part.type === "tool-search_products" && (part.state === "output-available" || (part as { output?: unknown }).output)) {
+      const output = (part as { output?: { results?: ProductRow[] } }).output;
+      if (Array.isArray(output?.results)) products.push(...output.results);
+    }
+  }
+  if (products.length === 0) return builds;
+
+  const byKey = new Map<string, ProductRow>();
+  const byName = products.map((product) => ({ product, norm: normalize(product.name) }));
+  for (const product of products) {
+    if (product.registry_key) byKey.set(product.registry_key, product);
+  }
+
+  const findProduct = (name: string, key?: string): ProductRow | undefined => {
+    if (key && byKey.has(key)) return byKey.get(key);
+    const target = normalize(name);
+    const directMatch = byName.find(({ norm }) => norm.includes(target) || target.includes(norm))?.product;
+    if (directMatch) return directMatch;
+
+    const targetTokens = target.split(" ").filter((t) => t.length > 1);
+    if (targetTokens.length >= 2) {
+      let bestMatch: ProductRow | undefined;
+      let maxScore = 0;
+      for (const { product, norm } of byName) {
+        const normTokens = new Set(norm.split(" "));
+        const matchCount = targetTokens.filter((t) => normTokens.has(t)).length;
+        const score = matchCount / targetTokens.length;
+        if (score >= 0.4 && matchCount > maxScore) {
+          maxScore = matchCount;
+          bestMatch = product;
+        }
+      }
+      if (bestMatch) return bestMatch;
+    }
+    return undefined;
+  };
+
+  return builds.map((build) => ({
+    ...build,
+    components: build.components.map((comp) => {
+      if (comp.retailer && comp.url) return comp;
+      const matched = findProduct(comp.name, comp.registryKey);
+      if (!matched) return comp;
+      return {
+        ...comp,
+        retailer: comp.retailer || matched.retailer,
+        url: comp.url || matched.url,
+        price: comp.price ?? matched.price,
+        registryKey: comp.registryKey || matched.registry_key || undefined
+      };
+    })
+  }));
+}
+
 /**
  * Derive proposed builds from explicit present_build tool activity or markdown text parts.
  * Multiple distinct builds render as labelled pill tabs in BuildCard.
@@ -603,7 +665,10 @@ export function deriveBuilds(parts: unknown[], fallbackCurrency: string): Derive
   const textParts = parts.filter(isTextPart);
   if (textParts.length > 0) {
     const combinedText = textParts.map((p) => p.text).join("\n\n");
-    return parseBuildsFromMarkdown(combinedText, fallbackCurrency);
+    const markdownBuilds = parseBuildsFromMarkdown(combinedText, fallbackCurrency);
+    if (markdownBuilds.length > 0) {
+      return enrichBuildsWithToolProducts(markdownBuilds, toolParts);
+    }
   }
 
   return [];
@@ -614,16 +679,25 @@ export function deriveBuilds(parts: unknown[], fallbackCurrency: string): Derive
  */
 export function extractBuildsFromMessage(
   message: { parts?: unknown[]; content?: unknown; role?: string },
-  fallbackCurrency: string
+  fallbackCurrency: string,
+  extraToolParts?: ToolPart[]
 ): DerivedBuild[] {
   if (message.role === "user") return [];
 
   const parts = Array.isArray(message.parts) ? message.parts : [];
+  const messageToolParts = parts.filter(isToolPart);
+  const combinedToolParts = extraToolParts?.length ? [...extraToolParts, ...messageToolParts] : messageToolParts;
+
   const fromParts = deriveBuilds(parts, fallbackCurrency);
-  if (fromParts.length > 0) return fromParts;
+  if (fromParts.length > 0) {
+    return enrichBuildsWithToolProducts(fromParts, combinedToolParts);
+  }
 
   if (typeof message.content === "string" && message.content.trim()) {
-    return parseBuildsFromMarkdown(message.content, fallbackCurrency);
+    const markdownBuilds = parseBuildsFromMarkdown(message.content, fallbackCurrency);
+    if (markdownBuilds.length > 0) {
+      return enrichBuildsWithToolProducts(markdownBuilds, combinedToolParts);
+    }
   }
 
   return [];
@@ -645,11 +719,12 @@ export type StripBadge = { kind: "ok" | "blocking" | "warn" | "unverified"; labe
 
 /** Build the validation strip from a ValidationResult. */
 export function validationStrip(validation: ValidationResult | null): StripBadge[] {
-  if (!validation) return [];
+  if (!validation || !Array.isArray(validation.issues)) return [];
   const badges: StripBadge[] = [];
   const blocking = validation.issues.filter((issue) => issue.severity === "blocking");
   const research = validation.issues.filter((issue) => issue.severity === "needs_research");
   const verify = validation.issues.filter((issue) => issue.severity === "needs_verification");
+  const advisories = validation.issues.filter((issue) => issue.severity === "advisory");
 
   if (validation.valid && blocking.length === 0) {
     if (research.length === 0 && verify.length === 0) {
@@ -663,6 +738,9 @@ export function validationStrip(validation: ValidationResult | null): StripBadge
   }
   for (const issue of verify) {
     badges.push({ kind: "unverified", label: `${ruleLabel(issue.rule)} unverified`, title: issue.detail });
+  }
+  for (const issue of advisories) {
+    badges.push({ kind: "warn", label: `${ruleLabel(issue.rule)} advisory`, title: issue.detail });
   }
   return badges;
 }

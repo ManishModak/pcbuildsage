@@ -115,7 +115,7 @@ export type ScrapeEvent =
 export type { ScrapeRunConfig } from "@/contracts/scrape";
 
 // Validation result mirrored from src/lib/rules-engine.
-export type IssueSeverity = "blocking" | "needs_research" | "needs_verification";
+export type IssueSeverity = "blocking" | "needs_research" | "needs_verification" | "advisory";
 export type BuildIssue = {
   severity: IssueSeverity;
   rule: string;

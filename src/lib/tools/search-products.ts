@@ -6,7 +6,28 @@ import { getDb } from "@/lib/db";
 import { resolveComponent, type RegistrySpec } from "@/lib/registry";
 import { BUILD_RELEVANT_SQL } from "@/lib/db/catalog-scope";
 
-const validFilters = ["category", "subcategory", "price_min", "price_max", "brands", "retailer", "in_stock", "socket", "ddr", "form_factor", "min_vram_gb", "segment", "max_tdp_w", "max_length_mm", "sort_by", "order", "limit"];
+const validFilters = [
+  "category",
+  "subcategory",
+  "price_min",
+  "price_max",
+  "brands",
+  "retailer",
+  "in_stock",
+  "socket",
+  "ddr",
+  "form_factor",
+  "min_vram_gb",
+  "segment",
+  "max_tdp_w",
+  "max_length_mm",
+  "min_capacity_gb",
+  "interface",
+  "min_wattage",
+  "sort_by",
+  "order",
+  "limit"
+];
 
 export const searchProductsInputSchema = z.object({
   category: z.string().optional().describe("Component category to search, such as gpu, cpu, motherboard, ram, storage, psu, case, or cooler."),
@@ -28,6 +49,22 @@ export const searchProductsInputSchema = z.object({
   segment: z.enum(["gaming", "workstation", "display"]).optional().describe("Registry-resolved GPU segment filter."),
   max_tdp_w: z.number().nonnegative().optional().describe("Maximum registry-resolved CPU or GPU TDP in watts."),
   max_length_mm: z.number().nonnegative().optional().describe("Maximum registry-resolved GPU length in millimeters."),
+  min_capacity_gb: z
+    .number()
+    .nonnegative()
+    .optional()
+    .describe(
+      "Minimum registry-resolved storage or RAM capacity in GB (e.g. 500 for 500GB/512GB SSDs, 1000 for 1TB, 16 for 16GB RAM kits)."
+    ),
+  interface: z
+    .enum(["nvme", "sata"])
+    .optional()
+    .describe("Storage interface filter: 'nvme' for fast M.2 NVMe SSDs, 'sata' for standard SATA SSDs/HDDs."),
+  min_wattage: z
+    .number()
+    .nonnegative()
+    .optional()
+    .describe("Minimum registry-resolved power supply wattage in watts (e.g. 550, 650, 750, 850)."),
   sort_by: z.enum(["price", "name", "retailer", "last_scraped"]).default("price").describe("Sort field. Use price for value searches, last_scraped for freshest listings."),
   order: z.enum(["asc", "desc"]).optional().describe("Sort direction. Defaults to desc for price (best part within the budget first, which is what a build needs) and asc otherwise. Pass asc on price only when the user explicitly wants the cheapest option."),
   limit: z.number().int().positive().max(50).default(20).describe("Maximum result count. Defaults to 20 and cannot exceed 50.")
@@ -38,7 +75,7 @@ export type SearchProductsInput = z.infer<typeof searchProductsInputSchema>;
 export function createSearchProductsTool(scope: { dbPath?: string; countryCode: string; currency: string }) {
   return tool({
     description:
-      "Use search_products to find purchasable PC parts from the local SQLite database. Use it for component candidates and price comparisons; do not use it for compatibility verdicts or web research. Results are in-stock only unless you pass in_stock: false. Filterable fields: category, subcategory, price_min/price_max in standard major units (e.g. Rupees/Dollars), brands, retailer, in_stock, socket, ddr, form_factor, min_vram_gb, segment, max_tdp_w, max_length_mm, sort_by, order, limit. Example: {\"category\":\"gpu\",\"price_max\":60000,\"min_vram_gb\":12,\"limit\":5}.",
+      "Use search_products to find purchasable PC parts from the local SQLite database. Use it for component candidates and price comparisons; do not use it for compatibility verdicts or web research. Results are in-stock only unless you pass in_stock: false. Filterable fields: category, subcategory, price_min/price_max in standard major units (e.g. Rupees/Dollars), brands, retailer, in_stock, socket, ddr, form_factor, min_vram_gb, segment, max_tdp_w, max_length_mm, min_capacity_gb, interface, min_wattage, sort_by, order, limit. Example: {\"category\":\"storage\",\"min_capacity_gb\":500,\"interface\":\"nvme\",\"price_max\":8000}.",
     inputSchema: searchProductsInputSchema,
     execute: async (input) => searchProducts(input, scope)
   });
@@ -73,15 +110,17 @@ export async function searchProducts(input: SearchProductsInput, scope: { dbPath
     where.push("retailer LIKE ?");
     params.push(`%${input.retailer}%`);
   }
+  const inStock = input.in_stock ?? true;
   where.push("in_stock = ?");
-  params.push(input.in_stock ? 1 : 0);
+  params.push(inStock ? 1 : 0);
 
-  const sortColumn = { price: "price", name: "name", retailer: "retailer", last_scraped: "last_scraped" }[input.sort_by];
+  const sortBy = input.sort_by ?? "price";
+  const sortColumn = { price: "price", name: "name", retailer: "retailer", last_scraped: "last_scraped" }[sortBy] ?? "price";
   // Cheapest-first is a junk-surfacing strategy: within any price band the cheapest
   // row is the worst thing in it, which is how a 4GB pen drive and a workstation
   // Quadro ended up at the top of gaming builds. For price, "best I can afford"
   // is what a build consultant means, so default to descending within the band.
-  const order = input.order ?? (input.sort_by === "price" ? "desc" : "asc");
+  const order = input.order ?? (sortBy === "price" ? "desc" : "asc");
   const batchSize = 250;
   const maxScannedRows = 5000;
   const query = db.prepare(`SELECT * FROM products WHERE ${where.join(" AND ")} ORDER BY ${sortColumn} ${order === "desc" ? "DESC" : "ASC"} LIMIT ? OFFSET ?`);
@@ -126,42 +165,48 @@ export async function searchProducts(input: SearchProductsInput, scope: { dbPath
 
   if (baseline && baseline.in_stock_total > 0 && input.category) {
     if (input.price_max !== undefined) {
-      const aboveRow = db
+      const aboveRows = db
         .prepare(
           `SELECT * FROM products
            WHERE country_code = ? AND currency = ? AND category = ? AND in_stock = 1 AND ${clause} AND price > ?
-           ORDER BY price ASC LIMIT 1`
+           ORDER BY price ASC LIMIT 100`
         )
-        .get(...baseParams, input.price_max) as Product | undefined;
+        .all(...baseParams, input.price_max) as Product[];
 
-      if (aboveRow) {
+      for (const aboveRow of aboveRows) {
         const reg = resolveProductSpec(aboveRow, db);
-        nearestAbove = {
-          name: aboveRow.name,
-          price: aboveRow.price,
-          retailer: aboveRow.retailer,
-          registry_key: reg?.key ?? aboveRow.registry_key
-        };
+        if (matchesRegistryFilters(aboveRow, reg?.spec, input)) {
+          nearestAbove = {
+            name: aboveRow.name,
+            price: aboveRow.price,
+            retailer: aboveRow.retailer,
+            registry_key: reg?.key ?? aboveRow.registry_key
+          };
+          break;
+        }
       }
     }
 
     if (input.price_min !== undefined) {
-      const belowRow = db
+      const belowRows = db
         .prepare(
           `SELECT * FROM products
            WHERE country_code = ? AND currency = ? AND category = ? AND in_stock = 1 AND ${clause} AND price < ?
-           ORDER BY price DESC LIMIT 1`
+           ORDER BY price DESC LIMIT 100`
         )
-        .get(...baseParams, input.price_min) as Product | undefined;
+        .all(...baseParams, input.price_min) as Product[];
 
-      if (belowRow) {
+      for (const belowRow of belowRows) {
         const reg = resolveProductSpec(belowRow, db);
-        nearestBelow = {
-          name: belowRow.name,
-          price: belowRow.price,
-          retailer: belowRow.retailer,
-          registry_key: reg?.key ?? belowRow.registry_key
-        };
+        if (matchesRegistryFilters(belowRow, reg?.spec, input)) {
+          nearestBelow = {
+            name: belowRow.name,
+            price: belowRow.price,
+            retailer: belowRow.retailer,
+            registry_key: reg?.key ?? belowRow.registry_key
+          };
+          break;
+        }
       }
     }
   }
@@ -292,5 +337,8 @@ function matchesRegistryFilters(product: Product, spec: RegistrySpec | undefined
   if (input.segment && spec?.segment !== input.segment) return false;
   if (input.max_tdp_w !== undefined && Number(spec?.tdp_w ?? Number.POSITIVE_INFINITY) > input.max_tdp_w) return false;
   if (input.max_length_mm !== undefined && Number(spec?.length_mm ?? Number.POSITIVE_INFINITY) > input.max_length_mm) return false;
+  if (input.min_capacity_gb !== undefined && Number(spec?.capacity_gb ?? -1) < input.min_capacity_gb) return false;
+  if (input.interface && spec?.interface !== input.interface) return false;
+  if (input.min_wattage !== undefined && Number(spec?.wattage_w ?? -1) < input.min_wattage) return false;
   return true;
 }

@@ -4,7 +4,7 @@ export type BuildPart = string | { key?: string; name?: string; category?: Compo
 export type BuildParts = Partial<Record<ComponentCategory, BuildPart | BuildPart[]>>;
 
 export type RuleName = "socket" | "ddr" | "wattage" | "clearance" | "cooler" | "storage" | "display_output" | "spec_resolution";
-export type IssueSeverity = "blocking" | "needs_research" | "needs_verification";
+export type IssueSeverity = "blocking" | "needs_research" | "needs_verification" | "advisory";
 export type BuildIssue = {
   severity: IssueSeverity;
   rule: RuleName;
@@ -161,6 +161,14 @@ function checkDdr(cpu: ResolvedSpec | undefined, motherboard: ResolvedSpec | und
   if (cpu && cpuDdr && canonicalize(cpuDdr) !== canonicalize(ramDdr)) {
     issues.push(blocking("ddr", [cpu.key, ram.key], `RAM ${ramDdr} does not match CPU-supported memory ${cpuDdr}.`));
     return;
+  }
+  if (isSingleModuleRam(ram)) {
+    issues.push({
+      severity: "advisory",
+      rule: "ddr",
+      components: [ram.key],
+      detail: `Single-channel RAM detected (${ram.spec.model || ram.key}). Dual-channel memory (e.g. 2×8GB or 2×16GB) is recommended for optimal bandwidth and gaming frame rates.`
+    });
   }
   confidenceGate("ddr", [cpu, motherboard, ram].filter(Boolean) as ResolvedSpec[], issues, `DDR match uses low-confidence researched specs for ${lowNames([cpu, motherboard, ram])}.`);
 }
@@ -325,4 +333,18 @@ function label(part: BuildPart): string {
 
 export function makeResolved(key: string, category: ComponentCategory, spec: RegistrySpec, confidence: Confidence = "high", source: "registry" | "research" = "registry"): ResolvedSpec {
   return { key, category, spec, confidence, source };
+}
+
+export function isSingleModuleRam(ram: ResolvedSpec): boolean {
+  const norm = [ram.key, ram.spec.model, ...(ram.spec.aliases || [])].join(" ");
+  if (/\b\d+\s*x\s*\d+\s*gb\b/i.test(norm) && !/\b1\s*x\s*\d+\s*gb\b/i.test(norm)) {
+    return false;
+  }
+  if (/\b(2x8gb|2x16gb|2x32gb|2x4gb|4x8gb|4x16gb|kit of 2|kit of 4|dual channel|dual-channel)\b/i.test(norm)) {
+    return false;
+  }
+  if (/\b(1\s*x\s*\d+\s*gb|\d+\s*gb\s*x\s*1|single stick|single channel)\b/i.test(norm)) {
+    return true;
+  }
+  return false;
 }

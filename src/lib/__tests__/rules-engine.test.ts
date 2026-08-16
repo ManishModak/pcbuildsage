@@ -283,4 +283,38 @@ describe("validateBuild", () => {
     expect(result.issues).not.toContainEqual(expect.objectContaining({ severity: "blocking", rule: "display_output" }));
     expect(result.issues).not.toContainEqual(expect.objectContaining({ severity: "blocking", rule: "wattage" }));
   });
+
+  it("emits a non-blocking advisory when single-channel RAM is detected", () => {
+    const singleRam = makeResolved("ram-single-16gb", "ram", {
+      brand: "TeamGroup",
+      model: "TeamGroup T-Force Vulcan Z 16GB (16GBx1) DDR4 CL16 3200MHz RAM",
+      aliases: ["TeamGroup 16GB (16GBx1) DDR4"],
+      ddr: "DDR5"
+    });
+    const result = run({ ram: singleRam });
+    expect(result.valid).toBe(true);
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        severity: "advisory",
+        rule: "ddr",
+        detail: expect.stringContaining("Single-channel RAM detected")
+      })
+    );
+  });
+
+  it("does not emit single-channel advisory when a 2-stick RAM kit is used", () => {
+    const dualRam = makeResolved("ram-dual-16gb", "ram", {
+      brand: "Crucial",
+      model: "Crucial 16GB (2x8GB) DDR5 5600MHz CL46 UDIMM Kit",
+      aliases: ["Crucial 16GB (2x8GB) DDR5"],
+      ddr: "DDR5"
+    });
+    const result = run({ ram: dualRam });
+    expect(result.valid).toBe(true);
+    expect(result.issues).not.toContainEqual(
+      expect.objectContaining({
+        severity: "advisory"
+      })
+    );
+  });
 });

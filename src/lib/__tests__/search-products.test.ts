@@ -341,6 +341,46 @@ describe("searchProducts", () => {
     expect((result as { hint: string }).hint).toContain("Closest in-stock option above your price_max (35000) is GPU Super at 50000");
   });
 
+  it("filters storage by min_capacity_gb and interface", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    state.specs.set("drive-256-sata", { capacity_gb: 256, interface: "sata" });
+    state.specs.set("drive-512-sata", { capacity_gb: 512, interface: "sata" });
+    state.specs.set("drive-512-nvme", { capacity_gb: 512, interface: "nvme" });
+    state.specs.set("drive-1000-nvme", { capacity_gb: 1000, interface: "nvme" });
+
+    addProduct({ id: "drive-256-sata", price: 3000, category: "storage", registry_key: "drive-256-sata", in_stock: 1 });
+    addProduct({ id: "drive-512-sata", price: 5800, category: "storage", registry_key: "drive-512-sata", in_stock: 1 });
+    addProduct({ id: "drive-512-nvme", price: 6800, category: "storage", registry_key: "drive-512-nvme", in_stock: 1 });
+    addProduct({ id: "drive-1000-nvme", price: 12000, category: "storage", registry_key: "drive-1000-nvme", in_stock: 1 });
+
+    const result = await searchProducts(
+      { category: "storage", min_capacity_gb: 500, interface: "nvme", sort_by: "price", order: "asc", limit: 10 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+
+    expect(result.results.map((r: { id: string }) => r.id)).toEqual(["drive-512-nvme", "drive-1000-nvme"]);
+  });
+
+  it("filters PSU by min_wattage", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    state.specs.set("psu-550", { wattage_w: 550 });
+    state.specs.set("psu-650", { wattage_w: 650 });
+    state.specs.set("psu-750", { wattage_w: 750 });
+
+    addProduct({ id: "psu-550", price: 2300, category: "psu", registry_key: "psu-550", in_stock: 1 });
+    addProduct({ id: "psu-650", price: 3300, category: "psu", registry_key: "psu-650", in_stock: 1 });
+    addProduct({ id: "psu-750", price: 4500, category: "psu", registry_key: "psu-750", in_stock: 1 });
+
+    const result = await searchProducts(
+      { category: "psu", min_wattage: 650, sort_by: "price", order: "asc", limit: 10 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+
+    expect(result.results.map((r: { id: string }) => r.id)).toEqual(["psu-650", "psu-750"]);
+  });
+
   it("enforces the schema limit cap", () => {
     return import("../tools/search-products").then(({ searchProductsInputSchema }) => {
       expect(searchProductsInputSchema.safeParse({ limit: 50 }).success).toBe(true);
