@@ -211,3 +211,56 @@ export function formatModelName(model: string | undefined): string {
 
   return name || "Sage";
 }
+
+const STARTER_BUDGET_TARGETS: Record<string, number> = {
+  INR: 90000,
+  USD: 1200,
+  EUR: 1100,
+  GBP: 1000,
+  CAD: 1600,
+  AUD: 1800,
+  JPY: 180000,
+  KRW: 1600000,
+  BRL: 6500,
+  AED: 4500,
+  SGD: 1600,
+  NZD: 2000,
+  CHF: 1100,
+  SEK: 13000,
+  NOK: 13000,
+  DKK: 8500,
+  PLN: 5000,
+  CZK: 28000,
+  HUF: 450000,
+  RON: 5500,
+  TRY: 40000,
+  ZAR: 22000,
+  MXN: 22000,
+  TWD: 38000,
+  THB: 42000,
+  MYR: 5500,
+  PHP: 68000,
+  IDR: 19000000,
+  VND: 30000000,
+  SAR: 4500,
+  ILS: 4500,
+  CLP: 1100000,
+  COP: 4800000,
+  PEN: 4500,
+  ARS: 1200000
+};
+
+/** Format a rounded 1440p gaming build budget string for any world currency. */
+export function formatStarterBudget(currency?: string, locale?: string): string {
+  const code = (currency || "INR").trim().toUpperCase();
+  const amount = STARTER_BUDGET_TARGETS[code] ?? 1200;
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: 0
+    }).format(amount);
+  } catch {
+    return `${code} ${amount.toLocaleString(locale)}`;
+  }
+}

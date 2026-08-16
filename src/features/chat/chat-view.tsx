@@ -204,7 +204,8 @@ export function ChatView({
   const { messages, sendMessage, status, stop, error, setMessages } = useChat<ChatUIMessage>({
     id: sessionId,
     messages: initialMessages,
-    transport
+    transport,
+    throttle: 50
   });
 
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
@@ -282,9 +283,6 @@ export function ChatView({
           <button
             type="button"
             onClick={() => {
-              if (!sidePanelOpen && !activeBuilds && latestBuilds) {
-                setActiveBuilds(latestBuilds);
-              }
               setSidePanelOpen((prev) => !prev);
             }}
             aria-expanded={sidePanelOpen}
@@ -318,9 +316,7 @@ export function ChatView({
     streaming,
     displayBuilds,
     headerBuildPrice,
-    sidePanelOpen,
-    activeBuilds,
-    latestBuilds
+    sidePanelOpen
   ]);
 
   useEffect(() => {
@@ -381,7 +377,8 @@ export function ChatView({
   }, [saveQueue]);
 
   const send = (text: string) => {
-    sendMessage({ text });
+    if (!text.trim() || streaming) return;
+    void sendMessage({ text });
     const userMsg: ChatUIMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -390,14 +387,27 @@ export function ChatView({
     persistSnapshot([...messages, userMsg]);
   };
 
+  const handleEditMessage = (index: number, newText: string) => {
+    if (streaming) return;
+    const truncated = messages.slice(0, index);
+    setMessages(truncated);
+    void sendMessage({ text: newText });
+    const editedUserMsg: ChatUIMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text: newText }]
+    };
+    persistSnapshot([...truncated, editedUserMsg]);
+  };
+
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] w-full overflow-hidden">
+    <div className="flex h-full min-w-0 flex-1 overflow-hidden relative">
       {/* Left / Center: Chat messages & composer */}
       <div className="flex flex-1 flex-col min-w-0 h-full">
         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[760px] px-4 pb-6">
             {messages.length === 0 ? (
-              <ChatEmptyState onPick={send} />
+              <ChatEmptyState onPick={send} currency={config.currency} />
             ) : (
               <div className="flex flex-col gap-6 pt-6">
                 {messages.map((message, index) => (
@@ -411,17 +421,7 @@ export function ChatView({
                     }}
                     onEdit={
                       !streaming && message.role === "user"
-                        ? (newText) => {
-                            const truncated = messages.slice(0, index);
-                            setMessages(truncated);
-                            sendMessage({ text: newText });
-                            const editedUserMsg: ChatUIMessage = {
-                              id: crypto.randomUUID(),
-                              role: "user",
-                              parts: [{ type: "text", text: newText }]
-                            };
-                            persistSnapshot([...truncated, editedUserMsg]);
-                          }
+                        ? (newText) => handleEditMessage(index, newText)
                         : undefined
                     }
                   />

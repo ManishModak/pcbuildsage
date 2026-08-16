@@ -1,9 +1,17 @@
 import { LeafMark } from "@/components/app/brand";
+import { formatStarterBudget } from "@/lib/format";
 
 // Empty states teach: say what to do next, not just "No messages".
-export function ChatEmptyState({ onPick }: { onPick: (prompt: string) => void }) {
+export function ChatEmptyState({
+  onPick,
+  currency = "INR"
+}: {
+  onPick: (prompt: string) => void;
+  currency?: string;
+}) {
+  const budgetPrompt = `Best 1440p gaming build around ${formatStarterBudget(currency)}`;
   const prompts = [
-    "Best 1440p gaming build around ₹90,000",
+    budgetPrompt,
     "Quiet compact build for a small desk, no RGB",
     "I own an RTX 4070 — build the rest around it",
     "Roast this build: 7800X3D, B650, 32GB DDR5, 650W"
@@ -24,7 +32,7 @@ export function ChatEmptyState({ onPick }: { onPick: (prompt: string) => void })
             key={prompt}
             type="button"
             onClick={() => onPick(prompt)}
-            className="rounded-card border border-border bg-surface px-4 py-3 text-left text-sm text-text-secondary transition-colors duration-150 hover:border-accent hover:text-text"
+            className="rounded-card border border-border bg-surface px-4 py-3 text-left text-sm text-text-secondary transition-colors duration-150 hover:border-accent hover:text-text cursor-pointer"
           >
             {prompt}
           </button>
@@ -33,3 +41,4 @@ export function ChatEmptyState({ onPick }: { onPick: (prompt: string) => void })
     </div>
   );
 }
+

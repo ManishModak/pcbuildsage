@@ -12,6 +12,7 @@ import {
   X
 } from "lucide-react";
 import { fetchProfiles, postSse, testProfile } from "@/lib/api-client";
+import { useApp } from "@/components/app/app-provider";
 import { cancelledRunOutcome, failedRunOutcome } from "@/contracts/scrape";
 import { loadLastScrape, saveLastScrape } from "@/lib/client-config-store";
 import { estimateScrapeMinutes, getErrorMessage } from "@/lib/format";
@@ -36,6 +37,7 @@ type ProfileLoadState =
   | { status: "ready"; profiles: ProfileSummary[] };
 
 export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+  const { updateConfig } = useApp();
   const [profileState, setProfileState] = useState<ProfileLoadState>({ status: "loading" });
   const [profileId, setProfileId] = useState("");
   const [sites, setSites] = useState<Set<string>>(new Set());
@@ -69,14 +71,24 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
     []
   );
 
-  const selectProfile = useCallback((id: string, list: ProfileSummary[], last?: Partial<ScrapeRunConfig>) => {
-    const profile = list.find((item) => item.id === id);
-    setProfileId(id);
-    const allSites = new Set(profile?.sites.map((site) => site.name ?? "").filter(Boolean));
-    const allCategories = new Set(profile?.sites.flatMap((site) => site.categories) ?? []);
-    setSites(last?.sites?.length ? new Set(last.sites) : allSites);
-    setCategories(last?.categories?.length ? new Set(last.categories) : allCategories);
-  }, []);
+  const selectProfile = useCallback(
+    (id: string, list: ProfileSummary[], last?: Partial<ScrapeRunConfig>) => {
+      const profile = list.find((item) => item.id === id);
+      setProfileId(id);
+      const allSites = new Set(profile?.sites.map((site) => site.name ?? "").filter(Boolean));
+      const allCategories = new Set(profile?.sites.flatMap((site) => site.categories) ?? []);
+      setSites(last?.sites?.length ? new Set(last.sites) : allSites);
+      setCategories(last?.categories?.length ? new Set(last.categories) : allCategories);
+      if (profile) {
+        updateConfig({
+          countryCode: profile.countryCode || "IN",
+          currency: profile.currency || "INR"
+        });
+      }
+    },
+    [updateConfig]
+  );
+
 
   const loadProfiles = useCallback(async (preferred?: string, last?: Partial<ScrapeRunConfig>) => {
     setProfileState({ status: "loading" });

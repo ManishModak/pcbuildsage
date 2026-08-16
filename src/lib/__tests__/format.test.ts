@@ -10,8 +10,10 @@ import {
   titleCase,
   getErrorMessage,
   getErrorMessageText,
-  formatModelName
+  formatModelName,
+  formatStarterBudget
 } from "../format";
+
 import { pickTheme, resolveTheme, TOKEN_KEYS } from "../theme";
 import type { ThemeFile } from "@/types/client";
 
@@ -217,6 +219,34 @@ describe("formatModelName", () => {
   it("returns Sage for undefined or empty string", () => {
     expect(formatModelName(undefined)).toBe("Sage");
     expect(formatModelName("")).toBe("Sage");
+  });
+});
+
+describe("formatStarterBudget", () => {
+  it("formats INR starter budget", () => {
+    expect(formatStarterBudget("INR", "en-IN")).toMatch(/90,000/);
+    expect(formatStarterBudget("INR", "en-IN")).toMatch(/₹/);
+  });
+
+  it("formats USD starter budget", () => {
+    expect(formatStarterBudget("USD", "en-US")).toBe("$1,200");
+  });
+
+  it("formats EUR starter budget", () => {
+    expect(formatStarterBudget("EUR", "en-US")).toMatch(/€1,100/);
+  });
+
+  it("formats GBP starter budget", () => {
+    expect(formatStarterBudget("GBP", "en-GB")).toMatch(/£1,000/);
+  });
+
+  it("formats JPY starter budget without decimals", () => {
+    expect(formatStarterBudget("JPY", "ja-JP")).toMatch(/180,000/);
+  });
+
+  it("handles unknown/fallback currencies gracefully", () => {
+    expect(formatStarterBudget("XYZ", "en-US")).toContain("1,200");
+    expect(formatStarterBudget(undefined, "en-IN")).toMatch(/90,000/);
   });
 });
 
