@@ -19,6 +19,7 @@ export * from "./turso-repository";
 export * from "./snapshot-validator";
 export * from "./turso-schema";
 export * from "./publisher";
+export * from "./compact";
 
 export type RepositoryFactory = () => CatalogRepository;
 

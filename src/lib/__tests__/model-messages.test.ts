@@ -49,9 +49,13 @@ describe("compactChatMessages", () => {
     expect(compacted[1].content).toContain("Here is a list.");
     expect(compacted[1].parts).toEqual([{ type: "text", text: "Here is a list." }]);
 
-    // The second assistant turn is the last assistant turn, so its parts must be kept
+    // The second assistant turn is the last assistant turn, so its parts must be kept with compact search output
     expect(compacted[3].parts).toBeDefined();
-    expect(compacted[3].parts).toEqual(messages[3].parts);
+    expect(compacted[3].parts).toHaveLength(3);
+    expect(compacted[3].parts?.[1].type).toBe("tool-search_products");
+    expect((compacted[3].parts?.[1] as { output: { results: Array<{ id: string }> } }).output.results[0].id).toBe("gpu-2");
+    // Ensure the original messages array and original parts were NOT mutated
+    expect(messages[3].parts?.[1]).not.toBe(compacted[3].parts?.[1]);
     expect(compacted[3].content).toBeUndefined();
   });
 });

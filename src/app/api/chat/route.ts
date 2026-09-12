@@ -32,20 +32,36 @@ function extractDetailedErrorMessage(error: unknown): string {
     if (typeof responseBody === "string") {
       try {
         const parsed = JSON.parse(responseBody);
-        if (parsed?.error?.message) {
-          bodyDetail = String(parsed.error.message);
+        if (parsed?.error && typeof parsed.error === "object") {
+          const err = parsed.error as Record<string, unknown>;
+          bodyDetail = String(err.message ?? "");
+          if (err.metadata && typeof err.metadata === "object") {
+            const meta = err.metadata as Record<string, unknown>;
+            if (meta.raw && typeof meta.raw === "string") {
+              const rawSample = meta.raw.slice(0, 200);
+              bodyDetail = bodyDetail ? `${bodyDetail} (${rawSample})` : rawSample;
+            }
+          }
         } else if (parsed?.message) {
           bodyDetail = String(parsed.message);
         } else {
-          bodyDetail = responseBody;
+          bodyDetail = responseBody.slice(0, 300);
         }
       } catch {
-        bodyDetail = responseBody;
+        bodyDetail = responseBody.slice(0, 300);
       }
     } else if (typeof responseBody === "object" && responseBody !== null) {
       const parsed = responseBody as Record<string, unknown>;
-      if (parsed.error && typeof parsed.error === "object" && (parsed.error as Record<string, unknown>).message) {
-        bodyDetail = String((parsed.error as Record<string, unknown>).message);
+      if (parsed.error && typeof parsed.error === "object") {
+        const err = parsed.error as Record<string, unknown>;
+        bodyDetail = String(err.message ?? "");
+        if (err.metadata && typeof err.metadata === "object") {
+          const meta = err.metadata as Record<string, unknown>;
+          if (meta.raw && typeof meta.raw === "string") {
+            const rawSample = meta.raw.slice(0, 200);
+            bodyDetail = bodyDetail ? `${bodyDetail} (${rawSample})` : rawSample;
+          }
+        }
       } else if (parsed.message) {
         bodyDetail = String(parsed.message);
       }
@@ -106,7 +122,11 @@ export async function POST(request: Request): Promise<Response> {
       }),
       onError: (error: unknown) => {
         const safeMsg = sanitizeErrorMessage(error, request.headers);
-        console.error("POST /api/chat: Stream Error:", safeMsg);
+        const requestSizeChars = JSON.stringify(body.messages).length;
+        console.error(
+          `POST /api/chat: Stream Error [model=${result.model ?? "unknown"}, provider=${result.provider ?? "unknown"}, messages=${body.messages.length}, requestSizeChars=${requestSizeChars}]:`,
+          safeMsg
+        );
         return safeMsg;
       }
     });

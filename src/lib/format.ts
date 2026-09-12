@@ -177,8 +177,9 @@ export function getErrorMessageText(msg: string): string {
     return `The model provider is temporarily overloaded or unavailable (HTTP 503). Please wait a moment and try again, or switch to another model in Settings.${detail ? ` Details: ${detail}` : ""}`;
   }
 
-  if (extracted.trim() === "Provider returned error") {
-    return "The model provider returned an error (likely rate limit, timeout, or service interruption). Check your API keys and provider chain in Settings and try again.";
+  if (combined.includes("provider returned error")) {
+    const detail = extracted !== msg && extracted.length < 200 ? extracted : "";
+    return `The model provider returned an error (likely rate limit, timeout, or service interruption). Check your API keys and provider chain in Settings and try again.${detail ? ` Details: ${detail}` : ""}`;
   }
 
   return extracted;

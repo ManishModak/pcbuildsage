@@ -1,4 +1,5 @@
 import { type UIMessage } from "ai";
+import { toCompactSearchResult } from "@/lib/catalog/compact";
 
 /** The message-part union the AI SDK accepts on a UIMessage. */
 export type ChatMessagePart = UIMessage["parts"][number];
@@ -49,6 +50,8 @@ export function deriveBuildState(uiMessages: UIMessage[]): { parts: unknown; ver
  * - Non-text parts are stripped to keep memory usage low (compact memory).
  * - Exception: tool parts (calls and results) are kept for the last assistant turn only,
  *   so immediately-preceding search results are still exact if the user references them.
+ * - For search_products tool parts, compacts product fields across ALL historical candidates
+ *   (preserving all returned parts while eliminating duplicate arrays and verbose metadata).
  */
 export function compactChatMessages(messages: IncomingChatMessage[]): ChatMessage[] {
   const lastAssistantIdx = messages.reduce(
@@ -59,12 +62,25 @@ export function compactChatMessages(messages: IncomingChatMessage[]): ChatMessag
   return messages.map((message, idx) => {
     const isLastAssistant = idx === lastAssistantIdx;
     if (isLastAssistant && message.parts) {
-      // Keep tool parts for the last assistant turn only, so an immediately-preceding search result is still exact
+      // Keep tool parts for the last assistant turn only, compacting search outputs across all candidates
+      const compactedParts = message.parts.map((part) => {
+        const name = toolNameOf(part);
+        if (name === "search_products") {
+          const rawOutput = (part as { output?: unknown }).output;
+          if (rawOutput && typeof rawOutput === "object") {
+            return {
+              ...part,
+              output: toCompactSearchResult(rawOutput as Record<string, unknown>)
+            };
+          }
+        }
+        return part;
+      });
+
       return {
         role: message.role as "user" | "assistant" | "system",
-        // The wire shape is only structurally checked; convertToModelMessages
-        // rejects anything the SDK cannot represent.
-        parts: message.parts as ChatMessagePart[]
+        content: message.content,
+        parts: compactedParts as ChatMessagePart[]
       };
     }
     // Compact memory: strip non-text parts and merge text parts into content

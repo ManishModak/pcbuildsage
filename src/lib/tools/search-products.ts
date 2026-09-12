@@ -1,6 +1,12 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { getCatalogRepository, type CatalogRepository, type CatalogScope, type SearchProductsResult } from "@/lib/catalog";
+import {
+  getCatalogRepository,
+  type CatalogRepository,
+  type CatalogScope,
+  toCompactSearchResult,
+  type CompactSearchProductsResult
+} from "@/lib/catalog";
 
 export const searchProductsInputSchema = z.object({
   term: z
@@ -48,7 +54,7 @@ export const searchProductsInputSchema = z.object({
     .describe("Minimum registry-resolved power supply wattage in watts (e.g. 550, 650, 750, 850)."),
   sort_by: z.enum(["price", "name", "retailer", "last_scraped"]).default("price").describe("Sort field. Use price for value searches, last_scraped for freshest listings."),
   order: z.enum(["asc", "desc"]).optional().describe("Sort direction. Defaults to desc for price (best part within the budget first, which is what a build needs) and asc otherwise. Pass asc on price only when the user explicitly wants the cheapest option."),
-  limit: z.number().int().positive().max(50).default(20).describe("Maximum result count. Defaults to 20 and cannot exceed 50.")
+  limit: z.number().int().positive().max(12).default(8).describe("Maximum result count. Defaults to 8 and cannot exceed 12.")
 });
 
 export type SearchProductsInput = z.input<typeof searchProductsInputSchema>;
@@ -75,23 +81,33 @@ export async function searchProducts(
   input: SearchProductsInput,
   scope: SearchProductsScope,
   repository?: CatalogRepository
-): Promise<SearchProductsResult> {
+): Promise<CompactSearchProductsResult> {
   const unknown = Object.keys(input).filter((key) => !validFilters.includes(key));
   if (unknown.length) {
     return {
       results: [],
-      items: [],
       error: `Unknown filter(s): ${unknown.join(", ")}`,
       valid_filters: validFilters
     };
   }
 
+  // Defensively normalize limit without mutating the incoming input object.
+  let normalizedLimit: number | undefined;
+  if (input.limit !== undefined) {
+    normalizedLimit = Number.isFinite(input.limit)
+      ? Math.min(12, Math.max(1, Math.round(Number(input.limit))))
+      : 8;
+  }
+
+  const rawTerm = (input.term ?? input.query)?.trim();
   const normalizedInput: SearchProductsInput = {
     ...input,
-    term: (input.term ?? input.query)?.trim() || undefined
+    ...(rawTerm ? { term: rawTerm } : {}),
+    ...(normalizedLimit !== undefined ? { limit: normalizedLimit } : {})
   };
 
   const repo = repository ?? scope.repository ?? getCatalogRepository();
-  return repo.searchProducts(normalizedInput, scope);
+  const rawResult = await repo.searchProducts(normalizedInput, scope);
+  return toCompactSearchResult(rawResult);
 }
 

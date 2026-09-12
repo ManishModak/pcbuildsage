@@ -261,7 +261,7 @@ describe("searchProducts", () => {
     addProduct({ id: "gpu-retired", price: 4600, category: "gpu", in_stock: 0 });
 
     // Parse through the schema so the test exercises the default, not a hand-passed flag.
-    const input = searchProductsInputSchema.parse({ category: "gpu", limit: 20 });
+    const input = searchProductsInputSchema.parse({ category: "gpu" });
     const result = await searchProducts(input, { dbPath, countryCode: "IN", currency: "INR" });
     const ids = (result.results ?? []).map((row: { id: string }) => row.id);
     expect(ids).toEqual(["gpu-live"]);
@@ -381,10 +381,11 @@ describe("searchProducts", () => {
     expect((result as { results: Array<{ id: string }> }).results.map((r) => r.id)).toEqual(["psu-650", "psu-750"]);
   });
 
-  it("enforces the schema limit cap", () => {
+  it("enforces the schema limit cap and default", () => {
     return import("../tools/search-products").then(({ searchProductsInputSchema }) => {
-      expect(searchProductsInputSchema.safeParse({ limit: 50 }).success).toBe(true);
-      expect(searchProductsInputSchema.safeParse({ limit: 51 }).success).toBe(false);
+      expect(searchProductsInputSchema.parse({}).limit).toBe(8);
+      expect(searchProductsInputSchema.safeParse({ limit: 12 }).success).toBe(true);
+      expect(searchProductsInputSchema.safeParse({ limit: 13 }).success).toBe(false);
     });
   });
 

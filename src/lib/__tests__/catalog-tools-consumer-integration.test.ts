@@ -9,6 +9,7 @@ import {
 import {
   setCatalogRepository,
   resetCatalogRepositoryRegistry,
+  toCompactSearchResult,
   type CatalogRepository,
   type CatalogScope,
   type GetCatalogResult,
@@ -134,13 +135,14 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
 
   describe("search_products tool delegation", () => {
     const input = { category: "gpu", in_stock: true };
+    const expectedCompact = toCompactSearchResult(sampleSearchResult);
 
     it("delegates to repository passed directly as argument to searchProducts()", async () => {
       const mockRepo = createMockRepo();
       const result = await searchProducts(input, sampleScope, mockRepo);
 
       expect(mockRepo.searchProducts).toHaveBeenCalledWith(input, sampleScope);
-      expect(result).toEqual(sampleSearchResult);
+      expect(result).toEqual(expectedCompact);
     });
 
     it("delegates to repository passed in scope to searchProducts()", async () => {
@@ -148,7 +150,7 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
       const result = await searchProducts(input, { ...sampleScope, repository: mockRepo });
 
       expect(mockRepo.searchProducts).toHaveBeenCalledWith(input, expect.objectContaining(sampleScope));
-      expect(result).toEqual(sampleSearchResult);
+      expect(result).toEqual(expectedCompact);
     });
 
     it("delegates to getCatalogRepository() when no repository is explicitly passed", async () => {
@@ -157,7 +159,7 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
 
       const result = await searchProducts(input, sampleScope);
       expect(mockRepo.searchProducts).toHaveBeenCalledWith(input, sampleScope);
-      expect(result).toEqual(sampleSearchResult);
+      expect(result).toEqual(expectedCompact);
     });
 
     it("createSearchProductsTool tool execute delegates to injected repository", async () => {
@@ -166,7 +168,7 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
 
       const result = await toolInstance.execute(input, mockExecOptions);
       expect(mockRepo.searchProducts).toHaveBeenCalledWith(input, sampleScope);
-      expect(result).toEqual(sampleSearchResult);
+      expect(result).toEqual(expectedCompact);
     });
 
     it("createSearchProductsTool tool execute delegates to repository in scope", async () => {
@@ -175,7 +177,7 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
 
       const result = await toolInstance.execute(input, mockExecOptions);
       expect(mockRepo.searchProducts).toHaveBeenCalled();
-      expect(result).toEqual(sampleSearchResult);
+      expect(result).toEqual(expectedCompact);
     });
 
     it("returns error early for invalid filters without calling repository", async () => {
