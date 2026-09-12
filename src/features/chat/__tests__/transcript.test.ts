@@ -85,7 +85,8 @@ describe("transcript utilities", () => {
       error: new Error("Provider returned error (503 Service Unavailable)")
     });
 
-    expect(md).toContain("> ⚠️ **Provider / Runtime Error**: Provider returned error (503 Service Unavailable)");
+    expect(md).toContain("> ⚠️ **Provider / Runtime Error**:");
+    expect(md).toContain("HTTP 503");
   });
 
   it("formats structured JSON transcript correctly", () => {
@@ -104,7 +105,7 @@ describe("transcript utilities", () => {
     expect(parsed.session.title).toBe("Test JSON Transcript");
     expect(parsed.session.model).toBe("gemini-2.5-flash");
     expect(parsed.session.currency).toBe("USD");
-    expect(parsed.error).toBe("Rate limit exceeded");
+    expect(parsed.error).toContain("Rate limit or quota reached (HTTP 429)");
     expect(parsed.messages).toHaveLength(2);
     expect(parsed.messages[0].role).toBe("user");
     expect(parsed.messages[1].role).toBe("assistant");

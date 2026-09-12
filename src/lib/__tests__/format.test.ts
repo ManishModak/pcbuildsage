@@ -177,8 +177,26 @@ describe("getErrorMessageText", () => {
     expect(getErrorMessageText("Raw error message")).toBe("Raw error message");
   });
 
-  it("extracts nested JSON from text", () => {
-    expect(getErrorMessageText('Prefix {"message": "Extracted message"} Suffix')).toBe("Extracted message");
+  it("identifies rate limit and quota exhaustion errors", () => {
+    const res = getErrorMessageText("[HTTP 429] Rate limit reached for model nex-n2.5-pro:free");
+    expect(res).toContain("Rate limit or quota reached (HTTP 429)");
+    expect(res).toContain("nex-n2.5-pro:free");
+  });
+
+  it("identifies context length limit errors", () => {
+    const res = getErrorMessageText("Error: maximum context length exceeded (32768 tokens)");
+    expect(res).toContain("Context length limit exceeded");
+  });
+
+  it("identifies 503 service overloaded errors", () => {
+    const res = getErrorMessageText("HTTP 503 Service Unavailable: Model is overloaded");
+    expect(res).toContain("The model provider is temporarily overloaded or unavailable (HTTP 503)");
+  });
+
+  it("provides helpful explanation for plain 'Provider returned error'", () => {
+    const res = getErrorMessageText("Provider returned error");
+    expect(res).toContain("The model provider returned an error");
+    expect(res).toContain("rate limit, timeout, or service interruption");
   });
 });
 

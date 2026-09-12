@@ -371,9 +371,9 @@ export function ChatView({
     [saveQueue]
   );
 
-  // Persist the full UIMessage[] to the sessions store after each completed turn or state change.
+  // Persist the full UIMessage[] to the sessions store after each completed or failed turn.
   useEffect(() => {
-    if (status !== "ready" || messages.length === 0) return;
+    if ((status !== "ready" && status !== "error") || messages.length === 0) return;
     persistSnapshot(messages);
   }, [status, messages, persistSnapshot]);
 

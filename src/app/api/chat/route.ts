@@ -20,8 +20,62 @@ const chatRequestSchema = z.object({
   config: z.unknown().optional()
 });
 
+function extractDetailedErrorMessage(error: unknown): string {
+  if (!error) return "Unknown error";
+
+  if (typeof error === "object" && error !== null) {
+    const errObj = error as Record<string, unknown>;
+    const statusCode = errObj.statusCode ?? (errObj.status as number | undefined);
+    const responseBody = errObj.responseBody;
+
+    let bodyDetail = "";
+    if (typeof responseBody === "string") {
+      try {
+        const parsed = JSON.parse(responseBody);
+        if (parsed?.error?.message) {
+          bodyDetail = String(parsed.error.message);
+        } else if (parsed?.message) {
+          bodyDetail = String(parsed.message);
+        } else {
+          bodyDetail = responseBody;
+        }
+      } catch {
+        bodyDetail = responseBody;
+      }
+    } else if (typeof responseBody === "object" && responseBody !== null) {
+      const parsed = responseBody as Record<string, unknown>;
+      if (parsed.error && typeof parsed.error === "object" && (parsed.error as Record<string, unknown>).message) {
+        bodyDetail = String((parsed.error as Record<string, unknown>).message);
+      } else if (parsed.message) {
+        bodyDetail = String(parsed.message);
+      }
+    }
+
+    const baseMessage = error instanceof Error ? error.message : String(errObj.message || "");
+
+    if (bodyDetail && bodyDetail !== baseMessage) {
+      return statusCode ? `[HTTP ${statusCode}] ${bodyDetail} (${baseMessage})` : `${bodyDetail} (${baseMessage})`;
+    }
+
+    if (statusCode && !baseMessage.includes(String(statusCode))) {
+      return `[HTTP ${statusCode}] ${baseMessage}`;
+    }
+
+    if (errObj.cause && errObj.cause !== error) {
+      const causeMsg = errObj.cause instanceof Error ? errObj.cause.message : String(errObj.cause);
+      if (causeMsg && !baseMessage.includes(causeMsg)) {
+        return `${baseMessage}: ${causeMsg}`;
+      }
+    }
+
+    if (baseMessage) return baseMessage;
+  }
+
+  return error instanceof Error ? error.message : String(error);
+}
+
 function sanitizeErrorMessage(error: unknown, headers?: Headers): string {
-  let msg = error instanceof Error ? error.message : String(error);
+  let msg = extractDetailedErrorMessage(error);
   if (headers) {
     for (const [name, val] of headers.entries()) {
       if (/api[-_]?key/i.test(name) && val.length >= 4) {

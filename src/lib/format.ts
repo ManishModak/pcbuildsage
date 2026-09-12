@@ -108,38 +108,80 @@ export function getErrorMessageText(msg: string): string {
   if (msg.includes("Headers Timeout Error")) {
     return "Connection timed out waiting for the model to respond (Headers Timeout Error). If you are using a local model (Ollama / Unsloth / vLLM), verify the local server is running and finished loading the model weights into memory, or add a fallback provider in Settings.";
   }
+
+  let extracted = msg;
   try {
     const parsed = JSON.parse(msg);
     if (parsed && typeof parsed === "object") {
-      if (parsed.message) return String(parsed.message);
-      if (parsed.error && typeof parsed.error === "object" && parsed.error.message) {
-        return String(parsed.error.message);
-      }
-      if (typeof parsed.error === "string") return parsed.error;
+      if (parsed.message) extracted = String(parsed.message);
+      else if (parsed.error && typeof parsed.error === "object" && parsed.error.message) {
+        extracted = String(parsed.error.message);
+      } else if (typeof parsed.error === "string") extracted = parsed.error;
     }
   } catch {
     // Ignore
   }
 
-  const jsonStart = msg.indexOf("{");
-  const jsonEnd = msg.lastIndexOf("}");
-  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-    try {
-      const jsonSub = msg.slice(jsonStart, jsonEnd + 1);
-      const parsed = JSON.parse(jsonSub);
-      if (parsed && typeof parsed === "object") {
-        if (parsed.message) return String(parsed.message);
-        if (parsed.error && typeof parsed.error === "object" && parsed.error.message) {
-          return String(parsed.error.message);
+  if (extracted === msg) {
+    const jsonStart = msg.indexOf("{");
+    const jsonEnd = msg.lastIndexOf("}");
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      try {
+        const jsonSub = msg.slice(jsonStart, jsonEnd + 1);
+        const parsed = JSON.parse(jsonSub);
+        if (parsed && typeof parsed === "object") {
+          if (parsed.message) extracted = String(parsed.message);
+          else if (parsed.error && typeof parsed.error === "object" && parsed.error.message) {
+            extracted = String(parsed.error.message);
+          } else if (typeof parsed.error === "string") extracted = parsed.error;
         }
-        if (typeof parsed.error === "string") return parsed.error;
+      } catch {
+        // Ignore
       }
-    } catch {
-      // Ignore
     }
   }
 
-  return msg;
+  const combined = `${msg} ${extracted}`.toLowerCase();
+
+  if (
+    combined.includes("429") ||
+    combined.includes("rate limit") ||
+    combined.includes("rate_limit") ||
+    combined.includes("too many requests") ||
+    combined.includes("resource_exhausted") ||
+    combined.includes("quota exceeded") ||
+    combined.includes("tokens per minute") ||
+    combined.includes("requests per minute") ||
+    combined.includes("free-tier limit")
+  ) {
+    const detail = extracted !== msg ? extracted : (msg.length < 120 ? msg : "");
+    return `Rate limit or quota reached (HTTP 429). The model provider temporarily rejected the request because token or request limits were exceeded. Please wait a moment before trying again, or configure an alternative provider/key in Settings.${detail ? ` Details: ${detail}` : ""}`;
+  }
+
+  if (
+    combined.includes("context_length_exceeded") ||
+    combined.includes("maximum context length") ||
+    combined.includes("context window") ||
+    (combined.includes("token limit") && combined.includes("exceeded"))
+  ) {
+    const detail = extracted !== msg ? extracted : (msg.length < 120 ? msg : "");
+    return `Context length limit exceeded. The conversation history or tool output was too long for this model's context window. Try starting a new chat or narrowing search filters.${detail ? ` Details: ${detail}` : ""}`;
+  }
+
+  if (
+    combined.includes("503") ||
+    combined.includes("service unavailable") ||
+    combined.includes("model is overloaded")
+  ) {
+    const detail = extracted !== msg ? extracted : (msg.length < 120 ? msg : "");
+    return `The model provider is temporarily overloaded or unavailable (HTTP 503). Please wait a moment and try again, or switch to another model in Settings.${detail ? ` Details: ${detail}` : ""}`;
+  }
+
+  if (extracted.trim() === "Provider returned error") {
+    return "The model provider returned an error (likely rate limit, timeout, or service interruption). Check your API keys and provider chain in Settings and try again.";
+  }
+
+  return extracted;
 }
 
 const FALLBACK_ERROR_MESSAGE =
