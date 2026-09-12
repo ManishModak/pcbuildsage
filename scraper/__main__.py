@@ -410,7 +410,11 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
         extra={"component": "scraper"}
     )
     emit_outcome(emitter, outcome)
-    return 0 if outcome.status == "succeeded" else 1
+    if outcome.status == "succeeded":
+        return 0
+    if outcome.status == "partial" and (outcome.products_written or 0) > 0:
+        return 0
+    return 1
 
 
 def main() -> int:

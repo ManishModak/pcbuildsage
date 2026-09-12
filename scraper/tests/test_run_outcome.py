@@ -31,3 +31,13 @@ def test_all_failed_jobs_produce_failure():
     assert outcome.status == "failed"
     assert outcome.jobs_failed == 2
     assert outcome.errors == ["first", "second"]
+
+
+def test_emit_outcome_accepts_valid_outcome_event():
+    from scraper.__main__ import emit_outcome
+    from scraper.output import EventEmitter
+
+    emitter = EventEmitter(json_stdout=False)
+    outcome = summarize_run([JobOutcome("succeeded", 5)])
+    # Should emit without raising ValueError
+    emit_outcome(emitter, outcome)
