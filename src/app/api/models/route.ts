@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { discoverModels } from "@/lib/llm/discovery";
+import { isHostedDemo, validateChatProviderUrl } from "@/lib/config/deployment";
 import { entryFromRequest } from "../_lib/credentials";
 import { badRequest, json, serverError } from "../_lib/responses";
 
@@ -12,6 +13,17 @@ export async function GET(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const provider = providerSchema.parse(url.searchParams.get("provider"));
     const baseUrl = url.searchParams.get("baseUrl") ?? undefined;
+    if (isHostedDemo()) {
+      if (provider === "ollama") {
+        return badRequest(new Error("Provider 'ollama' is not supported in hosted-demo mode."));
+      }
+      if (baseUrl) {
+        const check = validateChatProviderUrl(baseUrl, "hosted-demo");
+        if (!check.allowed) {
+          return badRequest(new Error(check.reason ?? "Custom base URL is not permitted in hosted-demo mode."));
+        }
+      }
+    }
     const model = url.searchParams.get("model") ?? "__model_discovery__";
     const keySource = url.searchParams.get("keySource") ?? (hasApiKeyHeader(request.headers, provider) ? "ui" : "env");
     const entry = entryFromRequest({ provider, model, baseUrl, keySource }, request.headers);

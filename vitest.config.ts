@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     alias: {
       "@": path.resolve(__dirname, "./src")
-    }
+    },
+    exclude: ["**/node_modules/**", "**/.next/**"]
   }
 });

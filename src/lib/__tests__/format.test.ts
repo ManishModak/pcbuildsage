@@ -212,6 +212,11 @@ describe("formatModelName", () => {
     expect(formatModelName("ollama:llama3.3")).toBe("llama3.3");
   });
 
+  it("preserves model tags like :free or :instruct on OpenRouter models", () => {
+    expect(formatModelName("z-ai/glm-5.2:free")).toBe("glm-5.2:free");
+    expect(formatModelName("meta-llama/llama-3.3-70b-instruct")).toBe("llama-3.3-70b-instruct");
+  });
+
   it("handles HuggingFace models-- namespace format", () => {
     expect(formatModelName("models--deepreinforce-ai--Ornith-1.0-9B")).toBe("deepreinforce-ai/Ornith-1.0-9B");
   });

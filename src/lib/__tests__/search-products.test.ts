@@ -387,4 +387,28 @@ describe("searchProducts", () => {
       expect(searchProductsInputSchema.safeParse({ limit: 51 }).success).toBe(false);
     });
   });
+
+  it("supports full-text search via term and query filters", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+
+    addProduct({ id: "gpu-4070", name: "Zotac RTX 4070 Super", price: 58000, category: "gpu", in_stock: 1 });
+    addProduct({ id: "gpu-4060", name: "Asus RTX 4060 Dual", price: 32000, category: "gpu", in_stock: 1 });
+
+    // Test with canonical 'term'
+    const resultTerm = await searchProducts(
+      { term: "4070", category: "gpu" },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    expect(resultTerm.error).toBeUndefined();
+    expect(resultTerm.results.map((r) => r.id)).toEqual(["gpu-4070"]);
+
+    // Test with alias 'query'
+    const resultQuery = await searchProducts(
+      { query: "4070", category: "gpu" },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    expect(resultQuery.error).toBeUndefined();
+    expect(resultQuery.results.map((r) => r.id)).toEqual(["gpu-4070"]);
+  });
 });

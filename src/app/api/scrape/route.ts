@@ -9,6 +9,7 @@ import {
   resolvePython,
   spawnPython
 } from "@/lib/server/python-process";
+import { guardHostedRoute } from "@/lib/middleware/route-guard";
 
 export const runtime = "nodejs";
 
@@ -37,6 +38,9 @@ type ActiveScrape = {
 let activeScrape: ActiveScrape | undefined;
 
 export async function POST(request: Request): Promise<Response> {
+  const blocked = guardHostedRoute(request);
+  if (blocked) return blocked;
+
   if (activeScrape) {
     return json({ running: true, scrape: activeScrape }, { status: 409 });
   }

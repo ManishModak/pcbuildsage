@@ -10,13 +10,15 @@ export function Composer({
   onStop,
   streaming,
   disabled,
-  placeholder
+  placeholder,
+  badge
 }: {
   onSend: (text: string) => void;
   onStop: () => void;
   streaming: boolean;
   disabled?: boolean;
   placeholder?: string;
+  badge?: React.ReactNode;
 }) {
   const [value, setValue] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -31,6 +33,7 @@ export function Composer({
 
   return (
     <div className="rounded-card border border-border bg-surface p-2 focus-within:border-accent">
+      {badge ? <div className="mb-1 px-1">{badge}</div> : null}
       <div className="flex items-end gap-2">
         <textarea
           ref={ref}

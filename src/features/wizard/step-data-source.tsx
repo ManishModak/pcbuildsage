@@ -73,7 +73,7 @@ function DataSourceChoices({
   onNext: () => void;
 }) {
   const dbExists = status.database.exists;
-  const pythonOk = status.python.ok;
+  const pythonOk = Boolean(status.python?.ok);
   const totalRows = status.database.rowCounts.reduce((sum, row) => sum + row.count, 0);
 
   return (
@@ -110,7 +110,7 @@ function DataSourceChoices({
           estimate="instant"
           description={
             dbExists
-              ? `${totalRows.toLocaleString()} products already indexed at ${shortPath(status.database.path)}.`
+              ? `${totalRows.toLocaleString()} products already indexed${status.database.path ? ` at ${shortPath(status.database.path)}` : ""}.`
               : "No local database found yet — scrape to create one."
           }
         />

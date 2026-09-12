@@ -3,6 +3,7 @@ import type {
   CredentialAvailability,
   DiscoveredModel,
   EndpointPreset,
+  MarketMetadata,
   Personality,
   PingResult,
   ProfileSummary,
@@ -10,8 +11,17 @@ import type {
   StatusResponse,
   ThemeFile
 } from "@/types/client";
-import type { ChatUIMessage } from "@/features/chat/message";
 import { parseRunOutcome, type RunOutcome } from "@/contracts/scrape";
+import {
+  clearClientSessions,
+  deleteClientSession,
+  getClientSession,
+  listClientSessions,
+  normalizeUIMessage,
+  saveClientSession,
+  type SaveSessionRequest,
+  type SessionDetail
+} from "./sessions/client-store";
 
 export class HttpError extends Error {
   constructor(
@@ -58,8 +68,50 @@ async function getJson<T>(url: string): Promise<T> {
   return requestJson<T>(url);
 }
 
+export async function fetchMarkets(): Promise<MarketMetadata[]> {
+  const data = await getJson<{ markets: MarketMetadata[] }>("/api/markets");
+  return data.markets;
+}
+
+let cachedDeploymentMode: string | null = null;
+
+export function setCachedDeploymentMode(mode: string | null): void {
+  cachedDeploymentMode = mode;
+}
+
+export function resetCachedDeploymentMode(): void {
+  cachedDeploymentMode = null;
+}
+
+export function isHostedMode(): boolean {
+  if (cachedDeploymentMode === "hosted-demo") return true;
+  if (cachedDeploymentMode === "local") return false;
+  if (
+    typeof process !== "undefined" &&
+    process.env &&
+    (process.env.NEXT_PUBLIC_DEPLOYMENT_MODE === "hosted-demo" ||
+      process.env.PCBUILDSAGE_DEPLOYMENT_MODE === "hosted-demo")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export async function fetchHealth(): Promise<{ status: string; mode: string; timestamp: string }> {
+  const data = await getJson<{ status: string; mode: string; timestamp: string }>("/api/health");
+  if (data && typeof data.mode === "string") {
+    setCachedDeploymentMode(data.mode);
+  }
+  return data;
+}
+
 export async function fetchStatus(): Promise<StatusResponse> {
-  return getJson<StatusResponse>("/api/status");
+  const data = await getJson<StatusResponse>("/api/status");
+  const mode = data?.deploymentMode ?? data?.mode;
+  if (typeof mode === "string") {
+    setCachedDeploymentMode(mode);
+  }
+  return data;
 }
 
 export async function fetchCredentials(): Promise<CredentialAvailability> {
@@ -253,26 +305,8 @@ export async function exportResearch(): Promise<{ files: string[] }> {
 
 // --- Chat session history ---------------------------------------------------
 
-export type SessionDetail = {
-  id: string;
-  revision: number;
-  title: string | null;
-  created_at: Date;
-  updated_at: Date;
-  country_code: string | null;
-  currency: string | null;
-  messages: ChatUIMessage[];
-  build_state: unknown | null;
-};
-
-export type SaveSessionRequest = {
-  id: string;
-  revision: number;
-  messages: ChatUIMessage[];
-  title?: string;
-  countryCode?: string;
-  currency?: string;
-};
+export type { SessionDetail, SaveSessionRequest };
+export { normalizeUIMessage, clearClientSessions };
 
 interface SessionSummaryRaw {
   id: string;
@@ -291,75 +325,87 @@ interface SessionDetailRaw {
   [key: string]: unknown;
 }
 
-export function normalizeUIMessage(m: unknown, index = 0): ChatUIMessage {
-  if (typeof m !== "object" || m === null) {
-    return {
-      id: `msg-${index}-${crypto.randomUUID()}`,
-      role: "user",
-      parts: []
-    } as ChatUIMessage;
+async function withSessionFallback<T>(
+  remoteFn: () => Promise<T>,
+  localFallback: () => Promise<T> | T
+): Promise<T> {
+  if (isHostedMode()) {
+    return localFallback();
   }
-  const rec = m as Record<string, unknown>;
-  const id = typeof rec.id === "string" && rec.id ? rec.id : `msg-${index}-${crypto.randomUUID()}`;
-  const role = (rec.role === "user" || rec.role === "assistant" || rec.role === "system") ? rec.role : "user";
-  const createdAt = rec.createdAt ? new Date(rec.createdAt as string | number) : undefined;
-
-  let parts: ChatUIMessage["parts"] = [];
-  if (Array.isArray(rec.parts)) {
-    parts = rec.parts as ChatUIMessage["parts"];
-  } else if (typeof rec.content === "string") {
-    parts = [{ type: "text", text: rec.content }];
+  try {
+    return await remoteFn();
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 403) {
+      setCachedDeploymentMode("hosted-demo");
+      return localFallback();
+    }
+    throw error;
   }
-
-  return {
-    ...rec,
-    id,
-    role,
-    createdAt,
-    parts
-  } as ChatUIMessage;
 }
 
 export async function fetchSessions(): Promise<SessionSummary[]> {
-  const data = await getJson<{ sessions: SessionSummaryRaw[] }>("/api/sessions");
-  return data.sessions.map((s) => ({
-    id: s.id,
-    title: s.title ?? null,
-    created_at: new Date(s.created_at),
-    updated_at: new Date(s.updated_at)
-  }));
+  return withSessionFallback(
+    async () => {
+      const data = await getJson<{ sessions: SessionSummaryRaw[] }>("/api/sessions");
+      return data.sessions.map((s) => ({
+        id: s.id,
+        title: s.title ?? null,
+        created_at: new Date(s.created_at),
+        updated_at: new Date(s.updated_at)
+      }));
+    },
+    () => listClientSessions()
+  );
 }
 
 export async function fetchSession(id: string): Promise<SessionDetail | null> {
-  const data = await getJson<{ session: SessionDetailRaw | null }>(`/api/sessions/${id}`);
-  if (!data.session) return null;
-  return {
-    id: data.session.id,
-    revision: data.session.revision,
-    title: (data.session.title as string | undefined) ?? null,
-    created_at: new Date(data.session.created_at),
-    updated_at: new Date(data.session.updated_at),
-    country_code: (data.session.country_code as string | undefined) ?? null,
-    currency: (data.session.currency as string | undefined) ?? null,
-    build_state: data.session.build_state ?? null,
-    messages: Array.isArray(data.session.messages)
-      ? data.session.messages.map((m, idx) => normalizeUIMessage(m, idx))
-      : []
-  };
+  return withSessionFallback(
+    async () => {
+      const data = await getJson<{ session: SessionDetailRaw | null }>(`/api/sessions/${id}`);
+      if (!data.session) return null;
+      return {
+        id: data.session.id,
+        revision: data.session.revision,
+        title: (data.session.title as string | undefined) ?? null,
+        created_at: new Date(data.session.created_at),
+        updated_at: new Date(data.session.updated_at),
+        country_code: (data.session.country_code as string | undefined) ?? null,
+        currency: (data.session.currency as string | undefined) ?? null,
+        build_state: data.session.build_state ?? null,
+        messages: Array.isArray(data.session.messages)
+          ? data.session.messages.map((m, idx) => normalizeUIMessage(m, idx))
+          : []
+      };
+    },
+    () => getClientSession(id)
+  );
 }
 
 export async function saveSession(input: SaveSessionRequest): Promise<void> {
-  await requestJson("/api/sessions", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(input)
-  }, (value): value is { ok: true; revision: number } =>
-    isRecord(value) && value.ok === true && value.revision === input.revision
+  return withSessionFallback(
+    async () => {
+      await requestJson(
+        "/api/sessions",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(input)
+        },
+        (value): value is { ok: true; revision: number } =>
+          isRecord(value) && value.ok === true && value.revision === input.revision
+      );
+    },
+    () => saveClientSession(input)
   );
 }
 
 export async function deleteSession(id: string): Promise<void> {
-  await requestOk(`/api/sessions/${id}`, { method: "DELETE" });
+  return withSessionFallback(
+    async () => {
+      await requestOk(`/api/sessions/${id}`, { method: "DELETE" });
+    },
+    () => deleteClientSession(id)
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

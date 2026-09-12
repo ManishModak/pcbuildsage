@@ -2,9 +2,15 @@ import { z } from "zod";
 import { listSessions, saveSession } from "../../../lib/sessions";
 import { deriveBuildState } from "@/lib/llm/messages";
 import { badRequest, InvalidJsonError, json, readJson, serverError } from "../_lib/responses";
+import { guardHostedRoute } from "@/lib/middleware/route-guard";
 import type { UIMessage } from "ai";
 
 export const runtime = "nodejs";
+
+const HOSTED_MODE_FORBIDDEN_RESPONSE = {
+  error: "forbidden",
+  message: "Server-side sessions are disabled in hosted demo mode. Chat history is stored locally in your browser."
+};
 
 const messageSchema = z.object({
   id: z.string(),
@@ -30,7 +36,10 @@ const saveSchema = z.object({
   currency: z.string().optional().nullable()
 });
 
-export async function GET(): Promise<Response> {
+export async function GET(request: Request = new Request("http://localhost/api/sessions")): Promise<Response> {
+  const blocked = guardHostedRoute(request, { customPayload: HOSTED_MODE_FORBIDDEN_RESPONSE });
+  if (blocked) return blocked;
+
   try {
     return json({ sessions: listSessions() });
   } catch (error) {
@@ -39,6 +48,8 @@ export async function GET(): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const blocked = guardHostedRoute(request, { customPayload: HOSTED_MODE_FORBIDDEN_RESPONSE });
+  if (blocked) return blocked;
   try {
     const body = saveSchema.parse(await readJson(request));
     const buildState = deriveBuildState(body.messages as UIMessage[]);

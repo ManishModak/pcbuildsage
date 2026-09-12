@@ -203,11 +203,8 @@ export function formatModelName(model: string | undefined): string {
     name = name.replace(/^models--/, "").replace(/--/g, "/");
   }
 
-  // If prefixed with provider like 'ollama:llama3.3' or 'gemini:gemini-2.5-flash'
-  if (name.includes(":") && !name.startsWith("http")) {
-    const colonIdx = name.lastIndexOf(":");
-    name = name.slice(colonIdx + 1);
-  }
+  // If prefixed with a provider like 'ollama:llama3.3' or 'gemini:gemini-2.5-flash', strip the prefix
+  name = name.replace(/^(ollama|gemini|openrouter|openai-compatible):/i, "");
 
   return name || "Sage";
 }

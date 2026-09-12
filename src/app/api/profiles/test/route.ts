@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { badRequest, InvalidJsonError, json, readJson, serverError } from "../../_lib/responses";
 import { buildTestProfileArgs, resolvePython, runPythonCaptured } from "@/lib/server/python-process";
+import { guardHostedRoute } from "@/lib/middleware/route-guard";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,9 @@ const testProfileSchema = z.object({
 });
 
 export async function POST(request: Request): Promise<Response> {
+  const blocked = guardHostedRoute(request);
+  if (blocked) return blocked;
+
   try {
     const body = testProfileSchema.parse(await readJson(request));
     const resolution = await resolvePython();

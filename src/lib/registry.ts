@@ -47,7 +47,10 @@ export function loadRegistry(registryDir = path.join(process.cwd(), "data", "reg
   return cachedRegistry;
 }
 
-export function resolveComponent(input: string | { key?: string; name?: string; category?: string }, options: { db?: Database.Database } = {}): ResolvedSpec | undefined {
+export function resolveComponent(
+  input: string | { key?: string; name?: string; category?: string },
+  options: { db?: Database.Database | null; skipDbLookup?: boolean } = {}
+): ResolvedSpec | undefined {
   const registry = loadRegistry();
   const key = typeof input === "string" ? input : input.key;
   const name = typeof input === "string" ? input : input.name ?? input.key ?? "";
@@ -83,8 +86,10 @@ export function resolveComponent(input: string | { key?: string; name?: string; 
   // (quotes the retailer's own listing). The placeholder is still returned as a
   // last resort rather than nothing - flagged low, so the rules engine refuses to
   // compute a verdict from it and asks for research instead.
-  const researched = lookupResearch({ key: key ?? slugifyComponent(name), name, category }, options.db ?? getDb());
-  if (researched) return researched;
+  if (!options.skipDbLookup && options.db !== null) {
+    const researched = lookupResearch({ key: key ?? slugifyComponent(name), name, category }, options.db ?? getDb());
+    if (researched) return researched;
+  }
 
   const derived = parseSpecsFromTitle(name, category);
   if (derived) {

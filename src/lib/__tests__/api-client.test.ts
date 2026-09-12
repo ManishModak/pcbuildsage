@@ -1,14 +1,21 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  clearClientSessions,
   deleteSession,
+  fetchHealth,
   fetchSession,
+  fetchSessions,
+  fetchStatus,
   importProfileFromFile,
+  isHostedMode,
   normalizeUIMessage,
   postSse,
   probeEntry,
   requestJson,
   requestOk,
-  saveSession
+  resetCachedDeploymentMode,
+  saveSession,
+  setCachedDeploymentMode
 } from "../api-client";
 
 const successOutcome = {
@@ -21,7 +28,14 @@ const successOutcome = {
   errors: []
 };
 
-afterEach(() => {
+beforeEach(async () => {
+  resetCachedDeploymentMode();
+  await clearClientSessions();
+});
+
+afterEach(async () => {
+  resetCachedDeploymentMode();
+  await clearClientSessions();
   vi.unstubAllGlobals();
 });
 
@@ -187,6 +201,161 @@ describe("fetchSession", () => {
     expect(result).not.toBeNull();
     expect(result!.messages[0].id).toBeDefined();
     expect(result!.messages[0].parts).toEqual([{ type: "text", text: "Hello world" }]);
+  });
+});
+
+describe("isHostedMode", () => {
+  const originalNextPublic = process.env.NEXT_PUBLIC_DEPLOYMENT_MODE;
+  const originalPcMode = process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
+
+  afterEach(() => {
+    if (originalNextPublic !== undefined) {
+      process.env.NEXT_PUBLIC_DEPLOYMENT_MODE = originalNextPublic;
+    } else {
+      delete process.env.NEXT_PUBLIC_DEPLOYMENT_MODE;
+    }
+    if (originalPcMode !== undefined) {
+      process.env.PCBUILDSAGE_DEPLOYMENT_MODE = originalPcMode;
+    } else {
+      delete process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
+    }
+    resetCachedDeploymentMode();
+  });
+
+  it("defaults to false when no environment or cache is set", () => {
+    delete process.env.NEXT_PUBLIC_DEPLOYMENT_MODE;
+    delete process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
+    resetCachedDeploymentMode();
+    expect(isHostedMode()).toBe(false);
+  });
+
+  it("returns true when NEXT_PUBLIC_DEPLOYMENT_MODE is hosted-demo", () => {
+    process.env.NEXT_PUBLIC_DEPLOYMENT_MODE = "hosted-demo";
+    expect(isHostedMode()).toBe(true);
+  });
+
+  it("caches mode from fetchHealth response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ status: "ok", mode: "hosted-demo", timestamp: "2026-09-03" }))
+    );
+
+    expect(isHostedMode()).toBe(false);
+    await fetchHealth();
+    expect(isHostedMode()).toBe(true);
+  });
+
+  it("caches mode from fetchStatus response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          status: "ok",
+          deploymentMode: "hosted-demo",
+          database: { exists: true, rowCounts: [] }
+        })
+      )
+    );
+
+    expect(isHostedMode()).toBe(false);
+    await fetchStatus();
+    expect(isHostedMode()).toBe(true);
+  });
+});
+
+describe("Hosted Demo & 403 Fallback Delegation", () => {
+  it("delegates save, list, get, delete to client-store when isHostedMode is true without making fetch calls", async () => {
+    setCachedDeploymentMode("hosted-demo");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Save session
+    await saveSession({
+      id: "hosted-sess-1",
+      revision: 1,
+      title: "Client Only Session",
+      messages: [{ id: "m1", role: "user", parts: [{ type: "text", text: "Client message" }] }]
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // List sessions
+    const list = await fetchSessions();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(list.length).toBe(1);
+    expect(list[0].id).toBe("hosted-sess-1");
+    expect(list[0].title).toBe("Client Only Session");
+
+    // Fetch session
+    const detail = await fetchSession("hosted-sess-1");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(detail).not.toBeNull();
+    expect(detail?.id).toBe("hosted-sess-1");
+    expect(detail?.messages.length).toBe(1);
+
+    // Delete session
+    await deleteSession("hosted-sess-1");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await fetchSession("hosted-sess-1")).toBeNull();
+  });
+
+  it("falls back to client-store when server session endpoints return HTTP 403", async () => {
+    // Start in unknown/local mode
+    resetCachedDeploymentMode();
+
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          error: "forbidden",
+          message: "Server-side sessions are disabled in hosted demo mode. Chat history is stored locally in your browser."
+        }),
+        { status: 403, headers: { "content-type": "application/json" } }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    // 1. saveSession gets 403, falls back to client store, and sets cached mode
+    await expect(
+      saveSession({
+        id: "fallback-sess-1",
+        revision: 1,
+        title: "Fallback Session",
+        messages: [{ id: "m1", role: "user", parts: [{ type: "text", text: "Fallback text" }] }]
+      })
+    ).resolves.toBeUndefined();
+
+    expect(isHostedMode()).toBe(true);
+
+    // 2. Now subsequent calls directly use client-store
+    fetchMock.mockClear();
+    const list = await fetchSessions();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(list.length).toBe(1);
+    expect(list[0].id).toBe("fallback-sess-1");
+
+    const detail = await fetchSession("fallback-sess-1");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(detail?.title).toBe("Fallback Session");
+
+    await deleteSession("fallback-sess-1");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await fetchSession("fallback-sess-1")).toBeNull();
+  });
+
+  it("falls back to client-store when fetchSessions gets initial 403", async () => {
+    resetCachedDeploymentMode();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({ error: "forbidden" }),
+          { status: 403, headers: { "content-type": "application/json" } }
+        )
+      )
+    );
+
+    const list = await fetchSessions();
+    expect(list).toEqual([]);
+    expect(isHostedMode()).toBe(true);
   });
 });
 

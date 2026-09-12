@@ -16,7 +16,8 @@
     "init-db": "tsx scripts/init-db.ts",
     "generate-sample-db": "tsx scripts/generate-sample-db.ts",
     "validate:data": "node --import tsx scripts/validate-data.ts",
-    "export-research": "tsx scripts/export-research.ts"
+    "export-research": "tsx scripts/export-research.ts",
+    "publish-catalog": "tsx scripts/publish-catalog.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.11",
@@ -24,6 +25,7 @@
     "@ai-sdk/react": "^4.0.20",
     "@clack/prompts": "^0.11.0",
     "@floating-ui/react": "^0.27.19",
+    "@libsql/client": "^0.18.0",
     "ai": "^7.0.19",
     "better-sqlite3": "^12.0.0",
     "class-variance-authority": "^0.7.1",

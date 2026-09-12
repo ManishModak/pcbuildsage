@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { generateTextWithFallback, probeToolCapability } from "@/lib/llm/client";
+import { isHostedDemo, validateChatProviderUrl } from "@/lib/config/deployment";
 import { entryFromRequest } from "../../_lib/credentials";
 import { badRequest, json } from "../../_lib/responses";
 
@@ -16,6 +17,17 @@ const probeSchema = z.object({
 export async function POST(request: Request): Promise<Response> {
   try {
     const body = probeSchema.parse(await request.json());
+    if (isHostedDemo()) {
+      if (body.provider === "ollama") {
+        return badRequest(new Error("Provider 'ollama' is not supported in hosted-demo mode."));
+      }
+      if (body.baseUrl) {
+        const check = validateChatProviderUrl(body.baseUrl, "hosted-demo");
+        if (!check.allowed) {
+          return badRequest(new Error(check.reason ?? "Custom base URL is not permitted in hosted-demo mode."));
+        }
+      }
+    }
     const entry = entryFromRequest({
       provider: body.provider,
       model: body.model,

@@ -1,7 +1,47 @@
 import { z } from "zod";
 import { resolveConfig } from "@/lib/config";
+import { getDeploymentMode, validateChatProviderUrl, validateSearchBaseUrl, type DeploymentMode } from "@/lib/config/deployment";
 import type { AppConfig, ConfigInput, LLMChainEntry, LLMProvider, SearchProvider } from "@/types";
 import { resolveSandboxedPath } from "./paths";
+
+export class UnsafeConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UnsafeConfigError";
+  }
+}
+
+export function assertSafeLlmChain(chain: LLMChainEntry[], mode: DeploymentMode): void {
+  for (const entry of chain) {
+    if (entry.provider === "ollama") {
+      throw new UnsafeConfigError("Provider 'ollama' is not supported in hosted-demo mode.");
+    }
+    if (entry.provider === "openai-compatible" && !entry.baseUrl) {
+      throw new UnsafeConfigError("Provider 'openai-compatible' requires an authorized HTTPS baseUrl in hosted-demo mode.");
+    }
+    if (entry.baseUrl) {
+      const check = validateChatProviderUrl(entry.baseUrl, mode);
+      if (!check.allowed) {
+        throw new UnsafeConfigError(check.reason ?? `LLM provider URL "${entry.baseUrl}" is not permitted in hosted-demo mode.`);
+      }
+    }
+  }
+}
+
+export function assertSafeSearchConfig(search: AppConfig["search"], mode: DeploymentMode): void {
+  if (mode === "local") return;
+
+  if (search.provider === "searxng") {
+    throw new UnsafeConfigError("Search provider 'searxng' is not supported in hosted-demo mode.");
+  }
+
+  if (search.baseUrl && search.baseUrl.trim() !== "") {
+    const check = validateSearchBaseUrl(search.baseUrl, mode);
+    if (!check.allowed) {
+      throw new UnsafeConfigError(check.reason ?? `Search endpoint URL "${search.baseUrl}" is not permitted in hosted-demo mode.`);
+    }
+  }
+}
 
 const providerSchema = z.enum(["gemini", "ollama", "openrouter", "openai-compatible"]);
 const keySourceSchema = z.enum(["env", "ui", "none"]);
@@ -37,7 +77,18 @@ export function buildAppConfig(headers: Headers, bodyConfig: unknown = {}): AppC
   const headerConfig = parseHeaderJson(headers.get("x-pcbuildsage-config"));
   const directConfig = sandboxConfig(configInputSchema.parse({ ...objectValue(headerConfig), ...objectValue(bodyConfig) }) as ConfigInput);
   const config = resolveConfig(directConfig);
-  return injectRequestCredentials(config, headers);
+  const hydrated = injectRequestCredentials(config, headers);
+
+  const mode = getDeploymentMode();
+  if (mode === "hosted-demo") {
+    assertSafeLlmChain(hydrated.llm.chain, mode);
+    assertSafeLlmChain(hydrated.llm.roles.chat, mode);
+    assertSafeLlmChain(hydrated.llm.roles.subagent, mode);
+    assertSafeLlmChain(hydrated.llm.roles.scraper, mode);
+    assertSafeSearchConfig(hydrated.search, mode);
+  }
+
+  return hydrated;
 }
 
 export function entryFromRequest(input: unknown, headers: Headers): LLMChainEntry {
@@ -46,7 +97,8 @@ export function entryFromRequest(input: unknown, headers: Headers): LLMChainEntr
 }
 
 export function injectRequestCredentials(config: AppConfig, headers: Headers): AppConfig {
-  const hydrateChain = (chain: LLMChainEntry[]) => chain.map((entry) => hydrateEntryCredential(entry, headers));
+  const mode = getDeploymentMode();
+  const hydrateChain = (chain: LLMChainEntry[]) => chain.map((entry) => hydrateEntryCredential(entry, headers, mode));
   const roles = {
     chat: hydrateChain(config.llm.roles.chat),
     subagent: hydrateChain(config.llm.roles.subagent),
@@ -88,8 +140,13 @@ export function getCredentialAvailability(env: NodeJS.ProcessEnv = process.env) 
   };
 }
 
-function hydrateEntryCredential(entry: LLMChainEntry, headers: Headers): LLMChainEntry {
+function hydrateEntryCredential(entry: LLMChainEntry, headers: Headers, mode: DeploymentMode = getDeploymentMode()): LLMChainEntry {
   if (entry.keySource === "none") return { ...entry, apiKey: undefined };
+  // In hosted-demo mode, ephemeral BYOK keys must strictly originate from request headers
+  if (mode === "hosted-demo" && entry.keySource === "ui") {
+    const apiKey = headerApiKey(headers, entry.provider);
+    return { ...entry, apiKey };
+  }
   if (entry.apiKey) return entry;
   const apiKey = entry.keySource === "ui" ? headerApiKey(headers, entry.provider) : process.env[providerEnvKey(entry.provider)];
   return apiKey ? { ...entry, apiKey } : entry;

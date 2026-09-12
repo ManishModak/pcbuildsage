@@ -41,14 +41,27 @@ export type ClientConfig = {
   crawlEnabled: boolean;
 };
 
+export type MarketMetadata = {
+  code: string;
+  name: string;
+  defaultCurrency: string;
+  supportedCurrencies: string[];
+  locale: string;
+};
+
 export type StatusResponse = {
+  status?: string;
+  mode?: "local" | "hosted-demo";
+  deploymentMode?: "local" | "hosted-demo";
+  catalogFreshness?: string | null;
+  productCount?: number;
   database: {
-    path: string;
+    path?: string;
     exists: boolean;
     rowCounts: Array<{ countryCode: string; count: number; lastScraped?: string | null }>;
     lastScraped?: string | null;
   };
-  python: { ok: boolean; command?: string; args: string[]; label?: string; error?: string };
+  python?: { ok: boolean; command?: string; args: string[]; label?: string; error?: string };
 };
 
 export type CredentialAvailability = {

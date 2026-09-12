@@ -8,12 +8,16 @@ import {
   exportResearch,
   fetchCredentials,
   fetchEndpoints,
-  fetchPersonalities
+  fetchPersonalities,
+  fetchStatus,
+  isHostedMode
 } from "@/lib/api-client";
-import type { CredentialAvailability, EndpointPreset, Personality, SearchProvider } from "@/types/client";
+import type { CredentialAvailability, EndpointPreset, LLMProvider, Personality, SearchProvider } from "@/types/client";
 import { saveUiKey, type KeyMap } from "@/lib/client-config-store";
 import { getErrorMessage } from "@/lib/format";
 import { ChainBuilder } from "@/features/llm/chain-builder";
+import { MarketPreferenceSection } from "./market-preference-section";
+import { ByokSection } from "./byok-section";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
 import { Button, Card, ChoiceControl, ChoiceGroup, Toggle, Input, Field, IconButton } from "@/components/ui/primitives";
@@ -39,7 +43,7 @@ import {
 // twMerge lets this override the component's default `hover:bg-accent` (green).
 const TRIGGER_HOVER = "hover:bg-surface-raised hover:text-text";
 
-export type SettingsTab = "llm" | "search" | "personalization" | "database";
+export type SettingsTab = "market" | "llm" | "search" | "personalization" | "database";
 type EndpointCatalogState =
   | { status: "loading" }
   | { status: "error"; message: string }
@@ -49,11 +53,17 @@ type PersonalityCatalogState =
   | { status: "error"; message: string }
   | { status: "ready"; personalities: Personality[] };
 
-const NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Sparkles }[] = [
+export const LOCAL_NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Sparkles }[] = [
   { id: "llm", label: "LLM Provider Chain", icon: Sparkles },
   { id: "search", label: "Web Search", icon: Globe },
   { id: "personalization", label: "Sage Personalization", icon: Sliders },
   { id: "database", label: "Scraping & Local Catalog", icon: Database }
+];
+
+export const HOSTED_NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Sparkles }[] = [
+  { id: "market", label: "Market Preference", icon: Globe },
+  { id: "llm", label: "LLM & BYOK Keys", icon: Sparkles },
+  { id: "personalization", label: "Sage Personalization", icon: Sliders }
 ];
 
 /**
@@ -62,9 +72,13 @@ const NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Sparkles }[] = [
  * the app provider reports `ready`, which is always post-hydration, so there is
  * no server render for this to disagree with.
  */
-export function settingsTabFromSearch(search: string): SettingsTab {
+export function settingsTabFromSearch(search: string, hosted = isHostedMode()): SettingsTab {
   const requested = new URLSearchParams(search).get("tab");
-  return NAV_ITEMS.some((item) => item.id === requested) ? (requested as SettingsTab) : "llm";
+  if (hosted && (requested === "database" || requested === "scrape" || requested === "search")) return "market";
+  if (requested === "market") return "market";
+  if (requested === "byok") return "llm";
+  const items = hosted ? HOSTED_NAV_ITEMS : LOCAL_NAV_ITEMS;
+  return items.some((item) => item.id === requested) ? (requested as SettingsTab) : (hosted ? "market" : "llm");
 }
 
 export function settingsUrlForTab(href: string, tab: SettingsTab): string {
@@ -73,9 +87,9 @@ export function settingsUrlForTab(href: string, tab: SettingsTab): string {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
-function initialTab(): SettingsTab {
-  if (typeof window === "undefined") return "llm";
-  return settingsTabFromSearch(window.location.search);
+function initialTab(hosted = isHostedMode()): SettingsTab {
+  if (typeof window === "undefined") return hosted ? "market" : "llm";
+  return settingsTabFromSearch(window.location.search, hosted);
 }
 
 interface SettingsLayoutProps {
@@ -90,6 +104,7 @@ function SettingsLayout({
   onClose
 }: SettingsLayoutProps) {
   const { config, themeCatalog, updateConfig, setTheme } = useApp();
+  const [isHosted, setIsHosted] = useState<boolean>(() => isHostedMode());
   const [credentials, setCredentials] = useState<CredentialAvailability | null>(null);
   const [endpointCatalog, setEndpointCatalog] = useState<EndpointCatalogState>({ status: "loading" });
   const [personalityCatalog, setPersonalityCatalog] = useState<PersonalityCatalogState>({ status: "loading" });
@@ -108,6 +123,17 @@ function SettingsLayout({
     fetchPersonalities()
       .then((personalities) => setPersonalityCatalog({ status: "ready", personalities }))
       .catch((error) => setPersonalityCatalog({ status: "error", message: getErrorMessage(error) }));
+  }, []);
+
+  useEffect(() => {
+    fetchStatus()
+      .then((status) => {
+        const mode = status?.deploymentMode ?? status?.mode;
+        setIsHosted(mode === "hosted-demo" || isHostedMode());
+      })
+      .catch(() => {
+        setIsHosted(isHostedMode());
+      });
   }, []);
 
   useEffect(() => {
@@ -169,7 +195,7 @@ function SettingsLayout({
           <SidebarGroup>
             <SidebarGroupLabel>Settings</SidebarGroupLabel>
             <SidebarMenu>
-              {NAV_ITEMS.map((item) => (
+              {(isHosted ? HOSTED_NAV_ITEMS : LOCAL_NAV_ITEMS).map((item) => (
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
                     isActive={activeTab === item.id}
@@ -227,27 +253,44 @@ function SettingsLayout({
         </header>
 
         <div className="flex-1 overflow-y-auto px-8 py-6 max-w-4xl w-full mx-auto scrollbar-none">
-          {activeTab === "llm" && (
-            <Section title="LLM provider chain" description="Ordered failover chain. Reorder by dragging or with the up/down buttons.">
-              <CatalogNotice
-                status={endpointCatalog.status}
-                error={endpointCatalog.status === "error" ? endpointCatalog.message : undefined}
-                empty={endpointCatalog.status === "ready" && endpointCatalog.endpoints.length === 0}
-                loadingText="Loading local endpoint presets…"
-                errorTitle="Could not load local endpoint presets"
-                emptyText="No local endpoint presets are configured. Custom endpoints remain available."
-                onRetry={loadEndpoints}
-              />
-              <ChainBuilder
-                chain={config.chatChain}
-                onChange={(next) => updateConfig({ chatChain: next })}
-                credentials={credentials}
-                endpoints={endpoints}
-              />
-            </Section>
+          {activeTab === "market" && (
+            <MarketPreferenceSection />
           )}
 
-          {activeTab === "search" && (
+          {activeTab === "llm" && (
+            <div className="flex flex-col gap-8">
+              {isHosted ? (
+                <ByokSection
+                  onModelChange={(provider, model) => {
+                    updateConfig((prev) => ({
+                      ...prev,
+                      chatChain: [{ id: `hosted-${provider}`, provider: provider as LLMProvider, model, keySource: "ui" }]
+                    }));
+                  }}
+                />
+              ) : (
+                <Section title="LLM provider chain" description="Ordered failover chain. Reorder by dragging or with the up/down buttons.">
+                  <CatalogNotice
+                    status={endpointCatalog.status}
+                    error={endpointCatalog.status === "error" ? endpointCatalog.message : undefined}
+                    empty={endpointCatalog.status === "ready" && endpointCatalog.endpoints.length === 0}
+                    loadingText="Loading local endpoint presets…"
+                    errorTitle="Could not load local endpoint presets"
+                    emptyText="No local endpoint presets are configured. Custom endpoints remain available."
+                    onRetry={loadEndpoints}
+                  />
+                  <ChainBuilder
+                    chain={config.chatChain}
+                    onChange={(next) => updateConfig({ chatChain: next })}
+                    credentials={credentials}
+                    endpoints={endpoints}
+                  />
+                </Section>
+              )}
+            </div>
+          )}
+
+          {activeTab === "search" && !isHosted && (
             <Section title="Web search" description="Configure web search providers and crawling options.">
               <Card className="flex flex-col gap-4 p-4">
                 <Field label="Search provider">
@@ -311,6 +354,7 @@ function SettingsLayout({
 
           {activeTab === "personalization" && (
             <div className="flex flex-col gap-8">
+              {!isHosted && <MarketPreferenceSection />}
               <Section title="Theme" description="Switching swaps the color set instantly — no reload.">
                 <CatalogNotice
                   status={themeCatalog.status}
@@ -387,7 +431,7 @@ function SettingsLayout({
             </div>
           )}
 
-          {activeTab === "database" && (
+          {activeTab === "database" && !isHosted && (
             <div className="flex flex-col gap-8">
               <Section title="Research (Tier 2)" description="Advisory subagents — never override deterministic Tier 1 blocks.">
                 <Card className="flex flex-col gap-4 p-4">
@@ -468,11 +512,18 @@ export function SettingsView({
   initialTabProp?: SettingsTab;
   onClose?: () => void;
 } = {}) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>(() => initialTabProp ?? initialTab());
+  const hosted = isHostedMode();
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    if (initialTabProp) {
+      if (hosted && initialTabProp === "database") return "market";
+      return initialTabProp;
+    }
+    return initialTab(hosted);
+  });
 
   useEffect(() => {
     if (isModal) return;
-    const syncFromUrl = () => setActiveTab(settingsTabFromSearch(window.location.search));
+    const syncFromUrl = () => setActiveTab(settingsTabFromSearch(window.location.search, isHostedMode()));
     window.addEventListener("popstate", syncFromUrl);
     return () => window.removeEventListener("popstate", syncFromUrl);
   }, [isModal]);

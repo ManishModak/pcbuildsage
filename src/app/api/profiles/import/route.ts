@@ -3,6 +3,7 @@ import { z } from "zod";
 import { validateAndWriteProfile, type ProfileImportResult } from "../../_lib/profile-import";
 import { badRequest, InvalidJsonError, json, readJson, serverError } from "../../_lib/responses";
 import { assertSafeFetchUrl, UnsafeUrlError } from "../../_lib/url-guard";
+import { guardHostedRoute } from "@/lib/middleware/route-guard";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,9 @@ const importSchema = z.union([
 ]);
 
 export async function POST(request: Request): Promise<Response> {
+  const blocked = guardHostedRoute(request);
+  if (blocked) return blocked;
+
   try {
     const contentType = request.headers.get("content-type") ?? "";
     if (contentType.includes("multipart/form-data")) {

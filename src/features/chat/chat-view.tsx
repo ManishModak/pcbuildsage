@@ -4,8 +4,11 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Maximize2, Minimize2, Package, TriangleAlert, X } from "lucide-react";
-import { fetchStatus } from "@/lib/api-client";
-import { apiKeyHeaders, toServerChain } from "@/lib/client-config-store";
+import { fetchStatus, isHostedMode } from "@/lib/api-client";
+import { apiKeyHeaders } from "@/lib/client-config-store";
+import { injectByokHeaders } from "@/lib/llm/client-byok-store";
+import { getMarketPreference } from "@/lib/market/client-market-store";
+import { resolveChatRequestBody } from "./chat-config-resolver";
 import type { ClientConfig, StatusResponse } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/components/ui/cn";
@@ -186,26 +189,8 @@ export function ChatView({
       // eslint-disable-next-line react-hooks/refs -- configRef/sessionIdRef are read inside the transport's headers/body callbacks, which run at request time, not during render
       new DefaultChatTransport<ChatUIMessage>({
         api: "/api/chat",
-        headers: () => apiKeyHeaders(configRef.current.chatChain, configRef.current),
-        body: () => {
-          const current = configRef.current;
-          return {
-            sessionId: sessionIdRef.current,
-            config: {
-              chatLlmChain: toServerChain(current.chatChain),
-              llmChain: toServerChain(current.chatChain),
-              ...(current.subagentChain ? { subagentLlmChain: toServerChain(current.subagentChain) } : {}),
-              personality: current.personality,
-              tier2Enabled: current.tier2Enabled,
-              freeformConsultEnabled: current.freeformConsultEnabled,
-              countryCode: current.countryCode,
-              currency: current.currency,
-              searchProvider: current.searchProvider,
-              searchBaseUrl: current.searchBaseUrl,
-              crawlEnabled: current.crawlEnabled
-            }
-          };
-        }
+        headers: () => injectByokHeaders(apiKeyHeaders(configRef.current.chatChain, configRef.current)) as Record<string, string>,
+        body: () => resolveChatRequestBody(configRef.current, sessionIdRef.current)
       }),
     []
   );
@@ -296,7 +281,9 @@ export function ChatView({
     if (!isActive) return;
     setHeaderSuffix(
       <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
-        <ModelStatus modelName={activeModel} streaming={streaming} />
+        <div className="flex items-center gap-2 min-w-0">
+          <ModelStatus modelName={activeModel} streaming={streaming} />
+        </div>
         {displayBuilds && displayBuilds.length > 0 && headerBuildPrice ? (
           <button
             type="button"
@@ -349,13 +336,14 @@ export function ChatView({
     (currentMessages: ChatUIMessage[]) => {
       if (currentMessages.length === 0) return;
       const signature = sessionSignature(currentMessages);
+      const marketPref = getMarketPreference();
 
       void saveQueue.enqueue(signature, {
         id: sessionIdRef.current,
         messages: currentMessages,
         title: deriveTitle(currentMessages),
-        countryCode: configRef.current.countryCode,
-        currency: configRef.current.currency
+        countryCode: marketPref.countryCode || configRef.current.countryCode,
+        currency: marketPref.currencyCode || configRef.current.currency
       });
     },
     [saveQueue]
@@ -378,12 +366,13 @@ export function ChatView({
       if (messagesRef.current.length > 0) {
         const msgs = messagesRef.current;
         const signature = sessionSignature(msgs);
+        const marketPref = getMarketPreference();
         void saveQueue.enqueue(signature, {
           id: sessionIdRef.current,
           messages: msgs,
           title: deriveTitle(msgs),
-          countryCode: configRef.current.countryCode,
-          currency: configRef.current.currency
+          countryCode: marketPref.countryCode || configRef.current.countryCode,
+          currency: marketPref.currencyCode || configRef.current.currency
         });
       }
     };
@@ -470,14 +459,20 @@ export function ChatView({
           <div className="mx-auto w-full max-w-[760px] px-4 py-3">
             <Composer onSend={send} onStop={stop} streaming={streaming} />
             <p className="mt-2 text-center text-caption text-text-muted">
-              Prices are live from your local database{relativeTime ? ` (last updated ${relativeTime})` : ""}. Compatibility is checked deterministically.{" "}
-              <button
-                type="button"
-                onClick={() => updateConfig({ onboarded: false })}
-                className="ml-1 cursor-pointer font-medium text-accent hover:underline"
-              >
-                Update prices
-              </button>
+              {isHostedMode() ? (
+                <>Prices live from cloud catalog ({config.currency}){relativeTime ? ` · Updated ${relativeTime}` : ""}</>
+              ) : (
+                <>
+                  Prices live from local database{relativeTime ? ` · Updated ${relativeTime}` : ""}.{" "}
+                  <button
+                    type="button"
+                    onClick={() => updateConfig({ onboarded: false })}
+                    className="ml-1 cursor-pointer font-medium text-accent hover:underline"
+                  >
+                    Update prices
+                  </button>
+                </>
+              )}
             </p>
           </div>
         </div>

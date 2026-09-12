@@ -1,18 +1,26 @@
 import type { ToolSet } from "ai";
 import type { AppConfig } from "@/types";
+import type { CatalogRepository } from "@/lib/catalog";
 import { createSearchProductsTool } from "./search-products";
 import { createGetCatalogTool } from "./get-catalog";
 import { createValidateBuildTool } from "./validate-build";
 import { createPresentBuildTool } from "./present-build";
 import { createConsultTool } from "./consult";
 
-export function createToolRegistry(config: AppConfig): ToolSet {
+export function createToolRegistry(config: AppConfig, options?: { repository?: CatalogRepository }): ToolSet {
   const tools: ToolSet = {
-    search_products: createSearchProductsTool({ dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency }),
-    get_catalog: createGetCatalogTool({ dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency }),
+    search_products: createSearchProductsTool(
+      { dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency, repository: options?.repository },
+      options?.repository
+    ),
+    get_catalog: createGetCatalogTool(
+      { dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency, repository: options?.repository },
+      options?.repository
+    ),
     validate_build: createValidateBuildTool(),
     present_build: createPresentBuildTool()
   };
+
   if (config.tier2Enabled) {
     tools.consult = createConsultTool(config);
   }

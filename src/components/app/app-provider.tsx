@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { fetchThemes } from "@/lib/api-client";
 import { DEFAULT_CONFIG, loadConfig, saveConfig, validateConfig } from "@/lib/client-config-store";
+import { getMarketPreference, subscribeMarketPreference } from "@/lib/market/client-market-store";
 import { applyTheme, pickTheme } from "@/lib/theme";
 import type { ClientConfig, ThemeFile } from "@/types/client";
 
@@ -38,8 +39,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Hydrate config from localStorage on mount (client-only to avoid SSR mismatch).
   useEffect(() => {
     const stored = loadConfig();
+    const marketPref = getMarketPreference();
+    const initialConfig =
+      marketPref?.countryCode && marketPref?.currencyCode
+        ? { ...stored, countryCode: marketPref.countryCode, currency: marketPref.currencyCode }
+        : stored;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage; must run post-mount so SSR HTML and the first client render match
-    setConfig(stored);
+    setConfig(initialConfig);
     fetchThemes()
       .then((list) => {
         setThemeCatalog({ status: "ready", themes: list });
@@ -86,6 +92,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  // Synchronize market preference updates across components
+  useEffect(() => {
+    return subscribeMarketPreference((pref) => {
+      setConfig((prev) => {
+        const base = prev ?? DEFAULT_CONFIG;
+        const next = { ...base, countryCode: pref.countryCode, currency: pref.currencyCode };
+        saveConfig(next);
+        return next;
+      });
+    });
+  }, []);
+
   const setTheme = useCallback(
     (name: string) => {
       applyTheme(pickTheme(themes, name));
@@ -110,4 +128,8 @@ export function useApp(): AppContextValue {
   const context = useContext(AppContext);
   if (!context) throw new Error("useApp must be used within AppProvider");
   return context;
+}
+
+export function useOptionalApp(): AppContextValue | null {
+  return useContext(AppContext);
 }

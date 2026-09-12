@@ -2,6 +2,7 @@ import { z } from "zod";
 import { exportResearch } from "../../../lib/export-research";
 import { resolveSandboxedPath } from "../_lib/paths";
 import { badRequest, json, readJson, serverError } from "../_lib/responses";
+import { guardHostedRoute } from "@/lib/middleware/route-guard";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,9 @@ const exportSchema = z.object({
 }).optional();
 
 export async function POST(request: Request): Promise<Response> {
+  const blocked = guardHostedRoute(request);
+  if (blocked) return blocked;
+
   try {
     const body = exportSchema.parse(await readJson(request).catch(() => ({})));
     return json({ files: exportResearch(sandboxExportOptions(body ?? {})) });
