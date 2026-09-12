@@ -6,7 +6,7 @@ import { badRequest, json, serverError } from "../_lib/responses";
 
 export const runtime = "nodejs";
 
-const providerSchema = z.enum(["gemini", "ollama", "openrouter", "openai-compatible"]);
+const providerSchema = z.enum(["gemini", "ollama", "openrouter", "openai-compatible", "groq"]);
 
 export async function GET(request: Request): Promise<Response> {
   try {

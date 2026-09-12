@@ -29,7 +29,7 @@ type Runtime = {
   version: string;
 };
 
-const PROVIDERS: LLMProvider[] = ["gemini", "ollama", "openrouter", "openai-compatible"];
+const PROVIDERS: LLMProvider[] = ["gemini", "groq", "ollama", "openrouter", "openai-compatible"];
 const SEARCH_PROVIDERS: SearchProvider[] = ["exa", "tavily", "brave", "searxng", "duckduckgo", "gemini-native", "none"];
 
 async function main(argv = process.argv.slice(2)): Promise<number> {

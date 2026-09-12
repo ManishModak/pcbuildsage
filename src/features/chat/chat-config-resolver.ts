@@ -7,8 +7,8 @@
 
 import { isHostedMode } from "@/lib/api-client";
 import { getMarketPreference, type MarketPreference } from "@/lib/market/client-market-store";
-import { getActiveByokProvider, getByokModel, hasByokKey } from "@/lib/llm/client-byok-store";
-import type { ClientConfig, KeySource, LLMProvider, SearchProvider } from "@/types/client";
+import { getActiveByokProvider, getByokModel, getByokReasoningEffort, hasByokKey } from "@/lib/llm/client-byok-store";
+import type { ClientConfig, KeySource, LLMProvider, ReasoningEffort, SearchProvider } from "@/types/client";
 
 export interface ResolveChatOptions {
   isHosted?: boolean;
@@ -16,6 +16,7 @@ export interface ResolveChatOptions {
   activeByokProvider?: string | null;
   hasKey?: (provider: string) => boolean;
   getModel?: (provider: string) => string | undefined;
+  getReasoningEffort?: (provider: string) => ReasoningEffort | undefined;
 }
 
 export interface ChatRequestBody {
@@ -26,18 +27,21 @@ export interface ChatRequestBody {
       model: string;
       keySource: KeySource;
       baseUrl?: string;
+      reasoningEffort?: ReasoningEffort;
     }>;
     llmChain: Array<{
       provider: LLMProvider;
       model: string;
       keySource: KeySource;
       baseUrl?: string;
+      reasoningEffort?: ReasoningEffort;
     }>;
     subagentLlmChain?: Array<{
       provider: LLMProvider;
       model: string;
       keySource: KeySource;
       baseUrl?: string;
+      reasoningEffort?: ReasoningEffort;
     }>;
     personality: string;
     tier2Enabled: boolean;
@@ -61,6 +65,7 @@ export function resolveChatRequestBody(
   const marketPref = options?.marketPreference ?? getMarketPreference();
   const hasKeyFn = options?.hasKey ?? hasByokKey;
   const getModelFn = options?.getModel ?? getByokModel;
+  const getReasoningEffortFn = options?.getReasoningEffort ?? getByokReasoningEffort;
   const activeProvider =
     options?.activeByokProvider !== undefined
       ? options.activeByokProvider
@@ -77,20 +82,28 @@ export function resolveChatRequestBody(
         ? activeProvider
         : hasKeyFn("gemini")
           ? "gemini"
-          : hasKeyFn("openrouter")
-            ? "openrouter"
-            : null;
+          : hasKeyFn("groq")
+            ? "groq"
+            : hasKeyFn("openrouter")
+              ? "openrouter"
+              : null;
 
     if (preferredProvider) {
-      const model =
-        getModelFn(preferredProvider) ||
-        (preferredProvider === "gemini" ? "gemini-2.5-flash" : "anthropic/claude-3.5-sonnet");
+      const defaultModel =
+        preferredProvider === "gemini"
+          ? "gemini-2.5-flash"
+          : preferredProvider === "groq"
+            ? "llama-3.3-70b-versatile"
+            : "anthropic/claude-3.5-sonnet";
+      const model = getModelFn(preferredProvider) || defaultModel;
+      const effort = getReasoningEffortFn(preferredProvider);
       chatChain = [
         {
           id: `hosted-${preferredProvider}`,
           provider: preferredProvider as LLMProvider,
           model,
-          keySource: "ui"
+          keySource: "ui",
+          ...(effort ? { reasoningEffort: effort } : {})
         }
       ];
     }
@@ -100,7 +113,8 @@ export function resolveChatRequestBody(
     provider: entry.provider,
     model: entry.model,
     keySource: (hasKeyFn(entry.provider) ? "ui" : entry.keySource) as "env" | "ui",
-    baseUrl: isHosted ? undefined : entry.baseUrl
+    baseUrl: isHosted ? undefined : entry.baseUrl,
+    ...(entry.reasoningEffort ? { reasoningEffort: entry.reasoningEffort } : {})
   }));
 
   let subagentChain = serverChain;
@@ -113,7 +127,8 @@ export function resolveChatRequestBody(
         provider: entry.provider,
         model: entry.model,
         keySource: (hasKeyFn(entry.provider) ? "ui" : entry.keySource) as "env" | "ui",
-        baseUrl: isHosted ? undefined : entry.baseUrl
+        baseUrl: isHosted ? undefined : entry.baseUrl,
+        ...(entry.reasoningEffort ? { reasoningEffort: entry.reasoningEffort } : {})
       }));
     }
   }
@@ -179,15 +194,20 @@ export function resolveActiveModel(
         ? activeProvider
         : hasKeyFn("gemini")
           ? "gemini"
-          : hasKeyFn("openrouter")
-            ? "openrouter"
-            : null;
+          : hasKeyFn("groq")
+            ? "groq"
+            : hasKeyFn("openrouter")
+              ? "openrouter"
+              : null;
 
     if (preferredProvider) {
-      return (
-        getModelFn(preferredProvider) ||
-        (preferredProvider === "gemini" ? "gemini-2.5-flash" : "anthropic/claude-3.5-sonnet")
-      );
+      const defaultModel =
+        preferredProvider === "gemini"
+          ? "gemini-2.5-flash"
+          : preferredProvider === "groq"
+            ? "llama-3.3-70b-versatile"
+            : "anthropic/claude-3.5-sonnet";
+      return getModelFn(preferredProvider) || defaultModel;
     }
   }
 

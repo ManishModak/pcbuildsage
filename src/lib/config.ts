@@ -79,6 +79,7 @@ function hydrateEntry(entry: LLMChainEntry): LLMChainEntry {
 function defaultBaseUrl(provider: LLMProvider): string | undefined {
   if (provider === "ollama") return process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
   if (provider === "openrouter") return "https://openrouter.ai/api/v1";
+  if (provider === "groq") return "https://api.groq.com/openai/v1";
   return undefined;
 }
 
@@ -87,7 +88,7 @@ function providerKeyEnv(provider: SearchProvider): string {
 }
 
 function isProvider(value: string): value is LLMProvider {
-  return value === "gemini" || value === "ollama" || value === "openrouter" || value === "openai-compatible";
+  return value === "gemini" || value === "ollama" || value === "openrouter" || value === "openai-compatible" || value === "groq";
 }
 
 function coerceBool(value: unknown): boolean {

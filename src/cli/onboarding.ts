@@ -67,6 +67,7 @@ async function promptLlmEntry(palette: Palette): Promise<{ entry: LLMChainEntry;
     message: "Primary LLM provider",
     options: [
       { value: "gemini", label: "Gemini", hint: "GEMINI_API_KEY" },
+      { value: "groq", label: "Groq", hint: "GROQ_API_KEY (fast inference, free tier)" },
       { value: "ollama", label: "Ollama", hint: "local OpenAI-compatible endpoint" },
       { value: "openrouter", label: "OpenRouter", hint: "OPENROUTER_API_KEY" },
       ...endpointPresets.map((preset) => ({ value: `preset:${preset.name}`, label: preset.name, hint: preset.launch_flags ?? preset.base_url })),
@@ -121,7 +122,14 @@ async function promptBaseUrl(provider: LLMProvider, defaultValue?: string): Prom
 }
 
 async function promptKeySource(provider: LLMProvider): Promise<"env" | "ui"> {
-  const envKey = provider === "gemini" ? "GEMINI_API_KEY" : provider === "openrouter" ? "OPENROUTER_API_KEY" : "OPENAI_COMPATIBLE_API_KEY";
+  const envKey =
+    provider === "gemini"
+      ? "GEMINI_API_KEY"
+      : provider === "groq"
+        ? "GROQ_API_KEY"
+        : provider === "openrouter"
+          ? "OPENROUTER_API_KEY"
+          : "OPENAI_COMPATIBLE_API_KEY";
   const source = await select({
     message: "Credential source",
     options: [

@@ -43,15 +43,17 @@ export function assertSafeSearchConfig(search: AppConfig["search"], mode: Deploy
   }
 }
 
-const providerSchema = z.enum(["gemini", "ollama", "openrouter", "openai-compatible"]);
+const providerSchema = z.enum(["gemini", "ollama", "openrouter", "openai-compatible", "groq"]);
 const keySourceSchema = z.enum(["env", "ui", "none"]);
+const reasoningEffortSchema = z.enum(["low", "medium", "high"]);
 
 export const llmEntrySchema = z.object({
   provider: providerSchema,
   model: z.string().min(1),
   keySource: keySourceSchema.default("env"),
   apiKey: z.string().optional(),
-  baseUrl: z.string().optional()
+  baseUrl: z.string().optional(),
+  reasoningEffort: reasoningEffortSchema.optional()
 });
 
 const configInputSchema = z.object({
@@ -125,6 +127,7 @@ export function getCredentialAvailability(env: NodeJS.ProcessEnv = process.env) 
   return {
     llm: {
       gemini: Boolean(env.GEMINI_API_KEY),
+      groq: Boolean(env.GROQ_API_KEY),
       openrouter: Boolean(env.OPENROUTER_API_KEY),
       ollama: Boolean(env.OLLAMA_BASE_URL || env.OLLAMA_API_KEY),
       "openai-compatible": Boolean(env.OPENAI_COMPATIBLE_API_KEY || env.OPENAI_COMPATIBLE_BASE_URL)
@@ -167,6 +170,7 @@ function headerApiKey(headers: Headers, provider: string): string | undefined {
 function providerEnvKey(provider: LLMProvider): string {
   if (provider === "gemini") return "GEMINI_API_KEY";
   if (provider === "openrouter") return "OPENROUTER_API_KEY";
+  if (provider === "groq") return "GROQ_API_KEY";
   if (provider === "ollama") return "OLLAMA_API_KEY";
   return "OPENAI_COMPATIBLE_API_KEY";
 }

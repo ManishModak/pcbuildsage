@@ -92,13 +92,19 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
           ? activeProvider
           : hasByokKey("gemini")
             ? "gemini"
-            : hasByokKey("openrouter")
-              ? "openrouter"
-              : null;
+            : hasByokKey("groq")
+              ? "groq"
+              : hasByokKey("openrouter")
+                ? "openrouter"
+                : null;
       if (provider) {
-        const model =
-          getByokModel(provider) ||
-          (provider === "gemini" ? "gemini-2.5-flash" : "anthropic/claude-3.5-sonnet");
+        const defaultModel =
+          provider === "gemini"
+            ? "gemini-2.5-flash"
+            : provider === "groq"
+              ? "llama-3.3-70b-versatile"
+              : "anthropic/claude-3.5-sonnet";
+        const model = getByokModel(provider) || defaultModel;
         hostedChain = [
           {
             id: `hosted-${provider}`,

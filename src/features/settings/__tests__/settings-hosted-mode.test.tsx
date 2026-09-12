@@ -18,6 +18,9 @@ import {
   getByokModel,
   setByokModel,
   clearByokModel,
+  getByokReasoningEffort,
+  setByokReasoningEffort,
+  clearByokReasoningEffort,
   getActiveByokProvider,
   setActiveByokProvider,
   maskApiKey,
@@ -244,12 +247,46 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
       expect(getByokModel("gemini")).toBeUndefined();
     });
 
+    it("renders reasoning effort pills when provider is configured", () => {
+      setByokKey("groq", "gsk_test_key_12345678");
+      setByokReasoningEffort("groq", "high");
+      const html = renderToStaticMarkup(<ByokSection />);
+
+      expect(html).toContain("Reasoning Effort");
+      expect(html).toContain("data-testid=\"byok-groq-reasoning-effort\"");
+      expect(html).toContain("data-testid=\"byok-groq-effort-default\"");
+      expect(html).toContain("data-testid=\"byok-groq-effort-low\"");
+      expect(html).toContain("data-testid=\"byok-groq-effort-medium\"");
+      expect(html).toContain("data-testid=\"byok-groq-effort-high\"");
+    });
+
+    it("persists and retrieves reasoning effort via setByokReasoningEffort and getByokReasoningEffort", () => {
+      expect(getByokReasoningEffort("groq")).toBeUndefined();
+
+      setByokReasoningEffort("groq", "medium");
+      expect(getByokReasoningEffort("groq")).toBe("medium");
+
+      setByokReasoningEffort("groq", "high", true);
+      expect(getByokReasoningEffort("groq")).toBe("high");
+
+      clearByokReasoningEffort("groq");
+      expect(getByokReasoningEffort("groq")).toBeUndefined();
+    });
+
     it("manages active provider selection via setActiveByokProvider and getActiveByokProvider", () => {
       setActiveByokProvider("openrouter");
       expect(getActiveByokProvider()).toBe("openrouter");
 
       setActiveByokProvider("gemini");
       expect(getActiveByokProvider()).toBe("gemini");
+    });
+
+    it("masks Groq keys appropriately for safe display", () => {
+      setByokKey("groq", "gsk_1234567890abcdef12345678");
+      const html = renderToStaticMarkup(<ByokSection />);
+
+      expect(html).toContain(maskApiKey("gsk_1234567890abcdef12345678"));
+      expect(html).toContain("data-testid=\"byok-groq-clear\"");
     });
 
     it("renders Active Chat Provider card when both Gemini and OpenRouter are configured", () => {
@@ -261,6 +298,16 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
       expect(html).toContain("data-testid=\"byok-active-provider-card\"");
       expect(html).toContain("data-testid=\"byok-active-gemini\"");
       expect(html).toContain("data-testid=\"byok-active-openrouter\"");
+    });
+
+    it("renders Active Chat Provider buttons for all configured providers including Groq", () => {
+      setByokKey("gemini", "AIzaSyGeminiKey");
+      setByokKey("groq", "gsk_GroqKey123");
+      const html = renderToStaticMarkup(<ByokSection />);
+
+      expect(html).toContain("Active Chat Provider");
+      expect(html).toContain("data-testid=\"byok-active-gemini\"");
+      expect(html).toContain("data-testid=\"byok-active-groq\"");
     });
   });
 
@@ -294,6 +341,7 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
 
       expect(html).toContain("Bring Your Own Key (BYOK)");
       expect(html).toContain("Google Gemini");
+      expect(html).toContain("Groq");
       expect(html).toContain("OpenRouter");
       expect(html).not.toContain("LLM provider chain");
     });

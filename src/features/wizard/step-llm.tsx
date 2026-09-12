@@ -39,7 +39,7 @@ export function StepLLM({
   useEffect(() => {
     if (chain.length === 0) {
       const detected = credentials
-        ? (["gemini", "openrouter", "ollama", "openai-compatible"] as const).find((provider) => credentials.llm[provider])
+        ? (["gemini", "groq", "openrouter", "ollama", "openai-compatible"] as const).find((provider) => credentials.llm[provider])
         : undefined;
       onChange([newEntry(detected ? { provider: detected } : {})]);
     }

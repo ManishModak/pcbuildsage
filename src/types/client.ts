@@ -1,7 +1,7 @@
 // Client-side mirrors of the API response shapes consumed by the UI.
 // These intentionally duplicate only the fields the frontend renders.
 
-import type { KeySource, LLMProvider, SearchProvider } from "./config";
+import type { KeySource, LLMProvider, ReasoningEffort, SearchProvider } from "./config";
 import type { RunOutcome } from "@/contracts/scrape";
 
 export type ChainEntry = {
@@ -10,6 +10,7 @@ export type ChainEntry = {
   model: string;
   baseUrl?: string;
   keySource: KeySource;
+  reasoningEffort?: ReasoningEffort;
   /** Present only for keySource "ui"; never rendered back into an input. */
   hasSavedKey?: boolean;
   presetName?: string;
@@ -23,7 +24,7 @@ export type PingResult = {
   hint?: string;
 };
 
-export type { KeySource, LLMProvider, SearchProvider };
+export type { KeySource, LLMProvider, ReasoningEffort, SearchProvider };
 
 export type ClientConfig = {
   onboarded: boolean;

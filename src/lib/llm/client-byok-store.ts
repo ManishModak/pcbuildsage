@@ -10,11 +10,14 @@
  * never logged, stored in server databases, or leaked into response payloads.
  */
 
+import type { ReasoningEffort } from "@/types/config";
+
 export const BYOK_PREFIX = "pcbuildsage_byok_";
 export const BYOK_COLON_PREFIX = "pcbuildsage:byok:";
 
 export const DEFAULT_BYOK_PROVIDERS = [
   "gemini",
+  "groq",
   "openrouter",
   "openai-compatible",
   "ollama"
@@ -381,6 +384,66 @@ export function setByokModel(provider: string, model: string, persist = false): 
 export function clearByokModel(provider: string): void {
   const norm = normalizeProvider(provider);
   const key = `${BYOK_PREFIX}${norm}${MODEL_SUFFIX}`;
+  try {
+    getSessionStorage()?.removeItem(key);
+    getLocalStorage()?.removeItem(key);
+  } catch {
+    // Ignore
+  }
+}
+
+const REASONING_EFFORT_SUFFIX = "_reasoning_effort";
+
+/**
+ * Retrieves the user-configured reasoning effort for a given BYOK provider.
+ */
+export function getByokReasoningEffort(provider: string): ReasoningEffort | undefined {
+  const norm = normalizeProvider(provider);
+  const session = getSessionStorage();
+  const fromSession = session?.getItem(`${BYOK_PREFIX}${norm}${REASONING_EFFORT_SUFFIX}`);
+  if (fromSession && (fromSession === "low" || fromSession === "medium" || fromSession === "high")) {
+    return fromSession as ReasoningEffort;
+  }
+
+  const local = getLocalStorage();
+  const fromLocal = local?.getItem(`${BYOK_PREFIX}${norm}${REASONING_EFFORT_SUFFIX}`);
+  if (fromLocal && (fromLocal === "low" || fromLocal === "medium" || fromLocal === "high")) {
+    return fromLocal as ReasoningEffort;
+  }
+
+  return undefined;
+}
+
+/**
+ * Stores the chosen reasoning effort for a given BYOK provider.
+ */
+export function setByokReasoningEffort(provider: string, effort?: ReasoningEffort, persist = false): void {
+  const norm = normalizeProvider(provider);
+  const key = `${BYOK_PREFIX}${norm}${REASONING_EFFORT_SUFFIX}`;
+  if (!effort) {
+    clearByokReasoningEffort(provider);
+    return;
+  }
+  try {
+    getSessionStorage()?.setItem(key, effort);
+  } catch {
+    // Quota or security error
+  }
+  if (persist) {
+    try {
+      getLocalStorage()?.setItem(key, effort);
+    } catch {
+      // Quota or security error
+    }
+  }
+}
+
+/**
+ * Clears the chosen reasoning effort for a given BYOK provider.
+ */
+export function clearByokReasoningEffort(provider: string): void {
+  const norm = normalizeProvider(provider);
+  const key = `${BYOK_PREFIX}${norm}${REASONING_EFFORT_SUFFIX}`;
   try {
     getSessionStorage()?.removeItem(key);
     getLocalStorage()?.removeItem(key);

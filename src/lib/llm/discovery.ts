@@ -16,9 +16,15 @@ export async function discoverModels(entry: LLMChainEntry, fetchImpl: typeof fet
     const json = await getJson<{ models?: Array<{ name: string; model?: string }> }>(`${base}/api/tags`, fetchImpl);
     return (json.models ?? []).map((model) => ({ id: model.model ?? model.name, name: model.name }));
   }
-  const base = normalizeBaseUrl(entry.baseUrl ?? (entry.provider === "openrouter" ? "https://openrouter.ai/api/v1" : "http://localhost:8000/v1"));
+  const defaultUrl =
+    entry.provider === "openrouter"
+      ? "https://openrouter.ai/api/v1"
+      : entry.provider === "groq"
+        ? "https://api.groq.com/openai/v1"
+        : "http://localhost:8000/v1";
+  const base = normalizeBaseUrl(entry.baseUrl ?? defaultUrl);
   const json = await getJson<{ data?: Array<{ id: string; name?: string }> }>(`${base}/models`, fetchImpl, resolveApiKey(entry, keyEnv(entry.provider)));
-  return (json.data ?? []).map((model) => ({ id: model.id, name: model.name }));
+  return (json.data ?? []).map((model) => ({ id: model.id, name: model.name || model.id }));
 }
 
 async function getJson<T>(url: string, fetchImpl: typeof fetch, apiKey?: string): Promise<T> {

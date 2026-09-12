@@ -1,7 +1,9 @@
-export type LLMProvider = "gemini" | "ollama" | "openrouter" | "openai-compatible";
+export type LLMProvider = "gemini" | "ollama" | "openrouter" | "openai-compatible" | "groq";
 export type LLMRole = "chat" | "subagent" | "scraper";
 export type KeySource = "env" | "ui" | "none";
 export type SearchProvider = "exa" | "tavily" | "brave" | "searxng" | "duckduckgo" | "gemini-native" | "none";
+
+export type ReasoningEffort = "low" | "medium" | "high";
 
 export type LLMChainEntry = {
   provider: LLMProvider;
@@ -9,6 +11,7 @@ export type LLMChainEntry = {
   keySource: KeySource;
   apiKey?: string;
   baseUrl?: string;
+  reasoningEffort?: ReasoningEffort;
 };
 
 export type ProviderConfig = {
@@ -16,6 +19,7 @@ export type ProviderConfig = {
   apiKey?: string;
   baseUrl?: string;
   keySource: KeySource;
+  reasoningEffort?: ReasoningEffort;
 };
 
 export type RoleChains = Record<LLMRole, LLMChainEntry[]>;

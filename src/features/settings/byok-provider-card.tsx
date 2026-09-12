@@ -1,14 +1,15 @@
 "use client";
 
 import { Check, Cpu, Eye, EyeOff, Key, Lock, RotateCw, Trash2 } from "lucide-react";
-import type { DiscoveredModel } from "@/types/client";
+import type { DiscoveredModel, ReasoningEffort } from "@/types/client";
 import { maskApiKey } from "@/lib/llm/client-byok-store";
 import { Button, Card, Field, Input, Toggle } from "@/components/ui/primitives";
 import { SearchableModelSelect } from "@/components/ui/searchable-model-select";
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/components/ui/cn";
 
 export interface ProviderConfig {
-  id: "gemini" | "openrouter";
+  id: "gemini" | "openrouter" | "groq";
   name: string;
   placeholder: string;
   defaultModel: string;
@@ -36,6 +37,8 @@ export interface ByokProviderCardProps {
   onSetCustomInput: (custom: boolean) => void;
   customDraft: string;
   onCustomDraftChange: (draft: string) => void;
+  reasoningEffort?: ReasoningEffort;
+  onReasoningEffortChange?: (effort?: ReasoningEffort) => void;
   onSave: () => void;
   onClear: () => void;
   onDetectModels: () => void;
@@ -61,6 +64,8 @@ export function ByokProviderCard({
   onSetCustomInput,
   customDraft,
   onCustomDraftChange,
+  reasoningEffort,
+  onReasoningEffortChange,
   onSave,
   onClear,
   onDetectModels
@@ -227,6 +232,34 @@ export function ByokProviderCard({
                 )}
               </div>
             )}
+
+            <div className="flex flex-col gap-1.5 pt-2 border-t border-border/50">
+              <div className="flex items-center justify-between">
+                <span className="text-caption font-medium text-text-secondary">Reasoning Effort</span>
+                <span className="text-caption text-text-muted">For reasoning-capable models</span>
+              </div>
+              <div className="flex items-center gap-1.5" data-testid={`byok-${provider.id}-reasoning-effort`}>
+                {(["default", "low", "medium", "high"] as const).map((effort) => {
+                  const isSelected = (effort === "default" && !reasoningEffort) || reasoningEffort === effort;
+                  return (
+                    <button
+                      key={effort}
+                      type="button"
+                      onClick={() => onReasoningEffortChange?.(effort === "default" ? undefined : effort)}
+                      className={cn(
+                        "rounded-btn px-2.5 py-1 text-caption font-medium border transition-colors cursor-pointer",
+                        isSelected
+                          ? "border-accent bg-accent/10 text-accent font-semibold"
+                          : "border-border bg-surface text-text-secondary hover:text-text hover:bg-surface-raised"
+                      )}
+                      data-testid={`byok-${provider.id}-effort-${effort}`}
+                    >
+                      {effort.charAt(0).toUpperCase() + effort.slice(1)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       ) : (

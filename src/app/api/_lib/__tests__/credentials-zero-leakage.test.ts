@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildAppConfig, UnsafeConfigError } from "../credentials";
+import { buildAppConfig, entryFromRequest, UnsafeConfigError } from "../credentials";
 import { POST as chatRoute } from "../../chat/route";
 import * as chatEngine from "@/lib/llm/chat-engine";
 
@@ -152,5 +152,25 @@ describe("Server-side zero-leakage & SSRF protection in hosted-demo mode", () =>
     const text = await response.text();
     expect(text).toContain("invalid_request");
     expect(text).not.toContain("169.254.169.254"); // verifies rejection without reflection
+  });
+
+  it("correctly parses groq provider and reasoningEffort in request entry", () => {
+    const headers = new Headers({
+      "x-pcbuildsage-api-key-groq": "gsk_secret123"
+    });
+    const entry = entryFromRequest(
+      {
+        provider: "groq",
+        model: "deepseek-r1-distill-llama-70b",
+        reasoningEffort: "high",
+        keySource: "ui"
+      },
+      headers
+    );
+
+    expect(entry.provider).toBe("groq");
+    expect(entry.model).toBe("deepseek-r1-distill-llama-70b");
+    expect(entry.reasoningEffort).toBe("high");
+    expect(entry.apiKey).toBe("gsk_secret123");
   });
 });

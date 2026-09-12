@@ -87,6 +87,51 @@ describe("resolveChatRequestBody", () => {
     expect(res.config.currency).toBe("INR");
     expect(res.config.locale).toBe("en-IN");
   });
+
+  it("preserves reasoningEffort in local mode for chat and subagent chains", () => {
+    const config = {
+      ...DEFAULT_CONFIG,
+      chatChain: [
+        {
+          id: "c1",
+          provider: "groq" as const,
+          model: "llama-3.3-70b-versatile",
+          keySource: "env" as const,
+          reasoningEffort: "high" as const
+        }
+      ],
+      subagentChain: [
+        {
+          id: "s1",
+          provider: "gemini" as const,
+          model: "gemini-2.5-flash",
+          keySource: "env" as const,
+          reasoningEffort: "low" as const
+        }
+      ]
+    };
+
+    const res = resolveChatRequestBody(config, "session-effort", { isHosted: false });
+    expect(res.config.chatLlmChain[0].reasoningEffort).toBe("high");
+    expect(res.config.llmChain[0].reasoningEffort).toBe("high");
+    expect(res.config.subagentLlmChain?.[0].reasoningEffort).toBe("low");
+  });
+
+  it("resolves configured BYOK reasoning effort in hosted mode", () => {
+    const config = { ...DEFAULT_CONFIG, chatChain: [] };
+    const res = resolveChatRequestBody(config, "session-hosted-effort", {
+      isHosted: true,
+      activeByokProvider: "groq",
+      hasKey: (p) => p === "groq",
+      getModel: () => "deepseek-r1-distill-llama-70b",
+      getReasoningEffort: (p) => (p === "groq" ? "medium" : undefined)
+    });
+
+    expect(res.config.chatLlmChain[0].provider).toBe("groq");
+    expect(res.config.chatLlmChain[0].model).toBe("deepseek-r1-distill-llama-70b");
+    expect(res.config.chatLlmChain[0].reasoningEffort).toBe("medium");
+    expect(res.config.llmChain[0].reasoningEffort).toBe("medium");
+  });
 });
 
 describe("resolveActiveModel", () => {
@@ -112,6 +157,17 @@ describe("resolveActiveModel", () => {
       getModel: (p) => (p === "openrouter" ? "nex-agi/nex-n2.5-pro:free" : undefined)
     });
     expect(model).toBe("nex-agi/nex-n2.5-pro:free");
+  });
+
+  it("resolves Groq BYOK model with default fallback in hosted mode", () => {
+    const config = { ...DEFAULT_CONFIG, chatChain: [] };
+    const model = resolveActiveModel(config, undefined, {
+      isHosted: true,
+      activeByokProvider: "groq",
+      hasKey: (p) => p === "groq",
+      getModel: () => undefined
+    });
+    expect(model).toBe("llama-3.3-70b-versatile");
   });
 
   it("falls back to 'Sage' when no keys or chains exist", () => {

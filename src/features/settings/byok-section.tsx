@@ -3,17 +3,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { fetchModels } from "@/lib/api-client";
-import type { DiscoveredModel } from "@/types/client";
+import type { DiscoveredModel, ReasoningEffort } from "@/types/client";
 import {
   clearByokKey,
   clearByokModel,
+  clearByokReasoningEffort,
   getActiveByokProvider,
   getByokKey,
   getByokModel,
+  getByokReasoningEffort,
   isByokKeyPersistent,
   setActiveByokProvider,
   setByokKey,
-  setByokModel
+  setByokModel,
+  setByokReasoningEffort
 } from "@/lib/llm/client-byok-store";
 import { Button, Card } from "@/components/ui/primitives";
 import { Icon } from "@/components/ui/icon";
@@ -27,6 +30,14 @@ const BYOK_PROVIDERS: ProviderConfig[] = [
     defaultModel: "gemini-2.5-flash",
     docsUrl: "https://aistudio.google.com/app/apikey",
     docsLabel: "Get Gemini API Key"
+  },
+  {
+    id: "groq",
+    name: "Groq",
+    placeholder: "gsk_...",
+    defaultModel: "llama-3.3-70b-versatile",
+    docsUrl: "https://console.groq.com/keys",
+    docsLabel: "Get Groq API Key"
   },
   {
     id: "openrouter",
@@ -49,32 +60,44 @@ export function ByokSection({
 }) {
   const [keys, setKeys] = useState<Record<string, string | undefined>>(() => ({
     gemini: getByokKey("gemini"),
+    groq: getByokKey("groq"),
     openrouter: getByokKey("openrouter")
   }));
 
   const [drafts, setDrafts] = useState<Record<string, string>>({
     gemini: "",
+    groq: "",
     openrouter: ""
   });
 
   const [persists, setPersists] = useState<Record<string, boolean>>(() => ({
     gemini: isByokKeyPersistent("gemini"),
+    groq: isByokKeyPersistent("groq"),
     openrouter: isByokKeyPersistent("openrouter")
   }));
 
   const [editing, setEditing] = useState<Record<string, boolean>>({
     gemini: false,
+    groq: false,
     openrouter: false
   });
 
   const [showDraft, setShowDraft] = useState<Record<string, boolean>>({
     gemini: false,
+    groq: false,
     openrouter: false
   });
 
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>(() => ({
     gemini: getByokModel("gemini") || "gemini-2.5-flash",
+    groq: getByokModel("groq") || "llama-3.3-70b-versatile",
     openrouter: getByokModel("openrouter") || "anthropic/claude-3.5-sonnet"
+  }));
+
+  const [reasoningEfforts, setReasoningEfforts] = useState<Record<string, ReasoningEffort | undefined>>(() => ({
+    gemini: getByokReasoningEffort("gemini"),
+    groq: getByokReasoningEffort("groq"),
+    openrouter: getByokReasoningEffort("openrouter")
   }));
 
   const [models, setModels] = useState<Record<string, DiscoveredModel[]>>({});
@@ -82,17 +105,19 @@ export function ByokSection({
   const [modelErrors, setModelErrors] = useState<Record<string, string | undefined>>({});
   const [customInputs, setCustomInputs] = useState<Record<string, boolean>>({
     gemini: false,
+    groq: false,
     openrouter: false
   });
   const [customDrafts, setCustomDrafts] = useState<Record<string, string>>({
     gemini: "",
+    groq: "",
     openrouter: ""
   });
 
   const [activeProvider, setActiveProviderState] = useState<string | null>(() => getActiveByokProvider() ?? null);
 
   const loadModelsForProvider = useCallback(
-    async (providerId: "gemini" | "openrouter", apiKey?: string, forceRefresh = false) => {
+    async (providerId: "gemini" | "openrouter" | "groq", apiKey?: string, forceRefresh = false) => {
       const keyToUse = apiKey ?? keys[providerId];
       if (!keyToUse) return;
 
@@ -137,7 +162,7 @@ export function ByokSection({
     }
   }, [keys, models, loadingModels, loadModelsForProvider]);
 
-  const handleSave = (provider: "gemini" | "openrouter") => {
+  const handleSave = (provider: "gemini" | "openrouter" | "groq") => {
     const raw = drafts[provider]?.trim();
     if (!raw) return;
 
@@ -149,24 +174,37 @@ export function ByokSection({
     setActiveByokProvider(provider, persists[provider]);
     setActiveProviderState(provider);
     onKeyChange?.(provider, true);
-    const activeModel = selectedModels[provider] || (provider === "gemini" ? "gemini-2.5-flash" : "anthropic/claude-3.5-sonnet");
+    const activeModel =
+      selectedModels[provider] ||
+      (provider === "gemini"
+        ? "gemini-2.5-flash"
+        : provider === "groq"
+          ? "llama-3.3-70b-versatile"
+          : "anthropic/claude-3.5-sonnet");
     onModelChange?.(provider, activeModel);
 
     void loadModelsForProvider(provider, raw, true);
   };
 
-  const handleClear = (provider: "gemini" | "openrouter") => {
+  const handleClear = (provider: "gemini" | "openrouter" | "groq") => {
     clearByokKey(provider);
     clearByokModel(provider);
+    clearByokReasoningEffort(provider);
     setKeys((prev) => ({ ...prev, [provider]: undefined }));
     setDrafts((prev) => ({ ...prev, [provider]: "" }));
     setEditing((prev) => ({ ...prev, [provider]: false }));
     setModels((prev) => ({ ...prev, [provider]: [] }));
     setModelErrors((prev) => ({ ...prev, [provider]: undefined }));
+    setReasoningEfforts((prev) => ({ ...prev, [provider]: undefined }));
     onKeyChange?.(provider, false);
   };
 
-  const handleModelChange = (providerId: "gemini" | "openrouter", modelId: string) => {
+  const handleReasoningEffortChange = (providerId: "gemini" | "openrouter" | "groq", effort?: ReasoningEffort) => {
+    setReasoningEfforts((prev) => ({ ...prev, [providerId]: effort }));
+    setByokReasoningEffort(providerId, effort, persists[providerId]);
+  };
+
+  const handleModelChange = (providerId: "gemini" | "openrouter" | "groq", modelId: string) => {
     const trimmed = modelId.trim();
     if (!trimmed) return;
     setSelectedModels((prev) => ({ ...prev, [providerId]: trimmed }));
@@ -177,7 +215,7 @@ export function ByokSection({
     onModelChange?.(providerId, trimmed);
   };
 
-  const handleActiveProviderChange = (providerId: "gemini" | "openrouter") => {
+  const handleActiveProviderChange = (providerId: "gemini" | "openrouter" | "groq") => {
     setActiveProviderState(providerId);
     setActiveByokProvider(providerId, persists[providerId]);
     const activeModel = selectedModels[providerId];
@@ -186,44 +224,37 @@ export function ByokSection({
     }
   };
 
-  const hasGemini = Boolean(keys.gemini);
-  const hasOpenRouter = Boolean(keys.openrouter);
+  const configuredProviders = BYOK_PROVIDERS.filter((p) => Boolean(keys[p.id]));
 
   return (
     <section className={`flex flex-col gap-5 ${className ?? ""}`} data-testid="byok-section">
       <div className="flex flex-col gap-0.5">
         <h2 className="text-lg font-semibold text-text">Bring Your Own Key (BYOK)</h2>
         <p className="text-caption text-text-secondary">
-          Enter your own API keys for Google Gemini or OpenRouter. Keys are stored safely in browser storage and sent
+          Enter your own API keys for Google Gemini, Groq, or OpenRouter. Keys are stored safely in browser storage and sent
           exclusively via per-request HTTP headers to guarantee zero server-side storage or logging.
         </p>
       </div>
 
-      {hasGemini && hasOpenRouter && (
+      {configuredProviders.length > 1 && (
         <Card className="flex flex-col gap-3 p-4 bg-surface-raised border-border" data-testid="byok-active-provider-card">
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-text">Active Chat Provider</span>
             <span className="text-caption text-accent font-medium">Auto-selected for new chats</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button
-              variant={activeProvider === "gemini" ? "primary" : "ghost"}
-              size="sm"
-              onClick={() => handleActiveProviderChange("gemini")}
-              data-testid="byok-active-gemini"
-              className="justify-start truncate"
-            >
-              Google Gemini ({selectedModels.gemini})
-            </Button>
-            <Button
-              variant={activeProvider === "openrouter" ? "primary" : "ghost"}
-              size="sm"
-              onClick={() => handleActiveProviderChange("openrouter")}
-              data-testid="byok-active-openrouter"
-              className="justify-start truncate"
-            >
-              OpenRouter ({selectedModels.openrouter})
-            </Button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            {configuredProviders.map((p) => (
+              <Button
+                key={p.id}
+                variant={activeProvider === p.id ? "primary" : "ghost"}
+                size="sm"
+                onClick={() => handleActiveProviderChange(p.id)}
+                data-testid={`byok-active-${p.id}`}
+                className="justify-start truncate"
+              >
+                {p.name} ({selectedModels[p.id]})
+              </Button>
+            ))}
           </div>
         </Card>
       )}
@@ -251,6 +282,8 @@ export function ByokSection({
             onSetCustomInput={(val) => setCustomInputs((prev) => ({ ...prev, [provider.id]: val }))}
             customDraft={customDrafts[provider.id]}
             onCustomDraftChange={(val) => setCustomDrafts((prev) => ({ ...prev, [provider.id]: val }))}
+            reasoningEffort={reasoningEfforts[provider.id]}
+            onReasoningEffortChange={(effort) => handleReasoningEffortChange(provider.id, effort)}
             onSave={() => handleSave(provider.id)}
             onClear={() => handleClear(provider.id)}
             onDetectModels={() => void loadModelsForProvider(provider.id, keys[provider.id], true)}

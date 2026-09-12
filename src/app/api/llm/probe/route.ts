@@ -7,7 +7,7 @@ import { badRequest, json } from "../../_lib/responses";
 export const runtime = "nodejs";
 
 const probeSchema = z.object({
-  provider: z.enum(["gemini", "ollama", "openrouter", "openai-compatible"]),
+  provider: z.enum(["gemini", "ollama", "openrouter", "openai-compatible", "groq"]),
   baseUrl: z.string().optional(),
   model: z.string().min(1),
   key: z.string().optional(),

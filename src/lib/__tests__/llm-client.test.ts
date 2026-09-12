@@ -135,4 +135,28 @@ describe("discoverModels", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("https://llm.example/v1/models", { headers: undefined });
   });
+
+  it("uses Groq's key and default endpoint for Groq model discovery", async () => {
+    vi.stubEnv("GROQ_API_KEY", "gsk_test_groq_key");
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        data: [
+          { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B" },
+          { id: "llama-3.1-8b-instant" }
+        ]
+      })
+    );
+
+    const models = await discoverModels({ provider: "groq", model: "test", keySource: "env" }, fetchMock);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.groq.com/openai/v1/models",
+      { headers: { Authorization: "Bearer gsk_test_groq_key" } }
+    );
+    expect(models).toEqual([
+      { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B" },
+      { id: "llama-3.1-8b-instant", name: "llama-3.1-8b-instant" }
+    ]);
+  });
 });
+

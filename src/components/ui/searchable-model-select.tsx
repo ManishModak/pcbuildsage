@@ -16,7 +16,7 @@ export interface SearchableModelSelectProps {
   models: SearchableModelOption[];
   placeholder?: string;
   disabled?: boolean;
-  providerId?: "gemini" | "openrouter";
+  providerId?: "gemini" | "openrouter" | "groq";
   className?: string;
   "data-testid"?: string;
   defaultOpen?: boolean;

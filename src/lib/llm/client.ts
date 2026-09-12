@@ -60,6 +60,7 @@ export async function generateTextWithFallback(args: {
         tools: args.tools,
         stopWhen: args.stopWhen,
         abortSignal: args.abortSignal,
+        ...(entry.reasoningEffort ? { reasoning: entry.reasoningEffort } : {}),
         maxRetries: 0
       });
       return Object.assign(result, { provider: entry.provider, model: entry.model, fallbackIndex: index }) as ServedText<typeof result>;
@@ -90,6 +91,7 @@ export async function streamTextWithFallback(args: {
       const result = streamText({
         ...args,
         model: createLanguageModel(entry),
+        ...(entry.reasoningEffort ? { reasoning: entry.reasoningEffort } : {}),
         maxRetries: 0,
         abortSignal: args.abortSignal
       });
@@ -170,6 +172,7 @@ export function resolveApiKey(entry: LLMChainEntry, envKey: string): string | un
 export function keyEnv(provider: LLMProvider): string {
   if (provider === "openrouter") return "OPENROUTER_API_KEY";
   if (provider === "gemini") return "GEMINI_API_KEY";
+  if (provider === "groq") return "GROQ_API_KEY";
   if (provider === "ollama") return "OLLAMA_API_KEY";
   return "OPENAI_COMPATIBLE_API_KEY";
 }
@@ -177,6 +180,7 @@ export function keyEnv(provider: LLMProvider): string {
 function defaultBaseUrl(provider: LLMProvider): string {
   if (provider === "ollama") return process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
   if (provider === "openrouter") return "https://openrouter.ai/api/v1";
+  if (provider === "groq") return "https://api.groq.com/openai/v1";
   return process.env.OPENAI_COMPATIBLE_BASE_URL ?? "http://localhost:8000/v1";
 }
 

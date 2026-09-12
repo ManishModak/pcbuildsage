@@ -21,7 +21,8 @@ import type {
   DiscoveredModel,
   EndpointPreset,
   KeySource,
-  LLMProvider
+  LLMProvider,
+  ReasoningEffort
 } from "@/types/client";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
@@ -31,6 +32,7 @@ import { Select } from "@/components/ui/select";
 
 const PROVIDERS: Array<{ value: LLMProvider; label: string }> = [
   { value: "gemini", label: "Google Gemini" },
+  { value: "groq", label: "Groq" },
   { value: "openrouter", label: "OpenRouter" },
   { value: "ollama", label: "Ollama (local)" },
   { value: "openai-compatible", label: "OpenAI-compatible" }
@@ -359,7 +361,7 @@ function ChainCard({
           </ReadOnlyValue>
         )}
 
-        <div className="sm:col-span-2">
+        <div>
           <Field label="Model">
             {(controlProps) => (
               <ModelField
@@ -370,6 +372,28 @@ function ChainCard({
                 loading={modelState.loading}
                 onRefresh={onLoadModels}
                 error={modelState.error}
+              />
+            )}
+          </Field>
+        </div>
+
+        <div>
+          <Field label="Reasoning effort" hint="For reasoning models (e.g. o3, DeepSeek R1)">
+            {(controlProps) => (
+              <Select
+                {...controlProps}
+                options={[
+                  { value: "", label: "Default (provider default)" },
+                  { value: "low", label: "Low" },
+                  { value: "medium", label: "Medium" },
+                  { value: "high", label: "High" }
+                ]}
+                value={entry.reasoningEffort ?? ""}
+                onChange={(event) =>
+                  onUpdate({
+                    reasoningEffort: (event.target.value as ReasoningEffort) || undefined
+                  })
+                }
               />
             )}
           </Field>
