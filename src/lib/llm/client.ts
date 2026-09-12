@@ -30,7 +30,38 @@ export function createLanguageModel(entry: LLMChainEntry): LanguageModel {
   const baseURL = normalizeBaseUrl(entry.baseUrl ?? defaultBaseUrl(entry.provider), entry.provider === "ollama" ? "ollama" : "openai-compatible");
   const apiKey = resolveApiKey(entry, keyEnv(entry.provider)) || (entry.keySource === "none" ? "pcbuildsage-keyless" : undefined);
   // Ollama is reached through its OpenAI-compatible /v1 endpoint; there is no first-party @ai-sdk/ollama dependency here.
-  return createOpenAICompatible({ name: entry.provider, baseURL: entry.provider === "ollama" ? appendV1(baseURL) : baseURL, apiKey, includeUsage: true })(entry.model) as unknown as LanguageModel;
+  return createOpenAICompatible({
+    name: entry.provider,
+    baseURL: entry.provider === "ollama" ? appendV1(baseURL) : baseURL,
+    apiKey,
+    includeUsage: true,
+    transformRequestBody: (args) => sanitizeOpenAICompatibleRequestBody(args, entry.provider, baseURL)
+  })(entry.model) as unknown as LanguageModel;
+}
+
+export function sanitizeOpenAICompatibleRequestBody(
+  args: Record<string, unknown>,
+  provider: LLMProvider,
+  baseURL?: string
+): Record<string, unknown> {
+  const body = { ...args };
+  if (Array.isArray(body.messages)) {
+    body.messages = body.messages.map((message: unknown) => {
+      if (message && typeof message === "object") {
+        const msgObj = message as Record<string, unknown>;
+        if ("reasoning_content" in msgObj || "reasoning" in msgObj) {
+          const { reasoning_content, reasoning, ...rest } = msgObj;
+          return rest;
+        }
+      }
+      return message;
+    });
+  }
+  const isGroq = provider === "groq" || (typeof baseURL === "string" && baseURL.includes("groq.com"));
+  if (isGroq && "reasoning_effort" in body) {
+    delete body.reasoning_effort;
+  }
+  return body;
 }
 
 function appendV1(baseURL: string): string {

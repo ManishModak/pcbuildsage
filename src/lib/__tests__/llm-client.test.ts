@@ -1,14 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseLlmChain, resolveConfig } from "../config";
-import { createLanguageModel, isFallbackable, normalizeBaseUrl } from "@/lib/llm/client";
+import { createLanguageModel, isFallbackable, normalizeBaseUrl, sanitizeOpenAICompatibleRequestBody } from "@/lib/llm/client";
 import { discoverModels } from "@/lib/llm/discovery";
 
 const openAiState = vi.hoisted(() => ({
-  configs: [] as Array<{ baseURL?: string; apiKey?: string }>
+  configs: [] as Array<{
+    name?: string;
+    baseURL?: string;
+    apiKey?: string;
+    transformRequestBody?: (args: Record<string, unknown>) => Record<string, unknown>;
+  }>
 }));
 
 vi.mock("@ai-sdk/openai-compatible", () => ({
-  createOpenAICompatible: (config: { baseURL?: string; apiKey?: string }) => {
+  createOpenAICompatible: (config: any) => {
     openAiState.configs.push(config);
     return (model: string) => ({ model, config });
   }
@@ -157,6 +162,79 @@ describe("discoverModels", () => {
       { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B" },
       { id: "llama-3.1-8b-instant", name: "llama-3.1-8b-instant" }
     ]);
+  });
+});
+
+describe("sanitizeOpenAICompatibleRequestBody", () => {
+  it("strips reasoning_content and reasoning from assistant messages in multi-turn payloads", () => {
+    const rawBody = {
+      model: "qwen/qwen3.8-27b",
+      messages: [
+        { role: "system", content: "You are PCBuildSage." },
+        { role: "user", content: "Best 1440p gaming build around ₹90,000" },
+        {
+          role: "assistant",
+          content: "Good brief — a 1440p gaming build around ₹90k.",
+          reasoning_content: "The user is asking for a 1440p gaming build around ₹90,000.",
+          tool_calls: [
+            { id: "call_1", type: "function", function: { name: "get_catalog", arguments: "{}" } }
+          ]
+        },
+        { role: "tool", tool_call_id: "call_1", content: "{}" }
+      ]
+    };
+
+    const sanitized = sanitizeOpenAICompatibleRequestBody(rawBody, "groq");
+
+    expect(sanitized.messages).toHaveLength(4);
+    const assistantMsg = (sanitized.messages as Array<Record<string, unknown>>)[2];
+    expect(assistantMsg.role).toBe("assistant");
+    expect(assistantMsg.content).toBe("Good brief — a 1440p gaming build around ₹90k.");
+    expect(assistantMsg.tool_calls).toBeDefined();
+    expect(assistantMsg).not.toHaveProperty("reasoning_content");
+    expect(assistantMsg).not.toHaveProperty("reasoning");
+
+    // Non-assistant messages must be untouched
+    expect((sanitized.messages as Array<Record<string, unknown>>)[0]).toEqual(rawBody.messages[0]);
+    expect((sanitized.messages as Array<Record<string, unknown>>)[1]).toEqual(rawBody.messages[1]);
+    expect((sanitized.messages as Array<Record<string, unknown>>)[3]).toEqual(rawBody.messages[3]);
+  });
+
+  it("strips reasoning_effort when provider is groq or endpoint is groq.com", () => {
+    const rawBody = {
+      model: "llama-3.3-70b-versatile",
+      reasoning_effort: "high",
+      messages: [{ role: "user", content: "hello" }]
+    };
+
+    const groqSanitized = sanitizeOpenAICompatibleRequestBody(rawBody, "groq");
+    expect(groqSanitized).not.toHaveProperty("reasoning_effort");
+
+    const groqUrlSanitized = sanitizeOpenAICompatibleRequestBody(rawBody, "openai-compatible", "https://api.groq.com/openai/v1");
+    expect(groqUrlSanitized).not.toHaveProperty("reasoning_effort");
+
+    const openRouterSanitized = sanitizeOpenAICompatibleRequestBody(rawBody, "openrouter", "https://openrouter.ai/api/v1");
+    expect(openRouterSanitized).toHaveProperty("reasoning_effort", "high");
+  });
+
+  it("attaches transformRequestBody in createLanguageModel for OpenAI-compatible providers", () => {
+    openAiState.configs = [];
+    createLanguageModel({ provider: "groq", model: "llama-3.3-70b-versatile", keySource: "none" });
+
+    const lastConfig = openAiState.configs.at(-1);
+    expect(lastConfig).toBeDefined();
+    expect(typeof lastConfig?.transformRequestBody).toBe("function");
+
+    const transformed = lastConfig!.transformRequestBody!({
+      messages: [
+        { role: "assistant", content: "test", reasoning_content: "unsupported by groq" }
+      ],
+      reasoning_effort: "medium"
+    });
+
+    const msg = (transformed.messages as Array<Record<string, unknown>>)[0];
+    expect(msg).not.toHaveProperty("reasoning_content");
+    expect(transformed).not.toHaveProperty("reasoning_effort");
   });
 });
 
