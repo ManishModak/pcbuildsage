@@ -5,12 +5,13 @@ import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { useApp } from "@/components/app/app-provider";
 import { fetchCredentials, fetchEndpoints, fetchStatus, isHostedMode } from "@/lib/api-client";
 import { getErrorMessage } from "@/lib/format";
-import type { ChainEntry, CredentialAvailability } from "@/types/client";
+import type { ChainEntry, CredentialAvailability, LLMProvider } from "@/types/client";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
 import { Button, Card, Spinner } from "@/components/ui/primitives";
 import { MarketPreferenceSection } from "@/features/settings/market-preference-section";
 import { ByokSection } from "@/features/settings/byok-section";
+import { getActiveByokProvider, getByokModel, hasByokKey } from "@/lib/llm/client-byok-store";
 import { StepChat } from "./step-chat";
 import { StepDataSource, type DataSourceChoice, type StatusLoadState } from "./step-data-source";
 import { StepLLM, type EndpointLoadState } from "./step-llm";
@@ -83,7 +84,32 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
   }, [isHosted, step, dataSource, primaryReady]);
 
   const finish = () => {
-    updateConfig({ onboarded: true, ...(isHosted ? {} : { chatChain: chain }) });
+    let hostedChain: ChainEntry[] = config.chatChain;
+    if (isHosted) {
+      const activeProvider = getActiveByokProvider();
+      const provider =
+        activeProvider && hasByokKey(activeProvider)
+          ? activeProvider
+          : hasByokKey("gemini")
+            ? "gemini"
+            : hasByokKey("openrouter")
+              ? "openrouter"
+              : null;
+      if (provider) {
+        const model =
+          getByokModel(provider) ||
+          (provider === "gemini" ? "gemini-2.5-flash" : "anthropic/claude-3.5-sonnet");
+        hostedChain = [
+          {
+            id: `hosted-${provider}`,
+            provider: provider as LLMProvider,
+            model,
+            keySource: "ui"
+          }
+        ];
+      }
+    }
+    updateConfig({ onboarded: true, ...(isHosted ? { chatChain: hostedChain } : { chatChain: chain }) });
     onComplete();
   };
 
@@ -147,7 +173,14 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
                     </p>
                   </header>
 
-                  <ByokSection />
+                  <ByokSection
+                    onModelChange={(provider, model) => {
+                      updateConfig((prev) => ({
+                        ...prev,
+                        chatChain: [{ id: `hosted-${provider}`, provider: provider as LLMProvider, model, keySource: "ui" }]
+                      }));
+                    }}
+                  />
 
                   <div className="flex items-center justify-between border-t border-border pt-4">
                     <Button variant="ghost" iconLeft={ArrowLeft} onClick={() => go(0)}>

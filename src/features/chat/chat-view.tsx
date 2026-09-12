@@ -8,7 +8,7 @@ import { fetchStatus, isHostedMode } from "@/lib/api-client";
 import { apiKeyHeaders } from "@/lib/client-config-store";
 import { injectByokHeaders } from "@/lib/llm/client-byok-store";
 import { getMarketPreference } from "@/lib/market/client-market-store";
-import { resolveChatRequestBody } from "./chat-config-resolver";
+import { resolveActiveModel, resolveChatRequestBody } from "./chat-config-resolver";
 import type { ClientConfig, StatusResponse } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/components/ui/cn";
@@ -267,7 +267,10 @@ export function ChatView({
 
   const streaming = status === "streaming" || status === "submitted";
   const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
-  const activeModel = lastAssistantMessage?.metadata?.model || config.chatChain?.[0]?.model || "Sage";
+  const activeModel = useMemo(
+    () => resolveActiveModel(config, lastAssistantMessage?.metadata?.model),
+    [config, lastAssistantMessage?.metadata?.model]
+  );
 
   const primaryBuild = displayBuilds?.[0];
   const headerBuildPrice = primaryBuild

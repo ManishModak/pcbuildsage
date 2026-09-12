@@ -123,3 +123,45 @@ export function resolveChatRequestBody(
     }
   };
 }
+
+/**
+ * Resolves the active model identifier for UI headers and status indicators.
+ * Respects last assistant message metadata, chatChain configuration, and
+ * client-side BYOK provider preferences.
+ */
+export function resolveActiveModel(
+  config: ClientConfig,
+  lastAssistantModel?: string,
+  options?: ResolveChatOptions
+): string {
+  if (lastAssistantModel) return lastAssistantModel;
+
+  const isHosted = options?.isHosted !== undefined ? options.isHosted : isHostedMode();
+  const hasKeyFn = options?.hasKey ?? hasByokKey;
+  const getModelFn = options?.getModel ?? getByokModel;
+  const activeProvider =
+    options?.activeByokProvider !== undefined
+      ? options.activeByokProvider
+      : getActiveByokProvider();
+
+  // If in hosted mode or chatChain is unpopulated, check active BYOK provider
+  if (isHosted || !config.chatChain || config.chatChain.length === 0) {
+    const preferredProvider =
+      activeProvider && hasKeyFn(activeProvider)
+        ? activeProvider
+        : hasKeyFn("gemini")
+          ? "gemini"
+          : hasKeyFn("openrouter")
+            ? "openrouter"
+            : null;
+
+    if (preferredProvider) {
+      return (
+        getModelFn(preferredProvider) ||
+        (preferredProvider === "gemini" ? "gemini-2.5-flash" : "anthropic/claude-3.5-sonnet")
+      );
+    }
+  }
+
+  return config.chatChain?.[0]?.model || "Sage";
+}

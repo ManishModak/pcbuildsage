@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveChatRequestBody } from "../chat-config-resolver";
+import { resolveActiveModel, resolveChatRequestBody } from "../chat-config-resolver";
 import { DEFAULT_CONFIG } from "@/lib/client-config-store";
 
 describe("resolveChatRequestBody", () => {
@@ -65,5 +65,42 @@ describe("resolveChatRequestBody", () => {
     expect(res.config.countryCode).toBe("IN");
     expect(res.config.currency).toBe("INR");
     expect(res.config.locale).toBe("en-IN");
+  });
+});
+
+describe("resolveActiveModel", () => {
+  it("prioritizes last assistant message metadata model", () => {
+    const config = { ...DEFAULT_CONFIG, chatChain: [{ id: "c1", provider: "openrouter" as const, model: "openrouter-default", keySource: "ui" as const }] };
+    expect(resolveActiveModel(config, "anthropic/claude-3.5-sonnet")).toBe("anthropic/claude-3.5-sonnet");
+  });
+
+  it("uses config.chatChain model when present", () => {
+    const config = {
+      ...DEFAULT_CONFIG,
+      chatChain: [{ id: "c1", provider: "openrouter" as const, model: "nex-agi/nex-n2.5-pro:free", keySource: "ui" as const }]
+    };
+    expect(resolveActiveModel(config, undefined, { isHosted: false })).toBe("nex-agi/nex-n2.5-pro:free");
+  });
+
+  it("resolves BYOK model in hosted mode when chatChain is empty", () => {
+    const config = { ...DEFAULT_CONFIG, chatChain: [] };
+    const model = resolveActiveModel(config, undefined, {
+      isHosted: true,
+      activeByokProvider: "openrouter",
+      hasKey: (p) => p === "openrouter",
+      getModel: (p) => (p === "openrouter" ? "nex-agi/nex-n2.5-pro:free" : undefined)
+    });
+    expect(model).toBe("nex-agi/nex-n2.5-pro:free");
+  });
+
+  it("falls back to 'Sage' when no keys or chains exist", () => {
+    const config = { ...DEFAULT_CONFIG, chatChain: [] };
+    const model = resolveActiveModel(config, undefined, {
+      isHosted: true,
+      activeByokProvider: null,
+      hasKey: () => false,
+      getModel: () => undefined
+    });
+    expect(model).toBe("Sage");
   });
 });

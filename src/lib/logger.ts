@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { writeDbLog } from "./db";
+import { isHostedDemo } from "./config/deployment";
 
 export type ChatLogEntry = {
   timestamp?: string;
@@ -16,6 +17,12 @@ export type ChatLogEntry = {
 };
 
 export async function appendChatLog(entry: ChatLogEntry, logPath = path.join(process.cwd(), "logs", "chat.jsonl")): Promise<void> {
+  // In hosted-demo mode, chat sessions and BYOK keys are ephemeral in-browser only.
+  // We must not write chat logs to container disk.
+  if (isHostedDemo()) {
+    return;
+  }
+
   const safe: ChatLogEntry = {
     timestamp: entry.timestamp ?? new Date().toISOString(),
     session_id: entry.session_id,
@@ -28,8 +35,14 @@ export async function appendChatLog(entry: ChatLogEntry, logPath = path.join(pro
     modelId: entry.modelId,
     provider: entry.provider
   };
-  await fs.mkdir(path.dirname(logPath), { recursive: true });
-  await fs.appendFile(logPath, `${JSON.stringify(safe)}\n`, "utf8");
+
+  try {
+    await fs.mkdir(path.dirname(logPath), { recursive: true });
+    await fs.appendFile(logPath, `${JSON.stringify(safe)}\n`, "utf8");
+  } catch (err) {
+    // Ignore filesystem write failures to prevent interrupting user chat sessions
+    console.warn("Failed to append chat log to file:", err instanceof Error ? err.message : String(err));
+  }
 
   // Sync log entry to rotating SQLite logs table
   try {

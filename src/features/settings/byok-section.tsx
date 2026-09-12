@@ -146,7 +146,11 @@ export function ByokSection({
     setKeys((prev) => ({ ...prev, [provider]: stored }));
     setDrafts((prev) => ({ ...prev, [provider]: "" }));
     setEditing((prev) => ({ ...prev, [provider]: false }));
+    setActiveByokProvider(provider, persists[provider]);
+    setActiveProviderState(provider);
     onKeyChange?.(provider, true);
+    const activeModel = selectedModels[provider] || (provider === "gemini" ? "gemini-2.5-flash" : "anthropic/claude-3.5-sonnet");
+    onModelChange?.(provider, activeModel);
 
     void loadModelsForProvider(provider, raw, true);
   };
