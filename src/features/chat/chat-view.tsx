@@ -30,6 +30,7 @@ import {
   SheetDescription
 } from "@/components/animate-ui/components/radix/sheet";
 import { sessionSignature, type SessionSaveQueue } from "./session-save-queue";
+import { TranscriptMenu } from "./transcript-menu";
 
 function deriveTitle(messages: ChatUIMessage[]): string {
   const firstUser = messages.find((message) => message.role === "user");
@@ -287,29 +288,42 @@ export function ChatView({
         <div className="flex items-center gap-2 min-w-0">
           <ModelStatus modelName={activeModel} streaming={streaming} />
         </div>
-        {displayBuilds && displayBuilds.length > 0 && headerBuildPrice ? (
-          <button
-            type="button"
-            onClick={() => {
-              setSidePanelOpen((prev) => !prev);
-            }}
-            aria-expanded={sidePanelOpen}
-            aria-label={
-              sidePanelOpen
-                ? "Close proposed build panel"
-                : "Open proposed build panel"
-            }
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1 text-caption font-medium transition-colors duration-150 border cursor-pointer select-none shrink-0",
-              sidePanelOpen
-                ? "border-accent bg-accent/10 text-accent font-semibold"
-                : "border-border bg-surface text-text hover:border-accent hover:text-accent"
-            )}
-          >
-            <Icon icon={Package} size={14} className="shrink-0" />
-            <span className="truncate">Proposed Build ({headerBuildPrice})</span>
-          </button>
-        ) : null}
+        <div className="flex items-center gap-2 shrink-0">
+          {messages.length > 0 ? (
+            <TranscriptMenu
+              id={sessionId}
+              title={deriveTitle(messages)}
+              messages={messages}
+              modelName={activeModel}
+              error={error}
+              currency={config.currency}
+              countryCode={config.countryCode}
+            />
+          ) : null}
+          {displayBuilds && displayBuilds.length > 0 && headerBuildPrice ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSidePanelOpen((prev) => !prev);
+              }}
+              aria-expanded={sidePanelOpen}
+              aria-label={
+                sidePanelOpen
+                  ? "Close proposed build panel"
+                  : "Open proposed build panel"
+              }
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1 text-caption font-medium transition-colors duration-150 border cursor-pointer select-none shrink-0",
+                sidePanelOpen
+                  ? "border-accent bg-accent/10 text-accent font-semibold"
+                  : "border-border bg-surface text-text hover:border-accent hover:text-accent"
+              )}
+            >
+              <Icon icon={Package} size={14} className="shrink-0" />
+              <span className="truncate">Proposed Build ({headerBuildPrice})</span>
+            </button>
+          ) : null}
+        </div>
       </div>
     );
   }, [
@@ -319,7 +333,12 @@ export function ChatView({
     streaming,
     displayBuilds,
     headerBuildPrice,
-    sidePanelOpen
+    sidePanelOpen,
+    messages,
+    sessionId,
+    error,
+    config.currency,
+    config.countryCode
   ]);
 
   useEffect(() => {

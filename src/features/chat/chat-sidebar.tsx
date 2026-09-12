@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, Copy, MessageSquare, MessageSquarePlus, Settings, Trash2 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/format";
+import { fetchSession } from "@/lib/api-client";
+import { copyToClipboard, formatMarkdownTranscript } from "./transcript";
 import type { SessionSummary } from "@/types/client";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
@@ -112,12 +114,28 @@ export function ChatSidebar({
                         </SidebarMenuButton>
                         <SidebarMenuAction
                           showOnHover
-                          aria-label="Copy session ID"
-                          title="Copy session ID"
+                          aria-label="Copy chat transcript"
+                          title="Copy chat transcript"
                           className={cn(TRIGGER_HOVER, "text-text-secondary right-8 md:invisible md:group-hover/menu-item:visible md:group-focus-within/menu-item:visible")}
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            void navigator.clipboard.writeText(session.id);
+                            try {
+                              const detail = await fetchSession(session.id);
+                              if (detail && detail.messages && detail.messages.length > 0) {
+                                const md = formatMarkdownTranscript({
+                                  id: detail.id,
+                                  title: detail.title,
+                                  messages: detail.messages,
+                                  currency: detail.currency ?? undefined,
+                                  countryCode: detail.country_code ?? undefined
+                                });
+                                await copyToClipboard(md);
+                              } else {
+                                await copyToClipboard(session.id);
+                              }
+                            } catch {
+                              await copyToClipboard(session.id);
+                            }
                             setCopiedId(session.id);
                             setTimeout(() => setCopiedId(null), 2000);
                           }}
