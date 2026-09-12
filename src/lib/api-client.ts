@@ -73,14 +73,43 @@ export async function fetchMarkets(): Promise<MarketMetadata[]> {
   return data.markets;
 }
 
-let cachedDeploymentMode: string | null = null;
+const SESSION_STORAGE_DEPLOYMENT_KEY = "pcbuildsage:deployment-mode";
+
+function readSessionDeploymentMode(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage?.getItem(SESSION_STORAGE_DEPLOYMENT_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+let cachedDeploymentMode: string | null = readSessionDeploymentMode();
 
 export function setCachedDeploymentMode(mode: string | null): void {
   cachedDeploymentMode = mode;
+  if (typeof window !== "undefined") {
+    try {
+      if (mode) {
+        window.sessionStorage?.setItem(SESSION_STORAGE_DEPLOYMENT_KEY, mode);
+      } else {
+        window.sessionStorage?.removeItem(SESSION_STORAGE_DEPLOYMENT_KEY);
+      }
+    } catch {
+      // Ignore storage restrictions
+    }
+  }
 }
 
 export function resetCachedDeploymentMode(): void {
   cachedDeploymentMode = null;
+  if (typeof window !== "undefined") {
+    try {
+      window.sessionStorage?.removeItem(SESSION_STORAGE_DEPLOYMENT_KEY);
+    } catch {
+      // Ignore
+    }
+  }
 }
 
 export function isHostedMode(): boolean {

@@ -8,7 +8,7 @@ import { getErrorMessage } from "@/lib/format";
 import type { ChainEntry, CredentialAvailability } from "@/types/client";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
-import { Button, Card } from "@/components/ui/primitives";
+import { Button, Card, Spinner } from "@/components/ui/primitives";
 import { MarketPreferenceSection } from "@/features/settings/market-preference-section";
 import { ByokSection } from "@/features/settings/byok-section";
 import { StepChat } from "./step-chat";
@@ -86,6 +86,28 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
     updateConfig({ onboarded: true, ...(isHosted ? {} : { chatChain: chain }) });
     onComplete();
   };
+
+  if (statusState.status === "loading" && !isHosted) {
+    return (
+      <div className="mx-auto flex min-h-[50vh] w-full max-w-5xl items-center justify-center">
+        <Spinner size={32} />
+      </div>
+    );
+  }
+
+  if (statusState.status === "error" && !isHosted) {
+    return (
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
+        <Card className="flex flex-col items-start gap-3 p-6" role="alert">
+          <div>
+            <p className="text-sm font-medium text-text">Could not load configuration</p>
+            <p className="text-caption text-text-secondary">{statusState.message}</p>
+          </div>
+          <Button variant="ghost" onClick={loadStatus}>Retry</Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:py-12 md:flex-row md:gap-10">
