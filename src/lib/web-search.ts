@@ -14,6 +14,7 @@ export type SearchResponse = {
   provider: SearchProvider;
   grounded: boolean;
   crawl?: CrawlDiagnostic;
+  error?: string;
 };
 export type SearchClient = { search(query: string, options?: { limit?: number; crawlEnabled?: boolean }): Promise<SearchResponse> };
 export type CrawlRunner = (module: string, args: string[], options: {
@@ -55,7 +56,7 @@ export function createSearchClient(
         return { results: [], provider: config.provider, grounded: config.provider === "gemini-native" };
       }
       if (!config.apiKey && ["exa", "tavily", "brave"].includes(config.provider)) {
-        return { results: [], provider: config.provider, grounded: false };
+        return { results: [], provider: config.provider, grounded: false, error: `${config.provider} search API key is not configured.` };
       }
 
       let response: SearchResponse;

@@ -1,4 +1,4 @@
-import { resolveComponent, type ComponentCategory, type Confidence, type RegistrySpec, type ResolvedSpec } from "./registry";
+import { hasWattageConflict, resolveComponent, type ComponentCategory, type Confidence, type RegistrySpec, type ResolvedSpec } from "./registry";
 
 export type BuildPart = string | { key?: string; name?: string; category?: ComponentCategory };
 export type BuildParts = Partial<Record<ComponentCategory, BuildPart | BuildPart[]>>;
@@ -277,6 +277,26 @@ function stringSpec(component: ResolvedSpec, key: string, issues: BuildIssue[]) 
 
 function numberSpec(component: ResolvedSpec, key: string, issues: BuildIssue[]) {
   if (untrusted(component, issues)) return undefined;
+  if (key === "wattage") {
+    const w = component.spec.wattage;
+    const wLegacy = component.spec.wattage_w;
+    if (
+      hasWattageConflict(component.spec)
+    ) {
+      issues.push({
+        severity: "needs_verification",
+        rule: "wattage",
+        components: [component.key],
+        detail: `Conflicting wattage specifications for ${component.key}: wattage (${w}W) and wattage_w (${wLegacy}W) disagree.`
+      });
+      return undefined;
+    }
+    const resolvedWattage = w ?? wLegacy;
+    if (typeof resolvedWattage === "number") return resolvedWattage;
+    if (typeof resolvedWattage === "string" && !Number.isNaN(Number(resolvedWattage))) {
+      return Number(resolvedWattage);
+    }
+  }
   const value = component.spec[key];
   if (typeof value === "number") return value;
   issues.push(needsResearch([component.key], `${component.key} is missing required spec "${key}".`));

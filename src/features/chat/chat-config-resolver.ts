@@ -6,10 +6,9 @@
  */
 
 import { isHostedMode } from "@/lib/api-client";
-import { toServerChain } from "@/lib/client-config-store";
 import { getMarketPreference, type MarketPreference } from "@/lib/market/client-market-store";
 import { getActiveByokProvider, getByokModel, hasByokKey } from "@/lib/llm/client-byok-store";
-import type { ClientConfig, KeySource, LLMProvider } from "@/types/client";
+import type { ClientConfig, KeySource, LLMProvider, SearchProvider } from "@/types/client";
 
 export interface ResolveChatOptions {
   isHosted?: boolean;
@@ -104,20 +103,49 @@ export function resolveChatRequestBody(
     baseUrl: isHosted ? undefined : entry.baseUrl
   }));
 
+  let subagentChain = serverChain;
+  if (config.subagentChain && config.subagentChain.length > 0) {
+    const rawSub = isHosted
+      ? config.subagentChain.filter((entry) => entry.provider !== "ollama")
+      : config.subagentChain;
+    if (rawSub.length > 0) {
+      subagentChain = rawSub.map((entry) => ({
+        provider: entry.provider,
+        model: entry.model,
+        keySource: (hasKeyFn(entry.provider) ? "ui" : entry.keySource) as "env" | "ui",
+        baseUrl: isHosted ? undefined : entry.baseUrl
+      }));
+    }
+  }
+
+  const supportedHostedSearch = ["tavily", "exa", "brave"];
+  const isHostedResearchConfigured =
+    Boolean(config.tier2Enabled) &&
+    supportedHostedSearch.includes(config.searchProvider) &&
+    hasKeyFn(config.searchProvider);
+
+  const effectiveSearchProvider: SearchProvider = isHosted
+    ? (isHostedResearchConfigured ? config.searchProvider : "none")
+    : config.searchProvider;
+
+  const effectiveTier2 = isHosted
+    ? isHostedResearchConfigured
+    : Boolean(config.tier2Enabled);
+
   return {
     sessionId,
     config: {
       chatLlmChain: serverChain,
       llmChain: serverChain,
-      ...(config.subagentChain ? { subagentLlmChain: toServerChain(config.subagentChain) } : {}),
+      subagentLlmChain: subagentChain,
       personality: config.personality,
-      tier2Enabled: config.tier2Enabled,
+      tier2Enabled: effectiveTier2,
       freeformConsultEnabled: config.freeformConsultEnabled,
       countryCode,
       currency,
       locale: marketPref.locale,
       marketPreference: marketPref,
-      searchProvider: isHosted ? "duckduckgo" : config.searchProvider,
+      searchProvider: effectiveSearchProvider,
       searchBaseUrl: isHosted ? undefined : config.searchBaseUrl,
       crawlEnabled: isHosted ? false : config.crawlEnabled
     }

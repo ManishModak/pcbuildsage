@@ -76,6 +76,7 @@ export interface CompactSearchProductsResult {
   total_matching?: number;
   totalCount?: number;
   returned?: number;
+  sql_candidates?: number;
   has_more?: boolean;
   scope?: {
     country_code: string;
@@ -170,15 +171,19 @@ export function toCompactSearchResult(
     ? record.total_matching
     : typeof record.totalCount === "number"
       ? record.totalCount
-      : results.length;
+      : undefined;
 
   const compact: CompactSearchProductsResult = {
     results,
     total_matching: totalMatching,
     totalCount: totalMatching,
     returned: results.length,
-    has_more: Boolean(record.has_more ?? totalMatching > results.length)
+    has_more: Boolean(record.has_more ?? (totalMatching !== undefined && totalMatching > results.length))
   };
+
+  if (typeof record.sql_candidates === "number") {
+    compact.sql_candidates = record.sql_candidates;
+  }
 
   if (record.scope && typeof record.scope === "object") {
     compact.scope = record.scope as { country_code: string; currency: string };

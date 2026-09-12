@@ -37,7 +37,8 @@ describe("resolveChatRequestBody", () => {
       hasKey: (provider) => provider === "gemini"
     });
 
-    expect(res.config.searchProvider).toBe("duckduckgo");
+    expect(res.config.searchProvider).toBe("none");
+    expect(res.config.tier2Enabled).toBe(false);
     expect(res.config.searchBaseUrl).toBeUndefined();
     expect(res.config.crawlEnabled).toBe(false);
     expect(res.config.chatLlmChain.find((c) => c.provider === "ollama")).toBeUndefined();
@@ -45,6 +46,26 @@ describe("resolveChatRequestBody", () => {
     expect(gemini).toBeDefined();
     expect(gemini?.keySource).toBe("ui");
     expect(gemini?.baseUrl).toBeUndefined();
+  });
+
+  it("enables research in hosted mode when supported search provider has key", () => {
+    const config = {
+      ...DEFAULT_CONFIG,
+      tier2Enabled: true,
+      searchProvider: "tavily" as const,
+      chatChain: [
+        { id: "c1", provider: "gemini" as const, model: "gemini-2.5-flash", keySource: "ui" as const }
+      ]
+    };
+
+    const res = resolveChatRequestBody(config, "session-123", {
+      isHosted: true,
+      hasKey: (provider) => provider === "gemini" || provider === "tavily"
+    });
+
+    expect(res.config.searchProvider).toBe("tavily");
+    expect(res.config.tier2Enabled).toBe(true);
+    expect(res.config.subagentLlmChain).toEqual(res.config.chatLlmChain);
   });
 
   it("prioritizes market preference over config for market scope", () => {

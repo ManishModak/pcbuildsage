@@ -53,4 +53,26 @@ describe("Error Diagnostics & Classification", () => {
     const err = new Error("Rate limit exceeded (HTTP 429)");
     expect(getErrorMessage(err)).toContain("Rate limit");
   });
+
+  it("accurately classifies daily free-model quota exhaustion without suggesting to wait a moment", () => {
+    const dailyQuotaError = JSON.stringify({
+      error: {
+        message: "Resource has been exhausted (e.g. check quota): free-models-per-day exceeded",
+        code: 429
+      }
+    });
+
+    const formatted = getErrorMessageText(dailyQuotaError);
+    expect(formatted).toContain("The provider reports that its daily free-model quota is exhausted");
+    expect(formatted).toContain("Try again after it resets, or check your provider settings");
+    expect(formatted).not.toContain("wait a moment");
+  });
+
+  it("shows supplied reset timing details when present in daily quota response", () => {
+    const dailyWithReset = "HTTP 429: free-models-per-day limit reached. Resets at 00:00 UTC";
+    const formatted = getErrorMessageText(dailyWithReset);
+    expect(formatted).toContain("The provider reports that its daily free-model quota is exhausted");
+    expect(formatted).toContain("Resets at 00:00 UTC");
+    expect(formatted).not.toContain("wait a moment");
+  });
 });

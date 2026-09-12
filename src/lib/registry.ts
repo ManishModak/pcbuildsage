@@ -78,31 +78,55 @@ export function resolveComponent(
     }
   }
 
-  // A high/medium-confidence registry entry is the best answer available.
-  if (hit && hit.confidence !== "low") return hit;
+  const result = (() => {
+    // A high/medium-confidence registry entry is the best answer available.
+    if (hit && hit.confidence !== "low") return hit;
 
-  // An unsourced registry entry is a placeholder, not a fact, so anything with a
-  // provenance outranks it: a researched row (cites URLs), then a title parse
-  // (quotes the retailer's own listing). The placeholder is still returned as a
-  // last resort rather than nothing - flagged low, so the rules engine refuses to
-  // compute a verdict from it and asks for research instead.
-  if (!options.skipDbLookup && options.db !== null) {
-    const researched = lookupResearch({ key: key ?? slugifyComponent(name), name, category }, options.db ?? getDb());
-    if (researched) return researched;
+    // An unsourced registry entry is a placeholder, not a fact, so anything with a
+    // provenance outranks it: a researched row (cites URLs), then a title parse
+    // (quotes the retailer's own listing). The placeholder is still returned as a
+    // last resort rather than nothing - flagged low, so the rules engine refuses to
+    // compute a verdict from it and asks for research instead.
+    if (!options.skipDbLookup && options.db !== null) {
+      const researched = lookupResearch({ key: key ?? slugifyComponent(name), name, category }, options.db ?? getDb());
+      if (researched) return researched;
+    }
+
+    const derived = parseSpecsFromTitle(name, category);
+    if (derived) {
+      return {
+        key: key ?? slugifyComponent(name),
+        category: (category ?? "storage") as ComponentCategory,
+        spec: derived,
+        source: "derived" as const,
+        confidence: "medium" as const
+      };
+    }
+
+    return hit;
+  })();
+
+  return normalizeResolvedSpec(result);
+}
+
+export function hasWattageConflict(spec: RegistrySpec): boolean {
+  return Boolean(spec.wattage_conflict || (
+    spec.wattage !== undefined && spec.wattage_w !== undefined &&
+    Number(spec.wattage) !== Number(spec.wattage_w)
+  ));
+}
+
+export function normalizeResolvedSpec(resolved?: ResolvedSpec): ResolvedSpec | undefined {
+  if (!resolved || !resolved.spec) return resolved;
+  const spec = { ...resolved.spec };
+  if (spec.wattage_w !== undefined && spec.wattage === undefined) {
+    spec.wattage = spec.wattage_w;
+  } else if (
+    hasWattageConflict(spec)
+  ) {
+    spec.wattage_conflict = true;
   }
-
-  const derived = parseSpecsFromTitle(name, category);
-  if (derived) {
-    return {
-      key: key ?? slugifyComponent(name),
-      category: (category ?? "storage") as ComponentCategory,
-      spec: derived,
-      source: "derived",
-      confidence: "medium"
-    };
-  }
-
-  return hit;
+  return { ...resolved, spec };
 }
 
 export function listRegistrySpecs(category?: ComponentCategory): ResolvedSpec[] {

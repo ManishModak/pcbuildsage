@@ -53,6 +53,13 @@ type PersonalityCatalogState =
   | { status: "error"; message: string }
   | { status: "ready"; personalities: Personality[] };
 
+import {
+  clearByokKey,
+  getByokKey,
+  isByokKeyPersistent,
+  setByokKey
+} from "@/lib/llm/client-byok-store";
+
 export const LOCAL_NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Sparkles }[] = [
   { id: "llm", label: "LLM Provider Chain", icon: Sparkles },
   { id: "search", label: "Web Search", icon: Globe },
@@ -63,6 +70,7 @@ export const LOCAL_NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Spa
 export const HOSTED_NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Sparkles }[] = [
   { id: "market", label: "Market Preference", icon: Globe },
   { id: "llm", label: "LLM & BYOK Keys", icon: Sparkles },
+  { id: "search", label: "Web Research", icon: Globe },
   { id: "personalization", label: "Sage Personalization", icon: Sliders }
 ];
 
@@ -74,7 +82,7 @@ export const HOSTED_NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Sp
  */
 export function settingsTabFromSearch(search: string, hosted = isHostedMode()): SettingsTab {
   const requested = new URLSearchParams(search).get("tab");
-  if (hosted && (requested === "database" || requested === "scrape" || requested === "search")) return "market";
+  if (hosted && (requested === "database" || requested === "scrape")) return "market";
   if (requested === "market") return "market";
   if (requested === "byok") return "llm";
   const items = hosted ? HOSTED_NAV_ITEMS : LOCAL_NAV_ITEMS;
@@ -110,6 +118,47 @@ function SettingsLayout({
   const [personalityCatalog, setPersonalityCatalog] = useState<PersonalityCatalogState>({ status: "loading" });
   const [exportState, setExportState] = useState<{ busy: boolean; files?: string[]; error?: string }>({ busy: false });
   const [uiKeys, setUiKeys] = useState<KeyMap>({});
+  const [hostedSearchKeyDraft, setHostedSearchKeyDraft] = useState("");
+  const [hostedSearchRemember, setHostedSearchRemember] = useState(false);
+  const [probeState, setProbeState] = useState<{ busy: boolean; message?: string; isError?: boolean }>({ busy: false });
+
+  const handleTestSearch = async () => {
+    setProbeState({ busy: true });
+    try {
+      const provider = config.searchProvider;
+      const apiKey = isHosted ? (getByokKey(provider) || undefined) : (uiKeys[provider] || undefined);
+      const res = await fetch("/api/search/probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider,
+          apiKey,
+          baseUrl: isHosted ? undefined : config.searchBaseUrl,
+          query: "DDR5 RAM",
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setProbeState({
+          busy: false,
+          message: `Connected successfully (${data.resultCount ?? 0} results returned).`,
+          isError: false
+        });
+      } else {
+        setProbeState({
+          busy: false,
+          message: data.error || "Search probe failed.",
+          isError: true
+        });
+      }
+    } catch (err) {
+      setProbeState({
+        busy: false,
+        message: err instanceof Error ? err.message : "Network error during search probe.",
+        isError: true
+      });
+    }
+  };
 
   const loadEndpoints = useCallback(() => {
     setEndpointCatalog({ status: "loading" });
@@ -281,38 +330,60 @@ function SettingsLayout({
                   />
                   <ChainBuilder
                     chain={config.chatChain}
-                    onChange={(next) => updateConfig({ chatChain: next })}
-                    credentials={credentials}
+                    onChange={(chatChain) => updateConfig({ chatChain })}
                     endpoints={endpoints}
+                    credentials={credentials}
                   />
                 </Section>
               )}
             </div>
           )}
 
-          {activeTab === "search" && !isHosted && (
-            <Section title="Web search" description="Configure web search providers and crawling options.">
+          {activeTab === "search" && (
+            <Section
+              title={isHosted ? "Web research" : "Web search"}
+              description={
+                isHosted
+                  ? "Configure optional live web research for technical component specifications."
+                  : "Configure web search providers and crawling options."
+              }
+            >
               <Card className="flex flex-col gap-4 p-4">
                 <Field label="Search provider">
                   {(controlProps) => (
                     <Select
                       {...controlProps}
                       value={config.searchProvider}
-                      onChange={(e) => updateConfig({ searchProvider: e.target.value as SearchProvider })}
-                      options={[
-                        { value: "none", label: "None (Disable search)" },
-                        { value: "duckduckgo", label: "DuckDuckGo (HTML scraping)" },
-                        { value: "searxng", label: "SearXNG (Self-hosted)" },
-                        { value: "brave", label: "Brave Search API" },
-                        { value: "tavily", label: "Tavily Search API" },
-                        { value: "exa", label: "Exa AI Search" },
-                        { value: "gemini-native", label: "Gemini Native Google Search" }
-                      ]}
+                      onChange={(e) => {
+                        const provider = e.target.value as SearchProvider;
+                        updateConfig({
+                          searchProvider: provider,
+                          ...(isHosted ? { tier2Enabled: provider !== "none" } : {})
+                        });
+                      }}
+                      options={
+                        isHosted
+                          ? [
+                              { value: "none", label: "None (Research disabled)" },
+                              { value: "tavily", label: "Tavily Search API" },
+                              { value: "exa", label: "Exa AI Search" },
+                              { value: "brave", label: "Brave Search API" }
+                            ]
+                          : [
+                              { value: "none", label: "None (Disable search)" },
+                              { value: "duckduckgo", label: "DuckDuckGo (HTML scraping)" },
+                              { value: "searxng", label: "SearXNG (Self-hosted)" },
+                              { value: "brave", label: "Brave Search API" },
+                              { value: "tavily", label: "Tavily Search API" },
+                              { value: "exa", label: "Exa AI Search" },
+                              { value: "gemini-native", label: "Gemini Native Google Search" }
+                            ]
+                      }
                     />
                   )}
                 </Field>
 
-                {config.searchProvider === "searxng" && (
+                {!isHosted && config.searchProvider === "searxng" && (
                   <Field label="SearXNG Base URL" hint="Example: http://localhost:8080">
                     {(controlProps) => (
                       <Input
@@ -326,7 +397,78 @@ function SettingsLayout({
                   </Field>
                 )}
 
-                {["brave", "tavily", "exa"].includes(config.searchProvider) && (
+                {isHosted && ["brave", "tavily", "exa"].includes(config.searchProvider) && (
+                  <div className="flex flex-col gap-3 rounded-card border border-border/60 bg-surface-raised p-3">
+                    <Field
+                      label={`${config.searchProvider.toUpperCase()} API Key`}
+                      hint={
+                        isByokKeyPersistent(config.searchProvider)
+                          ? "Stored in browser localStorage."
+                          : "Stored in browser sessionStorage (cleared when tab closes)."
+                      }
+                    >
+                      {(controlProps) => (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <Input
+                              {...controlProps}
+                              type="password"
+                              placeholder={
+                                getByokKey(config.searchProvider)
+                                  ? "••••••••••••••••"
+                                  : `Enter ${config.searchProvider} API key`
+                              }
+                              value={hostedSearchKeyDraft}
+                              onChange={(e) => setHostedSearchKeyDraft(e.target.value)}
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (hostedSearchKeyDraft.trim()) {
+                                  setByokKey(
+                                    config.searchProvider,
+                                    hostedSearchKeyDraft.trim(),
+                                    hostedSearchRemember
+                                  );
+                                  setHostedSearchKeyDraft("");
+                                  updateConfig({ tier2Enabled: true });
+                                }
+                              }}
+                              disabled={!hostedSearchKeyDraft.trim()}
+                            >
+                              Save Key
+                            </Button>
+                            {getByokKey(config.searchProvider) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  clearByokKey(config.searchProvider);
+                                  setHostedSearchKeyDraft("");
+                                  updateConfig({ tier2Enabled: false });
+                                }}
+                              >
+                                Clear
+                              </Button>
+                            )}
+                          </div>
+                          <label className="flex items-center gap-2 text-caption text-text-muted cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={hostedSearchRemember}
+                              onChange={(e) => setHostedSearchRemember(e.target.checked)}
+                              className="rounded border-border"
+                            />
+                            <span>Remember for this browser</span>
+                          </label>
+                        </div>
+                      )}
+                    </Field>
+                  </div>
+                )}
+
+                {!isHosted && ["brave", "tavily", "exa"].includes(config.searchProvider) && (
                   <Field label="API key" hint="Saved locally in your browser.">
                     {(controlProps) => (
                       <Input
@@ -340,13 +482,79 @@ function SettingsLayout({
                   </Field>
                 )}
 
-                {!["none", "gemini-native"].includes(config.searchProvider) && (
+                {!isHosted && !["none", "gemini-native"].includes(config.searchProvider) && (
                   <Toggle
                     checked={config.crawlEnabled}
                     onChange={(value) => updateConfig({ crawlEnabled: value })}
                     label="Enable page crawling (Crawl4AI)"
                     description="Extracts main content from top search result for deeper context."
                   />
+                )}
+
+                {config.searchProvider !== "none" && (
+                  <Field
+                    label="Research model"
+                    hint="Using 'Same as chat' shares model usage allowances with your chat conversation."
+                  >
+                    {(controlProps) => (
+                      <Select
+                        {...controlProps}
+                        value={config.subagentChain && config.subagentChain.length > 0 ? config.subagentChain[0].model : "same-as-chat"}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "same-as-chat") {
+                            updateConfig({ subagentChain: [] });
+                          } else {
+                            const chatEntry = config.chatChain[0];
+                            if (!chatEntry) return;
+                            updateConfig({
+                              subagentChain: [
+                                {
+                                  ...chatEntry,
+                                  id: `subagent-${val}`,
+                                  model: val
+                                }
+                              ]
+                            });
+                          }
+                        }}
+                        options={[
+                          { value: "same-as-chat", label: "Same as chat (Shares model usage allowances)" },
+                          ...(config.chatChain?.[0]?.model
+                            ? [{ value: config.chatChain[0].model, label: `${config.chatChain[0].model} (Chat model)` }]
+                            : [])
+                        ]}
+                      />
+                    )}
+                  </Field>
+                )}
+
+                {config.searchProvider !== "none" && (
+                  <div className="pt-2 border-t border-border flex flex-col gap-2">
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={probeState.busy}
+                        onClick={handleTestSearch}
+                      >
+                        {probeState.busy ? "Testing connection..." : "Test connection"}
+                      </Button>
+                      {probeState.message && (
+                        <span
+                          className={cn(
+                            "text-caption font-medium",
+                            probeState.isError ? "text-blocking" : "text-emerald-500"
+                          )}
+                        >
+                          {probeState.message}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-caption text-text-muted">
+                      Distinguishes network/authentication failure from empty search results without invoking an LLM.
+                    </p>
+                  </div>
                 )}
               </Card>
             </Section>

@@ -21,7 +21,7 @@ export function createToolRegistry(config: AppConfig, options?: { repository?: C
     present_build: createPresentBuildTool()
   };
 
-  if (config.tier2Enabled) {
+  if (config.tier2Enabled && config.search.provider !== "none") {
     tools.consult = createConsultTool(config);
   }
   return tools;

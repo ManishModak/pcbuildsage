@@ -180,7 +180,7 @@ export function ToolChip({ part }: { part: ToolPart }) {
                 {String(output?.error || part.errorText || "Subagent research could not be completed.")}
               </p>
               <p className="text-text-muted">
-                Advisory specs or catalog defaults will be used for compatibility checks.
+                Component specifications remain unresolved. Build validation requires verified specifications before clearing compatibility.
               </p>
             </div>
           ) : (

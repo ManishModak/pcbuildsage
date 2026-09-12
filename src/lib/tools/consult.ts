@@ -44,35 +44,45 @@ type ConsultDeps = {
   now?: () => Date;
 };
 
-const modeDescription = "The operation mode: component_specs (research specs for a component), build_audit (audit build parts), or freeform (ask a general hardware question).";
+export function createConsultInputSchema(freeformEnabled: boolean) {
+  const modes = freeformEnabled
+    ? (["component_specs", "build_audit", "freeform"] as const)
+    : (["component_specs", "build_audit"] as const);
 
-export const consultInputSchema = z
-  .object({
-    mode: z.enum(["component_specs", "build_audit", "freeform"]).describe(modeDescription),
-    name: z.string().optional().describe("Used in component_specs: exact component name to research."),
-    category: z.string().optional().describe("Used in component_specs: component category."),
-    parts: partMapSchema.optional().describe("Used in build_audit: final build parts keyed by category."),
-    question: z.string().optional().describe("Used in freeform: question to answer."),
-    context: z.string().optional().describe("Used in freeform: relevant build context.")
-  })
-  .superRefine((data, ctx) => {
-    if (data.mode === "component_specs") {
-      if (!data.name || data.name.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "name is required and must be a non-empty string in component_specs mode", path: ["name"] });
+  const modeDesc = freeformEnabled
+    ? "The operation mode: component_specs (research specs for a component), build_audit (audit build parts), or freeform (ask a general hardware question)."
+    : "The operation mode: component_specs (research specs for a component) or build_audit (audit build parts).";
+
+  return z
+    .object({
+      mode: z.enum(modes).describe(modeDesc),
+      name: z.string().optional().describe("Used in component_specs: exact component name to research."),
+      category: z.string().optional().describe("Used in component_specs: component category."),
+      parts: partMapSchema.optional().describe("Used in build_audit: final build parts keyed by category."),
+      question: z.string().optional().describe("Used in freeform: question to answer."),
+      context: z.string().optional().describe("Used in freeform: relevant build context.")
+    })
+    .superRefine((data, ctx) => {
+      if (data.mode === "component_specs") {
+        if (!data.name || data.name.trim() === "") {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "name is required and must be a non-empty string in component_specs mode", path: ["name"] });
+        }
+        if (!data.category || data.category.trim() === "") {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "category is required and must be a non-empty string in component_specs mode", path: ["category"] });
+        }
+      } else if (data.mode === "build_audit") {
+        if (!data.parts || Object.keys(data.parts).length === 0) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "parts is required and must be a non-empty object in build_audit mode", path: ["parts"] });
+        }
+      } else if ((data.mode as string) === "freeform") {
+        if (!data.question || data.question.trim() === "") {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "question is required and must be a non-empty string in freeform mode", path: ["question"] });
+        }
       }
-      if (!data.category || data.category.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "category is required and must be a non-empty string in component_specs mode", path: ["category"] });
-      }
-    } else if (data.mode === "build_audit") {
-      if (!data.parts || Object.keys(data.parts).length === 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "parts is required and must be a non-empty object in build_audit mode", path: ["parts"] });
-      }
-    } else if (data.mode === "freeform") {
-      if (!data.question || data.question.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "question is required and must be a non-empty string in freeform mode", path: ["question"] });
-      }
-    }
-  });
+    });
+}
+
+export const consultInputSchema = createConsultInputSchema(true);
 
 export type ConsultInput =
   | { mode: "component_specs"; name: string; category: string }
@@ -83,7 +93,7 @@ export function createConsultTool(config: AppConfig) {
   return tool({
     description:
       "Use consult for advisory research when validate_build reports needs_research or for hardware questions. Do not use it to clear Tier 1 blocking failures or after presenting a build. Example: {\"mode\":\"component_specs\",\"name\":\"Ryzen 7 9700X\",\"category\":\"cpu\"}.",
-    inputSchema: consultInputSchema,
+    inputSchema: createConsultInputSchema(Boolean(config.freeformConsultEnabled)),
     execute: async (input) => consult(input as ConsultInput, config)
   });
 }
@@ -202,12 +212,16 @@ function buildAuditPairs(parts: Record<string, string>) {
 async function safeSearch(search: SearchClient, query: string, crawlEnabled?: boolean): Promise<SearchResponse> {
   try {
     return await search.search(query, { limit: 5, crawlEnabled });
-  } catch {
-    return { provider: "none", grounded: false, results: [] };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    return { provider: "none", grounded: false, results: [], error: errorMsg };
   }
 }
 
 function groundingBlock(grounded: SearchResponse) {
+  if (grounded.error) {
+    return `Grounding context: search failed (${grounded.error}). Still answer if possible, but do not invent sources.`;
+  }
   if (!grounded.results.length) return "Grounding context: none configured or no search results. Still answer, but do not invent sources.";
   return `Grounding context from ${grounded.provider}:\n${grounded.results.map(formatSource).join("\n")}`;
 }
@@ -238,8 +252,8 @@ function createSubagentTools(
       execute: async ({ query }) => {
         try {
           const res = await safeSearch(search, query, false);
-          onAction?.({ tool: "search_web", query, resultCount: res.results.length });
-          return { results: res.results };
+          onAction?.({ tool: "search_web", query, resultCount: res.results.length, error: res.error });
+          return { results: res.results, error: res.error };
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : String(err);
           onAction?.({ tool: "search_web", query, error: errorMsg });
@@ -268,6 +282,34 @@ function createSubagentTools(
   };
 }
 
+function extractSubagentError(error: unknown): { message: string; isTerminal: boolean } {
+  let rawMsg = "";
+  if (error && typeof error === "object" && "errors" in error && Array.isArray((error as { errors: unknown[] }).errors)) {
+    const childErrors = (error as { errors: unknown[] }).errors.map((e) => (e instanceof Error ? e.message : String(e)));
+    rawMsg = childErrors.join("; ") || ((error as { message?: string }).message ?? "");
+  } else if (error instanceof Error) {
+    rawMsg = error.message;
+  } else {
+    rawMsg = String(error ?? "Unknown error");
+  }
+
+  const lower = rawMsg.toLowerCase();
+  const isTerminal =
+    lower.includes("429") ||
+    lower.includes("quota") ||
+    lower.includes("rate limit") ||
+    lower.includes("rate_limit") ||
+    lower.includes("unauthorized") ||
+    lower.includes("401") ||
+    lower.includes("403") ||
+    lower.includes("forbidden") ||
+    lower.includes("invalid api key") ||
+    lower.includes("api key not valid") ||
+    lower.includes("free-models-per-day");
+
+  return { message: rawMsg, isTerminal };
+}
+
 async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
   input: ConsultInput;
   config: AppConfig;
@@ -286,24 +328,53 @@ async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
   let provider = "unknown";
   let model = "unknown";
   let lastError = "Model did not return valid JSON.";
+  let lastGeneratedText: string | undefined;
+
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const response = await generate({
-        chain: args.config.llm.roles.subagent,
-        system: "You are an isolated PCBuildSage Tier 2 research subagent. You have tools to search the web and crawl pages for technical specifications. After gathering the necessary facts, output the final result strictly as a valid JSON object matching the requested schema. No markdown formatting outside the JSON.",
-        prompt: attempt === 0 ? args.prompt : `${args.prompt}\n\nPrevious response failed JSON/schema validation: ${lastError}\nReturn corrected JSON only.`,
-        tools,
-        stopWhen: isStepCount(5),
-        abortSignal: AbortSignal.timeout(30000)
-      });
-      provider = response.provider;
-      model = response.model;
-      const parsed = parseJsonObject(response.text);
-      const validated = args.schema.safeParse(parsed);
-      if (validated.success) return { ok: true, data: validated.data, provider, model, actions };
-      lastError = validated.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
+      if (attempt === 0) {
+        const response = await generate({
+          chain: args.config.llm.roles.subagent,
+          system: "You are an isolated PCBuildSage Tier 2 research subagent. You have tools to search the web and crawl pages for technical specifications. After gathering the necessary facts, output the final result strictly as a valid JSON object matching the requested schema. No markdown formatting outside the JSON.",
+          prompt: args.prompt,
+          tools,
+          stopWhen: isStepCount(5),
+          abortSignal: AbortSignal.timeout(30000)
+        });
+        provider = response.provider;
+        model = response.model;
+        lastGeneratedText = response.text;
+
+        const parsed = parseJsonObject(response.text);
+        const validated = args.schema.safeParse(parsed);
+        if (validated.success) return { ok: true, data: validated.data, provider, model, actions };
+        lastError = validated.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
+      } else {
+        // Attempt 1: Narrow JSON repair without repeating web research tools
+        if (!lastGeneratedText) break;
+        const repairPrompt = `Original request and grounding:\n${args.prompt}\n\nPrevious response failed JSON/schema validation: ${lastError}\n\nPrevious output:\n${lastGeneratedText}\n\nReformat and extract strictly valid JSON matching the schema. Return corrected JSON only.`;
+        const response = await generate({
+          chain: args.config.llm.roles.subagent,
+          system: "You are an isolated PCBuildSage Tier 2 research subagent. Your task is strictly JSON repair. Output only valid JSON matching the requested schema without markdown wrapper.",
+          prompt: repairPrompt,
+          stopWhen: isStepCount(2),
+          abortSignal: AbortSignal.timeout(15000)
+        });
+        provider = response.provider;
+        model = response.model;
+
+        const parsed = parseJsonObject(response.text);
+        const validated = args.schema.safeParse(parsed);
+        if (validated.success) return { ok: true, data: validated.data, provider, model, actions };
+        lastError = validated.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
+      }
     } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
+      const { message, isTerminal } = extractSubagentError(error);
+      lastError = message;
+      if (isTerminal) {
+        // Stop immediately on terminal credentials or quota errors - do not retry
+        break;
+      }
     }
   }
   return { ok: false, provider, model, result: { mode: args.input.mode, error: lastError, retryable: false, label: "unverified", actions } };

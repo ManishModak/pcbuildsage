@@ -95,11 +95,11 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
   });
 
   describe("2. Navigation and URL Routing", () => {
-    it("hides scraper management and web search tabs from navigation items in hosted-demo mode", () => {
+    it("hides scraper database tab while exposing web research in hosted-demo mode", () => {
       const hostedTabIds = HOSTED_NAV_ITEMS.map((item) => item.id);
-      expect(hostedTabIds).toEqual(["market", "llm", "personalization"]);
+      expect(hostedTabIds).toEqual(["market", "llm", "search", "personalization"]);
       expect(hostedTabIds).not.toContain("database");
-      expect(hostedTabIds).not.toContain("search");
+      expect(hostedTabIds).toContain("search");
     });
 
     it("keeps all existing tabs in local mode navigation items", () => {
@@ -112,9 +112,9 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
       expect(resolved).toBe("market");
     });
 
-    it("redirects deep links to ?tab=search to market in hosted-demo mode", () => {
+    it("routes deep links to ?tab=search to search tab in hosted-demo mode", () => {
       const resolved = settingsTabFromSearch("?tab=search", true);
-      expect(resolved).toBe("market");
+      expect(resolved).toBe("search");
     });
 
     it("permits ?tab=database in local mode", () => {

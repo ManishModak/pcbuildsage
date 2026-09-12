@@ -143,6 +143,20 @@ export function getErrorMessageText(msg: string): string {
 
   const combined = `${msg} ${extracted}`.toLowerCase();
 
+  const isDailyQuota =
+    combined.includes("free-models-per-day") ||
+    combined.includes("daily-quota") ||
+    combined.includes("daily quota") ||
+    combined.includes("daily limit") ||
+    (combined.includes("per day") && (combined.includes("quota") || combined.includes("limit") || combined.includes("exhausted")));
+
+  if (isDailyQuota) {
+    const detail = extracted !== msg ? extracted : (msg.length < 120 ? msg : "");
+    const resetMatch = msg.match(/(?:resets?|retry)(?:\s+(?:at|in|-after))?\s+([^,;.)]+)/i);
+    const timingInfo = resetMatch ? ` (${resetMatch[0].trim()})` : "";
+    return `The provider reports that its daily free-model quota is exhausted. Try again after it resets${timingInfo}, or check your provider settings.${detail ? ` Details: ${detail}` : ""}`;
+  }
+
   if (
     combined.includes("429") ||
     combined.includes("rate limit") ||

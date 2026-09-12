@@ -23,6 +23,11 @@ const chatRequestSchema = z.object({
 function extractDetailedErrorMessage(error: unknown): string {
   if (!error) return "Unknown error";
 
+  if (error && typeof error === "object" && "errors" in error && Array.isArray((error as { errors: unknown[] }).errors)) {
+    const childDetails = (error as { errors: unknown[] }).errors.map((e) => extractDetailedErrorMessage(e));
+    return childDetails.filter(Boolean).join("; ") || (error as { message?: string }).message || "Unknown error";
+  }
+
   if (typeof error === "object" && error !== null) {
     const errObj = error as Record<string, unknown>;
     const statusCode = errObj.statusCode ?? (errObj.status as number | undefined);

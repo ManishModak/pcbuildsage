@@ -8,6 +8,7 @@
 
 import {
   resolveComponent,
+  hasWattageConflict,
   type RegistrySpec,
   type ResolvedSpec,
   type ComponentCategory
@@ -278,7 +279,7 @@ export class SqlCatalogRepository implements CatalogRepository {
         sortBy
       ] ?? "price";
     const order = input.order ?? (sortBy === "price" ? "desc" : "asc");
-    const rawLimit = input.limit !== undefined ? input.limit : 20;
+    const rawLimit = input.limit !== undefined ? input.limit : 8;
     const limit = Math.max(0, Math.min(rawLimit, 50));
     const requestOffset = Math.max(0, input.offset ?? 0);
 
@@ -302,16 +303,31 @@ export class SqlCatalogRepository implements CatalogRepository {
       };
     }
 
+    const hasRegistryFilters = Boolean(
+      input.socket ||
+      input.ddr ||
+      input.form_factor ||
+      input.min_vram_gb ||
+      input.segment ||
+      input.max_tdp_w ||
+      input.max_length_mm ||
+      input.min_capacity_gb ||
+      input.interface ||
+      input.min_wattage ||
+      (input.brands && input.brands.length > 0)
+    );
+
     const batchSize = 250;
     let dbOffset = 0;
     let skipped = 0;
+    let reachedEnd = false;
     const matches: Array<{
       product: Product;
       registry: ResolvedSpec | undefined;
       resolvedSpec: RegistrySpec | undefined;
     }> = [];
 
-    while (matches.length < limit) {
+    while (true) {
       const batchSql = `SELECT * FROM products WHERE ${whereClause} ORDER BY ${sortColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
 
       const rawRows = await this.driver.all(
@@ -320,7 +336,10 @@ export class SqlCatalogRepository implements CatalogRepository {
         effectiveScope
       );
       const rows = rawRows.map(rowToProduct);
-      if (rows.length === 0) break;
+      if (rows.length === 0) {
+        reachedEnd = true;
+        break;
+      }
       dbOffset += rows.length;
 
       for (const product of rows) {
@@ -341,12 +360,19 @@ export class SqlCatalogRepository implements CatalogRepository {
             skipped++;
           } else {
             matches.push({ product, registry, resolvedSpec });
-            if (matches.length >= limit) break;
+            if (!hasRegistryFilters && matches.length >= limit + 1) break;
           }
         }
       }
 
-      if (rows.length < batchSize) break;
+      if (rows.length < batchSize) {
+        reachedEnd = true;
+        break;
+      }
+
+      if (matches.length >= limit + 1) {
+        break;
+      }
     }
 
     const results: SearchProductItem[] = matches.slice(0, limit).map(
@@ -580,22 +606,34 @@ export class SqlCatalogRepository implements CatalogRepository {
       ? { min: Math.min(...prices), max: Math.max(...prices) }
       : { min: null, max: null };
 
-    // Accurate total matching count:
-    // If we reached end of results within the first batch and didn't apply complex in-memory registry filters,
-    // matches.length + requestOffset is accurate. Otherwise count matched rows.
-    let totalMatching = results.length + requestOffset;
     const countRow = await this.driver.get<{ total_matches?: number; count?: number }>(
       `SELECT COUNT(*) AS total_matches FROM products WHERE ${whereClause}`,
       params,
       effectiveScope
     );
-    totalMatching = Number(countRow?.total_matches ?? countRow?.count ?? results.length);
+    const sqlCandidateCount = Number(countRow?.total_matches ?? countRow?.count ?? results.length);
 
-    const hasMore = totalMatching > requestOffset + results.length;
+    let totalMatching: number | undefined;
+    let hasMore: boolean;
+
+    if (hasRegistryFilters) {
+      if (reachedEnd) {
+        totalMatching = matches.length + requestOffset;
+        hasMore = matches.length > limit;
+      } else {
+        totalMatching = undefined;
+        hasMore = matches.length > limit;
+      }
+    } else {
+      totalMatching = sqlCandidateCount;
+      hasMore = totalMatching > requestOffset + results.length;
+    }
 
     let hint: string | undefined;
     if (baseline && baseline.total > results.length) {
-      hint = `Showing ${results.length} of ${totalMatching} matching in-stock products (${baseline.total} total in category).`;
+      hint = totalMatching === undefined
+        ? `Showing ${results.length} matching in-stock products; more matches are available (${baseline.total} total in category).`
+        : `Showing ${results.length} of ${totalMatching} matching in-stock products (${baseline.total} total in category).`;
       if (nearestAbove) {
         hint += ` Closest in-stock option above your price_max (${priceMax}) is ${nearestAbove.name} at ${nearestAbove.price}.`;
       }
@@ -610,6 +648,7 @@ export class SqlCatalogRepository implements CatalogRepository {
       total_matching: totalMatching,
       totalCount: totalMatching,
       returned: results.length,
+      sql_candidates: hasRegistryFilters && !reachedEnd ? sqlCandidateCount : undefined,
       has_more: hasMore,
       batch_price_range: batchPriceRange,
       category_price_range: baseline ? { min: baseline.min_price, max: baseline.max_price } : undefined,
@@ -791,7 +830,10 @@ export class SqlCatalogRepository implements CatalogRepository {
     )
       return false;
     if (input.interface && spec?.interface !== input.interface) return false;
-    if (input.min_wattage !== undefined && Number(spec?.wattage_w ?? -1) < input.min_wattage)
+    const psuWattage = spec?.wattage ?? spec?.wattage_w;
+    if (input.min_wattage !== undefined && spec && hasWattageConflict(spec))
+      return false;
+    if (input.min_wattage !== undefined && Number(psuWattage ?? -1) < input.min_wattage)
       return false;
     return true;
   }

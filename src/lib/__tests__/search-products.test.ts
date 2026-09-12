@@ -18,13 +18,17 @@ vi.mock("../db", async (importOriginal) => {
   };
 });
 
-vi.mock("../registry", () => ({
-  resolveComponent: (input: { key?: string; category?: string }, options?: { db?: unknown }) => {
-    state.resolveDbs.push(options?.db);
-    const spec = input.key ? state.specs.get(input.key) : undefined;
-    return spec ? { key: input.key, category: input.category, spec, source: "registry", confidence: "high" } : undefined;
-  }
-}));
+vi.mock("../registry", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../registry")>();
+  return {
+    ...original,
+    resolveComponent: (input: { key?: string; category?: string }, options?: { db?: unknown }) => {
+      state.resolveDbs.push(options?.db);
+      const spec = input.key ? state.specs.get(input.key) : undefined;
+      return spec ? { key: input.key, category: input.category, spec, source: "registry", confidence: "high" } : undefined;
+    }
+  };
+});
 
 function resetDb() {
   if (state.memoryDb) {
@@ -365,8 +369,8 @@ describe("searchProducts", () => {
   it("filters PSU by min_wattage", async () => {
     const { searchProducts } = await import("../tools/search-products");
     const dbPath = resetDb();
-    state.specs.set("psu-550", { wattage_w: 550 });
-    state.specs.set("psu-650", { wattage_w: 650 });
+    state.specs.set("psu-550", { wattage: 550 });
+    state.specs.set("psu-650", { wattage: 650 });
     state.specs.set("psu-750", { wattage_w: 750 });
 
     addProduct({ id: "psu-550", price: 2300, category: "psu", registry_key: "psu-550", in_stock: 1 });

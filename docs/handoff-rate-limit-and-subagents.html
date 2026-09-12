@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Handoff & Diagnostics — HTTP 429 Quota & Subagent Resolution</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #0f172a;
+      --surface-elevated: #1e293b;
+      --surface-hover: #334155;
+      --border: #1e293b;
+      --border-accent: #38bdf8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.15);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.15);
+      --warning: #f59e0b;
+      --warning-glow: rgba(245, 158, 11, 0.15);
+      --danger: #f43f5e;
+      --danger-glow: rgba(244, 63, 94, 0.15);
+      --code-bg: #050811;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem 1.5rem 5rem;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.75rem;
+      margin-bottom: 2rem;
+    }
+    .badge-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+    }
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .badge-success { background: var(--success-glow); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-danger { background: var(--danger-glow); color: var(--danger); border: 1px solid rgba(244, 63, 94, 0.3); }
+    .badge-warning { background: var(--warning-glow); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-accent { background: var(--accent-glow); color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.3); }
+
+    h1 {
+      font-size: 1.85rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* Quick KPI Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+    }
+    .kpi-card.resolved::before { background: var(--success); }
+    .kpi-card.failed::before { background: var(--danger); }
+    .kpi-card.warning::before { background: var(--warning); }
+    .kpi-card.info::before { background: var(--accent); }
+
+    .kpi-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 0.35rem;
+    }
+    .kpi-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+      font-family: var(--font-mono);
+    }
+    .kpi-desc {
+      font-size: 0.825rem;
+      color: var(--text-muted);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.75rem;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .tab-btn:hover {
+      color: var(--text);
+    }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: rgba(56, 189, 248, 0.04);
+      border-radius: 0.5rem 0.5rem 0 0;
+    }
+
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards & Sections */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Alerts */
+    .alert {
+      border-radius: 0.6rem;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      gap: 0.75rem;
+      font-size: 0.9rem;
+    }
+    .alert-danger {
+      background: var(--danger-glow);
+      border: 1px solid rgba(244, 63, 94, 0.4);
+      color: #fecdd3;
+    }
+    .alert-success {
+      background: var(--success-glow);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #a7f3d0;
+    }
+    .alert-warning {
+      background: var(--warning-glow);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fde68a;
+    }
+    .alert-info {
+      background: var(--accent-glow);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #bae6fd;
+    }
+    .alert-icon {
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      margin: 1rem 0;
+    }
+    th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      background: var(--surface-elevated);
+      color: var(--text-dim);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Code Blocks */
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.825rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+      position: relative;
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0.85rem;
+      background: var(--surface-elevated);
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+    .code-body {
+      padding: 1rem;
+      line-height: 1.5;
+    }
+    .diff-add { color: #4ade80; background: rgba(74, 222, 128, 0.1); display: block; }
+    .diff-del { color: #f87171; background: rgba(248, 113, 113, 0.1); display: block; }
+    .diff-ctx { color: #94a3b8; display: block; }
+
+    .copy-btn {
+      background: var(--surface-hover);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 0.35rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .copy-btn:hover {
+      color: var(--text);
+      background: var(--surface-elevated);
+    }
+
+    /* Diagram Containers */
+    .diagram-wrap {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      display: flex;
+      justify-content: center;
+    }
+    svg text {
+      font-family: var(--font-sans);
+    }
+
+    /* Step timeline */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+    .step-item {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      padding: 0.75rem 1rem;
+      background: var(--surface-elevated);
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+    }
+    .step-num {
+      background: var(--surface);
+      color: var(--accent);
+      border: 1px solid var(--border);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-content h4 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 0.2rem;
+    }
+    .step-content p {
+      font-size: 0.825rem;
+      color: var(--text-muted);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      body { padding: 1rem 0.75rem 3rem; }
+      h1 { font-size: 1.5rem; }
+      .kpi-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge-row">
+        <span class="badge badge-success">✓ Compaction Verified</span>
+        <span class="badge badge-danger">⚡ HTTP 429 Quota Hit</span>
+        <span class="badge badge-warning">⚠ Subagent Disconnected</span>
+        <span class="badge badge-accent">Host: Render / Hosted BYOK</span>
+      </div>
+      <h1>Diagnostic & Architecture Handoff</h1>
+      <p class="subtitle">Complete technical report from the rate-limiting & subagent investigation turn. Ready for execution.</p>
+    </header>
+
+    <!-- Top KPI Grid -->
+    <div class="kpi-grid">
+      <div class="kpi-card resolved">
+        <div class="kpi-title">HTTP 400 Context Blowout</div>
+        <div class="kpi-value" style="color: var(--success);">RESOLVED</div>
+        <div class="kpi-desc">24 tool steps executed with ~2.5 KB compact outputs. 0 payload limit issues.</div>
+      </div>
+      <div class="kpi-card failed">
+        <div class="kpi-title">Rate Limiting Failure</div>
+        <div class="kpi-value" style="color: var(--danger);">HTTP 429</div>
+        <div class="kpi-desc">Exhausted OpenRouter free-models-per-day quota after 24 tool round-trips.</div>
+      </div>
+      <div class="kpi-card warning">
+        <div class="kpi-title">Subagent Provider Failure</div>
+        <div class="kpi-value" style="color: var(--warning);">3 RED CHIPS</div>
+        <div class="kpi-desc">Subagent defaulted to dead server env keys. Consult failed on every attempt.</div>
+      </div>
+      <div class="kpi-card info">
+        <div class="kpi-title">Hosted Web Crawling</div>
+        <div class="kpi-value" style="color: var(--accent);">DISABLED</div>
+        <div class="kpi-desc">DuckDuckGo blocked datacenter IP (0 results); Python crawl disabled on hosted.</div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs">
+      <button class="tab-btn active" onclick="switchTab('summary')">1. Summary & Findings</button>
+      <button class="tab-btn" onclick="switchTab('telemetry')">2. Telemetry & Root Cause</button>
+      <button class="tab-btn" onclick="switchTab('diagrams')">3. Visual Architecture</button>
+      <button class="tab-btn" onclick="switchTab('solution')">4. Proposed Solution</button>
+      <button class="tab-btn" onclick="switchTab('diffs')">5. Exact Code Diffs</button>
+    </nav>
+
+    <!-- TAB 1: SUMMARY & FINDINGS -->
+    <div id="tab-summary" class="tab-content active">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Executive Summary</div>
+          <button class="copy-btn" onclick="copyText('summary-text')">Copy Summary</button>
+        </div>
+        <div id="summary-text">
+          <p style="margin-bottom: 1rem;">
+            Following the deployment of our <strong>compact search output format</strong>, the application successfully survived 20+ continuous multi-step tool iterations without triggering the previous <code>HTTP 400 Bad Request</code> payload overflow.
+          </p>
+          <div class="alert alert-danger">
+            <span class="alert-icon">⚡</span>
+            <div>
+              <strong>New Blocking Barrier: HTTP 429 Rate Limit Exceeded</strong><br>
+              Because <code>chat-engine.ts</code> had a step limit of <code>isStepCount(25)</code> and the model ran a runaway search loop without converging, it made 24 separate API calls in a single chat turn. On OpenRouter's <code>nex-agi/nex-n2.5-pro:free</code>, this immediately consumed the user's daily free allotment.
+            </div>
+          </div>
+          <div class="alert alert-warning">
+            <span class="alert-icon">⚠</span>
+            <div>
+              <strong>UX Degradation: Red "Subagent Research Unavailable" Cards</strong><br>
+              The model made three calls to <code>consult</code>, each failing with <em>"All fallback LLM providers failed"</em>. On hosted mode (Render), <code>subagentChain</code> is not forwarded by the client, causing the server to fall back to unconfigured server keys (Gemini/Ollama). Furthermore, DuckDuckGo web search was blocked by Render's datacenter IP, returning 0 results.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Key Insights & User Alignments</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Topic</th>
+              <th>Status / Reality</th>
+              <th>Engineering Decision</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Compact Search Fix</strong></td>
+              <td><span class="badge badge-success">Permanent Win</span></td>
+              <td>Retained as verified. Replay compaction and live search compaction are rock-solid.</td>
+            </tr>
+            <tr>
+              <td><strong>Subagent Model in Hosted</strong></td>
+              <td><span class="badge badge-accent">User Proposed</span></td>
+              <td>Subagent <strong>MUST default to the model selected for main chat</strong>. Re-uses the active BYOK key seamlessly.</td>
+            </tr>
+            <tr>
+              <td><strong>Web Search & Crawling on Render</strong></td>
+              <td><span class="badge badge-danger">Blocked / Disabled</span></td>
+              <td>DuckDuckGo blocks datacenter IPs (0 results) and live crawling is off. <strong>Consult must be gated</strong> if no paid search key (Tavily/Exa/Brave) is present.</td>
+            </tr>
+            <tr>
+              <td><strong>Tool Step Limit</strong></td>
+              <td><span class="badge badge-warning">25 Steps (Excessive)</span></td>
+              <td>Reduce step limit to <strong>12–14 steps</strong>. Build generation should converge in 8–10 steps.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 2: TELEMETRY & ROOT CAUSE -->
+    <div id="tab-telemetry" class="tab-content">
+      <div class="card">
+        <div class="card-title">Runaway Tool Calling Trace (Turn Breakdown)</div>
+        <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
+          Here is how the model burned 24 requests in one turn without finishing the build:
+        </p>
+        <div class="timeline">
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4>Tool: get_catalog</h4>
+              <p>Loaded 8 categories and active scope (INR, India). Working as intended.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>Tool: search_products (GPU ₹36k–₹45k)</h4>
+              <p>Found <strong>RTX 5060 Ti at ₹40,990</strong> and <strong>Sapphire RX 7700 XT 12GB at ₹42,490</strong>. Ideal 1440p choices.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4>Subagent: consult (freeform) → FAILED</h4>
+              <p>Model asked consult to compare 5060 Ti vs 7700 XT. Returned: <em>"freeform consult is disabled"</em>.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <h4>Subagent: consult (component_specs) × 2 → FAILED</h4>
+              <p>Model attempted research on both GPUs. Subagent failed with <em>"All fallback LLM providers failed"</em>. 16 web searches returned 0 results.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">5</div>
+            <div class="step-content">
+              <h4>Tool: search_products (4 Speculative GPU searches)</h4>
+              <p>Searched "RX 7800 XT", "RTX 4070 Super", "RTX 4070", "RTX 5070". 0 results or ₹160k cards.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">6</div>
+            <div class="step-content">
+              <h4>Tool: search_products (4 CPU searches)</h4>
+              <p>Found Ryzen 5 7600X at ₹17,190. Then redundantly queried "Ryzen 7 7700", "Ryzen 5 7600", "Core i5-14600K".</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">7</div>
+            <div class="step-content">
+              <h4>Tool: search_products (3 Motherboard searches)</h4>
+              <p>Found Gigabyte B650M Gaming WiFi at ₹9,631. Then queried "B650" and "B650M", getting the exact same list 3 times.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">8</div>
+            <div class="step-content">
+              <h4>Tool: search_products (RAM & Storage)</h4>
+              <p>Queried 32GB DDR5, found it was ₹32k+. Corrected to 16GB kit at ₹12.8k. Found 1TB NVMe SSD at ₹13k.</p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">9</div>
+            <div class="step-content">
+              <h4>The Trap: Ant Esports RX750 PSU & Subagent Failure</h4>
+              <p>PSU catalog listing lacked parsed wattage. <code>validate_build</code> flagged missing wattage. Model called <code>consult</code> again → FAILED. Model stalled.</p>
+            </div>
+          </div>
+          <div class="step-item" style="border-color: rgba(244, 63, 94, 0.4); background: var(--danger-glow);">
+            <div class="step-num" style="color: var(--danger); border-color: var(--danger);">✕</div>
+            <div class="step-content">
+              <h4 style="color: #fda4af;">Step 24: [HTTP 429] Rate limit exceeded</h4>
+              <p style="color: #fecdd3;">OpenRouter cut off the connection: <code>free-models-per-day limit reached</code>. The build was never presented.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: VISUAL ARCHITECTURE -->
+    <div id="tab-diagrams" class="tab-content">
+      <div class="card">
+        <div class="card-title">Before vs After Execution Flow</div>
+        
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 850 420" width="100%" height="420" xmlns="http://www.w3.org/2000/svg">
+            <!-- Background grid lines -->
+            <defs>
+              <linearGradient id="badGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.2"/>
+                <stop offset="100%" stop-color="#f43f5e" stop-opacity="0.05"/>
+              </linearGradient>
+              <linearGradient id="goodGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#10b981" stop-opacity="0.2"/>
+                <stop offset="100%" stop-color="#10b981" stop-opacity="0.05"/>
+              </linearGradient>
+              <marker id="arrowRed" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#f43f5e" />
+              </marker>
+              <marker id="arrowGreen" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981" />
+              </marker>
+            </defs>
+
+            <!-- Column Left: Current Runaway Flow -->
+            <rect x="20" y="20" width="390" height="380" rx="10" fill="url(#badGrad)" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="4"/>
+            <text x="40" y="50" fill="#f43f5e" font-size="14" font-weight="700">CURRENT BEHAVIOR (Runaway 24 Steps)</text>
+
+            <rect x="45" y="75" width="150" height="40" rx="6" fill="#1e293b" stroke="#334155"/>
+            <text x="55" y="100" fill="#f8fafc" font-size="12">Bracket Search</text>
+
+            <path d="M 195 95 L 235 95" stroke="#f43f5e" stroke-width="2" marker-end="url(#arrowRed)"/>
+
+            <rect x="240" y="75" width="150" height="40" rx="6" fill="#1e293b" stroke="#f43f5e"/>
+            <text x="250" y="100" fill="#f43f5e" font-size="12">4 Speculative Queries</text>
+
+            <path d="M 315 115 L 315 145" stroke="#f43f5e" stroke-width="2" marker-end="url(#arrowRed)"/>
+
+            <rect x="240" y="150" width="150" height="45" rx="6" fill="#2d121c" stroke="#f43f5e"/>
+            <text x="250" y="170" fill="#fca5a5" font-size="11" font-weight="600">consult Subagent</text>
+            <text x="250" y="185" fill="#f87171" font-size="10">All fallbacks failed</text>
+
+            <path d="M 240 172 L 120 172 L 120 220" stroke="#f43f5e" stroke-width="2" fill="none" marker-end="url(#arrowRed)"/>
+
+            <rect x="45" y="225" width="150" height="40" rx="6" fill="#1e293b" stroke="#334155"/>
+            <text x="55" y="250" fill="#f8fafc" font-size="12">Missing PSU Wattage</text>
+
+            <path d="M 195 245 L 235 245" stroke="#f43f5e" stroke-width="2" marker-end="url(#arrowRed)"/>
+
+            <rect x="240" y="225" width="150" height="45" rx="6" fill="#2d121c" stroke="#f43f5e"/>
+            <text x="250" y="245" fill="#fca5a5" font-size="11" font-weight="600">consult Retry</text>
+            <text x="250" y="260" fill="#f87171" font-size="10">Web Search 0 results</text>
+
+            <path d="M 315 270 L 315 315" stroke="#f43f5e" stroke-width="2" marker-end="url(#arrowRed)"/>
+
+            <rect x="180" y="320" width="210" height="50" rx="6" fill="#3b0d19" stroke="#f43f5e"/>
+            <text x="195" y="342" fill="#fecdd3" font-size="12" font-weight="700">HTTP 429 RATE LIMIT</text>
+            <text x="195" y="358" fill="#fda4af" font-size="10">free-models-per-day quota exhausted</text>
+
+            <!-- Column Right: Proposed Convergent Flow -->
+            <rect x="440" y="20" width="390" height="380" rx="10" fill="url(#goodGrad)" stroke="#10b981" stroke-width="1.5"/>
+            <text x="460" y="50" fill="#10b981" font-size="14" font-weight="700">PROPOSED CONVERGENT FLOW (8–10 Steps)</text>
+
+            <rect x="465" y="75" width="160" height="40" rx="6" fill="#1e293b" stroke="#334155"/>
+            <text x="475" y="100" fill="#f8fafc" font-size="12">Targeted Bracket Search</text>
+
+            <path d="M 625 95 L 675 95" stroke="#10b981" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+            <rect x="680" y="75" width="130" height="40" rx="6" fill="#064e3b" stroke="#10b981"/>
+            <text x="690" y="100" fill="#a7f3d0" font-size="12" font-weight="600">Lock Top Part</text>
+
+            <path d="M 745 115 L 745 150" stroke="#10b981" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+            <rect x="620" y="155" width="190" height="45" rx="6" fill="#1e293b" stroke="#10b981"/>
+            <text x="630" y="175" fill="#f8fafc" font-size="11" font-weight="600">Tier 2 Gating Check</text>
+            <text x="630" y="190" fill="#10b981" font-size="10">Consult omitted if search blocked</text>
+
+            <path d="M 715 200 L 715 235" stroke="#10b981" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+            <rect x="600" y="240" width="210" height="45" rx="6" fill="#1e293b" stroke="#334155"/>
+            <text x="610" y="260" fill="#f8fafc" font-size="11" font-weight="600">Frugal Fallback</text>
+            <text x="610" y="275" fill="#94a3b8" font-size="10">Pick alt in-stock part if specs missing</text>
+
+            <path d="M 705 285 L 705 320" stroke="#10b981" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+            <rect x="580" y="325" width="230" height="50" rx="6" fill="#064e3b" stroke="#10b981"/>
+            <text x="595" y="347" fill="#a7f3d0" font-size="12" font-weight="700">present_build COMPLETED</text>
+            <text x="595" y="363" fill="#6ee7b7" font-size="10">Step count: 8–10. Zero rate-limit strain.</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: PROPOSED SOLUTION -->
+    <div id="tab-solution" class="tab-content">
+      <div class="card">
+        <div class="card-title">4-Point Action Plan</div>
+        
+        <div style="margin-top: 1rem;">
+          <h3 style="color: var(--accent); font-size: 1rem; margin-bottom: 0.5rem;">Action 1: Subagent Inherits Active Chat Model & BYOK Credentials</h3>
+          <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
+            In <code>chat-config-resolver.ts</code>, when <code>config.subagentChain</code> is null or empty, automatically assign <code>subagentLlmChain: serverChain</code>. Subagents will immediately inherit the user's working OpenRouter / Gemini key.
+          </p>
+
+          <h3 style="color: var(--accent); font-size: 1rem; margin-bottom: 0.5rem;">Action 2: Dynamic Tier 2 Gating in Hosted Mode</h3>
+          <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Because DuckDuckGo is blocked on cloud datacenter IPs and live scraping is disabled, we gate <code>tier2Enabled</code>. If no paid AI search key (Tavily, Exa, Brave) is configured on hosted mode, set <code>tier2Enabled: false</code> and omit <code>consult</code> from <code>createToolRegistry()</code>.
+          </p>
+
+          <h3 style="color: var(--accent); font-size: 1rem; margin-bottom: 0.5rem;">Action 3: Search Discipline & Convergence Prompting</h3>
+          <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Update <code>buildSystemPrompt()</code> to instruct the model:
+            <br>• <em>"Do not run speculative repetitive term searches when a solid candidate was already found in the price-bracket search."</em>
+            <br>• <em>"If a candidate part lacks catalog specs (e.g. missing PSU wattage), immediately choose an alternative in-stock listing with complete specs rather than attempting research."</em>
+          </p>
+
+          <h3 style="color: var(--accent); font-size: 1rem; margin-bottom: 0.5rem;">Action 4: Tighten Stop Step Count</h3>
+          <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Lower <code>stopWhen: isStepCount(25)</code> to <code>isStepCount(14)</code> in <code>chat-engine.ts</code>. A full 8-part build needs at most 1 catalog call, 5–6 searches, 1–2 validations, and 1 presentation. 14 steps provides generous safety while enforcing convergence before daily limits trip.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: EXACT CODE DIFFS -->
+    <div id="tab-diffs" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">1. Inherit Chat Chain for Subagents</div>
+          <button class="copy-btn" onclick="copyText('diff-1')">Copy Diff</button>
+        </div>
+        <div class="code-block" id="diff-1">
+          <div class="code-header">src/features/chat/chat-config-resolver.ts</div>
+          <div class="code-body">
+            <span class="diff-ctx">   return {</span>
+            <span class="diff-ctx">     sessionId,</span>
+            <span class="diff-ctx">     config: {</span>
+            <span class="diff-ctx">       chatLlmChain: serverChain,</span>
+            <span class="diff-ctx">       llmChain: serverChain,</span>
+            <span class="diff-del">-      ...(config.subagentChain ? { subagentLlmChain: toServerChain(config.subagentChain) } : {}),</span>
+            <span class="diff-add">+      subagentLlmChain: config.subagentChain ? toServerChain(config.subagentChain) : serverChain,</span>
+            <span class="diff-ctx">       personality: config.personality,</span>
+            <span class="diff-ctx">       tier2Enabled: config.tier2Enabled,</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">2. Gating Tier 2 & Step Count Cap</div>
+          <button class="copy-btn" onclick="copyText('diff-2')">Copy Diff</button>
+        </div>
+        <div class="code-block" id="diff-2">
+          <div class="code-header">src/lib/llm/chat-engine.ts</div>
+          <div class="code-body">
+            <span class="diff-ctx">   return streamTextWithFallback({</span>
+            <span class="diff-ctx">     chain: config.llm.roles.chat,</span>
+            <span class="diff-ctx">     system: systemPrompt,</span>
+            <span class="diff-ctx">     messages: modelMessages,</span>
+            <span class="diff-ctx">     tools: createToolRegistry(config),</span>
+            <span class="diff-del">-    stopWhen: isStepCount(25),</span>
+            <span class="diff-add">+    stopWhen: isStepCount(14),</span>
+            <span class="diff-ctx">     abortSignal,</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      const targetBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+      if (targetBtn) targetBtn.classList.add('active');
+      
+      const targetContent = document.getElementById('tab-' + tabId);
+      if (targetContent) targetContent.classList.add('active');
+    }
+
+    function copyText(elemId) {
+      const el = document.getElementById(elemId);
+      if (!el) return;
+      navigator.clipboard.writeText(el.innerText).then(() => {
+        alert('Copied to clipboard!');
+      });
+    }
+  </script>
+</body>
+</html>

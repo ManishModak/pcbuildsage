@@ -12,11 +12,11 @@ export const searchProductsInputSchema = z.object({
   term: z
     .string()
     .optional()
-    .describe("Free-text search term or model query matching product title or normalized name (e.g. '4070', 'Ryzen 7800X3D')."),
+    .describe("Free-text search term or model query matching product title or normalized name (e.g. '4070', 'Ryzen 7800X3D'). Matched as a substring; similarly named variants or bundled listings may also match."),
   query: z
     .string()
     .optional()
-    .describe("Alias for term."),
+    .describe("Alias for term. Matched as a substring against product title or normalized name; similarly named variants may also match."),
   category: z.string().optional().describe("Component category to search, such as gpu, cpu, motherboard, ram, storage, psu, case, or cooler."),
   price_min: z.number().nonnegative().optional().describe("Minimum product price in standard major units for the active currency, such as Rupees or Dollars."),
   price_max: z.number().nonnegative().optional().describe("Maximum product price in standard major units for the active currency, such as Rupees or Dollars."),
@@ -52,8 +52,8 @@ export const searchProductsInputSchema = z.object({
     .nonnegative()
     .optional()
     .describe("Minimum registry-resolved power supply wattage in watts (e.g. 550, 650, 750, 850)."),
-  sort_by: z.enum(["price", "name", "retailer", "last_scraped"]).default("price").describe("Sort field. Use price for value searches, last_scraped for freshest listings."),
-  order: z.enum(["asc", "desc"]).optional().describe("Sort direction. Defaults to desc for price (best part within the budget first, which is what a build needs) and asc otherwise. Pass asc on price only when the user explicitly wants the cheapest option."),
+  sort_by: z.enum(["price", "name", "retailer", "last_scraped"]).default("price").describe("Sort field. Use price for value comparisons (asc for affordable options, desc for higher-end listings), last_scraped for freshest listings."),
+  order: z.enum(["asc", "desc"]).optional().describe("Sort direction. 'asc' sorts ascending (e.g. lowest price first to compare affordable options), 'desc' sorts descending (highest price first). Price order describes price only, not performance ranking."),
   limit: z.number().int().positive().max(12).default(8).describe("Maximum result count. Defaults to 8 and cannot exceed 12.")
 });
 

@@ -200,12 +200,15 @@ export interface SearchProductsResult {
   /** Alias for results for test harness and consumer compatibility */
   items?: SearchProductItem[];
 
-  /** Total matching count across all pages */
+  /** Exact matching count across all pages; omitted when filtering stops before the end. */
   total_matching?: number;
   totalCount?: number;
 
   /** Number of items returned in this batch */
   returned?: number;
+
+  /** Unfiltered SQL candidate count prior to post-SQL registry filtering */
+  sql_candidates?: number;
 
   /** Whether further matches exist beyond this page */
   has_more?: boolean;

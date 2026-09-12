@@ -117,8 +117,8 @@ export function parseMotherboardSpecs(name: string): RegistrySpec | undefined {
 
 export function parsePsuSpecs(name: string): RegistrySpec | undefined {
   const wMatch = name.match(/(\d{3,4})\s*W\b/i) || name.match(/\b(450|500|550|600|650|700|750|800|850|1000|1200|1300|1600)\b/);
-  const wattage_w = wMatch ? parseInt(wMatch[1] || wMatch[0], 10) : undefined;
-  if (!wattage_w || wattage_w < 250 || wattage_w > 2000) return undefined;
+  const wattage = wMatch ? parseInt(wMatch[1] || wMatch[0], 10) : undefined;
+  if (!wattage || wattage < 250 || wattage > 2000) return undefined;
 
   const isSfx = /\bSFX\b/i.test(name);
   const form_factor = isSfx ? "SFX" : "ATX";
@@ -127,7 +127,8 @@ export function parsePsuSpecs(name: string): RegistrySpec | undefined {
     brand: name.trim().split(/\s+/)[0] ?? "",
     model: name.trim(),
     aliases: [name.trim()],
-    wattage_w,
+    wattage,
+    wattage_w: wattage,
     form_factor
   };
 }
