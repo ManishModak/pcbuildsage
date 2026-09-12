@@ -130,21 +130,22 @@ export function toCompactFunctionalSpecs(
 export function toCompactProductItem(
   item: SearchProductItem | Record<string, unknown>
 ): CompactProductItem {
-  const isInStock = item.in_stock === 1 || Boolean(item.in_stock || item.inStock);
+  const record = item as Record<string, unknown>;
+  const isInStock = record.in_stock === 1 || Boolean(record.in_stock || record.inStock);
 
   return {
-    id: String(item.id ?? ""),
-    name: String(item.name ?? ""),
-    category: String(item.category ?? ""),
-    subcategory: typeof item.subcategory === "string" ? item.subcategory : null,
-    price: typeof item.price === "number" ? item.price : null,
-    currency: String(item.currency ?? "INR"),
-    country_code: String(item.country_code ?? item.countryCode ?? "IN"),
-    retailer: String(item.retailer ?? ""),
-    url: String(item.url ?? item.destinationUrl ?? ""),
+    id: String(record.id ?? ""),
+    name: String(record.name ?? ""),
+    category: String(record.category ?? ""),
+    subcategory: typeof record.subcategory === "string" ? record.subcategory : null,
+    price: typeof record.price === "number" ? record.price : null,
+    currency: String(record.currency ?? "INR"),
+    country_code: String(record.country_code ?? record.countryCode ?? "IN"),
+    retailer: String(record.retailer ?? ""),
+    url: String(record.url ?? record.destinationUrl ?? ""),
     in_stock: isInStock,
-    registry_key: typeof item.registry_key === "string" ? item.registry_key : null,
-    specs: toCompactFunctionalSpecs((item.specs ?? null) as Record<string, unknown> | null)
+    registry_key: typeof record.registry_key === "string" ? record.registry_key : null,
+    specs: toCompactFunctionalSpecs((record.specs ?? null) as Record<string, unknown> | null)
   };
 }
 
@@ -156,18 +157,19 @@ export function toCompactProductItem(
 export function toCompactSearchResult(
   raw: SearchProductsResult | Record<string, unknown>
 ): CompactSearchProductsResult {
-  const rawList = Array.isArray(raw.results)
-    ? raw.results
-    : Array.isArray(raw.items)
-      ? raw.items
+  const record = raw as Record<string, unknown>;
+  const rawList = Array.isArray(record.results)
+    ? record.results
+    : Array.isArray(record.items)
+      ? record.items
       : [];
 
   const results = rawList.map((item) => toCompactProductItem(item as SearchProductItem));
 
-  const totalMatching = typeof raw.total_matching === "number"
-    ? raw.total_matching
-    : typeof raw.totalCount === "number"
-      ? raw.totalCount
+  const totalMatching = typeof record.total_matching === "number"
+    ? record.total_matching
+    : typeof record.totalCount === "number"
+      ? record.totalCount
       : results.length;
 
   const compact: CompactSearchProductsResult = {
@@ -175,21 +177,21 @@ export function toCompactSearchResult(
     total_matching: totalMatching,
     totalCount: totalMatching,
     returned: results.length,
-    has_more: Boolean(raw.has_more ?? totalMatching > results.length)
+    has_more: Boolean(record.has_more ?? totalMatching > results.length)
   };
 
-  if (raw.scope && typeof raw.scope === "object") {
-    compact.scope = raw.scope as { country_code: string; currency: string };
+  if (record.scope && typeof record.scope === "object") {
+    compact.scope = record.scope as { country_code: string; currency: string };
   }
-  if (typeof raw.category_total === "number") compact.category_total = raw.category_total;
-  if (typeof raw.in_stock_total === "number") compact.in_stock_total = raw.in_stock_total;
-  if (raw.batch_price_range) compact.batch_price_range = raw.batch_price_range as { min: number | null; max: number | null };
-  if (raw.category_price_range) compact.category_price_range = raw.category_price_range as { min: number | null; max: number | null };
-  if (raw.nearest_above) compact.nearest_above = raw.nearest_above as NearestMatch;
-  if (raw.nearest_below) compact.nearest_below = raw.nearest_below as NearestMatch;
-  if (typeof raw.hint === "string") compact.hint = raw.hint;
-  if (typeof raw.error === "string") compact.error = raw.error;
-  if (Array.isArray(raw.valid_filters)) compact.valid_filters = raw.valid_filters;
+  if (typeof record.category_total === "number") compact.category_total = record.category_total;
+  if (typeof record.in_stock_total === "number") compact.in_stock_total = record.in_stock_total;
+  if (record.batch_price_range) compact.batch_price_range = record.batch_price_range as { min: number | null; max: number | null };
+  if (record.category_price_range) compact.category_price_range = record.category_price_range as { min: number | null; max: number | null };
+  if (record.nearest_above) compact.nearest_above = record.nearest_above as NearestMatch;
+  if (record.nearest_below) compact.nearest_below = record.nearest_below as NearestMatch;
+  if (typeof record.hint === "string") compact.hint = record.hint;
+  if (typeof record.error === "string") compact.error = record.error;
+  if (Array.isArray(record.valid_filters)) compact.valid_filters = record.valid_filters;
 
   return compact;
 }

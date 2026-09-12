@@ -148,10 +148,11 @@ describe("Replay Compaction for Saved / Resumed Chats", () => {
 
     // Original history and parts must remain identical to snapshot
     expect(originalHistory).toEqual(snapshot);
-    expect((originalHistory[1].parts![0] as { output: { items: unknown[] } }).output.items).toHaveLength(1);
-    expect(
-      (originalHistory[1].parts![0] as { output: { results: Array<{ offers?: unknown[] }> } }).output.results[0].offers
-    ).toBeDefined();
+    const firstPart = originalHistory[1].parts![0] as unknown as {
+      output: { items: unknown[]; results: Array<{ offers?: unknown[] }> };
+    };
+    expect(firstPart.output.items).toHaveLength(1);
+    expect(firstPart.output.results[0].offers).toBeDefined();
   });
 
   it("supports dynamic-tool parts with toolName === 'search_products'", () => {

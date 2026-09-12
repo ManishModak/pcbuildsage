@@ -111,10 +111,10 @@ describe("Compact Search Module", () => {
       }
     });
 
-    expect((compact as Record<string, unknown>).offers).toBeUndefined();
-    expect((compact as Record<string, unknown>).inStock).toBeUndefined();
-    expect((compact as Record<string, unknown>).first_seen).toBeUndefined();
-    expect((compact as Record<string, unknown>).last_scraped).toBeUndefined();
+    expect((compact as unknown as Record<string, unknown>).offers).toBeUndefined();
+    expect((compact as unknown as Record<string, unknown>).inStock).toBeUndefined();
+    expect((compact as unknown as Record<string, unknown>).first_seen).toBeUndefined();
+    expect((compact as unknown as Record<string, unknown>).last_scraped).toBeUndefined();
   });
 
   it("preserves full response contract in toCompactSearchResult", () => {
@@ -163,7 +163,7 @@ describe("Compact Search Module", () => {
 
     const compact = toCompactSearchResult(rawResult);
     expect(compact.results).toHaveLength(1);
-    expect((compact as Record<string, unknown>).items).toBeUndefined();
+    expect((compact as unknown as Record<string, unknown>).items).toBeUndefined();
     expect(compact.total_matching).toBe(42);
     expect(compact.totalCount).toBe(42);
     expect(compact.returned).toBe(1);
