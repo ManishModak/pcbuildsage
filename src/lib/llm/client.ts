@@ -50,8 +50,10 @@ export function sanitizeOpenAICompatibleRequestBody(
       if (message && typeof message === "object") {
         const msgObj = message as Record<string, unknown>;
         if ("reasoning_content" in msgObj || "reasoning" in msgObj) {
-          const { reasoning_content, reasoning, ...rest } = msgObj;
-          return rest;
+          const cleaned = { ...msgObj };
+          delete cleaned.reasoning_content;
+          delete cleaned.reasoning;
+          return cleaned;
         }
       }
       return message;

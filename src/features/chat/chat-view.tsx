@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { Maximize2, Minimize2, Package, TriangleAlert, X } from "lucide-react";
+import { Github, Maximize2, Minimize2, Package, TriangleAlert, X } from "lucide-react";
 import { fetchStatus, isHostedMode } from "@/lib/api-client";
 import { apiKeyHeaders } from "@/lib/client-config-store";
 import { injectByokHeaders } from "@/lib/llm/client-byok-store";
@@ -300,6 +300,16 @@ export function ChatView({
               countryCode={config.countryCode}
             />
           ) : null}
+          <a
+            href="https://github.com/ManishModak/pcbuildsage"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View source on GitHub"
+            title="View source on GitHub"
+            className="inline-flex items-center justify-center rounded-btn border border-border bg-surface p-1.5 text-text-muted hover:text-text hover:border-text-secondary/40 transition-colors duration-150 shrink-0"
+          >
+            <Icon icon={Github} size={14} />
+          </a>
           {displayBuilds && displayBuilds.length > 0 && headerBuildPrice ? (
             <button
               type="button"

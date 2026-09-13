@@ -13,7 +13,7 @@ const openAiState = vi.hoisted(() => ({
 }));
 
 vi.mock("@ai-sdk/openai-compatible", () => ({
-  createOpenAICompatible: (config: any) => {
+  createOpenAICompatible: (config: Record<string, unknown>) => {
     openAiState.configs.push(config);
     return (model: string) => ({ model, config });
   }

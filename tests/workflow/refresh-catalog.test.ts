@@ -58,16 +58,16 @@ describe("GitHub Actions Workflow: Refresh Hosted Catalog (.github/workflows/ref
   });
 
   describe("Triggers & Schedule", () => {
-    it("configures scheduled cron trigger matching '17 2 * * *'", () => {
+    it("configures scheduled cron trigger matching '17 2,14 * * *'", () => {
       expect(parsedWorkflow.on).toBeDefined();
       expect(parsedWorkflow.on.schedule).toBeInstanceOf(Array);
       expect(parsedWorkflow.on.schedule.length).toBeGreaterThanOrEqual(1);
 
       const cronEntry = parsedWorkflow.on.schedule.find(
-        (s: { cron?: string }) => s.cron === "17 2 * * *"
+        (s: { cron?: string }) => s.cron === "17 2,14 * * *"
       );
       expect(cronEntry).toBeDefined();
-      expect(cronEntry!.cron).toBe("17 2 * * *");
+      expect(cronEntry!.cron).toBe("17 2,14 * * *");
     });
 
     it("includes manual trigger workflow_dispatch", () => {
