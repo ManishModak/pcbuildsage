@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCpuPackage, parseGpuSpecs, parseSpecsFromTitle, parseStorageSpecs } from "../spec-parsers";
+import { parseRamSpecs, parseCpuPackage, parseGpuSpecs, parseSpecsFromTitle, parseStorageSpecs } from "../spec-parsers";
 
 describe("parseStorageSpecs", () => {
   it("reads capacity, interface, form factor and PCIe generation from an NVMe title", () => {
@@ -146,3 +146,17 @@ describe("parseGpuSpecs", () => {
   });
 });
 
+
+describe("explicit RAM module configurations", () => {
+  it.each([
+    ["Patriot 32GB (32GBx1) DDR5", 1, 32],
+    ["Teamgroup 8GBx2 DDR4", 2, 16],
+    ["Teamgroup 16GB (8GB×2) DDR4", 2, 16],
+    ["Corsair 2 x 16GB DDR5", 2, 32]
+  ])("extracts modules and total capacity from %s", (name, modules, capacity) => {
+    expect(parseRamSpecs(name)).toMatchObject({ modules, capacity_gb: capacity });
+  });
+  it("does not invent stick count from total capacity", () => {
+    expect(parseRamSpecs("Corsair 32GB DDR5")).not.toHaveProperty("modules");
+  });
+});

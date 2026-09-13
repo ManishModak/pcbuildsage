@@ -137,13 +137,14 @@ export function parseRamSpecs(name: string): RegistrySpec | undefined {
   const ddrMatch = name.match(/\bDDR([45])\b/i);
   const ddr = ddrMatch ? `DDR${ddrMatch[1]}` : undefined;
 
-  const kitMatch = name.match(/(\d+)\s*x\s*(\d+)\s*GB/i);
+  const countFirst = name.match(/\b(\d+)\s*[x×]\s*(\d+)\s*GB\b/i);
+  const capacityFirst = name.match(/\b(\d+)\s*GB\s*[x×]\s*(\d+)\b/i);
+  const modules = countFirst ? Number(countFirst[1]) : capacityFirst ? Number(capacityFirst[2]) : undefined;
+  const perModule = countFirst ? Number(countFirst[2]) : capacityFirst ? Number(capacityFirst[1]) : undefined;
   const singleMatch = name.match(/(\d+)\s*GB\b/i);
-  const capacity_gb = kitMatch
-    ? parseInt(kitMatch[1], 10) * parseInt(kitMatch[2], 10)
-    : singleMatch
-      ? parseInt(singleMatch[1], 10)
-      : undefined;
+  const capacity_gb = modules && perModule
+    ? modules * perModule
+    : singleMatch ? Number(singleMatch[1]) : undefined;
 
   const speedMatch = name.match(/(\d{4})\s*MHz\b/i) || name.match(/DDR[45]-(\d{4})\b/i);
   const speed_mhz = speedMatch ? parseInt(speedMatch[1], 10) : undefined;
@@ -156,7 +157,8 @@ export function parseRamSpecs(name: string): RegistrySpec | undefined {
     aliases: [name.trim()],
     ...(ddr ? { ddr } : {}),
     ...(capacity_gb ? { capacity_gb } : {}),
-    ...(speed_mhz ? { speed_mhz } : {})
+    ...(speed_mhz ? { speed_mhz } : {}),
+    ...(modules && perModule ? { modules } : {})
   };
 }
 

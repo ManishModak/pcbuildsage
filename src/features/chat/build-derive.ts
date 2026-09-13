@@ -42,6 +42,7 @@ export type BuildComponent = {
   categoryLabel: string;
   name: string;
   registryKey?: string;
+  productId?: string;
   price: number | null;
   currency: string;
   retailer?: string;
@@ -63,11 +64,13 @@ export type DerivedBuild = {
   validation: ValidationResult | null;
 };
 
-function partLabel(part: unknown): { key?: string; name: string } {
+type PartIdentity = { product_id?: string; key?: string; name: string };
+
+function partLabel(part: unknown): PartIdentity {
   if (typeof part === "string") return { key: part, name: part };
   if (part && typeof part === "object") {
-    const value = part as { key?: string; name?: string };
-    return { key: value.key, name: value.name ?? value.key ?? "unknown" };
+    const value = part as { product_id?: string; key?: string; name?: string };
+    return { product_id: value.product_id, key: value.key, name: value.name ?? value.key ?? "unknown" };
   }
   return { name: "unknown" };
 }
@@ -693,7 +696,9 @@ export function parseBuildsFromMarkdown(markdown: string, fallbackCurrency: stri
   return results;
 }
 
-function isComponentMatch(vPart: { key?: string; name: string }, bPartName: string): boolean {
+function isComponentMatch(vPart: PartIdentity, bPart: PartIdentity): boolean {
+  if (vPart.product_id || bPart.product_id) return Boolean(vPart.product_id && vPart.product_id === bPart.product_id);
+  const bPartName = bPart.name;
   const normB = normalize(bPartName);
   const canonB = canonicalizePartName(bPartName);
 
@@ -713,16 +718,16 @@ function isComponentMatch(vPart: { key?: string; name: string }, bPartName: stri
 }
 
 function findMatchingValidation(
-  build: { label?: string; parts?: Array<{ category: string; name: string }> },
+  build: { label?: string; parts?: Array<{ category: string; name: string; product_id?: string }> },
   validateParts: ToolPart[]
 ): ValidationResult | null {
   if (!build.parts || build.parts.length === 0 || validateParts.length === 0) return null;
 
-  const bMap = new Map<string, string[]>();
+  const bMap = new Map<string, PartIdentity[]>();
   for (const p of build.parts) {
     const normCat = normalizeCategory(p.category) ?? p.category.toLowerCase();
     const list = bMap.get(normCat) ?? [];
-    list.push(p.name);
+    list.push(p);
     bMap.set(normCat, list);
   }
 
@@ -732,7 +737,7 @@ function findMatchingValidation(
     const vValidation = (vPart as { output?: ValidationResult }).output;
     if (!vInput?.parts || !vValidation) continue;
 
-    const vMap = new Map<string, Array<{ key?: string; name: string }>>();
+    const vMap = new Map<string, PartIdentity[]>();
     for (const [rawCategory, raw] of Object.entries(vInput.parts)) {
       const normCat = normalizeCategory(rawCategory) ?? rawCategory.toLowerCase();
       const items = Array.isArray(raw) ? raw : [raw];
@@ -799,6 +804,7 @@ export function deriveBuildsFromToolParts(
             label?: string;
             parts?: Array<{
               category: string;
+              product_id?: string;
               name: string;
               price?: number | null;
               currency?: string;
@@ -827,9 +833,11 @@ export function deriveBuildsFromToolParts(
           .map((part) => {
             const issue = matchedValidation
               ? findComponentIssue(
-                  matchedValidation.issues ?? [],
+                  part.product_id
+                    ? (matchedValidation.issues ?? []).filter((issue) => issue.components.includes(part.product_id!) || issue.components.includes(part.category))
+                    : matchedValidation.issues ?? [],
                   part.category,
-                  undefined,
+                  part.product_id,
                   part.name
                 )
               : undefined;
@@ -839,6 +847,7 @@ export function deriveBuildsFromToolParts(
               category: part.category,
               categoryLabel: CATEGORY_LABELS[part.category] ?? part.category,
               name: part.name,
+              productId: part.product_id,
               price: typeof part.price === "number" ? part.price : null,
               currency: part.currency ?? currency,
               retailer: part.retailer,

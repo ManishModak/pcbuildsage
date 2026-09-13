@@ -1,3 +1,4 @@
+import { parseRamSpecs } from "../spec-parsers";
 import type { NearestMatch, SearchProductItem, SearchProductsResult } from "./repository";
 
 /**
@@ -136,6 +137,12 @@ export function toCompactProductItem(
   const record = item as Record<string, unknown>;
   const isInStock = record.in_stock === 1 || Boolean(record.in_stock || record.inStock);
 
+  const storedSpecs = (record.specs ?? null) as Record<string, unknown> | null;
+  const ramSpecs = record.category === "ram" ? parseRamSpecs(String(record.name ?? "")) : undefined;
+  const specs = ramSpecs?.modules
+    ? { ...storedSpecs, modules: ramSpecs.modules, capacity_gb: ramSpecs.capacity_gb }
+    : storedSpecs;
+
   return {
     id: String(record.id ?? ""),
     name: String(record.name ?? ""),
@@ -148,7 +155,7 @@ export function toCompactProductItem(
     url: String(record.url ?? record.destinationUrl ?? ""),
     in_stock: isInStock,
     registry_key: typeof record.registry_key === "string" ? record.registry_key : null,
-    specs: toCompactFunctionalSpecs((record.specs ?? null) as Record<string, unknown> | null)
+    specs: toCompactFunctionalSpecs(specs)
   };
 }
 

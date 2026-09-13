@@ -16,7 +16,7 @@ export type ValidationSummary = {
   text: string;
 };
 
-export type BuildPart = string | { key?: string; name?: string; category?: ComponentCategory };
+export type BuildPart = string | { product_id?: string; key?: string; name?: string; category?: ComponentCategory };
 export type BuildParts = Partial<Record<ComponentCategory, BuildPart | BuildPart[]>>;
 
 export type IssueSeverity = "blocking" | "needs_research" | "needs_verification" | "advisory";
@@ -677,7 +677,7 @@ function toLookup(part: BuildPart, category: ComponentCategory) {
 }
 
 function label(part: BuildPart): string {
-  return typeof part === "string" ? part : part.key ?? part.name ?? "unknown component";
+  return typeof part === "string" ? part : part.product_id ?? part.key ?? part.name ?? "unknown component";
 }
 
 export function makeResolved(key: string, category: ComponentCategory, spec: RegistrySpec, confidence: Confidence = "high", source: "registry" | "research" = "registry"): ResolvedSpec {

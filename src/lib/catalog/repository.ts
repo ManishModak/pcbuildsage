@@ -83,6 +83,8 @@ export interface GetCatalogResult {
  * Combines full-text query, pricing bounds, brand selection, and registry spec matching.
  */
 export interface SearchProductsInput {
+  /** Internal exact-offer lookup for compatibility validation; not an LLM search filter. */
+  product_ids?: string[];
   /** Free-text search term or model query matching product title or normalized name */
   term?: string;
   query?: string;

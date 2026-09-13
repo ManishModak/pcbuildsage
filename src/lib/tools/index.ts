@@ -22,7 +22,9 @@ export function createToolRegistry(config: AppConfig, options?: { repository?: C
       { dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency, repository: options?.repository },
       options?.repository
     ),
-    validate_build: createValidateBuildTool(),
+    validate_build: createValidateBuildTool(
+      { dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency }, options?.repository
+    ),
     present_build: createPresentBuildTool()
   };
 

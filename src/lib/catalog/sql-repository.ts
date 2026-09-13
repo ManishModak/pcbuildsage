@@ -230,6 +230,12 @@ export class SqlCatalogRepository implements CatalogRepository {
       params.push(effectiveScope.currency);
     }
 
+    if (input.product_ids) {
+      if (input.product_ids.length === 0) return { results: [], total_matching: 0 };
+      where.push(`id IN (${input.product_ids.map(() => "?").join(", ")})`);
+      params.push(...input.product_ids);
+    }
+
     const searchTerm = (input.term ?? input.query)?.trim();
     if (searchTerm) {
       where.push("(name LIKE ? OR normalized_name LIKE ?)");

@@ -10,6 +10,7 @@ export const presentBuildInputSchema = z.object({
           .array(
             z.object({
               category: z.enum(["gpu", "cpu", "motherboard", "ram", "storage", "psu", "case", "cooler"]).describe("Component category"),
+              product_id: z.string().min(1).optional().describe("Exact search_products result id, also passed to validate_build for this part."),
               name: z.string().describe("Full product name / model"),
               price: z.number().nullable().optional().describe("Price in standard major currency units (e.g. standard INR or USD)"),
               currency: z.string().optional().describe("Currency code, e.g. 'INR'"),

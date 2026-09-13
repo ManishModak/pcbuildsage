@@ -76,6 +76,15 @@ describe("SqliteCatalogRepository", () => {
     resetCatalogRepositoryRegistry();
   });
 
+  it("looks up exact offer IDs within market scope, including retired offers", async () => {
+    insertProduct(db, { id: "selected", name: "Selected CPU", in_stock: 0 });
+    insertProduct(db, { id: "unselected", name: "Other CPU" });
+    insertProduct(db, { id: "foreign", country_code: "IN", currency: "INR" });
+    const result = await repo.searchProducts({ product_ids: ["selected", "foreign"], in_stock: false }, scopeUS);
+    expect(result.results.map((product) => product.id)).toEqual(["selected"]);
+    expect((await repo.searchProducts({ product_ids: [] }, scopeUS)).results).toEqual([]);
+  });
+
   describe("Factory Registration and Instantiation", () => {
     it("is resolved as default local catalog repository from getCatalogRepository('local')", () => {
       const defaultRepo = getCatalogRepository("local");
