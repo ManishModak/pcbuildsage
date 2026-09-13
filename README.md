@@ -7,6 +7,8 @@ Compare live PC component prices from *your local retailers*, chat with an AI bu
 <!-- badges -->
 ![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen) ![GitHub Stars](https://img.shields.io/github/stars/ManishModak/pcbuildsage?style=social) ![Local First](https://img.shields.io/badge/100%25-local--first-blue)
 
+🌐 **Live Demo:** [https://pcbuildsage.onrender.com](https://pcbuildsage.onrender.com)
+
 ---
 
 ## Why PCBuildSage?
@@ -119,16 +121,6 @@ npm run validate:data
 **Does it work offline?** Scraped data, search, and compatibility checks are fully offline. Chat needs whatever your LLM needs (local Ollama = fully offline).
 
 **Is my data private?** Everything stays on your machine. Keys are sent only to the LLM provider you configure.
-
----
-
-## Roadmap
-
-- [ ] 🎮 **FPS & Workload Estimator** — Deterministic FPS and benchmark estimation from component specs.
-- [ ] 📏 **Advanced 3D Spatial Clearance Engine** — GPU vs radiator, RAM vs cooler, PSU vs drive cages.
-- [ ] 🛠️ **In-App Profile Manager** — Inspect, test, and sync community profiles from the UI.
-- [ ] 📄 **Export & Share** — Markdown, Reddit markup, HTML, and JSON export.
-- [ ] 🧩 **Self-Healing Scraper** — Automatic LLM selector recovery when store layouts change.
 
 ---
 
