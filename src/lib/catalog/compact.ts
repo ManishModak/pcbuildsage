@@ -90,6 +90,8 @@ export interface CompactSearchProductsResult {
   nearest_below?: NearestMatch;
   hint?: string;
   error?: string;
+  /** @deprecated Standardized on `hint`. Retained for backward compatibility. */
+  note?: string;
   valid_filters?: string[];
 }
 
@@ -196,6 +198,7 @@ export function toCompactSearchResult(
   if (record.nearest_below) compact.nearest_below = record.nearest_below as NearestMatch;
   if (typeof record.hint === "string") compact.hint = record.hint;
   if (typeof record.error === "string") compact.error = record.error;
+  if (typeof record.note === "string") compact.note = record.note;
   if (Array.isArray(record.valid_filters)) compact.valid_filters = record.valid_filters;
 
   return compact;

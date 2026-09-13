@@ -136,10 +136,26 @@ export type BuildIssue = {
   components: string[];
   detail: string;
 };
+export type CheckStatus = "passed" | "failed" | "unverified";
+export type RuleCheckResult = {
+  rule: string;
+  status: CheckStatus;
+  components: string[];
+  message: string;
+};
+export type ValidationSummary = {
+  passed: number;
+  failed: number;
+  unverified: number;
+  text: string;
+};
 export type ValidationResult = {
   valid: boolean;
   issues: BuildIssue[];
   resolved: Record<string, unknown>;
+  checks?: RuleCheckResult[];
+  summary?: ValidationSummary;
+  skipped_checks?: Array<{ rule: string; missing: string[] }>;
 };
 
 // search_products tool output rows.

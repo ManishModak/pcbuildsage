@@ -5,6 +5,7 @@ import json
 import re
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Any
 
 from .config import REPO_ROOT
 
@@ -106,6 +107,114 @@ def parse_price(price_text: str | None) -> float | None:
         return None
     return float(value)
 
+
+
+def parse_cpu_package(name: str) -> dict[str, str]:
+    lower = name.lower()
+    cooler_name = None
+    if "wraith prism" in lower:
+        cooler_name = "AMD Wraith Prism"
+    elif "wraith stealth" in lower or re.search(r"\bwith\s+wraith\b", lower):
+        cooler_name = "AMD Wraith Stealth"
+    elif re.search(r"\bintel\s+laminar\b", lower) or re.search(r"\blaminar\s+rm1\b", lower):
+        cooler_name = "Intel Laminar RM1"
+
+    explicit_no_cooler_patterns = [
+        r"\bwithout\s+cooler\b",
+        r"\bno\s+cooler\b",
+        r"\bw/o\s+cooler\b",
+        r"\bcooler\s+not\s+included\b",
+    ]
+    generic_no_cooler_patterns = [
+        r"\btray\b",
+        r"\boem\b",
+    ]
+    explicit_included_patterns = [
+        r"\bwith\s+wraith\b",
+        r"\bwith\s+(?:stock\s+)?cooler\b",
+        r"\bboxed\s+with\s+cooler\b",
+        r"\bboxed\s*\(\s*with\s+fan\s*\)",
+        r"\bwith\s+fan\b",
+        r"\bwith\s+(?:(?:amd\s+)?wraith|intel\s+laminar|laminar\s+rm1)\b",
+    ]
+
+    has_explicit_no_cooler = any(re.search(p, lower) for p in explicit_no_cooler_patterns)
+    has_generic_no_cooler = any(re.search(p, lower) for p in generic_no_cooler_patterns)
+    has_explicit_included = any(re.search(p, lower) for p in explicit_included_patterns)
+
+    # Conflicting statements stay unknown
+    if has_explicit_no_cooler and has_explicit_included:
+        return {"cooler_included": "unknown"}
+
+    # Explicit no-cooler wording must NOT be overridden merely because a cooler name appears
+    if has_explicit_no_cooler:
+        return {"cooler_included": "not_included"}
+
+    # Explicit inclusion keywords can override generic oem/tray labels
+    if has_explicit_included:
+        res: dict[str, str] = {"cooler_included": "included"}
+        if cooler_name:
+            res["cooler_name"] = cooler_name
+        return res
+
+    # Generic oem/tray labels without explicit inclusion
+    if has_generic_no_cooler:
+        return {"cooler_included": "not_included"}
+
+    # If a known cooler name is present without negative clues, it's included
+    if cooler_name is not None:
+        return {"cooler_included": "included", "cooler_name": cooler_name}
+
+    return {"cooler_included": "unknown"}
+
+
+def parse_gpu_specs(name: str) -> dict[str, Any] | None:
+    length_mm: int | None = None
+
+    match = re.search(r"(?:card\s+)?length[:\s]+(\d{2,3}(?:\.\d+)?)\s*mm\b", name, re.I)
+    if not match:
+        match = re.search(r"(\d{2,3}(?:\.\d+)?)\s*mm\s+(?:card\s+)?length\b", name, re.I)
+
+    if match:
+        val = float(match.group(1))
+        if 100 <= val <= 500:
+            length_mm = round(val)
+    else:
+        dim_match = re.search(
+            r"dimensions?[:\s]+(\d{2,3}(?:\.\d+)?)\s*(?:mm)?\s*(?:[x*×])\s*(\d{2,3}(?:\.\d+)?)\s*(?:mm)?\s*(?:[x*×])\s*(\d{2,3}(?:\.\d+)?)\s*mm\b",
+            name,
+            re.I,
+        )
+        if dim_match:
+            dims = [float(dim_match.group(1)), float(dim_match.group(2)), float(dim_match.group(3))]
+            max_dim = max(dims)
+            if 100 <= max_dim <= 500:
+                length_mm = round(max_dim)
+
+    slot_width: float | None = None
+    slot_match = re.search(r"(?<!m\.)(?<!pcie\s)(?<!pci-e\s)\b([1-4](?:\.[0-9])?)\s*[- ]?slots?\b", name, re.I)
+    if slot_match:
+        try:
+            s_val = float(slot_match.group(1))
+            if 1.0 <= s_val <= 5.0:
+                slot_width = s_val
+        except (ValueError, InvalidOperation):
+            pass
+
+    if length_mm is None and slot_width is None:
+        return None
+
+    brand = name.strip().split()[0] if name.strip() else ""
+    res: dict[str, Any] = {
+        "brand": brand,
+        "model": name.strip(),
+        "aliases": [name.strip()],
+    }
+    if length_mm is not None:
+        res["length_mm"] = length_mm
+    if slot_width is not None:
+        res["slot_width"] = slot_width
+    return res
 
 
 def normalize_title(title: str) -> str:

@@ -3,6 +3,7 @@ import type { AppConfig } from "@/types";
 import type { CatalogRepository } from "@/lib/catalog";
 import { createSearchProductsTool } from "./search-products";
 import { createGetCatalogTool } from "./get-catalog";
+import { createListModelsTool } from "./list-models";
 import { createValidateBuildTool } from "./validate-build";
 import { createPresentBuildTool } from "./present-build";
 import { createConsultTool } from "./consult";
@@ -14,6 +15,10 @@ export function createToolRegistry(config: AppConfig, options?: { repository?: C
       options?.repository
     ),
     get_catalog: createGetCatalogTool(
+      { dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency, repository: options?.repository },
+      options?.repository
+    ),
+    list_models: createListModelsTool(
       { dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency, repository: options?.repository },
       options?.repository
     ),
@@ -29,6 +34,7 @@ export function createToolRegistry(config: AppConfig, options?: { repository?: C
 
 export { createSearchProductsTool, searchProducts } from "./search-products";
 export { createGetCatalogTool, getCatalog } from "./get-catalog";
+export { createListModelsTool, listModels } from "./list-models";
 export { createValidateBuildTool } from "./validate-build";
 export { createPresentBuildTool } from "./present-build";
 export { createConsultTool, consult } from "./consult";

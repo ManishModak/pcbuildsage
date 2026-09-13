@@ -179,11 +179,12 @@ describe("Compact Search Module", () => {
     expect(compact.valid_filters).toEqual(["category", "price_max"]);
   });
 
-  it("enforces schema limit validation (default 8, max 12)", () => {
-    expect(searchProductsInputSchema.parse({}).limit).toBe(8);
+  it("enforces schema limit validation (default 12, allows > 12 without Zod rejection)", () => {
+    expect(searchProductsInputSchema.parse({}).limit).toBe(12);
     expect(searchProductsInputSchema.safeParse({ limit: 8 }).success).toBe(true);
     expect(searchProductsInputSchema.safeParse({ limit: 12 }).success).toBe(true);
-    expect(searchProductsInputSchema.safeParse({ limit: 13 }).success).toBe(false);
+    expect(searchProductsInputSchema.safeParse({ limit: 13 }).success).toBe(true);
+    expect(searchProductsInputSchema.safeParse({ limit: 20 }).success).toBe(true);
     expect(searchProductsInputSchema.safeParse({ limit: 0 }).success).toBe(false);
     expect(searchProductsInputSchema.safeParse({ limit: -5 }).success).toBe(false);
   });
@@ -199,19 +200,22 @@ describe("Compact Search Module", () => {
     };
 
     const originalInput = { category: "gpu", limit: 30 };
-    await searchProducts(originalInput, { countryCode: "IN", currency: "INR" }, mockRepo as unknown as Parameters<typeof searchProducts>[2]);
+    const res = await searchProducts(originalInput, { countryCode: "IN", currency: "INR" }, mockRepo as unknown as Parameters<typeof searchProducts>[2]);
 
     // Original input object was NOT mutated
     expect(originalInput.limit).toBe(30);
     // Repository received clamped limit of 12
     expect(capturedInput?.limit).toBe(12);
+    // Over-limit warning note and hint are included
+    expect(res.hint).toContain("Showing up to 12 results—the maximum per search.");
+    expect(res.note).toBe("Showing up to 12 results—the maximum per search.");
 
     // Fractional limit
     await searchProducts({ category: "gpu", limit: 5.7 }, { countryCode: "IN", currency: "INR" }, mockRepo as unknown as Parameters<typeof searchProducts>[2]);
     expect(capturedInput?.limit).toBe(6);
 
-    // Non-finite limit
+    // Non-finite limit defaults to 12
     await searchProducts({ category: "gpu", limit: NaN }, { countryCode: "IN", currency: "INR" }, mockRepo as unknown as Parameters<typeof searchProducts>[2]);
-    expect(capturedInput?.limit).toBe(8);
+    expect(capturedInput?.limit).toBe(12);
   });
 });

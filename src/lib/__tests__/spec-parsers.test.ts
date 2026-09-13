@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSpecsFromTitle, parseStorageSpecs } from "../spec-parsers";
+import { parseCpuPackage, parseGpuSpecs, parseSpecsFromTitle, parseStorageSpecs } from "../spec-parsers";
 
 describe("parseStorageSpecs", () => {
   it("reads capacity, interface, form factor and PCIe generation from an NVMe title", () => {
@@ -60,3 +60,89 @@ describe("parseStorageSpecs", () => {
     expect(parseSpecsFromTitle("AMD Ryzen 7 9700X 8GB", "cpu")).toBeUndefined();
   });
 });
+
+describe("parseCpuPackage", () => {
+  it("detects included stock cooler and cooler name from clues", () => {
+    expect(parseCpuPackage("AMD Ryzen 5 5600 with Wraith Stealth Cooler")).toEqual({
+      cooler_included: "included",
+      cooler_name: "AMD Wraith Stealth"
+    });
+    expect(parseCpuPackage("AMD Ryzen 7 3700X with Wraith Prism cooler")).toEqual({
+      cooler_included: "included",
+      cooler_name: "AMD Wraith Prism"
+    });
+    expect(parseCpuPackage("Intel Core i5-12400 Boxed with cooler")).toEqual({
+      cooler_included: "included"
+    });
+    expect(parseCpuPackage("AMD Ryzen 5 7600 Boxed (with fan)")).toEqual({
+      cooler_included: "included"
+    });
+    expect(parseCpuPackage("Intel Core i5 12400 with stock cooler")).toEqual({
+      cooler_included: "included"
+    });
+  });
+
+  it("detects non-included cooler from clues", () => {
+    expect(parseCpuPackage("AMD Ryzen 7 7800X3D Without Cooler")).toEqual({ cooler_included: "not_included" });
+    expect(parseCpuPackage("AMD Ryzen 7 7800X3D No Cooler")).toEqual({ cooler_included: "not_included" });
+    expect(parseCpuPackage("AMD Ryzen 7 7800X3D w/o cooler")).toEqual({ cooler_included: "not_included" });
+    expect(parseCpuPackage("AMD Ryzen 7 7800X3D Cooler Not Included")).toEqual({ cooler_included: "not_included" });
+    expect(parseCpuPackage("AMD Ryzen 7 7800X3D Tray")).toEqual({ cooler_included: "not_included" });
+    expect(parseCpuPackage("Intel Core i7-13700K OEM")).toEqual({ cooler_included: "not_included" });
+  });
+
+  it("allows explicit inclusion to override generic oem/tray labels", () => {
+    expect(parseCpuPackage("AMD Ryzen 5 5600 OEM with Wraith Stealth")).toEqual({
+      cooler_included: "included",
+      cooler_name: "AMD Wraith Stealth"
+    });
+    expect(parseCpuPackage("Intel Core i5-12400 Tray Boxed with cooler")).toEqual({
+      cooler_included: "included"
+    });
+  });
+
+  it("does not override explicit no-cooler wording when cooler name appears", () => {
+    expect(parseCpuPackage("AMD Ryzen 5 5600 without cooler Wraith Stealth")).toEqual({
+      cooler_included: "not_included"
+    });
+    expect(parseCpuPackage("AMD Ryzen 7 7800X3D No Cooler Wraith Prism")).toEqual({
+      cooler_included: "not_included"
+    });
+    expect(parseCpuPackage("AMD Ryzen 5 5600 w/o cooler AMD Wraith Stealth")).toEqual({
+      cooler_included: "not_included"
+    });
+  });
+
+  it("keeps conflicting cooler statements unknown", () => {
+    expect(parseCpuPackage("AMD Ryzen 5 5600 with Wraith Stealth without cooler")).toEqual({
+      cooler_included: "unknown"
+    });
+    expect(parseCpuPackage("Intel Core i5-12400 Boxed with cooler no cooler")).toEqual({
+      cooler_included: "unknown"
+    });
+  });
+
+  it("returns unknown when no clues are present", () => {
+    expect(parseCpuPackage("AMD Ryzen 7 9700X 8GB")).toEqual({ cooler_included: "unknown" });
+  });
+});
+
+describe("parseGpuSpecs", () => {
+  it("detects explicit GPU length in millimeters", () => {
+    expect(parseGpuSpecs("Gigabyte RTX 4070 Windforce OC Length: 261mm")?.length_mm).toBe(261);
+    expect(parseGpuSpecs("Sapphire Pure AMD Radeon RX 7700 XT 12GB Card Length: 320mm")?.length_mm).toBe(320);
+    expect(parseGpuSpecs("ASUS TUF Gaming GeForce RTX 4070 Ti Dimensions: 305 x 138 x 65 mm")?.length_mm).toBe(305);
+  });
+
+  it("does not mistake fan sizes for card length", () => {
+    expect(parseGpuSpecs("MSI GeForce RTX 4060 Ventus 2X Black 8G OC Dual 100mm Fan")).toBeUndefined();
+    expect(parseGpuSpecs("Gigabyte RTX 4070 Gaming OC 120mm PWM Fans")).toBeUndefined();
+  });
+
+  it("leaves length undefined when context does not explicitly identify card length", () => {
+    expect(parseGpuSpecs("Sapphire Pulse AMD Radeon RX 7700 XT 12GB")).toBeUndefined();
+    expect(parseGpuSpecs("ZOTAC Gaming GeForce RTX 4060 8GB 222 mm")).toBeUndefined();
+    expect(parseGpuSpecs("Sapphire Pure AMD Radeon RX 7700 XT 12GB (320mm)")).toBeUndefined();
+  });
+});
+

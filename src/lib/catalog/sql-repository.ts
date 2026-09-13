@@ -18,6 +18,7 @@ import type { Product } from "@/types/db";
 import { toPriceMinor } from "@/types/catalog";
 import { STANDARD_MARKETS, type MarketMetadata } from "@/lib/config/deployment";
 import type { SqlDriver } from "./sql-driver";
+import { aggregateModels, matchesModelId } from "./model-aggregator";
 import type {
   CatalogRepository,
   CatalogScope,
@@ -28,7 +29,9 @@ import type {
   NearestMatch,
   CategoryBaselineResult,
   CatalogFreshnessResult,
-  CatalogCategorySummary
+  CatalogCategorySummary,
+  ListModelsInput,
+  ListModelsResult
 } from "./repository";
 import type { ProductOffer } from "./types";
 
@@ -233,9 +236,10 @@ export class SqlCatalogRepository implements CatalogRepository {
       params.push(`%${searchTerm}%`, `%${searchTerm}%`);
     }
 
-    if (input.category) {
+    const normalizedCategory = input.category ? input.category.trim().toLowerCase() : undefined;
+    if (normalizedCategory) {
       where.push("category = ?");
-      params.push(input.category);
+      params.push(normalizedCategory);
     }
 
     if (input.subcategory) {
@@ -279,7 +283,7 @@ export class SqlCatalogRepository implements CatalogRepository {
         sortBy
       ] ?? "price";
     const order = input.order ?? (sortBy === "price" ? "desc" : "asc");
-    const rawLimit = input.limit !== undefined ? input.limit : 8;
+    const rawLimit = input.limit !== undefined ? input.limit : 12;
     const limit = Math.max(0, Math.min(rawLimit, 50));
     const requestOffset = Math.max(0, input.offset ?? 0);
 
@@ -304,16 +308,19 @@ export class SqlCatalogRepository implements CatalogRepository {
     }
 
     const hasRegistryFilters = Boolean(
+      input.model_id ||
+      input.min_gpu_clearance_mm !== undefined ||
+      input.min_cooler_clearance_mm !== undefined ||
       input.socket ||
       input.ddr ||
       input.form_factor ||
-      input.min_vram_gb ||
+      input.min_vram_gb !== undefined ||
       input.segment ||
-      input.max_tdp_w ||
-      input.max_length_mm ||
-      input.min_capacity_gb ||
+      input.max_tdp_w !== undefined ||
+      input.max_length_mm !== undefined ||
+      input.min_capacity_gb !== undefined ||
       input.interface ||
-      input.min_wattage ||
+      input.min_wattage !== undefined ||
       (input.brands && input.brands.length > 0)
     );
 
@@ -355,7 +362,7 @@ export class SqlCatalogRepository implements CatalogRepository {
           }
         }
 
-        if (this.matchesRegistryFilters(product, resolvedSpec, input)) {
+        if (this.matchesRegistryFilters(product, resolvedSpec, input, registry?.key ?? product.registry_key ?? undefined)) {
           if (skipped < requestOffset) {
             skipped++;
           } else {
@@ -426,22 +433,22 @@ export class SqlCatalogRepository implements CatalogRepository {
       }
     );
 
-    const baseline = input.category
-      ? await this.getCategoryBaseline(input.category, effectiveScope, input.subcategory)
+    const baseline = normalizedCategory
+      ? await this.getCategoryBaseline(normalizedCategory, effectiveScope, input.subcategory)
       : null;
     const sliceName = input.subcategory
-      ? `${input.subcategory} ${input.category}`
-      : `build-relevant ${input.category}`;
+      ? `${input.subcategory} ${normalizedCategory ?? input.category}`
+      : `build-relevant ${normalizedCategory ?? input.category}`;
 
     const clause = input.subcategory ? "subcategory = ?" : BUILD_RELEVANT_SQL;
 
     let nearestAbove: NearestMatch | undefined;
     let nearestBelow: NearestMatch | undefined;
 
-    if (baseline && baseline.in_stock_total > 0 && input.category) {
+    if (baseline && baseline.in_stock_total > 0 && normalizedCategory) {
       if (priceMax !== undefined) {
         const aboveWhere = ["category = ?", "in_stock = 1", clause, "price > ?"];
-        const aboveParams: unknown[] = [input.category];
+        const aboveParams: unknown[] = [normalizedCategory];
         if (effectiveScope.countryCode) {
           aboveWhere.unshift("country_code = ?");
           aboveParams.unshift(effectiveScope.countryCode);
@@ -470,7 +477,7 @@ export class SqlCatalogRepository implements CatalogRepository {
               } catch {}
             }
           }
-          if (this.matchesRegistryFilters(aboveRow, resSpec, input)) {
+          if (this.matchesRegistryFilters(aboveRow, resSpec, input, reg?.key ?? aboveRow.registry_key ?? undefined)) {
             nearestAbove = {
               name: aboveRow.name,
               price: aboveRow.price,
@@ -484,7 +491,7 @@ export class SqlCatalogRepository implements CatalogRepository {
 
       if (priceMin !== undefined) {
         const belowWhere = ["category = ?", "in_stock = 1", clause, "price < ?"];
-        const belowParams: unknown[] = [input.category];
+        const belowParams: unknown[] = [normalizedCategory];
         if (effectiveScope.countryCode) {
           belowWhere.unshift("country_code = ?");
           belowParams.unshift(effectiveScope.countryCode);
@@ -513,7 +520,7 @@ export class SqlCatalogRepository implements CatalogRepository {
               } catch {}
             }
           }
-          if (this.matchesRegistryFilters(belowRow, resSpec, input)) {
+          if (this.matchesRegistryFilters(belowRow, resSpec, input, reg?.key ?? belowRow.registry_key ?? undefined)) {
             nearestBelow = {
               name: belowRow.name,
               price: belowRow.price,
@@ -676,8 +683,9 @@ export class SqlCatalogRepository implements CatalogRepository {
 
     const countryCode = effectiveScope.countryCode;
     const currency = effectiveScope.currency;
+    const normalizedCategory = category.trim().toLowerCase();
     const where = ["category = ?"];
-    const params: unknown[] = [category];
+    const params: unknown[] = [normalizedCategory];
 
     if (countryCode) {
       where.unshift("country_code = ?");
@@ -793,11 +801,120 @@ export class SqlCatalogRepository implements CatalogRepository {
     await this.driver.close();
   }
 
+  /**
+   * Lists aggregated component models and their specs, price ranges, and listing counts.
+   */
+  async listModels(
+    input: ListModelsInput = {},
+    scope: CatalogScope = { countryCode: "US", currency: "USD" }
+  ): Promise<ListModelsResult> {
+    const effectiveScope =
+      typeof scope === "string"
+        ? { countryCode: scope, currency: "USD" }
+        : scope ?? { countryCode: "US", currency: "USD" };
+
+    const countryCode = effectiveScope.countryCode ?? "US";
+    const currency = effectiveScope.currency ?? "USD";
+
+    if (input.price_min !== undefined && input.price_max !== undefined && input.price_min > input.price_max) {
+      return {
+        models: [],
+        total_matching_models: 0,
+        returned_models: 0,
+        truncated: false,
+        scope: { country_code: countryCode, currency },
+        hint: `price_min (${input.price_min}) cannot be greater than price_max (${input.price_max}).`
+      };
+    }
+
+    const where: string[] = [];
+    const params: unknown[] = [];
+
+    if (effectiveScope.countryCode) {
+      where.push("country_code = ?");
+      params.push(effectiveScope.countryCode);
+    }
+    if (effectiveScope.currency) {
+      where.push("currency = ?");
+      params.push(effectiveScope.currency);
+    }
+
+    const normalizedCategory = input.category ? input.category.trim().toLowerCase() : undefined;
+    if (normalizedCategory) {
+      where.push("category = ?");
+      params.push(normalizedCategory);
+    }
+
+    where.push(BUILD_RELEVANT_SQL);
+
+    if (input.price_min !== undefined) {
+      where.push("price >= ?");
+      params.push(input.price_min);
+    }
+
+    if (input.price_max !== undefined) {
+      where.push("price <= ?");
+      params.push(input.price_max);
+    }
+
+    const effectiveInStock = input.in_stock !== false;
+    if (effectiveInStock) {
+      where.push("in_stock = 1");
+    } else if (input.in_stock === false) {
+      where.push("in_stock = 0");
+    }
+
+    const whereClause = where.length > 0 ? where.join(" AND ") : "1=1";
+    const sql = `SELECT * FROM products WHERE ${whereClause} ORDER BY price ASC`;
+    const rawRows = await this.driver.all(sql, params, effectiveScope);
+    const products = rawRows.map(rowToProduct);
+
+    const allModels = aggregateModels(products, {
+      resolveSpec: (product) => {
+        const reg = this.resolveProductSpec(product, effectiveScope);
+        return { spec: reg?.spec, key: reg?.key };
+      },
+      input
+    });
+
+    const requestedLimit = input.limit !== undefined ? Number(input.limit) : 20;
+    const limit = Math.max(1, Number.isFinite(requestedLimit) ? requestedLimit : 20);
+
+    const totalMatching = allModels.length;
+    const returnedList = allModels.slice(0, limit);
+    const truncated = totalMatching > returnedList.length;
+
+    let hint: string | undefined;
+    if (truncated) {
+      hint = `Showing ${returnedList.length} of ${totalMatching} matching models. Narrow results by category, price bounds, or specification filters.`;
+    } else if (returnedList.length === 0) {
+      hint = "No models found matching the specified criteria.";
+    }
+
+    return {
+      models: returnedList,
+      total_matching_models: totalMatching,
+      returned_models: returnedList.length,
+      truncated,
+      scope: {
+        country_code: countryCode,
+        currency
+      },
+      ...(hint ? { hint } : {})
+    };
+  }
+
   protected matchesRegistryFilters(
     product: Product,
     spec: RegistrySpec | undefined,
-    input: SearchProductsInput
+    input: SearchProductsInput,
+    registryKey?: string
   ): boolean {
+    if (input.model_id) {
+      if (!matchesModelId(product, spec, input.model_id, registryKey)) {
+        return false;
+      }
+    }
     if (input.brands?.length) {
       const haystack = `${spec?.brand ?? ""} ${product.name}`.toLowerCase();
       if (!input.brands.some((brand) => haystack.includes(brand.toLowerCase()))) return false;
@@ -824,6 +941,18 @@ export class SqlCatalogRepository implements CatalogRepository {
       Number(spec?.length_mm ?? Number.POSITIVE_INFINITY) > input.max_length_mm
     )
       return false;
+    if (input.min_gpu_clearance_mm !== undefined) {
+      const caseGpuMax = spec?.max_gpu_length_mm;
+      if (caseGpuMax === undefined || caseGpuMax === null || Number(caseGpuMax) < input.min_gpu_clearance_mm) {
+        return false;
+      }
+    }
+    if (input.min_cooler_clearance_mm !== undefined) {
+      const caseCoolerMax = spec?.max_cooler_height_mm;
+      if (caseCoolerMax === undefined || caseCoolerMax === null || Number(caseCoolerMax) < input.min_cooler_clearance_mm) {
+        return false;
+      }
+    }
     if (
       input.min_capacity_gb !== undefined &&
       Number(spec?.capacity_gb ?? -1) < input.min_capacity_gb

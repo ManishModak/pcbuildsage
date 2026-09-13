@@ -279,6 +279,7 @@ describe("Phase 1 Adversarial & Stress Testing Suite", () => {
       const mockCustomRepo: CatalogRepository = {
         getCatalog: vi.fn(),
         searchProducts: vi.fn(),
+        listModels: vi.fn(),
         getCategoryBaseline: vi.fn(),
         getFreshness: vi.fn()
       };
@@ -302,6 +303,7 @@ describe("Phase 1 Adversarial & Stress Testing Suite", () => {
       class CustomMockRepo implements CatalogRepository {
         async getCatalog() { return { categories: [], scope: { country_code: "US", currency: "USD" } }; }
         async searchProducts() { return { results: [] }; }
+        async listModels() { return { models: [], total_matching_models: 0, returned_models: 0, truncated: false, scope: { country_code: "US", currency: "USD" } }; }
         async getCategoryBaseline() { return { total: 0, in_stock_total: 0, min_price: null, max_price: null }; }
         async getFreshness() { return { lastScraped: null, productCount: 0 }; }
       }

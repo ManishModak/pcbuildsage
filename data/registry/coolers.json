@@ -4735,5 +4735,61 @@
     ],
     "confidence": "high",
     "researched_at": "2026-08-16T15:34:56+05:30"
+  },
+  "amd-wraith-stealth": {
+    "brand": "AMD",
+    "model": "AMD Wraith Stealth",
+    "aliases": [
+      "AMD Wraith Stealth",
+      "Wraith Stealth"
+    ],
+    "height_mm": 54,
+    "sockets": [
+      "AM4",
+      "AM5"
+    ],
+    "tdp_rating_w": 65,
+    "sources": [
+      "https://www.amd.com/en/technologies/cpu-cooler-solution"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-13T00:00:00Z"
+  },
+  "amd-wraith-prism": {
+    "brand": "AMD",
+    "model": "AMD Wraith Prism",
+    "aliases": [
+      "AMD Wraith Prism",
+      "Wraith Prism"
+    ],
+    "height_mm": 96,
+    "sockets": [
+      "AM4",
+      "AM5"
+    ],
+    "tdp_rating_w": 105,
+    "sources": [
+      "https://www.amd.com/en/technologies/cpu-cooler-solution"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-13T00:00:00Z"
+  },
+  "intel-laminar-rm1": {
+    "brand": "Intel",
+    "model": "Intel Laminar RM1",
+    "aliases": [
+      "Intel Laminar RM1",
+      "Laminar RM1"
+    ],
+    "height_mm": 47,
+    "sockets": [
+      "LGA 1700"
+    ],
+    "tdp_rating_w": 65,
+    "sources": [
+      "https://www.intel.com/content/www/us/en/support/articles/000089190/processors.html"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-13T00:00:00Z"
   }
 }

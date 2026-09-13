@@ -16,7 +16,7 @@ import { Composer } from "./composer";
 import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
 import { BuildCard } from "./build-card";
-import { extractBuildsFromMessage, type DerivedBuild } from "./build-derive";
+import { extractBuildsFromMessage, findAllBuildVersions, type DerivedBuild, type BuildVersion } from "./build-derive";
 import { isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
 import { useApp } from "@/components/app/app-provider";
@@ -235,12 +235,42 @@ export function ChatView({
 
   const isDesktop = useIsDesktop(768);
 
-  const latestBuilds = useMemo(
-    () => findLatestBuilds(messages, config.currency),
+  const allBuildVersions = useMemo(
+    () => findAllBuildVersions(messages, config.currency),
     [messages, config.currency]
   );
 
-  const displayBuilds = activeBuilds ?? latestBuilds;
+  const [selectedVersion, setSelectedVersion] = useState<number | undefined>(undefined);
+  const [selectedAlternativeIndex, setSelectedAlternativeIndex] = useState(0);
+
+  const latestVersion = allBuildVersions.length > 0
+    ? allBuildVersions[allBuildVersions.length - 1].version
+    : undefined;
+
+  const activeVersion = useMemo(() => {
+    if (allBuildVersions.length === 0) return undefined;
+    const targetVer = selectedVersion ?? latestVersion;
+    if (targetVer === undefined) return undefined;
+    const matched = allBuildVersions.find((v) => v.version === targetVer);
+    return matched ? matched.version : latestVersion;
+  }, [allBuildVersions, selectedVersion, latestVersion]);
+
+  const activeVersionObj = useMemo(
+    () => allBuildVersions.find((v) => v.version === activeVersion),
+    [allBuildVersions, activeVersion]
+  );
+
+  const safeSelectedVersion = activeVersion;
+
+  const latestBuilds = useMemo(() => {
+    if (allBuildVersions.length > 0) {
+      return allBuildVersions[allBuildVersions.length - 1].builds;
+    }
+    return findLatestBuilds(messages, config.currency);
+  }, [allBuildVersions, messages, config.currency]);
+
+  const displayBuilds = activeVersionObj?.builds ?? activeBuilds ?? latestBuilds;
+
 
   const lastSigRef = useRef<string>("");
   const hasInitializedOpenRef = useRef(false);
@@ -273,11 +303,15 @@ export function ChatView({
     [config, lastAssistantMessage?.metadata?.model]
   );
 
-  const primaryBuild = displayBuilds?.[0];
-  const headerBuildPrice = primaryBuild
+  const safeAlternativeIndex = Math.min(
+    Math.max(0, selectedAlternativeIndex),
+    Math.max(0, (displayBuilds?.length ?? 1) - 1)
+  );
+  const activeBuild = displayBuilds?.[safeAlternativeIndex];
+  const headerBuildPrice = activeBuild
     ? formatPrice(
-        sumPrices(primaryBuild.components.map((c) => c.price)),
-        primaryBuild.currency
+        sumPrices(activeBuild.components.map((c) => c.price)),
+        activeBuild.currency
       )
     : null;
 
@@ -444,22 +478,46 @@ export function ChatView({
               <ChatEmptyState onPick={send} currency={config.currency} />
             ) : (
               <div className="flex flex-col gap-6 pt-6">
-                {messages.map((message, index) => (
-                  <MessageView
-                    key={message.id || `msg-${index}`}
-                    message={message}
-                    currency={config.currency}
-                    onViewBuild={(builds) => {
-                      setActiveBuilds(builds);
-                      setSidePanelOpen(true);
-                    }}
-                    onEdit={
-                      !streaming && message.role === "user"
-                        ? (newText) => handleEditMessage(index, newText)
-                        : undefined
-                    }
-                  />
-                ))}
+                {messages.map((message, index) => {
+                  const msgVersions = allBuildVersions.filter((v) => v.messageIndex === index);
+                  return (
+                    <MessageView
+                      key={message.id || `msg-${index}`}
+                      message={message}
+                      versions={msgVersions}
+                      currency={config.currency}
+                      onViewBuild={(builds, versionOrId) => {
+                        let matched: BuildVersion | undefined;
+                        if (typeof versionOrId === "number") {
+                          matched = allBuildVersions.find((v) => v.version === versionOrId);
+                        } else if (typeof versionOrId === "string") {
+                          matched = allBuildVersions.find((v) => v.presentationId === versionOrId);
+                        }
+                        if (!matched) {
+                          matched = allBuildVersions.find((v) => v.builds === builds);
+                        }
+                        if (!matched) {
+                          matched = allBuildVersions.find((v) => v.messageIndex === index);
+                        }
+
+                        if (matched) {
+                          setSelectedVersion(matched.version);
+                          setActiveBuilds(matched.builds);
+                        } else {
+                          setSelectedVersion(undefined);
+                          setActiveBuilds(builds);
+                        }
+                        setSelectedAlternativeIndex(0);
+                        setSidePanelOpen(true);
+                      }}
+                      onEdit={
+                        !streaming && message.role === "user"
+                          ? (newText) => handleEditMessage(index, newText)
+                          : undefined
+                      }
+                    />
+                  );
+                })}
                 {status === "submitted" ? (
                   <p className="text-caption text-text-muted" role="status">
                     The sage is thinking…
@@ -540,7 +598,11 @@ export function ChatView({
               <div className="flex items-center gap-2 min-w-0">
                 <Icon icon={Package} size={18} className="text-accent shrink-0" />
                 <h2 className="text-sm font-semibold text-text truncate">Proposed Build</h2>
-                {displayBuilds.length > 1 ? (
+                {allBuildVersions.length > 1 ? (
+                  <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
+                    v{safeSelectedVersion ?? allBuildVersions[allBuildVersions.length - 1].version} of {allBuildVersions.length}
+                  </span>
+                ) : displayBuilds && displayBuilds.length > 1 ? (
                   <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
                     {displayBuilds.length} options
                   </span>
@@ -578,7 +640,20 @@ export function ChatView({
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
-              <BuildCard builds={displayBuilds} inSidePanel />
+              <BuildCard
+                builds={displayBuilds ?? undefined}
+                versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
+                selectedVersion={safeSelectedVersion}
+                onVersionChange={(ver) => {
+                  setSelectedVersion(ver);
+                  setSelectedAlternativeIndex(0);
+                  const matched = allBuildVersions.find((v) => v.version === ver);
+                  if (matched) setActiveBuilds(matched.builds);
+                }}
+                selectedAlternativeIndex={safeAlternativeIndex}
+                onAlternativeChange={setSelectedAlternativeIndex}
+                inSidePanel
+              />
             </div>
           </aside>
         </>
@@ -594,7 +669,11 @@ export function ChatView({
             <div className="flex items-center gap-2 min-w-0">
               <Icon icon={Package} size={18} className="text-accent shrink-0" />
               <SheetTitle className="text-sm font-semibold text-text truncate">Proposed Build</SheetTitle>
-              {displayBuilds && displayBuilds.length > 1 ? (
+              {allBuildVersions.length > 1 ? (
+                <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
+                  v{safeSelectedVersion ?? allBuildVersions[allBuildVersions.length - 1].version} of {allBuildVersions.length}
+                </span>
+              ) : displayBuilds && displayBuilds.length > 1 ? (
                 <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
                   {displayBuilds.length} options
                 </span>
@@ -605,7 +684,22 @@ export function ChatView({
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-4">
-            {displayBuilds && <BuildCard builds={displayBuilds} inSidePanel />}
+            {displayBuilds && (
+              <BuildCard
+                builds={displayBuilds}
+                versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
+                selectedVersion={safeSelectedVersion}
+                onVersionChange={(ver) => {
+                  setSelectedVersion(ver);
+                  setSelectedAlternativeIndex(0);
+                  const matched = allBuildVersions.find((v) => v.version === ver);
+                  if (matched) setActiveBuilds(matched.builds);
+                }}
+                selectedAlternativeIndex={safeAlternativeIndex}
+                onAlternativeChange={setSelectedAlternativeIndex}
+                inSidePanel
+              />
+            )}
           </div>
         </SheetContent>
       </Sheet>

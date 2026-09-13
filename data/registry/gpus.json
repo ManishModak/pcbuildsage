@@ -12,11 +12,9 @@
       "RTX 5090 32GB",
       "GeForce RTX 5090 32GB"
     ],
-    "length_mm": 304,
     "tdp_w": 575,
     "recommended_psu_w": 1000,
     "vram_gb": 32,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5090.c4220",
@@ -37,11 +35,9 @@
       "RTX 5080 16GB",
       "GeForce RTX 5080 16GB"
     ],
-    "length_mm": 304,
     "tdp_w": 400,
     "recommended_psu_w": 750,
     "vram_gb": 16,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5080.c4221",
@@ -63,11 +59,9 @@
       "RTX 5070 Ti 16GB",
       "GeForce RTX 5070 Ti 16GB"
     ],
-    "length_mm": 304,
     "tdp_w": 300,
     "recommended_psu_w": 750,
     "vram_gb": 16,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5070-ti.c4223",
@@ -88,11 +82,9 @@
       "RTX 5070 12GB",
       "GeForce RTX 5070 12GB"
     ],
-    "length_mm": 245,
     "tdp_w": 250,
     "recommended_psu_w": 650,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5070.c4224",
@@ -112,11 +104,9 @@
       "NVIDIA RTX 5060 Ti 16GB",
       "NVIDIA GeForce RTX 5060 Ti 16GB"
     ],
-    "length_mm": 241,
     "tdp_w": 180,
     "recommended_psu_w": 550,
     "vram_gb": 16,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5060-ti-16-gb.c4266",
@@ -142,11 +132,9 @@
       "NVIDIA RTX 5060 Ti",
       "NVIDIA GeForce RTX 5060 Ti"
     ],
-    "length_mm": 241,
     "tdp_w": 180,
     "recommended_psu_w": 550,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5060-ti.c4225",
@@ -167,11 +155,9 @@
       "RTX 5060 8GB",
       "GeForce RTX 5060 8GB"
     ],
-    "length_mm": 241,
     "tdp_w": 145,
     "recommended_psu_w": 550,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5060.c4226",
@@ -192,11 +178,9 @@
       "GeForce RTX 5050 8GB",
       "NVIDIA GeForce RTX 5050"
     ],
-    "length_mm": 221,
     "tdp_w": 130,
     "recommended_psu_w": 450,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-5050.c4220"
@@ -216,11 +200,9 @@
       "RTX 4090 24GB",
       "GeForce RTX 4090 24GB"
     ],
-    "length_mm": 304,
     "tdp_w": 450,
     "recommended_psu_w": 850,
     "vram_gb": 24,
-    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4090.c3889",
@@ -242,11 +224,9 @@
       "RTX 4080 Super 16GB",
       "GeForce RTX 4080 Super 16GB"
     ],
-    "length_mm": 310,
     "tdp_w": 320,
     "recommended_psu_w": 750,
     "vram_gb": 16,
-    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4080-super.c3981",
@@ -267,11 +247,9 @@
       "RTX 4080 16GB",
       "GeForce RTX 4080 16GB"
     ],
-    "length_mm": 310,
     "tdp_w": 320,
     "recommended_psu_w": 750,
     "vram_gb": 16,
-    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4080.c3888",
@@ -293,11 +271,9 @@
       "RTX 4070 Ti Super 16GB",
       "GeForce RTX 4070 Ti Super 16GB"
     ],
-    "length_mm": 310,
     "tdp_w": 285,
     "recommended_psu_w": 700,
     "vram_gb": 16,
-    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070-ti-super.c4187",
@@ -319,11 +295,9 @@
       "RTX 4070 Ti 12GB",
       "GeForce RTX 4070 Ti 12GB"
     ],
-    "length_mm": 285,
     "tdp_w": 285,
     "recommended_psu_w": 700,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070-ti.c3950",
@@ -345,11 +319,9 @@
       "RTX 4070 Super 12GB",
       "GeForce RTX 4070 Super 12GB"
     ],
-    "length_mm": 242,
     "tdp_w": 220,
     "recommended_psu_w": 650,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070-super.c4186",
@@ -370,11 +342,9 @@
       "RTX 4070 12GB",
       "GeForce RTX 4070 12GB"
     ],
-    "length_mm": 242,
     "tdp_w": 200,
     "recommended_psu_w": 650,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4070.c3924",
@@ -394,11 +364,9 @@
       "NVIDIA RTX 4060 Ti 16GB",
       "NVIDIA GeForce RTX 4060 Ti 16GB"
     ],
-    "length_mm": 240,
     "tdp_w": 165,
     "recommended_psu_w": 550,
     "vram_gb": 16,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4060-ti-16-gb.c4185",
@@ -424,11 +392,9 @@
       "NVIDIA RTX 4060 Ti",
       "NVIDIA GeForce RTX 4060 Ti"
     ],
-    "length_mm": 240,
     "tdp_w": 160,
     "recommended_psu_w": 550,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4060-ti-8-gb.c3899",
@@ -449,11 +415,9 @@
       "RTX 4060 8GB",
       "GeForce RTX 4060 8GB"
     ],
-    "length_mm": 240,
     "tdp_w": 115,
     "recommended_psu_w": 550,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4060.c4107",
@@ -473,11 +437,9 @@
       "RTX 4050 6GB",
       "NVIDIA GeForce RTX 4050"
     ],
-    "length_mm": 240,
     "tdp_w": 100,
     "recommended_psu_w": 350,
     "vram_gb": 6,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-4050.c3983"
@@ -496,11 +458,9 @@
       "NVIDIA GeForce RTX 3090 Ti",
       "RTX 3090 Ti 24GB"
     ],
-    "length_mm": 336,
     "tdp_w": 450,
     "recommended_psu_w": 850,
     "vram_gb": 24,
-    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3090-ti.c3829"
@@ -519,11 +479,9 @@
       "NVIDIA GeForce RTX 3090",
       "RTX 3090 24GB"
     ],
-    "length_mm": 313,
     "tdp_w": 350,
     "recommended_psu_w": 750,
     "vram_gb": 24,
-    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3090.c3622"
@@ -543,11 +501,9 @@
       "NVIDIA GeForce RTX 3080 Ti",
       "RTX 3080 Ti 12GB"
     ],
-    "length_mm": 285,
     "tdp_w": 350,
     "recommended_psu_w": 750,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3080-ti.c3735"
@@ -565,11 +521,9 @@
       "NVIDIA RTX 3080 12GB",
       "NVIDIA GeForce RTX 3080 12GB"
     ],
-    "length_mm": 285,
     "tdp_w": 350,
     "recommended_psu_w": 750,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3080-12-gb.c3833"
@@ -592,11 +546,9 @@
       "NVIDIA RTX 3080 10GB",
       "NVIDIA GeForce RTX 3080 10GB"
     ],
-    "length_mm": 285,
     "tdp_w": 320,
     "recommended_psu_w": 750,
     "vram_gb": 10,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3080.c3621"
@@ -616,11 +568,9 @@
       "NVIDIA GeForce RTX 3070 Ti",
       "RTX 3070 Ti 8GB"
     ],
-    "length_mm": 270,
     "tdp_w": 290,
     "recommended_psu_w": 750,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3070-ti.c3675"
@@ -639,11 +589,9 @@
       "NVIDIA GeForce RTX 3070",
       "RTX 3070 8GB"
     ],
-    "length_mm": 242,
     "tdp_w": 220,
     "recommended_psu_w": 650,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3070.c3674"
@@ -663,11 +611,9 @@
       "NVIDIA GeForce RTX 3060 Ti",
       "RTX 3060 Ti 8GB"
     ],
-    "length_mm": 242,
     "tdp_w": 200,
     "recommended_psu_w": 600,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3060-ti.c3681"
@@ -690,11 +636,9 @@
       "NVIDIA RTX 3060",
       "NVIDIA GeForce RTX 3060"
     ],
-    "length_mm": 242,
     "tdp_w": 170,
     "recommended_psu_w": 550,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3060-12-gb.c3682"
@@ -712,11 +656,9 @@
       "NVIDIA RTX 3060 8GB",
       "NVIDIA GeForce RTX 3060 8GB"
     ],
-    "length_mm": 242,
     "tdp_w": 170,
     "recommended_psu_w": 550,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3060-8-gb.c3932"
@@ -739,11 +681,9 @@
       "RTX 3050",
       "NVIDIA GeForce RTX 3050"
     ],
-    "length_mm": 242,
     "tdp_w": 130,
     "recommended_psu_w": 550,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3050-8-gb.c3858"
@@ -761,11 +701,9 @@
       "NVIDIA RTX 3050 6GB",
       "NVIDIA GeForce RTX 3050 6GB"
     ],
-    "length_mm": 200,
     "tdp_w": 70,
     "recommended_psu_w": 300,
     "vram_gb": 6,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-3050-6-gb.c4188"
@@ -785,11 +723,9 @@
       "NVIDIA GeForce RTX 2080 Ti",
       "RTX 2080 Ti 11GB"
     ],
-    "length_mm": 267,
     "tdp_w": 250,
     "recommended_psu_w": 650,
     "vram_gb": 11,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-2080-ti.c3305"
@@ -809,11 +745,9 @@
       "NVIDIA GeForce RTX 2080 Super",
       "RTX 2080 Super 8GB"
     ],
-    "length_mm": 267,
     "tdp_w": 250,
     "recommended_psu_w": 650,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-2080-super.c3434"
@@ -832,11 +766,9 @@
       "NVIDIA GeForce RTX 2080",
       "RTX 2080 8GB"
     ],
-    "length_mm": 267,
     "tdp_w": 215,
     "recommended_psu_w": 650,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-2080.c3224"
@@ -856,11 +788,9 @@
       "NVIDIA GeForce RTX 2070 Super",
       "RTX 2070 Super 8GB"
     ],
-    "length_mm": 267,
     "tdp_w": 215,
     "recommended_psu_w": 650,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-2070-super.c3440"
@@ -879,11 +809,9 @@
       "NVIDIA GeForce RTX 2070",
       "RTX 2070 8GB"
     ],
-    "length_mm": 229,
     "tdp_w": 175,
     "recommended_psu_w": 550,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-2070.c3252"
@@ -903,11 +831,9 @@
       "NVIDIA GeForce RTX 2060 Super",
       "RTX 2060 Super 8GB"
     ],
-    "length_mm": 229,
     "tdp_w": 175,
     "recommended_psu_w": 550,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-2060-super.c3441"
@@ -925,11 +851,9 @@
       "NVIDIA RTX 2060 12GB",
       "NVIDIA GeForce RTX 2060 12GB"
     ],
-    "length_mm": 229,
     "tdp_w": 184,
     "recommended_psu_w": 550,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-2060-12-gb.c3836"
@@ -952,11 +876,9 @@
       "NVIDIA RTX 2060",
       "NVIDIA GeForce RTX 2060"
     ],
-    "length_mm": 229,
     "tdp_w": 160,
     "recommended_psu_w": 500,
     "vram_gb": 6,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-rtx-2060.c3310"
@@ -976,11 +898,9 @@
       "NVIDIA GeForce GTX 1660 Ti",
       "GTX 1660 Ti 6GB"
     ],
-    "length_mm": 229,
     "tdp_w": 120,
     "recommended_psu_w": 450,
     "vram_gb": 6,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-gtx-1660-ti.c3364"
@@ -1000,11 +920,9 @@
       "NVIDIA GeForce GTX 1660 Super",
       "GTX 1660 Super 6GB"
     ],
-    "length_mm": 229,
     "tdp_w": 125,
     "recommended_psu_w": 450,
     "vram_gb": 6,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-gtx-1660-super.c3458"
@@ -1023,11 +941,9 @@
       "NVIDIA GeForce GTX 1660",
       "GTX 1660 6GB"
     ],
-    "length_mm": 229,
     "tdp_w": 120,
     "recommended_psu_w": 450,
     "vram_gb": 6,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-gtx-1660.c3365"
@@ -1047,11 +963,9 @@
       "NVIDIA GeForce GTX 1650 Super",
       "GTX 1650 Super 4GB"
     ],
-    "length_mm": 229,
     "tdp_w": 100,
     "recommended_psu_w": 350,
     "vram_gb": 4,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-gtx-1650-super.c3462"
@@ -1070,11 +984,9 @@
       "NVIDIA GeForce GTX 1650",
       "GTX 1650 4GB"
     ],
-    "length_mm": 229,
     "tdp_w": 75,
     "recommended_psu_w": 300,
     "vram_gb": 4,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/geforce-gtx-1650.c3366"
@@ -1093,11 +1005,9 @@
       "NVIDIA RTX A400",
       "RTX A400 4GB"
     ],
-    "length_mm": 163,
     "tdp_w": 50,
     "recommended_psu_w": 300,
     "vram_gb": 4,
-    "slot_width": 1,
     "segment": "workstation",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/rtx-a400.c4217"
@@ -1116,11 +1026,9 @@
       "NVIDIA RTX A1000",
       "RTX A1000 8GB"
     ],
-    "length_mm": 163,
     "tdp_w": 50,
     "recommended_psu_w": 300,
     "vram_gb": 8,
-    "slot_width": 1,
     "segment": "workstation",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/rtx-a1000.c4218"
@@ -1140,11 +1048,9 @@
       "AMD Radeon RX 9070 XT",
       "RX 9070 XT 16GB"
     ],
-    "length_mm": 280,
     "tdp_w": 304,
     "recommended_psu_w": 750,
     "vram_gb": 16,
-    "slot_width": 2.5,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-9070-xt.c4228"
@@ -1164,11 +1070,9 @@
       "AMD Radeon RX 9070 GRE",
       "RX 9070 GRE 12GB"
     ],
-    "length_mm": 267,
     "tdp_w": 220,
     "recommended_psu_w": 650,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-9070-gre.c4262"
@@ -1187,11 +1091,9 @@
       "AMD Radeon RX 9070",
       "RX 9070 16GB"
     ],
-    "length_mm": 267,
     "tdp_w": 220,
     "recommended_psu_w": 650,
     "vram_gb": 16,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-9070.c4229"
@@ -1216,11 +1118,9 @@
       "AMD RX 9060 XT",
       "AMD Radeon RX 9060 XT"
     ],
-    "length_mm": 241,
     "tdp_w": 160,
     "recommended_psu_w": 500,
     "vram_gb": 16,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-9060-xt.c4263"
@@ -1239,11 +1139,9 @@
       "AMD RX 9060 XT 8GB",
       "AMD Radeon RX 9060 XT 8GB"
     ],
-    "length_mm": 241,
     "tdp_w": 160,
     "recommended_psu_w": 500,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-9060-xt.c4263"
@@ -1262,11 +1160,9 @@
       "AMD Radeon RX 9060",
       "RX 9060 8GB"
     ],
-    "length_mm": 240,
     "tdp_w": 132,
     "recommended_psu_w": 450,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-9060.c4264"
@@ -1285,11 +1181,9 @@
       "AMD Radeon RX 9050",
       "RX 9050 8GB"
     ],
-    "length_mm": 190,
     "tdp_w": 100,
     "recommended_psu_w": 350,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-9050.c4265"
@@ -1309,11 +1203,9 @@
       "AMD Radeon RX 7900 XTX",
       "RX 7900 XTX 24GB"
     ],
-    "length_mm": 287,
     "tdp_w": 355,
     "recommended_psu_w": 800,
     "vram_gb": 24,
-    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-7900-xtx.c3917",
@@ -1334,11 +1226,9 @@
       "AMD Radeon RX 7900 XT",
       "RX 7900 XT 20GB"
     ],
-    "length_mm": 276,
     "tdp_w": 315,
     "recommended_psu_w": 750,
     "vram_gb": 20,
-    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-7900-xt.c3912",
@@ -1359,11 +1249,9 @@
       "AMD Radeon RX 7900 GRE",
       "RX 7900 GRE 16GB"
     ],
-    "length_mm": 276,
     "tdp_w": 260,
     "recommended_psu_w": 700,
     "vram_gb": 16,
-    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-7900-gre.c4166"
@@ -1383,11 +1271,9 @@
       "AMD Radeon RX 7800 XT",
       "RX 7800 XT 16GB"
     ],
-    "length_mm": 267,
     "tdp_w": 263,
     "recommended_psu_w": 700,
     "vram_gb": 16,
-    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-7800-xt.c3831",
@@ -1408,11 +1294,9 @@
       "AMD Radeon RX 7700 XT",
       "RX 7700 XT 12GB"
     ],
-    "length_mm": 267,
     "tdp_w": 245,
     "recommended_psu_w": 700,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-7700-xt.c3911",
@@ -1433,11 +1317,9 @@
       "AMD Radeon RX 7600 XT",
       "RX 7600 XT 16GB"
     ],
-    "length_mm": 204,
     "tdp_w": 190,
     "recommended_psu_w": 600,
     "vram_gb": 16,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-7600-xt.c4193",
@@ -1457,11 +1339,9 @@
       "AMD Radeon RX 7600",
       "RX 7600 8GB"
     ],
-    "length_mm": 204,
     "tdp_w": 165,
     "recommended_psu_w": 550,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-7600.c4139",
@@ -1482,11 +1362,9 @@
       "AMD Radeon RX 6950 XT",
       "RX 6950 XT 16GB"
     ],
-    "length_mm": 267,
     "tdp_w": 335,
     "recommended_psu_w": 850,
     "vram_gb": 16,
-    "slot_width": 3,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6950-xt.c3875"
@@ -1506,11 +1384,9 @@
       "AMD Radeon RX 6900 XT",
       "RX 6900 XT 16GB"
     ],
-    "length_mm": 267,
     "tdp_w": 300,
     "recommended_psu_w": 850,
     "vram_gb": 16,
-    "slot_width": 2.5,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6900-xt.c3481"
@@ -1530,11 +1406,9 @@
       "AMD Radeon RX 6800 XT",
       "RX 6800 XT 16GB"
     ],
-    "length_mm": 267,
     "tdp_w": 300,
     "recommended_psu_w": 750,
     "vram_gb": 16,
-    "slot_width": 2.5,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6800-xt.c3694"
@@ -1553,11 +1427,9 @@
       "AMD Radeon RX 6800",
       "RX 6800 16GB"
     ],
-    "length_mm": 267,
     "tdp_w": 250,
     "recommended_psu_w": 650,
     "vram_gb": 16,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6800.c3713"
@@ -1577,11 +1449,9 @@
       "AMD Radeon RX 6750 XT",
       "RX 6750 XT 12GB"
     ],
-    "length_mm": 267,
     "tdp_w": 250,
     "recommended_psu_w": 650,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6750-xt.c3879"
@@ -1601,11 +1471,9 @@
       "AMD Radeon RX 6700 XT",
       "RX 6700 XT 12GB"
     ],
-    "length_mm": 267,
     "tdp_w": 230,
     "recommended_psu_w": 650,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6700-xt.c3695"
@@ -1624,11 +1492,9 @@
       "AMD Radeon RX 6700",
       "RX 6700 10GB"
     ],
-    "length_mm": 242,
     "tdp_w": 175,
     "recommended_psu_w": 500,
     "vram_gb": 10,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6700.c3866"
@@ -1648,11 +1514,9 @@
       "AMD Radeon RX 6650 XT",
       "RX 6650 XT 8GB"
     ],
-    "length_mm": 240,
     "tdp_w": 180,
     "recommended_psu_w": 500,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6650-xt.c3898"
@@ -1672,11 +1536,9 @@
       "AMD Radeon RX 6600 XT",
       "RX 6600 XT 8GB"
     ],
-    "length_mm": 190,
     "tdp_w": 160,
     "recommended_psu_w": 500,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6600-xt.c3774"
@@ -1695,11 +1557,9 @@
       "AMD Radeon RX 6600",
       "RX 6600 8GB"
     ],
-    "length_mm": 190,
     "tdp_w": 132,
     "recommended_psu_w": 450,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6600.c3785"
@@ -1718,11 +1578,9 @@
       "Radeon RX 6500 XT 8GB",
       "AMD Radeon RX 6500 XT 8GB"
     ],
-    "length_mm": 194,
     "tdp_w": 107,
     "recommended_psu_w": 400,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6500-xt.c3837"
@@ -1747,11 +1605,9 @@
       "Radeon RX 6500 XT",
       "AMD Radeon RX 6500 XT"
     ],
-    "length_mm": 194,
     "tdp_w": 107,
     "recommended_psu_w": 400,
     "vram_gb": 4,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6500-xt.c3837"
@@ -1770,11 +1626,9 @@
       "AMD Radeon RX 6400",
       "RX 6400 4GB"
     ],
-    "length_mm": 152,
     "tdp_w": 53,
     "recommended_psu_w": 350,
     "vram_gb": 4,
-    "slot_width": 1,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-6400.c3813"
@@ -1794,11 +1648,9 @@
       "AMD Radeon RX 5700 XT",
       "RX 5700 XT 8GB"
     ],
-    "length_mm": 272,
     "tdp_w": 225,
     "recommended_psu_w": 600,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-5700-xt.c3439"
@@ -1817,11 +1669,9 @@
       "AMD Radeon RX 5700",
       "RX 5700 8GB"
     ],
-    "length_mm": 268,
     "tdp_w": 180,
     "recommended_psu_w": 500,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-5700.c3437"
@@ -1841,11 +1691,9 @@
       "AMD Radeon RX 5600 XT",
       "RX 5600 XT 6GB"
     ],
-    "length_mm": 267,
     "tdp_w": 150,
     "recommended_psu_w": 450,
     "vram_gb": 6,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-5600-xt.c3474"
@@ -1870,11 +1718,9 @@
       "5500XT",
       "AMD Radeon RX 5500 XT"
     ],
-    "length_mm": 180,
     "tdp_w": 130,
     "recommended_psu_w": 450,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-5500-xt.c3470"
@@ -1893,11 +1739,9 @@
       "5500XT 4GB",
       "AMD Radeon RX 5500 XT 4GB"
     ],
-    "length_mm": 180,
     "tdp_w": 130,
     "recommended_psu_w": 450,
     "vram_gb": 4,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/radeon-rx-5500-xt.c3470"
@@ -1916,11 +1760,9 @@
       "Arc B580 12GB",
       "Intel Arc B580 12GB"
     ],
-    "length_mm": 272,
     "tdp_w": 190,
     "recommended_psu_w": 550,
     "vram_gb": 12,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/intel-arc-b580.c4227"
@@ -1939,11 +1781,9 @@
       "Arc B570 10GB",
       "Intel Arc B570 10GB"
     ],
-    "length_mm": 249,
     "tdp_w": 150,
     "recommended_psu_w": 500,
     "vram_gb": 10,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/intel-arc-b570.c4246"
@@ -1962,11 +1802,9 @@
       "Arc A770",
       "A770"
     ],
-    "length_mm": 270,
     "tdp_w": 225,
     "recommended_psu_w": 550,
     "vram_gb": 16,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/intel-arc-a770-limited-edition.c3937",
@@ -1983,11 +1821,9 @@
       "Arc A770 8GB",
       "A770 8GB"
     ],
-    "length_mm": 270,
     "tdp_w": 225,
     "recommended_psu_w": 550,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/intel-arc-a770-8-gb.c3914"
@@ -2005,11 +1841,9 @@
       "Arc A750 8GB",
       "Intel Arc A750 8GB"
     ],
-    "length_mm": 270,
     "tdp_w": 225,
     "recommended_psu_w": 550,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/intel-arc-a750-limited-edition.c3938",
@@ -2028,11 +1862,9 @@
       "Arc A580 8GB",
       "Intel Arc A580 8GB"
     ],
-    "length_mm": 225,
     "tdp_w": 185,
     "recommended_psu_w": 500,
     "vram_gb": 8,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/intel-arc-a580.c3918"
@@ -2050,11 +1882,9 @@
       "Arc A380 6GB",
       "Intel Arc A380 6GB"
     ],
-    "length_mm": 222,
     "tdp_w": 75,
     "recommended_psu_w": 300,
     "vram_gb": 6,
-    "slot_width": 2,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/intel-arc-a380.c3917"
@@ -2072,16 +1902,35 @@
       "Arc A310 4GB",
       "Intel Arc A310 4GB"
     ],
-    "length_mm": 155,
     "tdp_w": 75,
     "recommended_psu_w": 250,
     "vram_gb": 4,
-    "slot_width": 1,
     "segment": "gaming",
     "sources": [
       "https://www.techpowerup.com/gpu-specs/intel-arc-a310.c3930"
     ],
     "confidence": "high",
     "researched_at": "2026-08-16T15:35:00Z"
+  },
+  "sapphire-pure-rx-7700-xt": {
+    "brand": "Sapphire",
+    "model": "Sapphire PURE AMD Radeon RX 7700 XT 12GB",
+    "aliases": [
+      "Sapphire PURE RX 7700 XT",
+      "Sapphire PURE RX 7700 XT 12GB",
+      "Sapphire PURE RX 7700 XT 12GB WHITE",
+      "Sapphire PURE Radeon RX 7700 XT"
+    ],
+    "length_mm": 320,
+    "slot_width": 2.5,
+    "tdp_w": 245,
+    "recommended_psu_w": 700,
+    "vram_gb": 12,
+    "segment": "gaming",
+    "sources": [
+      "https://nation.sapphiretech.com/en/consumer/pure-radeon-rx-7700-xt-12g-gddr6"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-13T00:00:00Z"
   }
 }

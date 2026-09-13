@@ -5,12 +5,12 @@ import { createToolRegistry } from "../tools";
 describe("createToolRegistry", () => {
   it("omits consult when Tier 2 is disabled", () => {
     const tools = createToolRegistry(resolveConfig({ tier2Enabled: false }));
-    expect(Object.keys(tools).sort()).toEqual(["get_catalog", "present_build", "search_products", "validate_build"]);
+    expect(Object.keys(tools).sort()).toEqual(["get_catalog", "list_models", "present_build", "search_products", "validate_build"]);
   });
 
   it("includes consult when Tier 2 is enabled", () => {
     const tools = createToolRegistry(resolveConfig({ tier2Enabled: true }));
-    expect(Object.keys(tools).sort()).toEqual(["consult", "get_catalog", "present_build", "search_products", "validate_build"]);
+    expect(Object.keys(tools).sort()).toEqual(["consult", "get_catalog", "list_models", "present_build", "search_products", "validate_build"]);
   });
 });
 

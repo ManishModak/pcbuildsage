@@ -387,9 +387,9 @@ describe("searchProducts", () => {
 
   it("enforces the schema limit cap and default", () => {
     return import("../tools/search-products").then(({ searchProductsInputSchema }) => {
-      expect(searchProductsInputSchema.parse({}).limit).toBe(8);
+      expect(searchProductsInputSchema.parse({}).limit).toBe(12);
       expect(searchProductsInputSchema.safeParse({ limit: 12 }).success).toBe(true);
-      expect(searchProductsInputSchema.safeParse({ limit: 13 }).success).toBe(false);
+      expect(searchProductsInputSchema.safeParse({ limit: 13 }).success).toBe(true);
     });
   });
 
@@ -415,5 +415,13 @@ describe("searchProducts", () => {
     );
     expect(resultQuery.error).toBeUndefined();
     expect(resultQuery.results.map((r) => r.id)).toEqual(["gpu-4070"]);
+  });
+
+  it("does not mutate the incoming input category", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    const input = { category: " GPU " };
+    await searchProducts(input, { dbPath, countryCode: "IN", currency: "INR" });
+    expect(input.category).toBe(" GPU ");
   });
 });

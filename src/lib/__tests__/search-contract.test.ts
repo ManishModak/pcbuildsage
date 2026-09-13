@@ -78,14 +78,14 @@ describe("Priority 3: Search Contract Corrections", () => {
   });
 
   describe("2. Default Limit on Direct Calls", () => {
-    it("defaults to 8 results in repository when limit is omitted", async () => {
+    it("defaults to 12 results in repository when limit is omitted", async () => {
       const repo = getCatalogRepository(testDbPath);
       const res = await repo.searchProducts(
         { category: "gpu" },
         { dbPath: testDbPath, countryCode: "US", currency: "USD" }
       );
-      expect(res.results.length).toBeLessThanOrEqual(8);
-      expect(searchProductsInputSchema.parse({}).limit).toBe(8);
+      expect(res.results.length).toBeLessThanOrEqual(12);
+      expect(searchProductsInputSchema.parse({}).limit).toBe(12);
     });
   });
 

@@ -17,6 +17,10 @@ export const searchProductsInputSchema = z.object({
     .string()
     .optional()
     .describe("Alias for term. Matched as a substring against product title or normalized name; similarly named variants may also match."),
+  model_id: z
+    .string()
+    .optional()
+    .describe("Unique component model ID or registry key to filter listings by (e.g. from list_models)."),
   category: z.string().optional().describe("Component category to search, such as gpu, cpu, motherboard, ram, storage, psu, case, or cooler."),
   price_min: z.number().nonnegative().optional().describe("Minimum product price in standard major units for the active currency, such as Rupees or Dollars."),
   price_max: z.number().nonnegative().optional().describe("Maximum product price in standard major units for the active currency, such as Rupees or Dollars."),
@@ -35,7 +39,9 @@ export const searchProductsInputSchema = z.object({
   min_vram_gb: z.number().nonnegative().optional().describe("Minimum registry-resolved GPU VRAM in GB."),
   segment: z.enum(["gaming", "workstation", "display"]).optional().describe("Registry-resolved GPU segment filter."),
   max_tdp_w: z.number().nonnegative().optional().describe("Maximum registry-resolved CPU or GPU TDP in watts."),
-  max_length_mm: z.number().nonnegative().optional().describe("Maximum registry-resolved GPU length in millimeters."),
+  max_length_mm: z.number().nonnegative().optional().describe("Maximum registry-resolved GPU length in millimeters (valid only for 'gpu' category)."),
+  min_gpu_clearance_mm: z.number().nonnegative().optional().describe("Minimum GPU clearance in millimeters (valid only for 'case' category)."),
+  min_cooler_clearance_mm: z.number().nonnegative().optional().describe("Minimum CPU cooler height clearance in millimeters (valid only for 'case' category)."),
   min_capacity_gb: z
     .number()
     .nonnegative()
@@ -54,7 +60,7 @@ export const searchProductsInputSchema = z.object({
     .describe("Minimum registry-resolved power supply wattage in watts (e.g. 550, 650, 750, 850)."),
   sort_by: z.enum(["price", "name", "retailer", "last_scraped"]).default("price").describe("Sort field. Use price for value comparisons (asc for affordable options, desc for higher-end listings), last_scraped for freshest listings."),
   order: z.enum(["asc", "desc"]).optional().describe("Sort direction. 'asc' sorts ascending (e.g. lowest price first to compare affordable options), 'desc' sorts descending (highest price first). Price order describes price only, not performance ranking."),
-  limit: z.number().int().positive().max(12).default(8).describe("Maximum result count. Defaults to 8 and cannot exceed 12.")
+  limit: z.number().int().positive().default(12).describe("Maximum result count. Defaults to 12 (showing up to 12 results—the maximum per search).")
 });
 
 export type SearchProductsInput = z.input<typeof searchProductsInputSchema>;
@@ -71,7 +77,7 @@ export function createSearchProductsTool(
 ) {
   return tool({
     description:
-      "Use search_products to find purchasable PC parts from the local SQLite database. Use it for component candidates and price comparisons; do not use it for compatibility verdicts or web research. Results are in-stock only unless you pass in_stock: false. Filterable fields: term/query, category, subcategory, price_min/price_max in standard major units (e.g. Rupees/Dollars), brands, retailer, in_stock, socket, ddr, form_factor, min_vram_gb, segment, max_tdp_w, max_length_mm, min_capacity_gb, interface, min_wattage, sort_by, order, limit. Example: {\"term\":\"4070\",\"category\":\"gpu\",\"price_max\":60000}.",
+      "Use search_products to find purchasable PC parts from the local SQLite database. Use it for component candidates and price comparisons; do not use it for compatibility verdicts or web research. Results are in-stock only unless you pass in_stock: false. Filterable fields: term/query, model_id, category, subcategory, price_min/price_max in standard major units (e.g. Rupees/Dollars), brands, retailer, in_stock, socket, ddr, form_factor, min_vram_gb, segment, max_tdp_w, max_length_mm, min_gpu_clearance_mm, min_cooler_clearance_mm, min_capacity_gb, interface, min_wattage, sort_by, order, limit. Example: {\"category\":\"case\",\"min_gpu_clearance_mm\":320}.",
     inputSchema: searchProductsInputSchema,
     execute: async (input) => searchProducts(input, scope, repository ?? scope.repository)
   });
@@ -91,23 +97,63 @@ export async function searchProducts(
     };
   }
 
+  // [r9] Normalize category at the tool boundary: trim and lowercase before category guards and repository search
+  const category = input.category ? input.category.trim().toLowerCase() : undefined;
+
+  // Validate category-restricted filters
+  if (input.min_gpu_clearance_mm !== undefined || input.min_cooler_clearance_mm !== undefined) {
+    if (category !== "case") {
+      const filters = [
+        input.min_gpu_clearance_mm !== undefined ? "min_gpu_clearance_mm" : null,
+        input.min_cooler_clearance_mm !== undefined ? "min_cooler_clearance_mm" : null
+      ].filter(Boolean);
+      return {
+        results: [],
+        error: `${filters.join(" and ")} ${filters.length > 1 ? "are" : "is"} only valid for the 'case' category.`,
+        valid_filters: validFilters
+      };
+    }
+  }
+
+  if (input.max_length_mm !== undefined && category !== "gpu") {
+    return {
+      results: [],
+      error: "max_length_mm is only valid for the 'gpu' category.",
+      valid_filters: validFilters
+    };
+  }
+
+  const requestedLimit = input.limit;
+  const wasOverLimit = typeof requestedLimit === "number" && requestedLimit > 12;
+
   // Defensively normalize limit without mutating the incoming input object.
   let normalizedLimit: number | undefined;
-  if (input.limit !== undefined) {
-    normalizedLimit = Number.isFinite(input.limit)
-      ? Math.min(12, Math.max(1, Math.round(Number(input.limit))))
-      : 8;
+  if (requestedLimit !== undefined) {
+    normalizedLimit = Number.isFinite(requestedLimit)
+      ? Math.min(12, Math.max(1, Math.round(Number(requestedLimit))))
+      : 12;
   }
 
   const rawTerm = (input.term ?? input.query)?.trim();
   const normalizedInput: SearchProductsInput = {
     ...input,
+    ...(category !== undefined ? { category } : {}),
     ...(rawTerm ? { term: rawTerm } : {}),
     ...(normalizedLimit !== undefined ? { limit: normalizedLimit } : {})
   };
 
   const repo = repository ?? scope.repository ?? getCatalogRepository();
   const rawResult = await repo.searchProducts(normalizedInput, scope);
-  return toCompactSearchResult(rawResult);
+  const compactResult = toCompactSearchResult(rawResult);
+
+  if (wasOverLimit) {
+    const limitGuidance = "Showing up to 12 results—the maximum per search.";
+    compactResult.hint = compactResult.hint
+      ? `${compactResult.hint} ${limitGuidance}`
+      : limitGuidance;
+    compactResult.note = limitGuidance;
+  }
+
+  return compactResult;
 }
 

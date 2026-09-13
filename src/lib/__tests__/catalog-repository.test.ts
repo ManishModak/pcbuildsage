@@ -137,6 +137,7 @@ describe("CatalogRepository & Source-Neutral Offer Model (Phase 1)", () => {
       const mockHostedRepo: CatalogRepository = {
         getCatalog: async () => ({ categories: [], scope: { country_code: "US", currency: "USD" } }),
         searchProducts: async () => ({ results: [], items: [], totalCount: 0 }),
+        listModels: async () => ({ models: [], total_matching_models: 0, returned_models: 0, truncated: false, scope: { country_code: "US", currency: "USD" } }),
         getCategoryBaseline: async () => ({ total: 0, in_stock_total: 0, min_price: null, max_price: null }),
         getFreshness: async () => ({ lastScraped: null, productCount: 0 })
       };
@@ -150,6 +151,7 @@ describe("CatalogRepository & Source-Neutral Offer Model (Phase 1)", () => {
       const mockCustomRepo: CatalogRepository = {
         getCatalog: async () => ({ categories: [], scope: { country_code: "UK", currency: "GBP" } }),
         searchProducts: async () => ({ results: [], items: [], totalCount: 0 }),
+        listModels: async () => ({ models: [], total_matching_models: 0, returned_models: 0, truncated: false, scope: { country_code: "UK", currency: "GBP" } }),
         getCategoryBaseline: async () => ({ total: 0, in_stock_total: 0, min_price: null, max_price: null }),
         getFreshness: async () => ({ lastScraped: "2026-09-02T10:00:00Z", productCount: 42 })
       };

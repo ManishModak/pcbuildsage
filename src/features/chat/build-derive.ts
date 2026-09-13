@@ -1,5 +1,28 @@
 import type { BuildIssue, ProductRow, ValidationResult } from "@/types/client";
+import { isTextPart, isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
+export type { ChatUIMessage } from "./message";
+import {
+  validationStrip,
+  computeValidationStats,
+  ruleLabel,
+  type StripBadge
+} from "./validation-strip";
+import {
+  findAllBuildVersions,
+  type BuildVersion
+} from "./build-versions";
+
+export {
+  validationStrip,
+  computeValidationStats,
+  ruleLabel,
+  type StripBadge
+};
+export {
+  findAllBuildVersions,
+  type BuildVersion
+};
 
 export const CATEGORY_LABELS: Record<string, string> = {
   cpu: "CPU",
@@ -25,6 +48,11 @@ export type BuildComponent = {
   url?: string;
   unverified: boolean;
   unverifiedNote?: string;
+  failed?: boolean;
+  failedNote?: string;
+  advisory?: boolean;
+  advisoryNote?: string;
+  status?: "ok" | "failed" | "unverified" | "advisory";
 };
 
 export type DerivedBuild = {
@@ -46,6 +74,126 @@ function partLabel(part: unknown): { key?: string; name: string } {
 
 function normalize(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+export function canonicalizePartName(str: string): string {
+  return normalize(str)
+    .replace(/^(?:amd|intel|nvidia)\s+/, "")
+    .replace(/^(?:geforce)\s+/, "")
+    .trim();
+}
+
+export function findComponentIssue(
+  issues: BuildIssue[],
+  category: string,
+  key?: string,
+  name?: string
+): BuildIssue | undefined {
+  const normCat = normalize(category);
+  const normKey = key ? normalize(key) : undefined;
+  const canonKey = key ? canonicalizePartName(key) : undefined;
+  const normName = name ? normalize(name) : undefined;
+  const canonName = name ? canonicalizePartName(name) : undefined;
+
+  const matching = issues.filter((issue) =>
+    issue.components.some((component) => {
+      const c = component.trim();
+      if (!c) return false;
+      const cNorm = normalize(c);
+      const cCanon = canonicalizePartName(c);
+
+      if (c === category || cNorm === normCat) return true;
+      if (normKey && (cNorm === normKey || cCanon === canonKey)) return true;
+      if (normName && (cNorm === normName || cCanon === canonName)) return true;
+      if (normKey && (cNorm.includes(normKey) || normKey.includes(cNorm))) return true;
+      if (normName && (cNorm.includes(normName) || normName.includes(cNorm))) return true;
+      return false;
+    })
+  );
+
+  if (matching.length === 0) return undefined;
+  const blocking = matching.find((i) => i.severity === "blocking");
+  if (blocking) return blocking;
+  const unverified = matching.find((i) => i.severity === "needs_research" || i.severity === "needs_verification");
+  if (unverified) return unverified;
+  return matching[0];
+}
+
+export function decorateComponentStatus(
+  issue: BuildIssue | undefined,
+  hasValidation: boolean
+): {
+  unverified: boolean;
+  unverifiedNote?: string;
+  failed?: boolean;
+  failedNote?: string;
+  advisory?: boolean;
+  advisoryNote?: string;
+  status: "ok" | "failed" | "unverified" | "advisory";
+} {
+  if (!hasValidation) {
+    return {
+      unverified: true,
+      unverifiedNote: "Unverified compatibility",
+      status: "unverified"
+    };
+  }
+
+  if (!issue) {
+    return {
+      unverified: false,
+      status: "ok"
+    };
+  }
+
+  if (issue.severity === "blocking") {
+    return {
+      unverified: false,
+      failed: true,
+      failedNote: issue.detail || "Compatibility conflict",
+      status: "failed"
+    };
+  }
+
+  if (issue.severity === "needs_research" || issue.severity === "needs_verification") {
+    return {
+      unverified: true,
+      unverifiedNote:
+        issue.detail ||
+        (issue.severity === "needs_research"
+          ? "Advisory specs (unverified clearances)"
+          : "Researched specs (advisory)"),
+      status: "unverified"
+    };
+  }
+
+  if (issue.severity === "advisory") {
+    return {
+      unverified: false,
+      advisory: true,
+      advisoryNote: issue.detail || "Advisory",
+      status: "advisory"
+    };
+  }
+
+  return {
+    unverified: false,
+    status: "ok"
+  };
+}
+
+export function componentNote(
+  issues: BuildIssue[],
+  category: string,
+  key?: string,
+  name?: string
+): string | undefined {
+  const issue = findComponentIssue(issues, category, key, name);
+  if (!issue) return undefined;
+  if (issue.detail) return issue.detail;
+  if (issue.severity === "needs_research") return "Advisory specs (unverified clearances)";
+  if (issue.severity === "needs_verification") return "Researched specs (advisory)";
+  return "Advisory";
 }
 
 /**
@@ -112,7 +260,11 @@ export function deriveBuild(parts: ToolPart[], fallbackCurrency: string): Derive
 
   const components: BuildComponent[] = entries.map(({ category, label }) => {
     const product = findProduct(label);
-    const note = componentNote(validation?.issues ?? [], label.key ?? label.name, label.name);
+    const issue = validation
+      ? findComponentIssue(validation.issues ?? [], category, label.key ?? label.name, label.name)
+      : undefined;
+    const statusInfo = decorateComponentStatus(issue, Boolean(validation));
+
     return {
       category,
       categoryLabel: CATEGORY_LABELS[category] ?? category,
@@ -122,8 +274,7 @@ export function deriveBuild(parts: ToolPart[], fallbackCurrency: string): Derive
       currency: product?.currency ?? currency,
       retailer: product?.retailer,
       url: product?.url,
-      unverified: Boolean(note),
-      unverifiedNote: note
+      ...statusInfo
     };
   });
 
@@ -133,8 +284,6 @@ export function deriveBuild(parts: ToolPart[], fallbackCurrency: string): Derive
 
   return { label, components, currency, validation };
 }
-
-import { isTextPart, isToolPart } from "@/lib/message-parts";
 
 /**
  * Normalize raw category string to standard category key.
@@ -544,14 +693,104 @@ export function parseBuildsFromMarkdown(markdown: string, fallbackCurrency: stri
   return results;
 }
 
-export function deriveBuildsFromToolParts(parts: ToolPart[], fallbackCurrency: string): DerivedBuild[] {
-  const presentPart = [...parts]
-    .reverse()
-    .find(
-      (part) =>
-        (part.type === "tool-present_build" || part.toolName === "present_build") &&
-        (part.state === "output-available" || part.state === "input-available")
-    );
+function isComponentMatch(vPart: { key?: string; name: string }, bPartName: string): boolean {
+  const normB = normalize(bPartName);
+  const canonB = canonicalizePartName(bPartName);
+
+  if (vPart.key) {
+    const normKey = normalize(vPart.key);
+    if (normB === normKey || canonB === canonicalizePartName(vPart.key)) {
+      return true;
+    }
+  }
+
+  const normV = normalize(vPart.name);
+  if (normB === normV || canonB === canonicalizePartName(vPart.name)) {
+    return true;
+  }
+
+  return false;
+}
+
+function findMatchingValidation(
+  build: { label?: string; parts?: Array<{ category: string; name: string }> },
+  validateParts: ToolPart[]
+): ValidationResult | null {
+  if (!build.parts || build.parts.length === 0 || validateParts.length === 0) return null;
+
+  const bMap = new Map<string, string[]>();
+  for (const p of build.parts) {
+    const normCat = normalizeCategory(p.category) ?? p.category.toLowerCase();
+    const list = bMap.get(normCat) ?? [];
+    list.push(p.name);
+    bMap.set(normCat, list);
+  }
+
+  for (let i = validateParts.length - 1; i >= 0; i--) {
+    const vPart = validateParts[i];
+    const vInput = vPart.input as { label?: string; parts?: Record<string, unknown> } | undefined;
+    const vValidation = (vPart as { output?: ValidationResult }).output;
+    if (!vInput?.parts || !vValidation) continue;
+
+    const vMap = new Map<string, Array<{ key?: string; name: string }>>();
+    for (const [rawCategory, raw] of Object.entries(vInput.parts)) {
+      const normCat = normalizeCategory(rawCategory) ?? rawCategory.toLowerCase();
+      const items = Array.isArray(raw) ? raw : [raw];
+      vMap.set(normCat, items.map(partLabel));
+    }
+
+    // Exact component-set identity: every category in build must exist in validation and vice-versa
+    if (bMap.size !== vMap.size) continue;
+
+    let allCategoriesMatch = true;
+    for (const [cat, bList] of bMap.entries()) {
+      const vList = vMap.get(cat);
+      if (!vList || vList.length !== bList.length) {
+        allCategoriesMatch = false;
+        break;
+      }
+
+      // Check that every component in this category matches
+      const matchedIndices = new Set<number>();
+      for (const bName of bList) {
+        let foundMatch = false;
+        for (let vi = 0; vi < vList.length; vi++) {
+          if (!matchedIndices.has(vi) && isComponentMatch(vList[vi], bName)) {
+            matchedIndices.add(vi);
+            foundMatch = true;
+            break;
+          }
+        }
+        if (!foundMatch) {
+          allCategoriesMatch = false;
+          break;
+        }
+      }
+      if (!allCategoriesMatch) break;
+    }
+
+    if (allCategoriesMatch) {
+      return vValidation;
+    }
+  }
+
+  return null;
+}
+
+export function deriveBuildsFromToolParts(
+  parts: ToolPart[],
+  fallbackCurrency: string,
+  targetPresentPart?: ToolPart
+): DerivedBuild[] {
+  const presentPart =
+    targetPresentPart ??
+    [...parts]
+      .reverse()
+      .find(
+        (part) =>
+          (part.type === "tool-present_build" || part.toolName === "present_build") &&
+          (part.state === "output-available" || part.state === "input-available" || Boolean(part.input))
+      );
 
   if (presentPart) {
     const input = presentPart.input as
@@ -566,28 +805,56 @@ export function deriveBuildsFromToolParts(parts: ToolPart[], fallbackCurrency: s
               retailer?: string;
               url?: string;
             }>;
+            notes?: string;
           }>;
         }
       | undefined;
 
     if (input?.builds && Array.isArray(input.builds)) {
-      return input.builds.map((build) => ({
-        label: build.label,
-        currency: build.parts?.find((p) => p.currency)?.currency ?? fallbackCurrency,
-        validation: null,
-        components: (build.parts || [])
-          .map((part) => ({
-            category: part.category,
-            categoryLabel: CATEGORY_LABELS[part.category] ?? part.category,
-            name: part.name,
-            price: typeof part.price === "number" ? part.price : null,
-            currency: part.currency ?? fallbackCurrency,
-            retailer: part.retailer,
-            url: part.url,
-            unverified: false
-          }))
-          .sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category))
-      }));
+      const presentIdx = parts.indexOf(presentPart);
+      const relevantParts = presentIdx !== -1 ? parts.slice(0, presentIdx + 1) : parts;
+      const validateParts = relevantParts.filter(
+        (part) =>
+          (part.type === "tool-validate_build" || part.toolName === "validate_build") &&
+          (part.state === "output-available" || Boolean((part as { output?: unknown }).output))
+      );
+
+      return input.builds.map((build) => {
+        const matchedValidation = findMatchingValidation(build, validateParts);
+        const currency = build.parts?.find((p) => p.currency)?.currency ?? fallbackCurrency;
+
+        const components: BuildComponent[] = (build.parts || [])
+          .map((part) => {
+            const issue = matchedValidation
+              ? findComponentIssue(
+                  matchedValidation.issues ?? [],
+                  part.category,
+                  undefined,
+                  part.name
+                )
+              : undefined;
+            const statusInfo = decorateComponentStatus(issue, Boolean(matchedValidation));
+
+            return {
+              category: part.category,
+              categoryLabel: CATEGORY_LABELS[part.category] ?? part.category,
+              name: part.name,
+              price: typeof part.price === "number" ? part.price : null,
+              currency: part.currency ?? currency,
+              retailer: part.retailer,
+              url: part.url,
+              ...statusInfo
+            };
+          })
+          .sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category));
+
+        return {
+          label: build.label,
+          currency,
+          validation: matchedValidation,
+          components
+        };
+      });
     }
   }
 
@@ -703,58 +970,3 @@ export function extractBuildsFromMessage(
   return [];
 }
 
-function componentNote(issues: BuildIssue[], key: string, name: string): string | undefined {
-  const relevant = issues.find(
-    (issue) =>
-      (issue.severity === "needs_verification" || issue.severity === "needs_research") &&
-      issue.components.some((component) => component === key || normalize(component) === normalize(name))
-  );
-  if (!relevant) return undefined;
-  return relevant.severity === "needs_research"
-    ? "Advisory specs (unverified clearances)"
-    : "Researched specs (advisory)";
-}
-
-export type StripBadge = { kind: "ok" | "blocking" | "warn" | "unverified"; label: string; title: string };
-
-/** Build the validation strip from a ValidationResult. */
-export function validationStrip(validation: ValidationResult | null): StripBadge[] {
-  if (!validation || !Array.isArray(validation.issues)) return [];
-  const badges: StripBadge[] = [];
-  const blocking = validation.issues.filter((issue) => issue.severity === "blocking");
-  const research = validation.issues.filter((issue) => issue.severity === "needs_research");
-  const verify = validation.issues.filter((issue) => issue.severity === "needs_verification");
-  const advisories = validation.issues.filter((issue) => issue.severity === "advisory");
-
-  if (validation.valid && blocking.length === 0) {
-    if (research.length === 0 && verify.length === 0) {
-      badges.push({ kind: "ok", label: "Compatible", title: "Rules engine passed all compatibility checks." });
-    } else {
-      badges.push({ kind: "ok", label: "Compatible (Advisory Specs)", title: "Rules engine passed compatibility using advisory/researched specs." });
-    }
-  }
-  for (const issue of blocking) {
-    badges.push({ kind: "blocking", label: ruleLabel(issue.rule), title: issue.detail });
-  }
-  for (const issue of verify) {
-    badges.push({ kind: "unverified", label: `${ruleLabel(issue.rule)} unverified`, title: issue.detail });
-  }
-  for (const issue of advisories) {
-    badges.push({ kind: "warn", label: `${ruleLabel(issue.rule)} advisory`, title: issue.detail });
-  }
-  return badges;
-}
-
-function ruleLabel(rule: string): string {
-  const map: Record<string, string> = {
-    socket: "Socket",
-    ddr: "Memory",
-    wattage: "Wattage",
-    clearance: "Clearance",
-    cooler: "Cooler",
-    storage: "Storage",
-    display_output: "Display Out",
-    spec_resolution: "Specs"
-  };
-  return map[rule] ?? rule;
-}

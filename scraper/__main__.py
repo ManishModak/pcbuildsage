@@ -6,7 +6,7 @@ import json
 import logging
 import sys
 from dataclasses import asdict, dataclass, replace
-from typing import Literal
+from typing import Any, Literal
 
 from .config import ProfileError, REPO_ROOT, filter_sites, load_profile, resolve_categories
 from .crawler import CrawlError, ScraperCrawler, category_page_url
@@ -14,7 +14,14 @@ from .db import ProductStore, utc_now_iso
 from .extractor import selector_hit_rates
 from .llm_client import LLMClient, resolve_llm_config
 from .models import CategoryConfig, RawProduct, ScrapedProduct, SiteConfig
-from .normalizer import RegistryMatcher, normalize_title, parse_price, product_id
+from .normalizer import (
+    RegistryMatcher,
+    normalize_title,
+    parse_cpu_package,
+    parse_gpu_specs,
+    parse_price,
+    product_id,
+)
 from .output import EventEmitter, configure_logging
 
 logger = logging.getLogger(__name__)
@@ -151,6 +158,15 @@ def build_work(profile_arg: str, args: argparse.Namespace) -> tuple[list[tuple[S
 def make_product(raw: RawProduct, site: SiteConfig, category: str, matcher: RegistryMatcher, scraped_at: str) -> ScrapedProduct | None:
     if not raw.title or not raw.url:
         return None
+    specs: dict[str, Any] = {}
+    if category == "cpu":
+        pkg = parse_cpu_package(raw.title)
+        if pkg.get("cooler_included") and pkg["cooler_included"] != "unknown":
+            specs.update(pkg)
+    elif category == "gpu":
+        gpu_specs = parse_gpu_specs(raw.title)
+        if gpu_specs:
+            specs.update(gpu_specs)
     normalized = normalize_title(raw.title)
     return ScrapedProduct(
         id=product_id(raw.url),
@@ -165,7 +181,7 @@ def make_product(raw: RawProduct, site: SiteConfig, category: str, matcher: Regi
         image_url=raw.image_url,
         in_stock=raw.in_stock,
         category=category,
-        specs={},
+        specs=specs,
         last_scraped=scraped_at,
     )
 

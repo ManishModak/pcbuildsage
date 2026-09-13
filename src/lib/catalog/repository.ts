@@ -87,6 +87,9 @@ export interface SearchProductsInput {
   term?: string;
   query?: string;
 
+  /** Component model ID or registry key to filter listings by (e.g. from list_models) */
+  model_id?: string;
+
   /** Component category filter (e.g., "gpu", "cpu", "storage") */
   category?: string;
 
@@ -134,6 +137,12 @@ export interface SearchProductsInput {
 
   /** Maximum GPU length in millimeters */
   max_length_mm?: number;
+
+  /** Minimum GPU clearance in millimeters for case selection */
+  min_gpu_clearance_mm?: number;
+
+  /** Minimum CPU cooler height clearance in millimeters for case selection */
+  min_cooler_clearance_mm?: number;
 
   /** Minimum storage or RAM capacity in GB */
   min_capacity_gb?: number;
@@ -237,8 +246,13 @@ export interface SearchProductsResult {
   /** Closest in-stock option below requested price_min */
   nearest_below?: NearestMatch;
 
-  /** Actionable hint for the caller or LLM explaining result distribution */
+  /** Actionable hint for the caller or LLM explaining result distribution or search limit guidance */
   hint?: string;
+
+  /**
+   * @deprecated Standardized on `hint`. Retained for backward compatibility.
+   */
+  note?: string;
 
   /** Error string if invalid filters or parameters were provided */
   error?: string;
@@ -290,6 +304,96 @@ export interface CatalogFreshnessResult {
 }
 
 /**
+ * Input parameters and filter criteria for listing unique hardware models.
+ */
+export interface ListModelsInput {
+  /** Component category filter (e.g., "gpu", "cpu", "motherboard", "ram", "storage", "psu", "case", "cooler") */
+  category?: "gpu" | "cpu" | "motherboard" | "ram" | "storage" | "psu" | "case" | "cooler" | string;
+
+  /** Minimum price bound in standard major units */
+  price_min?: number;
+
+  /** Maximum price bound in standard major units */
+  price_max?: number;
+
+  /** Registry CPU or motherboard socket filter (e.g. "AM5", "LGA 1700") */
+  socket?: string;
+
+  /** Memory generation filter */
+  ddr?: "DDR3" | "DDR4" | "DDR5" | string;
+
+  /** Minimum GPU VRAM in GB */
+  min_vram_gb?: number;
+
+  /** Minimum storage or RAM capacity in GB */
+  min_capacity_gb?: number;
+
+  /** Motherboard or case form factor filter (e.g. "ATX", "Mini-ITX") */
+  form_factor?: string;
+
+  /** Return only models with products currently in stock. Defaults to true */
+  in_stock?: boolean;
+
+  /** Maximum model count to return. Defaults to 20 */
+  limit?: number;
+}
+
+/**
+ * Aggregated unique component model item with functional specifications and listing metrics.
+ */
+export interface ComponentModelItem {
+  /** Canonical registry key or normalized model identifier */
+  model_id: string;
+
+  /** Display name of the model */
+  name: string;
+
+  /** Component category */
+  category: string;
+
+  /** Key functional hardware specifications */
+  specs: Record<string, unknown>;
+
+  /** Price range observed across available listings in this market */
+  price_range: {
+    min: number | null;
+    max: number | null;
+  };
+
+  /** Total number of matching retailer listings for this model */
+  listing_count: number;
+}
+
+/**
+ * Result returned by `listModels`, containing unique models, aggregation metrics, and hints.
+ */
+export interface ListModelsResult {
+  /** Unique component models returned */
+  models: ComponentModelItem[];
+
+  /** Total count of unique models matching the criteria before limit */
+  total_matching_models: number;
+
+  /** Number of models returned in this batch */
+  returned_models: number;
+
+  /** Whether more models match beyond the limit */
+  truncated: boolean;
+
+  /** Market scope applied */
+  scope: {
+    country_code: string;
+    currency: string;
+  };
+
+  /** Actionable hint or explanation */
+  hint?: string;
+
+  /** Error string if invalid filters or parameters were provided */
+  error?: string;
+}
+
+/**
  * Authoritative asynchronous Catalog Repository contract.
  * Supported by both SQLite (`better-sqlite3`) for local development
  * and Turso Cloud (`@libsql/client`) for the hosted demo.
@@ -305,6 +409,11 @@ export interface CatalogRepository {
    * Searches products within the catalog according to filters, specifications, and scope.
    */
   searchProducts(input: SearchProductsInput, scope: CatalogScope): Promise<SearchProductsResult>;
+
+  /**
+   * Lists aggregated component models and their specs, price ranges, and listing counts.
+   */
+  listModels(input: ListModelsInput, scope: CatalogScope): Promise<ListModelsResult>;
 
   /**
    * Computes coverage baseline statistics for a category (total products, in-stock count, price range).

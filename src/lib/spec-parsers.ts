@@ -160,11 +160,143 @@ export function parseRamSpecs(name: string): RegistrySpec | undefined {
   };
 }
 
+export type CpuPackageInfo = {
+  cooler_included: "included" | "not_included" | "unknown";
+  cooler_name?: string;
+};
+
+export function parseCpuPackage(name: string): CpuPackageInfo {
+  const norm = name.toLowerCase();
+
+  // Cooler name detection
+  let cooler_name: string | undefined;
+  if (/\bwraith\s+prism\b/i.test(norm)) {
+    cooler_name = "AMD Wraith Prism";
+  } else if (/\bwraith\s+stealth\b/i.test(norm)) {
+    cooler_name = "AMD Wraith Stealth";
+  } else if (/\blaminar\s+rm1\b/i.test(norm) || /\bintel\s+laminar\b/i.test(norm)) {
+    cooler_name = "Intel Laminar RM1";
+  } else if (/\bwith\s+wraith\b/i.test(norm)) {
+    cooler_name = "AMD Wraith Stealth";
+  }
+
+  // Explicit no-cooler wording
+  const explicitNoCoolerPatterns = [
+    /\bwithout\s+cooler\b/i,
+    /\bno\s+cooler\b/i,
+    /\bw\/o\s+cooler\b/i,
+    /\bcooler\s+not\s+included\b/i
+  ];
+  // Generic oem/tray labels
+  const genericNoCoolerPatterns = [
+    /\btray\b/i,
+    /\boem\b/i
+  ];
+
+  // Explicit inclusion keywords
+  const explicitIncludedPatterns = [
+    /\bwith\s+wraith\b/i,
+    /\bwith\s+(?:stock\s+)?cooler\b/i,
+    /\bboxed\s+with\s+cooler\b/i,
+    /\bboxed\s*\(\s*with\s+fan\s*\)/i,
+    /\bwith\s+fan\b/i,
+    /\bwith\s+(?:amd\s+|intel\s+)?(?:wraith|laminar)\b/i
+  ];
+
+  const hasExplicitNoCooler = explicitNoCoolerPatterns.some((p) => p.test(norm));
+  const hasGenericNoCooler = genericNoCoolerPatterns.some((p) => p.test(norm));
+  const hasExplicitIncluded = explicitIncludedPatterns.some((p) => p.test(norm));
+
+  // Conflicting statements stay unknown
+  if (hasExplicitNoCooler && hasExplicitIncluded) {
+    return { cooler_included: "unknown" };
+  }
+
+  // Explicit no-cooler wording must NOT be overridden merely because a cooler name appears
+  if (hasExplicitNoCooler) {
+    return { cooler_included: "not_included" };
+  }
+
+  // Explicit inclusion keywords can override generic oem/tray labels
+  if (hasExplicitIncluded) {
+    return {
+      cooler_included: "included",
+      ...(cooler_name ? { cooler_name } : {})
+    };
+  }
+
+  // Generic oem/tray labels without explicit inclusion
+  if (hasGenericNoCooler) {
+    return { cooler_included: "not_included" };
+  }
+
+  // If a known cooler name is present without negative clues, it's included
+  if (cooler_name !== undefined) {
+    return {
+      cooler_included: "included",
+      cooler_name
+    };
+  }
+
+  return { cooler_included: "unknown" };
+}
+
+export function parseGpuSpecs(name: string): RegistrySpec | undefined {
+  let length_mm: number | undefined;
+
+  // Accept dimensions ONLY when context explicitly identifies card length
+  const lengthMatch =
+    name.match(/(?:card\s+)?length[:\s]+(\d{2,3}(?:\.\d+)?)\s*mm\b/i) ??
+    name.match(/(\d{2,3}(?:\.\d+)?)\s*mm\s+(?:card\s+)?length\b/i);
+
+  if (lengthMatch) {
+    const val = parseFloat(lengthMatch[1]);
+    if (val >= 100 && val <= 500) {
+      length_mm = Math.round(val);
+    }
+  } else {
+    // Dimensions format: e.g. "dimensions: 304 x 137 x 61 mm" or "dimensions: 304x137x61mm"
+    const dimMatch = name.match(
+      /dimensions?[:\s]+(\d{2,3}(?:\.\d+)?)\s*(?:mm)?\s*(?:[x*×])\s*(\d{2,3}(?:\.\d+)?)\s*(?:mm)?\s*(?:[x*×])\s*(\d{2,3}(?:\.\d+)?)\s*mm\b/i
+    );
+    if (dimMatch) {
+      const d1 = parseFloat(dimMatch[1]);
+      const d2 = parseFloat(dimMatch[2]);
+      const d3 = parseFloat(dimMatch[3]);
+      const maxDim = Math.max(d1, d2, d3);
+      if (maxDim >= 100 && maxDim <= 500) {
+        length_mm = Math.round(maxDim);
+      }
+    }
+  }
+
+  if (length_mm === undefined) return undefined;
+
+  return {
+    brand: name.trim().split(/\s+/)[0] ?? "",
+    model: name.trim(),
+    aliases: [name.trim()],
+    length_mm
+  };
+}
+
 /** Title parsers by category for deterministic extraction from retailer listings. */
 export function parseSpecsFromTitle(name: string, category?: string): RegistrySpec | undefined {
   if (category === "storage") return parseStorageSpecs(name);
   if (category === "motherboard") return parseMotherboardSpecs(name);
   if (category === "psu") return parsePsuSpecs(name);
   if (category === "ram") return parseRamSpecs(name);
+  if (category === "gpu") return parseGpuSpecs(name);
+  if (category === "cpu") {
+    const pkg = parseCpuPackage(name);
+    if (pkg.cooler_included === "unknown") return undefined;
+    return {
+      brand: name.trim().split(/\s+/)[0] ?? "",
+      model: name.trim(),
+      aliases: [name.trim()],
+      cooler_included: pkg.cooler_included,
+      ...(pkg.cooler_name ? { cooler_name: pkg.cooler_name } : {})
+    };
+  }
   return undefined;
 }

@@ -77,6 +77,7 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
     return {
       getCatalog: vi.fn(async () => sampleCatalogResult),
       searchProducts: vi.fn(async () => sampleSearchResult),
+      listModels: vi.fn(async () => ({ models: [], total_matching_models: 0, returned_models: 0, truncated: false, scope: { country_code: "US", currency: "USD" } })),
       getCategoryBaseline: vi.fn(async () => ({ total: 10, in_stock_total: 8, min_price: 299, max_price: 1199 })),
       getFreshness: vi.fn(async () => ({ lastScraped: "2026-09-02T12:00:00Z", productCount: 10 }))
     };

@@ -151,9 +151,23 @@ describe("validateBuild", () => {
     expect(run({ case: makeResolved("case-itx", "case", { ...base.case.spec, form_factors: ["Mini-ITX"] }) }).issues).toContainEqual(expect.objectContaining({ rule: "clearance", severity: "blocking" }));
   });
 
-  it("requests research when clearance fields are missing", () => {
+  it("marks GPU clearance unverified with needs_verification when clearance fields are missing", () => {
     const result = run({ case: makeResolved("case-no-clearance", "case", { ...base.case.spec, max_gpu_length_mm: undefined }) });
-    expect(result.issues).toContainEqual(expect.objectContaining({ severity: "needs_research", rule: "spec_resolution" }));
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        severity: "needs_verification",
+        rule: "clearance",
+        detail: "GPU fit couldn’t be verified. Please check the card’s length against the case’s GPU clearance before buying."
+      })
+    );
+    expect(result.valid).toBe(true);
+    expect(result.checks).toContainEqual(
+      expect.objectContaining({
+        rule: "clearance",
+        status: "unverified",
+        message: "GPU fit couldn’t be verified. Please check the card’s length against the case’s GPU clearance before buying."
+      })
+    );
   });
 
   it("blocks inadequate cooler TDP and missing socket brackets", () => {
@@ -218,7 +232,9 @@ describe("validateBuild", () => {
       { cpu: cpu.key, cooler: cooler.key },
       { resolve: (part, category) => category === "cpu" ? cpu : cooler }
     );
-    expect(result.valid).toBe(false);
+    expect(result.valid).toBe(true);
+    const coolerCheck = result.checks.find((c) => c.rule === "cooler");
+    expect(coolerCheck?.status).toBe("unverified");
     expect(result.issues).toContainEqual(
       expect.objectContaining({ severity: "needs_research", detail: expect.stringContaining("unsourced placeholder specs") })
     );
@@ -261,9 +277,13 @@ describe("validateBuild", () => {
     expect(result.issues).not.toContainEqual(expect.objectContaining({ severity: "blocking", rule: "cooler" }));
   });
 
-  it("requests research for unknown components and incomplete specs", () => {
+  it("marks unknown components unverified with needs_verification without duplicate research issues", () => {
     const unknown = validateBuild({ cpu: "missing", motherboard: "mobo-am5" }, { resolve: (part, category) => (part === "mobo-am5" && category === "motherboard" ? base.motherboard : undefined) });
-    expect(unknown.issues).toContainEqual(expect.objectContaining({ severity: "needs_research" }));
+    expect(unknown.issues).toContainEqual(expect.objectContaining({ severity: "needs_verification", rule: "spec_resolution" }));
+    expect(unknown.issues).not.toContainEqual(expect.objectContaining({ severity: "needs_research", rule: "spec_resolution" }));
+    // Exactly one spec_resolution issue
+    const specIssues = unknown.issues.filter((i) => i.rule === "spec_resolution");
+    expect(specIssues).toHaveLength(1);
   });
 
   it("downgrades passing rules with low-confidence researched specs to needs_verification", () => {
@@ -279,7 +299,8 @@ describe("validateBuild", () => {
       { cpu: cpu.key, gpu: "unresolved-gpu", psu: psu.key },
       { resolve: (part) => (part === cpu.key ? cpu : part === psu.key ? psu : undefined) }
     );
-    expect(result.issues).toContainEqual(expect.objectContaining({ severity: "needs_research" }));
+    expect(result.issues).toContainEqual(expect.objectContaining({ severity: "needs_verification", rule: "spec_resolution" }));
+    expect(result.issues).not.toContainEqual(expect.objectContaining({ severity: "needs_research", rule: "spec_resolution" }));
     expect(result.issues).not.toContainEqual(expect.objectContaining({ severity: "blocking", rule: "display_output" }));
     expect(result.issues).not.toContainEqual(expect.objectContaining({ severity: "blocking", rule: "wattage" }));
   });
@@ -316,5 +337,220 @@ describe("validateBuild", () => {
         severity: "advisory"
       })
     );
+  });
+
+  it("populates checks and summary correctly when all checks pass", () => {
+    const result = run();
+    expect(result.checks).toBeDefined();
+    expect(result.checks.length).toBeGreaterThan(0);
+    expect(result.checks.every((c) => c.status === "passed")).toBe(true);
+    expect(result.summary).toEqual({
+      passed: result.checks.length,
+      failed: 0,
+      unverified: 0,
+      text: `All ${result.checks.length} checks passed`
+    });
+  });
+
+  it("formats summary text correctly when checks fail or are unverified", () => {
+    // 1 failure (GPU too long)
+    const failResult = run({ gpu: makeResolved("gpu-long", "gpu", { ...base.gpu.spec, length_mm: 400 }) });
+    expect(failResult.summary.failed).toBe(1);
+    expect(failResult.summary.text).toContain("1 check(s) failed");
+
+    // 1 unverified (case max GPU missing)
+    const unverResult = run({ case: makeResolved("case-no-clearance", "case", { ...base.case.spec, max_gpu_length_mm: undefined }) });
+    expect(unverResult.summary.unverified).toBe(1);
+    expect(unverResult.summary.failed).toBe(0);
+    expect(unverResult.summary.text).toMatch(/\d+ checks passed · 1 unverified/);
+  });
+
+  it("passes stock cooler when CPU includes cooler and no aftermarket cooler is selected", () => {
+    const cpu = makeResolved("cpu-7600", "cpu", {
+      brand: "AMD",
+      model: "Ryzen 5 7600",
+      aliases: ["Ryzen 5 7600"],
+      socket: "AM5",
+      tdp_w: 65,
+      cooler_included: "included",
+      cooler_name: "AMD Wraith Stealth"
+    });
+    const mobo = base.motherboard;
+    const result = validateBuild(
+      { cpu: cpu.key, motherboard: mobo.key },
+      { resolve: (part) => (part === cpu.key ? cpu : part === mobo.key ? mobo : undefined) }
+    );
+    const coolerCheck = result.checks.find((c) => c.rule === "cooler");
+    expect(coolerCheck).toBeDefined();
+    expect(coolerCheck?.status).toBe("passed");
+    expect(coolerCheck?.message).toBe(`Stock cooler is suitable for ${cpu.key} (65W TDP).`);
+    expect(result.skipped_checks.some((s) => s.rule === "cooler")).toBe(false);
+  });
+
+  it("blocks stock cooler when CPU TDP exceeds stock cooler rating", () => {
+    const cpu = makeResolved("cpu-hot", "cpu", {
+      brand: "AMD",
+      model: "Ryzen 7 7700X",
+      aliases: ["Ryzen 7 7700X"],
+      socket: "AM5",
+      tdp_w: 105,
+      cooler_included: "included",
+      cooler_name: "AMD Wraith Stealth" // 65W rated cooler on 105W CPU
+    });
+    const mobo = base.motherboard;
+    const result = validateBuild(
+      { cpu: cpu.key, motherboard: mobo.key },
+      { resolve: (part) => (part === cpu.key ? cpu : part === mobo.key ? mobo : undefined) }
+    );
+    const coolerCheck = result.checks.find((c) => c.rule === "cooler");
+    expect(coolerCheck?.status).toBe("failed");
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        rule: "cooler",
+        severity: "blocking"
+      })
+    );
+  });
+
+  it("[r1] derives issues dynamically from non-passed checks and valid iff failed === 0", () => {
+    // Unresolved part produces unverified check and needs_verification issue, but valid remains true
+    const result = validateBuild(
+      { cpu: "non-existent-cpu" },
+      { resolve: () => undefined }
+    );
+    expect(result.valid).toBe(true);
+    expect(result.summary.failed).toBe(0);
+    expect(result.summary.unverified).toBe(1);
+
+    const check = result.checks.find((c) => c.rule === "spec_resolution");
+    expect(check).toBeDefined();
+    expect(check?.status).toBe("unverified");
+    expect(check?.components).toContain("non-existent-cpu");
+
+    const issue = result.issues.find((i) => i.rule === "spec_resolution" && i.severity === "needs_verification");
+    expect(issue).toBeDefined();
+    expect(issue?.detail).toBe(check?.message);
+  });
+
+  it("[r2] bundled AMD Wraith Stealth fails socket check when paired with an Intel LGA1700 CPU", () => {
+    const intelCpu = makeResolved("cpu-intel-12400", "cpu", {
+      brand: "Intel",
+      model: "Core i5-12400",
+      aliases: ["i5-12400"],
+      socket: "LGA 1700",
+      tdp_w: 65,
+      cooler_included: "included",
+      cooler_name: "AMD Wraith Stealth" // Mismatched cooler
+    });
+    const mobo = makeResolved("mobo-intel", "motherboard", {
+      brand: "MSI",
+      model: "B760",
+      aliases: ["B760"],
+      socket: "LGA 1700",
+      ddr: "DDR5"
+    });
+    const result = validateBuild(
+      { cpu: intelCpu.key, motherboard: mobo.key },
+      { resolve: (part) => (part === intelCpu.key ? intelCpu : part === mobo.key ? mobo : undefined) }
+    );
+    expect(result.valid).toBe(false);
+    const coolerCheck = result.checks.find((c) => c.rule === "cooler");
+    expect(coolerCheck?.status).toBe("failed");
+    expect(coolerCheck?.message).toContain("LGA 1700");
+  });
+
+  it("[r2] bundled stock cooler undergoes normal clearance validation and blocks tight cases", () => {
+    const cpu = makeResolved("cpu-7600", "cpu", {
+      brand: "AMD",
+      model: "Ryzen 5 7600",
+      aliases: ["Ryzen 5 7600"],
+      socket: "AM5",
+      tdp_w: 65,
+      cooler_included: "included",
+      cooler_name: "AMD Wraith Stealth" // Height is 54mm
+    });
+    const tightCase = makeResolved("case-ultra-slim", "case", {
+      brand: "Slim",
+      model: "UltraSlim",
+      aliases: ["UltraSlim"],
+      max_cooler_height_mm: 40 // Too small for 54mm Wraith Stealth
+    });
+
+    const result = validateBuild(
+      { cpu: cpu.key, case: tightCase.key },
+      { resolve: (part) => (part === cpu.key ? cpu : part === tightCase.key ? tightCase : undefined) }
+    );
+    expect(result.valid).toBe(false);
+    const clearanceCheck = result.checks.find((c) => c.rule === "clearance" && c.components.includes(tightCase.key));
+    expect(clearanceCheck?.status).toBe("failed");
+    expect(clearanceCheck?.message).toContain("Cooler height 54mm exceeds case clearance 40mm");
+  });
+
+  it("[r2] unresolvable included cooler leaves specs unknown without inventing numbers", () => {
+    const cpu = makeResolved("cpu-custom", "cpu", {
+      brand: "Unknown",
+      model: "Mystery CPU",
+      aliases: ["Mystery CPU"],
+      socket: "AM5",
+      tdp_w: 65,
+      cooler_included: "included"
+      // cooler_name omitted -> unresolvable
+    });
+
+    const result = validateBuild(
+      { cpu: cpu.key },
+      { resolve: (part) => (part === cpu.key ? cpu : undefined) }
+    );
+    expect(result.valid).toBe(true);
+    const coolerCheck = result.checks.find((c) => c.rule === "cooler");
+    expect(coolerCheck?.status).toBe("unverified");
+  });
+
+  it("[r3] checkClearance produces unverified check when case max_gpu_length is low-confidence placeholder", () => {
+    const pcCase = makeResolved("case-placeholder", "case", {
+      brand: "Generic",
+      model: "Placeholder Case",
+      aliases: ["Placeholder Case"],
+      max_gpu_length_mm: 400
+    }, "low", "registry"); // Untrusted spec
+
+    const gpu = makeResolved("gpu-exact", "gpu", {
+      brand: "NVIDIA",
+      model: "RTX 4070",
+      aliases: ["RTX 4070"],
+      length_mm: 260
+    }, "high", "registry");
+
+    const result = validateBuild(
+      { case: pcCase.key, gpu: gpu.key },
+      { resolve: (part) => (part === pcCase.key ? pcCase : part === gpu.key ? gpu : undefined) }
+    );
+    expect(result.valid).toBe(true);
+    const clearanceCheck = result.checks.find((c) => c.rule === "clearance");
+    expect(clearanceCheck?.status).toBe("unverified");
+    expect(result.summary.unverified).toBeGreaterThanOrEqual(1);
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ severity: "needs_research", detail: expect.stringContaining("unsourced placeholder specs") })
+    );
+  });
+
+  it("records the discrete GPU key in components for display output when GPU is present", () => {
+    const cpu = makeResolved("cpu-7600", "cpu", { ...base.cpu.spec, igpu: true });
+    const gpu = makeResolved("gpu-4070", "gpu", base.gpu.spec);
+    const result = validateBuild(
+      { cpu: cpu.key, gpu: gpu.key },
+      { resolve: (part) => (part === cpu.key ? cpu : part === gpu.key ? gpu : undefined) }
+    );
+    const displayCheck = result.checks.find((c) => c.rule === "display_output");
+    expect(displayCheck?.status).toBe("passed");
+    expect(displayCheck?.components).toEqual([gpu.key]);
+  });
+
+  it("null-safely handles null/undefined parts in isMarkedIncluded", () => {
+    const result = validateBuild(
+      { cpu: base.cpu.key, cooler: null as unknown as undefined },
+      { resolve: (part) => (part === base.cpu.key ? base.cpu : undefined) }
+    );
+    expect(result).toBeDefined();
   });
 });
