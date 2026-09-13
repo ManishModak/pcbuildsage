@@ -13,7 +13,7 @@ LLMs evaluating PC components are constrained by training knowledge cutoffs. Whe
 This plan specifies a deterministic, local-first benchmark ranking subsystem integrated into PCBuildSage. It provides:
 1. **Curated relative performance indices** in the offline component registry (`data/registry/`).
 2. **Passive enrichment & optional performance sorting** in the existing `search_products` tool.
-3. **A dedicated `compare_components` tool** for side-by-side delta and price-to-performance calculations.
+3. **A dedicated `compare_components` tool** for side-by-side delta and price-to-performance calculations after narrowing the eligible options to 3–5 finalists.
 4. **Strict missing-data and research guards**: benchmarks are optional; missing data returns `unset`/`unavailable` and **never blocks** recommendations or validation.
 
 ---
@@ -28,7 +28,7 @@ This plan specifies a deterministic, local-first benchmark ranking subsystem int
 | **Metric Separation** | GPUs by resolution (`p1080`, `p1440`, `p2160`); CPUs by workload (`gaming`, `multicore`, `single_core`). | Prevents deceptive cross-workload conflation (e.g., high core count does not equal high FPS). |
 | **Provenance** | Each metric includes `baseline`, `dataset_id`, `source`, and `benchmark_date`. | A fixed baseline alone does not establish comparability; datasets identify a frozen suite, settings, and test methodology. |
 | **Missing Data** | Return `unset` / `unavailable`. Never hallucinate or synthesize estimated numbers. | Preserves absolute trust in the system's output. |
-| **Comparison / Research Budget** | One comparison of 2–3 candidates by default; at most one justified follow-up and one targeted benchmark research call per build request. Enforced across turns by the runtime. | Bounds latency and tool use; missing data alone never triggers research. |
+| **Shortlist Before Comparison** | Discover eligible options with compact search results, finalize 3–5 candidates in a category, then compare that shortlist together. Two candidates are sufficient when only two are relevant. | Focuses detailed benchmark retrieval on actual finalists without fixed comparison-call quotas. |
 | **Tool Surface** | **Hybrid**: Passive `perf_score` + optional `sort_by: "perf"` in `search_products`; new dedicated `compare_components` tool. | Gives instant context during search, and detailed arithmetic during explicit comparisons. |
 | **Build Validation** | **Deferred**: CPU/GPU balance advice is non-blocking and deferred until workload-specific, evidence-backed rules exist. | Avoids ungrounded heuristics or comparing CPU and GPU scores directly. |
 
@@ -135,8 +135,8 @@ export const compareComponentsInputSchema = z.object({
   parts: z
     .array(z.string())
     .min(2)
-    .max(3)
-    .describe("2 to 3 distinct component names or registry keys to compare (e.g. ['RTX 4070 Super', 'RTX 5070'] or ['Ryzen 5 7600', 'Ryzen 7 7800X3D'])."),
+    .max(5)
+    .describe("2 to 5 distinct shortlisted component names or registry keys to compare (e.g. ['RTX 4070 Super', 'RTX 5070'] or ['Ryzen 5 7600', 'Ryzen 7 7800X3D'])."),
   category: z
     .enum(["cpu", "gpu"])
     .describe("Component category to compare. Comparisons must belong to the same category."),
@@ -157,7 +157,6 @@ Validate the category-matching context and reject the wrong category's context. 
 ```ts
 export interface ComponentComparisonResult {
   category: "cpu" | "gpu";
-  status: "ok" | "budget_exhausted";
   components: Array<{
     name: string;
     registry_key: string | null;
@@ -207,16 +206,18 @@ Select the lowest positive-priced, in-stock catalog offer for the exact resolved
 4. **Value Ratios**:  
    Follow the per-metric, comparable-group and offer-selection rules in §4.4. Never estimate prices from MSRP or foreign currencies.
 
-### 5.1. Runtime comparison and research limits
+### 5.1. Discover, shortlist, then compare
 
-- A **build request** is a user-started build/recommendation objective, identified by a server-owned request ID within the chat session. Carry counters across tool steps, follow-up messages, retries, and reconnects for that objective. A new message alone does not reset them. Reset only for an explicit new build/comparison objective; the model cannot mint a new ID to replenish its allowance.
-- Allow one comparison of 2–3 distinct candidates by default. A second requires a structured reason identifying a material unresolved decision and referencing the first result. Missing data alone is insufficient. Carry that reason and prior-result ID as execution metadata, separate from the hardware input contract. The runtime validates their presence/reference and enforces a hard ceiling of two executions; prompt guidance determines whether the reason is substantively useful and must be evaluated with representative conversations.
-- Allow at most one targeted **benchmark** research execution through `consult` for that objective, only if enabled and requested by the user or needed for a material unresolved choice. Mark benchmark research purpose explicitly and route it through the same budget guard. This budget does not alter existing compatibility/specification research behavior.
-- Check and reserve allowance atomically before executing a call, including simultaneous calls. Count dispatched executions even if unsuccessful; reuse persisted results for duplicate calls or retried tool-call IDs without another execution. Cache by canonical parts, metric context, dataset revision, and market/offer snapshot; invalidate stale results without resetting counters.
-- On exhaustion return a structured `budget_exhausted` result and reusable evidence. Do not retry, expand candidates, switch tools to evade the benchmark budget, or block the build. Explain remaining uncertainty and continue from available data.
-- Search uses local enrichment and never consumes comparison allowance or triggers research. Do not make benchmarks a mandatory checklist for each component category. Stop once evidence supports the recommendation.
+1. **Discover eligible options:** use `search_products` to identify candidates matching the user's budget, availability, compatibility constraints, and intended workload. Use compact specs and optional contextual performance scores to narrow the field. Discovery does not mean enumerating every catalog product or fetching detailed benchmarks for every search result.
+2. **Finalize a shortlist:** select 3–5 distinct candidates within the category being decided, with a clear reason each remains competitive. Deduplicate retailer listings for the same part. Do not pad the shortlist when only two relevant options exist; when one option already satisfies the decision, skip comparison. Missing benchmark data alone must not disqualify an otherwise suitable finalist.
+3. **Compare the finalists together:** send the complete shortlist to `compare_components` in one batch for the relevant workload/resolution. The tool resolves detailed benchmark records only for those supplied parts. Do not run pairwise comparisons across the catalog, or compare every intermediate search batch.
+4. **Choose and reuse:** use the batch result to make the recommendation. Reuse available results in follow-up discussion. Revisit the shortlist when the user's requirements, availability, prices, or a material unresolved tradeoff change the decision; do not keep rotating candidates for marginal gains after the choice is supported.
 
-Implement request state and the execution guard at the server/tool boundary; instructions in `chat-engine.ts` alone are insufficient. Confirm the existing session persistence and tool execution plumbing before selecting storage, and record that choice in the implementation PR. Acceptance requires persistence across turns and atomic reservation; do not ship a per-invocation in-memory counter as an equivalent substitute.
+There are no fixed per-request comparison or benchmark-research call quotas, persistent budget counters, or budget-exhaustion responses in this feature. The tool schema enforces a maximum of five distinct candidates per batch; tool descriptions and chat guidance direct the intended workflow, verified with representative conversation evaluations. The batch-size check alone does not guarantee the model follows the workflow.
+
+Benchmarks remain optional enrichment. Search returns compact context, not full benchmark records for all products. Optional server-side performance sorting may examine local scores across eligible matches to rank correctly, but that does not expose every product's detailed benchmarks to the LLM or invoke comparison/research.
+
+Targeted research through `consult` remains optional, when enabled and explicitly requested or necessary to resolve a material uncertainty about a finalist. Missing benchmarks alone do not trigger it. Do not research the entire candidate pool to complete benchmark coverage. Existing compatibility/specification research behavior remains unchanged.
 
 ---
 
@@ -226,23 +227,22 @@ Implement request state and the execution guard at the server/tool boundary; ins
 pcbuildsage/
 ├── data/
 │   ├── schemas/
-│   │   └── registry.schema.json              # [MODIFY] Add 'benchmarks' schema definition
+│       └── registry.schema.json              # [MODIFY] Add 'benchmarks' schema definition
 │   └── registry/
 │       ├── gpus.json                         # [MODIFY] Seed benchmark scores for major GPUs
 │       └── cpus.json                         # [MODIFY] Seed benchmark scores for major CPUs
 ├── src/
-│   ├── lib/
-│   │   ├── catalog/
-│   │   │   ├── compact.ts                    # [MODIFY] Add perf keys to FUNCTIONAL_SPEC_KEYS
-│   │   │   ├── repository.ts                 # [MODIFY] Support perf sort in searchProducts
-│   │   │   └── sql-repository.ts             # [MODIFY] Global registry-aware perf ranking before limit
-│   │   ├── registry.ts                       # [MODIFY] Existing registry types and benchmark records
-│   │   ├── llm/chat-engine.ts                # [MODIFY] Context and bounded comparison directives
-│   │   └── tools/
-│   │       ├── search-products.ts            # [MODIFY] Expose 'perf' in sort_by & coverage meta
-│   │       ├── compare-components.ts         # [NEW] Dedicated comparison tool implementation
-│   │       └── index.ts                      # [MODIFY] Register compare_components tool
-│   └── app/api/chat/route.ts                 # [INSPECT/MODIFY] Carry server-owned request context
+│   └── lib/
+│       ├── catalog/
+│       │   ├── compact.ts                    # [MODIFY] Add perf keys to FUNCTIONAL_SPEC_KEYS
+│       │   ├── repository.ts                 # [MODIFY] Support perf sort in searchProducts
+│       │   └── sql-repository.ts             # [MODIFY] Global registry-aware perf ranking before limit
+│       ├── registry.ts                       # [MODIFY] Existing registry types and benchmark records
+│       ├── llm/chat-engine.ts                # [MODIFY] Discover, shortlist, compare directives
+│       └── tools/
+│           ├── search-products.ts            # [MODIFY] Expose 'perf' in sort_by & coverage meta
+│           ├── compare-components.ts         # [NEW] Dedicated comparison tool implementation
+│           └── index.ts                      # [MODIFY] Register compare_components tool
 └── tests/                                   # Proposed tests; align with existing colocated conventions
     ├── tools/
     │   ├── compare-components.test.ts        # [NEW] Unit tests for comparison & delta arithmetic
@@ -261,21 +261,19 @@ graph TD
     T1 --> T3[Task 3: Catalog Projection & Compaction]
     T3 --> T4[Task 4: Implement compare_components Tool]
     T3 --> T5[Task 5: Add Performance Sorting to search_products]
-    T1 --> T8[Task 8: Persistent Runtime Budget Guard]
     T4 --> T6[Task 6: Registration & LLM Guidance]
-    T8 --> T6
     T2 --> T7
     T5 --> T6
     T6 --> T7[Task 7: Automated Integration Tests & CI Verification]
 ```
 
-The runtime guard and request-state storage files must be identified during Task 1 by tracing `src/app/api/chat/route.ts`, `src/lib/llm/chat-engine.ts`, and tool registration. Add those exact paths to the implementation PR; they are required scope, not optional prompting work. The existing registry type file is `src/lib/registry.ts` (there is no `src/types/registry.ts`).
+The existing registry type file is `src/lib/registry.ts`. Shortlist selection guidance belongs in tool descriptions and `src/lib/llm/chat-engine.ts`; this feature does not require new request-budget persistence.
 
 ### Phase 1: Data Contracts & Seeding
 - [ ] **Task 1: Schema Updates**
   - Update `data/schemas/registry.schema.json` with the `benchmarks` schema.
   - Update `src/lib/registry.ts` with per-metric benchmark types.
-  - Define shared score projection, comparison-group selection, and budget-state contracts; identify persistence and execution-guard integration points.
+  - Define shared score projection, comparison-group selection, and 2–5-candidate batch contracts.
 - [ ] **Task 2: Seed Benchmarks**
   - Document immutable dataset definitions and normalization inputs. Start with a small verified set; broader generation coverage is incremental and not a prerequisite for tool development.
   - Seed baseline = 100 for `NVIDIA GeForce RTX 4060 8GB` (`gpus.json`) and `AMD Ryzen 5 7600` (`cpus.json`).
@@ -295,18 +293,15 @@ The runtime guard and request-state storage files must be identified during Task
   - Implement global registry-aware ranking before limiting as specified in §4.3, with full eligible-set coverage and existing non-performance sort behavior preserved.
 - [ ] **Task 6: Registration & LLM Directives**
   - Register `compare_components` in `src/lib/tools/index.ts`.
-  - Update `src/lib/llm/chat-engine.ts` system directives advising the LLM on when to use `compare_components` vs `search_products`.
+  - Update `src/lib/llm/chat-engine.ts` and tool descriptions with the discover → shortlist → batch comparison workflow in §5.1. Detailed benchmark retrieval is for finalists only; comparison remains optional.
 
-- [ ] **Task 8: Runtime Budget Guard**
-  - Implement §5.1 request identity, persisted counters/results, atomic reservation, duplicate reuse, and graceful exhaustion at the execution boundary.
-  - Integrate comparison and benchmark-purpose consult execution; verify compatibility research remains unaffected.
-
-Tasks 2, 3, and 8 can proceed independently after Task 1 contracts are agreed, using fixtures. Tasks 4 and 5 can proceed in parallel after Task 3; Task 6 integrates both with Task 8. Verification includes real seed data from Task 2. Contributors should own separate modules and coordinate shared contract changes through Task 1.
+Tasks 2 and 3 can proceed independently after Task 1 contracts are agreed, using fixtures. Tasks 4 and 5 can proceed in parallel after Task 3; Task 6 integrates both. Verification includes real seed data from Task 2. Contributors should own separate modules and coordinate shared contract changes through Task 1.
 
 ### Phase 4: Verification & Hardening
 - [ ] **Task 7: Comprehensive Verification**
   - Full test suite execution: `npm test` and `npm run typecheck`.
-  - Edge case validation: unbenchmarked components, missing prices, identical models, single-component requests.
+  - Edge case validation: unbenchmarked components, missing prices, duplicate canonical models, single-component requests, and successful batches of 3, 4, and 5 candidates.
+  - Evaluate representative chat traces for shortlist-first behavior, compact discovery payloads, optional comparison, and relevant follow-up changes.
 
 ---
 
@@ -326,10 +321,12 @@ Tasks 2, 3, and 8 can proceed independently after Task 1 contracts are agreed, u
    - Same-baseline but different-dataset scores never participate in shared ranking/deltas/value winners.
    - Search scores identify the requested metric; missing context never silently selects a different workload. Comparison requires context, and `all` is explicit.
    - Each returned metric retains its own provenance; value ratios are metric-specific and use eligible same-currency catalog offers.
-6. **Bounded Tool Use**:
-   - Multiple turns/reconnects for one objective retain counters; the third distinct comparison is denied and the second requires a reason/reference.
-   - Duplicate/retried and simultaneous calls cannot bypass the cap; benchmark research is limited to one execution, without changing compatibility research rules.
-   - Missing data and budget exhaustion produce a useful response without loops or blocking a recommendation.
+6. **Shortlist-First Tool Use**:
+   - Discovery returns compact specs/context rather than detailed benchmark maps for every result.
+   - Representative build conversations narrow eligible options to 3–5 distinct finalists per relevant category before one batch comparison; two viable options need no padding and one clear option needs no comparison.
+   - The comparison tool accepts 3-, 4-, and 5-part batches, rejects more than five or duplicate canonical parts, and reads detailed benchmarks only for supplied finalists.
+   - Chat evaluations cover avoiding comparisons of every search batch, exhaustive pairwise comparisons, and research of the entire pool. Follow-ups reuse results unless relevant inputs or the decision change.
+   - Missing data never blocks a recommendation or initiates research by itself. No fixed call quotas or budget-state machinery are introduced.
 7. **Global Ranking**:
    - A best-scoring candidate beyond the first SQL batch still ranks first before limit; both explicit sort directions put unscored entries last.
    - Coverage describes all eligible matches, including unreturned unscored entries. Existing non-performance search behavior remains intact.
@@ -347,5 +344,4 @@ Tasks 2, 3, and 8 can proceed independently after Task 1 contracts are agreed, u
 
 - **Implementation checkpoints (not permission to omit requirements):**
   - Choose the initial source suites and verify reference coverage before seeding; do not invent scores to meet generation targets.
-  - Identify existing session persistence and add server-owned build-request budget state with cross-turn atomic updates. Document exact affected files before implementing the guard.
   - Assess full-candidate performance sorting against the current catalog size. Add materialization only if measured cost warrants it.
