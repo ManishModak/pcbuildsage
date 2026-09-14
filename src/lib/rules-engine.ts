@@ -127,6 +127,9 @@ export function validateBuild(parts: BuildParts, options: { resolve?: Resolver }
       recordCheckLocal("spec_resolution", "unverified", [label(part)], `No ${category} specs found in registry or research cache.`);
       return undefined;
     }
+    if (typeof spec.spec.spec_conflict === "string") {
+      recordCheckLocal("spec_resolution", "unverified", [spec.key], spec.spec.spec_conflict);
+    }
     resolved[category] = spec;
     return spec;
   };

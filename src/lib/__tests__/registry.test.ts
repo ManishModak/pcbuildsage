@@ -73,3 +73,26 @@ describe("resolveComponent trust model", () => {
     expect(resolveComponent({ name: "Totally Unknown Widget 9000", category: "cpu" }, { db: emptyDb })).toBeUndefined();
   });
 });
+
+describe("GPU variant identity", () => {
+  it("corrects an 8GB offer linked to the 16GB registry variant and flags the conflict", () => {
+    const result = resolveComponent({ category: "gpu", key: "amd-rx-9060-xt-16gb", name: "ASRock RX 9060 XT Steel Legend 8GB OC GDDR6 Graphics Card" }, { skipDbLookup: true });
+    expect(result?.key).toBe("amd-rx-9060-xt-8gb");
+    expect(result?.spec.vram_gb).toBe(8);
+    expect(result?.spec.spec_conflict).toContain("conflicts");
+  });
+
+  it("matches model and capacity despite intervening retailer words", () => {
+    const result = resolveComponent({ category: "gpu", name: "ASUS RTX 5060 Ti Dual OC 16GB GDDR7" }, { skipDbLookup: true });
+    expect(result?.key).toBe("nvidia-rtx-5060-ti-16gb");
+    expect(result?.spec.vram_gb).toBe(16);
+  });
+
+  it("does not reuse wrong-variant power or dimensions when no matching variant exists", () => {
+    const result = resolveComponent({ category: "gpu", key: "amd-rx-9060-xt-16gb", name: "ASRock RX 9060 XT 24GB" }, { skipDbLookup: true });
+    expect(result?.spec.vram_gb).toBe(24);
+    expect(result?.spec.tdp_w).toBeUndefined();
+    expect(result?.spec.length_mm).toBeUndefined();
+    expect(result?.spec.spec_conflict).toBeDefined();
+  });
+});

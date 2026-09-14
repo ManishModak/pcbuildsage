@@ -48,7 +48,7 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
         .flatMap((part) => typeof part === "object" && part.product_id ? [part.product_id] : []);
       if (!ids.length) return validateBuild(parts);
       const products = await (repository ?? getCatalogRepository()).searchProducts(
-        { product_ids: [...new Set(ids)], in_stock: false, limit: ids.length }, scope
+        { product_ids: [...new Set(ids)], inStockOnly: false, limit: ids.length }, scope
       );
       const byId = new Map(products.results.map((product) => [product.id, product]));
       return validateBuild(parts, {
@@ -62,7 +62,7 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
           if (!resolved) return undefined;
           // Only explicit offer-title specs supplement model-level registry data.
           const titleSpecs = category === "ram" || category === "gpu" ? parseSpecsFromTitle(product.name, category) : undefined;
-          return { ...resolved, key: product.id, spec: { ...resolved.spec, ...titleSpecs } };
+          return { ...resolved, key: product.id, spec: { ...resolved.spec, ...titleSpecs, ...(product.specs?.spec_conflict ? { spec_conflict: product.specs.spec_conflict } : {}) } };
         }
       });
     }

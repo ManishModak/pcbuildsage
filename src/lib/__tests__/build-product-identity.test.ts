@@ -23,7 +23,7 @@ describe("catalog product identity through validation and presentation", () => {
     const repo = repository();
     const parts = { gpu: { product_id: gpu.id, key: "nvidia-rtx-4090" }, case: { product_id: pcCase.id }, cpu: { product_id: cpu.id } };
     const output = await validate(parts, repo);
-    expect(repo.searchProducts).toHaveBeenCalledWith({ product_ids: [gpu.id, pcCase.id, cpu.id], in_stock: false, limit: 3 }, scope);
+    expect(repo.searchProducts).toHaveBeenCalledWith({ product_ids: [gpu.id, pcCase.id, cpu.id], inStockOnly: false, limit: 3 }, scope);
     expect(output).toMatchObject({ resolved: { gpu: { key: gpu.id, spec: { vram_gb: 12 } } } });
     const calls = [
       { type: "tool-validate_build", state: "output-available", input: { parts }, output },

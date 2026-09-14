@@ -31,6 +31,7 @@ import {
 } from "@/components/animate-ui/components/radix/sheet";
 import { sessionSignature, type SessionSaveQueue } from "./session-save-queue";
 import { TranscriptMenu } from "./transcript-menu";
+import { ChatRecovery, prepareChatRecovery } from "./chat-recovery";
 
 function deriveTitle(messages: ChatUIMessage[]): string {
   const firstUser = messages.find((message) => message.role === "user");
@@ -202,6 +203,20 @@ export function ChatView({
     transport,
     throttle: 50
   });
+
+  const [recovery] = useState(() => new ChatRecovery());
+  useEffect(() => {
+    if (status === "error" && error) {
+      recovery.schedule(error, () => {
+        setMessages((current) => prepareChatRecovery(current));
+        void sendMessage();
+      });
+    }
+  }, [status, error, recovery, setMessages, sendMessage]);
+  useEffect(() => {
+    recovery.reset();
+    return () => recovery.cancel();
+  }, [recovery, sessionId]);
 
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [activeBuilds, setActiveBuilds] = useState<DerivedBuild[] | null>(null);
@@ -446,6 +461,7 @@ export function ChatView({
 
   const send = (text: string) => {
     if (!text.trim() || streaming) return;
+    recovery.reset();
     void sendMessage({ text });
     const userMsg: ChatUIMessage = {
       id: crypto.randomUUID(),
@@ -457,6 +473,7 @@ export function ChatView({
 
   const handleEditMessage = (index: number, newText: string) => {
     if (streaming) return;
+    recovery.reset();
     const truncated = messages.slice(0, index);
     setMessages(truncated);
     void sendMessage({ text: newText });
@@ -547,7 +564,7 @@ export function ChatView({
 
         <div className="border-t border-border bg-bg shrink-0">
           <div className="mx-auto w-full max-w-[760px] px-4 py-3">
-            <Composer onSend={send} onStop={stop} streaming={streaming} />
+            <Composer onSend={send} onStop={() => { recovery.cancel(); void stop(); }} streaming={streaming} />
             <p className="mt-2 text-center text-caption text-text-muted">
               {isHostedMode() ? (
                 <>Prices live from cloud catalog ({config.currency}){relativeTime ? ` · Updated ${relativeTime}` : ""}</>

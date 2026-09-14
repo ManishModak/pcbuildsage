@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { initializeSchema } from "@/lib/db";
+import { createValidateBuildTool } from "@/lib/tools/validate-build";
 import type { Product } from "@/types/db";
 import {
   SqliteCatalogRepository,
@@ -83,6 +84,27 @@ describe("SqliteCatalogRepository", () => {
     const result = await repo.searchProducts({ product_ids: ["selected", "foreign"], in_stock: false }, scopeUS);
     expect(result.results.map((product) => product.id)).toEqual(["selected"]);
     expect((await repo.searchProducts({ product_ids: [] }, scopeUS)).results).toEqual([]);
+  });
+
+  it("validates actual in-stock and retired catalog IDs through the tool", async () => {
+    insertProduct(db, { id: "active-cpu", name: "AMD Ryzen 5 5500 Processor", registry_key: "amd-ryzen-5-5500", in_stock: 1 });
+    insertProduct(db, { id: "retired-gpu", category: "gpu", name: "Sapphire PURE RX 7700 XT 12GB", registry_key: "sapphire-pure-rx-7700-xt", in_stock: 0 });
+    const tool = createValidateBuildTool(scopeUS, repo);
+    const output = await tool.execute!({ parts: { cpu: { product_id: "active-cpu" }, gpu: { product_id: "retired-gpu" } } }, { toolCallId: "test", messages: [], context: {} });
+    expect(output).toMatchObject({ resolved: { cpu: { key: "active-cpu", spec: { socket: "AM4" } } } });
+    expect(output).toMatchObject({ resolved: { gpu: { key: "retired-gpu", spec: { vram_gb: 12 } } } });
+  });
+
+  it("excludes mislinked 8GB cards from 16GB searches and exposes the conflict", async () => {
+    insertProduct(db, { id: "eight", category: "gpu", name: "ASRock RX 9060 XT Steel Legend 8GB OC", registry_key: "amd-rx-9060-xt-16gb" });
+    const all = await repo.searchProducts({ category: "gpu" }, scopeUS);
+    expect(all.results[0].specs).toMatchObject({ vram_gb: 8, spec_conflict: expect.any(String) });
+    expect(all.results[0].registry_key).toBe("amd-rx-9060-xt-8gb");
+    const sixteen = await repo.searchProducts({ category: "gpu", min_vram_gb: 16 }, scopeUS);
+    expect(sixteen.results).toHaveLength(0);
+    const tool = createValidateBuildTool(scopeUS, repo);
+    const result = await tool.execute!({ parts: { gpu: { product_id: "eight" } } }, { toolCallId: "variant", messages: [], context: {} });
+    expect(result).toMatchObject({ checks: expect.arrayContaining([expect.objectContaining({ rule: "spec_resolution", status: "unverified", components: ["eight"] })]) });
   });
 
   describe("Factory Registration and Instantiation", () => {

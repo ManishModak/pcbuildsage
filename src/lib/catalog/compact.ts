@@ -9,6 +9,7 @@ export const FUNCTIONAL_SPEC_KEYS = new Set([
   // Identification / Branding
   "brand",
   "model",
+  "spec_conflict",
   // Processors / Sockets
   "socket",
   "sockets",

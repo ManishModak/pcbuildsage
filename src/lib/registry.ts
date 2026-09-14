@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import type { RegistryResearchEntry } from "@/types";
 import { normalizeTitle, slugifyComponent } from "./normalizer";
 import { parseSpecsFromTitle } from "./spec-parsers";
+import { gpuVariant } from "./gpu-variant";
 
 export type ComponentCategory = "cpu" | "gpu" | "motherboard" | "ram" | "storage" | "psu" | "case" | "cooler";
 export type Confidence = "high" | "medium" | "low";
@@ -59,6 +60,11 @@ export function resolveComponent(
   const canonical = key ? registry.byKey.get(key) : undefined;
   const normalized = normalizeTitle(name);
   const alias = registry.byAlias.get(normalized);
+  const variant = gpuVariant(name);
+  const compatible = (candidate: ResolvedSpec) => candidate.category !== "gpu" || (
+    (!variant.family || gpuVariant(candidate.spec.model).family === variant.family) &&
+    (variant.vram === undefined || Number(candidate.spec.vram_gb) === variant.vram)
+  );
   let hit =
     canonical && (!category || canonical.category === category)
       ? canonical
@@ -66,16 +72,27 @@ export function resolveComponent(
         ? alias
         : undefined;
 
+  let rejectedGpu: ResolvedSpec | undefined;
+  if (hit && !compatible(hit)) {
+    rejectedGpu = hit;
+    hit = undefined;
+  }
+
   // Substring word-boundary match against canonical aliases (e.g., matching "MSI RTX 5060 Shadow..." to "nvidia-rtx-5060")
   if (!hit && normalized) {
     for (const { pattern, resolved } of registry.sortedAliases) {
       if (!category || resolved.category === category) {
-        if (pattern.test(normalized)) {
+        if (pattern.test(normalized) && compatible(resolved)) {
           hit = resolved;
           break;
         }
       }
     }
+  }
+
+  // Retailer words can separate the model and capacity, defeating contiguous aliases.
+  if (!hit && variant.family && variant.vram !== undefined && (!category || category === "gpu")) {
+    hit = [...registry.byKey.values()].find((candidate) => candidate.category === "gpu" && /^(AMD|NVIDIA|Intel)$/i.test(candidate.spec.brand) && compatible(candidate));
   }
 
   const result = (() => {
@@ -89,7 +106,8 @@ export function resolveComponent(
     // compute a verdict from it and asks for research instead.
     if (!options.skipDbLookup && options.db !== null) {
       const researched = lookupResearch({ key: key ?? slugifyComponent(name), name, category }, options.db ?? getDb());
-      if (researched) return researched;
+      if (researched && compatible(researched)) return researched;
+      if (researched?.category === "gpu" && !compatible(researched)) rejectedGpu ??= researched;
     }
 
     const derived = parseSpecsFromTitle(name, category);
@@ -106,6 +124,19 @@ export function resolveComponent(
     return hit;
   })();
 
+  if (rejectedGpu) {
+    const conflict = `GPU listing variant conflicts with registry record ${rejectedGpu.key}; the conflicting record was not used.`;
+    if (result) return normalizeResolvedSpec({
+      ...result,
+      key: result.source === "derived" ? slugifyComponent(name) : result.key,
+      spec: { ...result.spec, ...(variant.vram !== undefined ? { vram_gb: variant.vram } : {}), spec_conflict: conflict }
+    });
+    return {
+      key: slugifyComponent(name), category: "gpu", source: "derived", confidence: "medium",
+      spec: { brand: name.split(/\s+/)[0] ?? "", model: name, aliases: [name],
+        ...(variant.vram !== undefined ? { vram_gb: variant.vram } : {}), spec_conflict: conflict }
+    };
+  }
   return normalizeResolvedSpec(result);
 }
 
