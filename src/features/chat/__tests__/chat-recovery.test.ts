@@ -86,3 +86,72 @@ it("continues an interrupted SDK stream without replaying completed tool executi
   await expect(convertToModelMessages(requests[1])).resolves.toBeDefined();
   expect(chat.status).toBe("ready");
 });
+
+it("detects silent unfinished turns without retrying cancellation, errors, answers, or presented builds", async () => {
+  const { isIncompleteChatFinish } = await import("../chat-recovery");
+  const flags = { isAbort: false, isError: false };
+  const empty: UIMessage = { id: "a", role: "assistant", parts: [{ type: "reasoning", text: "Checking" }] };
+  expect(isIncompleteChatFinish(empty, flags)).toBe(true);
+  expect(isIncompleteChatFinish(empty, { ...flags, isAbort: true })).toBe(false);
+  expect(isIncompleteChatFinish(empty, { ...flags, isError: true })).toBe(false);
+  expect(isIncompleteChatFinish({ ...empty, parts: [{ type: "text", text: "Here is your answer" }] }, flags)).toBe(false);
+  expect(isIncompleteChatFinish({ ...empty, parts: [{ type: "tool-present_build", toolCallId: "b", state: "output-available", input: {}, output: { presented: true, builds: [{}] } }] }, flags)).toBe(false);
+  expect(isIncompleteChatFinish({ ...empty, parts: [{ type: "tool-present_build", toolCallId: "b", state: "input-streaming", input: {} }] }, flags)).toBe(true);
+});
+
+it("shares one recovery budget across silent endings and provider errors", () => {
+  vi.useFakeTimers();
+  const recovery = new ChatRecovery();
+  const resume = vi.fn();
+  expect(recovery.scheduleIncomplete(resume)).toBe(true);
+  vi.runAllTimers();
+  expect(recovery.schedule(new Error("502 upstream"), resume)).toBe(false);
+  expect(recovery.scheduleIncomplete(resume)).toBe(false);
+  recovery.reset();
+  expect(recovery.schedule(new Error("502 upstream"), resume)).toBe(true);
+  vi.runAllTimers();
+  expect(recovery.scheduleIncomplete(resume)).toBe(false);
+  recovery.reset();
+  recovery.cancel();
+  expect(recovery.scheduleIncomplete(resume)).toBe(false);
+});
+
+it("continues a clean SDK finish with only tool work once, then reports incompletion", async () => {
+  const { Chat } = await import("@ai-sdk/react");
+  const { isIncompleteChatFinish } = await import("../chat-recovery");
+  vi.useFakeTimers();
+  const recovery = new ChatRecovery();
+  let requests = 0;
+  let incompleteNotice = false;
+  const chat = new Chat<UIMessage>({
+    onFinish: ({ message, isAbort, isError }) => {
+      if (isIncompleteChatFinish(message, { isAbort, isError })) {
+        incompleteNotice = !recovery.scheduleIncomplete(() => {
+          chat.messages = prepareChatRecovery(chat.messages);
+          void chat.sendMessage();
+        });
+      }
+    },
+    transport: {
+      reconnectToStream: async () => null,
+      sendMessages: async () => {
+        requests++;
+        return new ReadableStream({ start(controller) {
+          controller.enqueue({ type: "start", messageId: "silent" });
+          if (requests === 1) {
+            controller.enqueue({ type: "tool-input-available", toolCallId: "search", toolName: "search_products", input: {} });
+            controller.enqueue({ type: "tool-output-available", toolCallId: "search", output: { results: [] } });
+          }
+          controller.enqueue({ type: "finish", finishReason: "stop" });
+          controller.close();
+        } });
+      }
+    }
+  });
+  await chat.sendMessage({ text: "Build a PC" });
+  expect(incompleteNotice).toBe(false);
+  await vi.runAllTimersAsync();
+  expect(requests).toBe(2);
+  expect(incompleteNotice).toBe(true);
+  expect(chat.status).toBe("ready");
+});

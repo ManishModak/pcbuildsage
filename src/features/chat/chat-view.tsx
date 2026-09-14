@@ -32,7 +32,7 @@ import {
 } from "@/components/animate-ui/components/radix/sheet";
 import { sessionSignature, type SessionSaveQueue } from "./session-save-queue";
 import { TranscriptMenu } from "./transcript-menu";
-import { ChatRecovery, prepareChatRecovery } from "./chat-recovery";
+import { ChatRecovery, isIncompleteChatFinish, prepareChatRecovery } from "./chat-recovery";
 
 function deriveTitle(messages: ChatUIMessage[]): string {
   const firstUser = messages.find((message) => message.role === "user");
@@ -198,14 +198,26 @@ export function ChatView({
     []
   );
 
+  const [recovery] = useState(() => new ChatRecovery());
+  const [incompleteNotice, setIncompleteNotice] = useState<{ sessionId: string } | null>(null);
   const { messages, sendMessage, status, stop, error, setMessages } = useChat<ChatUIMessage>({
     id: sessionId,
     messages: initialMessages,
     transport,
+    onFinish: ({ message, isAbort, isError }) => {
+      if (isIncompleteChatFinish(message, { isAbort, isError })) {
+        const scheduled = recovery.scheduleIncomplete(() => {
+          setMessages((current) => prepareChatRecovery(current));
+          void sendMessage();
+        });
+        setIncompleteNotice(scheduled ? null : { sessionId });
+      } else {
+        setIncompleteNotice(null);
+      }
+    },
     throttle: 50
   });
 
-  const [recovery] = useState(() => new ChatRecovery());
   useEffect(() => {
     if (status === "error" && error) {
       recovery.schedule(error, () => {
@@ -463,6 +475,7 @@ export function ChatView({
   const send = (text: string) => {
     if (!text.trim() || streaming) return;
     recovery.reset();
+    setIncompleteNotice(null);
     void sendMessage({ text });
     const userMsg: ChatUIMessage = {
       id: crypto.randomUUID(),
@@ -475,6 +488,7 @@ export function ChatView({
   const handleEditMessage = (index: number, newText: string) => {
     if (streaming) return;
     recovery.reset();
+    setIncompleteNotice(null);
     const truncated = messages.slice(0, index);
     setMessages(truncated);
     void sendMessage({ text: newText });
@@ -546,6 +560,11 @@ export function ChatView({
               </div>
             )}
 
+            {incompleteNotice?.sessionId === sessionId && status === "ready" ? (
+              <p className="mt-4 rounded-card border border-border bg-surface px-4 py-3 text-sm text-text-secondary" role="alert">
+                Response ended before completion. You can send “continue” to try again.
+              </p>
+            ) : null}
             {error ? (
               <div
                 className="mt-4 flex items-start gap-2 rounded-card border px-4 py-3 text-sm"

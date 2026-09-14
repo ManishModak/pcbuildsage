@@ -23,13 +23,31 @@ export function prepareChatRecovery<T extends UIMessage>(messages: T[]): T[] {
   }));
 }
 
+/** Detect a completed provider turn with no user-facing answer, excluding stop/error events. */
+export function isIncompleteChatFinish(message: UIMessage, flags: { isAbort: boolean; isError: boolean }): boolean {
+  if (flags.isAbort || flags.isError || message.role !== "assistant") return false;
+  return !message.parts.some((part) => {
+    if (part.type === "text") return Boolean(part.text.trim());
+    const tool = part as { type: string; toolName?: string; state?: string; output?: unknown };
+    if (tool.type !== "tool-present_build" && !(tool.type === "dynamic-tool" && tool.toolName === "present_build")) return false;
+    const output = tool.output as { presented?: boolean; builds?: unknown[] } | undefined;
+    return tool.state === "output-available" && output?.presented === true && Boolean(output.builds?.length);
+  });
+}
+
 /** One delayed recovery per user request; reset only for a new user action. */
 export class ChatRecovery {
   private used = false;
   private timer: ReturnType<typeof setTimeout> | undefined;
 
   schedule(error: unknown, recover: () => void): boolean {
-    if (this.used || !isRecoverableChatError(error)) return false;
+    if (!isRecoverableChatError(error)) return false;
+    return this.scheduleIncomplete(recover);
+  }
+
+  // Silent early endings and explicit errors share the same retry budget.
+  scheduleIncomplete(recover: () => void): boolean {
+    if (this.used) return false;
     this.used = true;
     this.timer = setTimeout(() => {
       this.timer = undefined;
