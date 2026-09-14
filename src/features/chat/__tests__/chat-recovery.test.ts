@@ -155,3 +155,54 @@ it("continues a clean SDK finish with only tool work once, then reports incomple
   expect(incompleteNotice).toBe(true);
   expect(chat.status).toBe("ready");
 });
+
+describe("context limit error recovery", () => {
+  it("identifies context window and token limit overflow errors", async () => {
+    const { isContextLimitError, isRecoverableChatError } = await import("../chat-recovery");
+    const ctxErr1 = new Error("This model's maximum context length is 8192 tokens");
+    const ctxErr2 = new Error("context_length_exceeded");
+    const ctxErr3 = new Error("prompt is too long");
+    const networkErr = new Error("502 bad gateway");
+
+    expect(isContextLimitError(ctxErr1)).toBe(true);
+    expect(isContextLimitError(ctxErr2)).toBe(true);
+    expect(isContextLimitError(ctxErr3)).toBe(true);
+    expect(isContextLimitError(networkErr)).toBe(false);
+
+    // Context limit errors MUST NOT qualify for plain isRecoverableChatError replay
+    expect(isRecoverableChatError(ctxErr1)).toBe(false);
+    expect(isRecoverableChatError(ctxErr2)).toBe(false);
+  });
+
+  it("bounds context recovery to one attempt and respects cancellation", async () => {
+    const recovery = new ChatRecovery();
+    const ctxErr = new Error("context limit exceeded");
+    let attempts = 0;
+
+    const scheduled = recovery.scheduleContextRecovery(ctxErr, async (signal) => {
+      attempts++;
+      if (signal.aborted) return;
+    });
+    expect(scheduled).toBe(true);
+
+    // Second consecutive context error cannot recover again (bounded)
+    const secondSchedule = recovery.scheduleContextRecovery(ctxErr, () => {
+      attempts++;
+    });
+    expect(secondSchedule).toBe(false);
+    expect(recovery.canRecover()).toBe(false);
+    expect(attempts).toBe(1);
+
+    // Cancellation aborts in-flight recovery signal
+    recovery.reset();
+    let aborted = false;
+    recovery.scheduleContextRecovery(ctxErr, async (signal) => {
+      signal.addEventListener("abort", () => {
+        aborted = true;
+      });
+    });
+    recovery.cancel();
+    expect(aborted).toBe(true);
+  });
+});
+

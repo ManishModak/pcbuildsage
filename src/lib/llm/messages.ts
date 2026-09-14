@@ -28,8 +28,8 @@ export type IncomingChatMessage = {
  * Powers "resume this build" on continue. Pure; returns null when no
  * validate_build call with parts exists.
  */
-export function deriveBuildState(uiMessages: UIMessage[]): { parts: unknown; verdict?: unknown } | null {
-  let found: { parts: unknown; verdict?: unknown } | null = null;
+export function deriveBuildState(uiMessages: UIMessage[]): { parts: unknown; verdict?: unknown; snapshot?: unknown } | null {
+  let found: { parts: unknown; verdict?: unknown; snapshot?: unknown } | null = null;
   for (const message of uiMessages) {
     if (!message.parts) continue;
     for (const part of message.parts) {
@@ -38,8 +38,14 @@ export function deriveBuildState(uiMessages: UIMessage[]): { parts: unknown; ver
       const input = (part as { input?: unknown }).input;
       const parts = input && typeof input === "object" ? (input as Record<string, unknown>).parts : undefined;
       if (parts === undefined) continue;
-      const verdict = compactVerdict((part as { output?: unknown }).output);
-      found = verdict === undefined ? { parts } : { parts, verdict };
+      const output = (part as { output?: unknown }).output;
+      const verdict = compactVerdict(output);
+      const snapshot = output && typeof output === "object" ? (output as Record<string, unknown>).snapshot : undefined;
+      found = {
+        parts,
+        ...(verdict !== undefined ? { verdict } : {}),
+        ...(snapshot !== undefined ? { snapshot } : {})
+      };
     }
   }
   return found;

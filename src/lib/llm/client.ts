@@ -116,6 +116,7 @@ export async function streamTextWithFallback(args: {
   abortSignal?: AbortSignal;
   onStepFinish?: (event: OnStepFinishEvent<ToolSet>) => void | Promise<void>;
   onFinish?: (event: OnFinishEvent<ToolSet>) => void | Promise<void>;
+  prepareStep?: Parameters<typeof streamText>[0]["prepareStep"];
 }) {
   if (!args.chain.length) throw new Error("LLM chain is empty.");
   const errors: unknown[] = [];

@@ -1,11 +1,14 @@
-import { type OnFinishEvent, type OnStepFinishEvent, type ToolSet, convertToModelMessages, isStepCount } from "ai";
+import { type OnFinishEvent, type OnStepFinishEvent, type ToolSet, type ModelMessage, convertToModelMessages, isStepCount } from "ai";
 import type { AppConfig } from "@/types";
 import { streamTextWithFallback } from "./client";
 import { appendChatLog } from "@/lib/logger";
 import { createToolRegistry } from "@/lib/tools";
 import { getPersonality } from "./personalities";
-import { getSession } from "@/lib/sessions";
+import { getSession, saveSession, setSessionCompacting } from "@/lib/sessions";
 import { type ChatMessage, capMessages } from "./messages";
+import { getModelContextLimit, estimateTokens, shouldTriggerCompaction, TOOL_DEFINITIONS_TOKEN_OVERHEAD } from "./context-budget";
+import { compactConversation } from "./compaction";
+import type { BuildSnapshot } from "../catalog/build-snapshot";
 
 export type { ChatMessage };
 
@@ -49,7 +52,7 @@ export function buildSystemPrompt(config: AppConfig): string {
     "Before proposing any build, call get_catalog once to learn which component categories exist and their price ranges. Prefer parts returned by search_products.",
     "When search_products returns category_total: 0, that component category has no catalog data: do not retry it with different prices or filters. When it returns category_price_range, nearest_above, or nearest_below (e.g. when market prices are higher than expected and price_max was set too low), use those boundary hints to immediately correct your price bounds into the available price range instead of guessing or inventing prices.",
     "search_products returns in-stock listings only unless you pass in_stock: false. Build exclusively from in-stock results; a row the last scrape retired is a listing that no longer exists, not a cheaper option. Pass in_stock: false only when the user asks about a specific part that has disappeared, and say plainly that it is no longer listed. When a result set comes back with in_stock_total: 0, the catalog has that category but nothing purchasable: report that rather than falling back to a retired listing, and note that a fresh scrape may restore it.",
-    "Use validate_build to validate the complete build before presenting it. Check earlier when compatibility affects a component choice. If parts change afterward, validate the revised build before presenting it. For catalog parts, pass the search_products result `id` as `product_id` in both validate_build and present_build. For parts without a catalog ID, pass a registry key or component name to validate_build.",
+    "Use validate_build to validate the complete build before presenting it. Check earlier when compatibility affects a component choice. If parts change afterward, validate the revised build before presenting it. validate_build returns an authoritative code-calculated build snapshot with catalog prices, exact product IDs, and total. Always use the snapshot total from validate_build when checking budget or presenting the build, rather than calculating or guessing your own total. For catalog parts, pass the search_products result `id` as `product_id` in both validate_build and present_build. For parts without a catalog ID, pass a registry key or component name to validate_build.",
     "Treat initial configurations as tentative until catalog prices confirm the total.",
     "MANDATORY BUILD PRESENTATION: You MUST ALWAYS call the `present_build` tool to output any proposed PC build (this renders the interactive Build Card with component tables, retailer buy links, and price calculations). Finalize component choices and run compatibility checks before calling present_build. Include all intended alternatives together. If a later correction is needed, present a revised version and explain what changed. NEVER output raw component markdown tables or part price lists in your text message. Use your text response exclusively to explain component rationale, expected gaming performance, tradeoffs, and upgrade paths.",
     "If a build is invalid or needs research, run the tools yourself to investigate and resolve it, or explain the compatibility issues clearly to the user. If a component category is unavailable, state this clearly and explain why.",
@@ -74,23 +77,55 @@ export function buildSystemPrompt(config: AppConfig): string {
     .join("\n");
 }
 
+export function getSnapshotFromOutput(output: unknown): BuildSnapshot | undefined {
+  if (!output || typeof output !== "object") return undefined;
+  const obj = output as Record<string, unknown>;
+  const val = "value" in obj && obj.value && typeof obj.value === "object" ? (obj.value as Record<string, unknown>) : obj;
+  if ("snapshot" in val && val.snapshot && typeof val.snapshot === "object") {
+    return val.snapshot as BuildSnapshot;
+  }
+  return undefined;
+}
+
+function persistSessionCompactContext(
+  sessionId: string | undefined,
+  messages: ModelMessage[],
+  boundaryMessageId?: string,
+  snapshot?: BuildSnapshot | null
+): void {
+  if (!sessionId) return;
+  const current = getSession(sessionId);
+  if (!current) return;
+  const nextRev = (current.revision ?? 0) + 1;
+  saveSession({
+    id: sessionId,
+    revision: nextRev,
+    compactContext: {
+      messages,
+      boundaryMessageId,
+      snapshot: snapshot ?? null
+    }
+  });
+}
+
 export async function streamChat(config: AppConfig, messages: ChatMessage[], sessionId?: string, abortSignal?: AbortSignal) {
   const lastUser = messages.filter((message) => message.role === "user").at(-1);
   if (lastUser) {
     await appendChatLog({ role: "user", content: lastUser.content ?? "", session_id: sessionId });
   }
   let systemPrompt = buildSystemPrompt(config);
-  if (sessionId) {
-    const session = getSession(sessionId);
-    if (session && session.build_state) {
-      systemPrompt += `\n\nCurrent build state (authoritative): ${JSON.stringify(session.build_state)}`;
-    }
+  const session = sessionId ? getSession(sessionId) : null;
+  if (session && session.build_state) {
+    systemPrompt += `\n\nCurrent build state (authoritative): ${JSON.stringify(session.build_state)}`;
   }
   const truncatedSystem = systemPrompt.slice(0, 500) + (systemPrompt.length > 500 ? "..." : "");
   await appendChatLog({ role: "system", content: truncatedSystem, session_id: sessionId });
 
+  const activeEntry = config.llm.roles.chat[0];
+  const contextLimit = getModelContextLimit(activeEntry);
+
   const capped = capMessages(messages);
-  const modelMessages = await convertToModelMessages(
+  const rawModelMessages = await convertToModelMessages(
     capped.map((m: ChatMessage) => ({
       id: m.id ?? crypto.randomUUID(),
       role: m.role,
@@ -99,13 +134,101 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
     }))
   );
 
+  let initialModelMessages = rawModelMessages;
+  if (session?.compact_context && session.compact_context.messages && session.compact_context.messages.length > 0) {
+    const boundaryId = session.compact_context.boundaryMessageId;
+    if (boundaryId) {
+      const boundaryIndex = capped.findIndex((m) => m.id === boundaryId);
+      if (boundaryIndex !== -1) {
+        const laterCapped = capped.slice(boundaryIndex + 1);
+        if (laterCapped.length > 0) {
+          const laterModelMessages = await convertToModelMessages(
+            laterCapped.map((m: ChatMessage) => ({
+              id: m.id ?? crypto.randomUUID(),
+              role: m.role,
+              content: m.content ?? "",
+              parts: m.parts ?? []
+            }))
+          );
+          initialModelMessages = [...session.compact_context.messages, ...laterModelMessages];
+        } else {
+          initialModelMessages = [...session.compact_context.messages];
+        }
+      } else {
+        initialModelMessages = rawModelMessages;
+      }
+    } else {
+      const lastUserMsg = rawModelMessages.filter((m) => m.role === "user").at(-1);
+      initialModelMessages = lastUserMsg
+        ? [...session.compact_context.messages, lastUserMsg]
+        : [...session.compact_context.messages];
+    }
+  }
+
+  // Pre-stream compaction check if request already approaches 78–80% context
+  const initialTokens = estimateTokens(initialModelMessages) + estimateTokens(systemPrompt) + TOOL_DEFINITIONS_TOKEN_OVERHEAD;
+  if (shouldTriggerCompaction(initialTokens, contextLimit)) {
+    if (sessionId) setSessionCompacting(sessionId, true);
+    try {
+      const sessionSnapshot = (session?.build_state as { snapshot?: BuildSnapshot } | null)?.snapshot;
+      const initialCompaction = await compactConversation({
+        chain: config.llm.roles.chat,
+        systemPrompt,
+        messages: initialModelMessages,
+        snapshot: sessionSnapshot,
+        contextLimit,
+        abortSignal
+      });
+      if (initialCompaction.compacted) {
+        initialModelMessages = initialCompaction.messages;
+        const lastMsgId = capped.at(-1)?.id;
+        persistSessionCompactContext(sessionId, initialModelMessages, lastMsgId, sessionSnapshot);
+      }
+    } finally {
+      if (sessionId) setSessionCompacting(sessionId, false);
+    }
+  }
+
   return streamTextWithFallback({
     chain: config.llm.roles.chat,
     system: systemPrompt,
-    messages: modelMessages,
+    messages: initialModelMessages,
     tools: createToolRegistry(config),
     stopWhen: isStepCount(25),
     abortSignal,
+    prepareStep: async ({ steps, messages: currentMessages }) => {
+      const currentTokens = estimateTokens(currentMessages) + estimateTokens(systemPrompt) + TOOL_DEFINITIONS_TOKEN_OVERHEAD;
+      if (shouldTriggerCompaction(currentTokens, contextLimit)) {
+        if (sessionId) setSessionCompacting(sessionId, true);
+        try {
+          let latestSnapshot = (session?.build_state as { snapshot?: BuildSnapshot } | null)?.snapshot;
+          for (const step of steps) {
+            for (const res of step.toolResults || []) {
+              const snap = getSnapshotFromOutput((res as { output?: unknown }).output);
+              if (snap) latestSnapshot = snap;
+            }
+          }
+
+          const compaction = await compactConversation({
+            chain: config.llm.roles.chat,
+            systemPrompt,
+            messages: currentMessages,
+            snapshot: latestSnapshot,
+            contextLimit,
+            abortSignal
+          });
+
+          if (compaction.compacted) {
+            const lastMsgId = capped.at(-1)?.id;
+            persistSessionCompactContext(sessionId, compaction.messages, lastMsgId, latestSnapshot);
+            return { messages: compaction.messages };
+          }
+        } finally {
+          if (sessionId) setSessionCompacting(sessionId, false);
+        }
+      }
+      return {};
+    },
     onStepFinish: async (step: OnStepFinishEvent<ToolSet>) => {
       const resultsById = new Map((step.toolResults || []).map((result) => [result.toolCallId, result]));
       const promises = [];

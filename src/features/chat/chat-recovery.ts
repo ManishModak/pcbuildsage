@@ -1,7 +1,27 @@
 import type { UIMessage } from "ai";
 
-/** Only transient transport/provider failures qualify; cancellation and auth errors do not. */
+/** Check whether an error is specifically caused by context window / token limit overflow. */
+export function isContextLimitError(error: unknown): boolean {
+  if (!error) return false;
+  const value = error as { name?: string; message?: string; status?: number; statusCode?: number } | null;
+  const message = (value?.message ?? String(error)).toLowerCase();
+  return (
+    message.includes("context_length_exceeded") ||
+    message.includes("maximum context length") ||
+    message.includes("context window") ||
+    message.includes("context limit") ||
+    message.includes("string_above_max_length") ||
+    message.includes("prompt is too long") ||
+    message.includes("too many tokens") ||
+    message.includes("max_tokens") ||
+    (message.includes("token limit") && message.includes("exceeded")) ||
+    (message.includes("tokens") && message.includes("limit") && message.includes("exceed"))
+  );
+}
+
+/** Only transient transport/provider failures qualify for unchanged replay; cancellation, auth, and context overflow do not. */
 export function isRecoverableChatError(error: unknown): boolean {
+  if (isContextLimitError(error)) return false;
   const value = error as { name?: string; message?: string; status?: number; statusCode?: number } | null;
   const message = value?.message ?? String(error);
   if (value?.name === "AbortError" || /abort|cancel|unauthorized|forbidden|invalid.*(?:key|credential)|\b40[13]\b/i.test(message)) return false;
@@ -39,6 +59,11 @@ export function isIncompleteChatFinish(message: UIMessage, flags: { isAbort: boo
 export class ChatRecovery {
   private used = false;
   private timer: ReturnType<typeof setTimeout> | undefined;
+  private abortController: AbortController | null = null;
+
+  canRecover(): boolean {
+    return !this.used;
+  }
 
   schedule(error: unknown, recover: () => void): boolean {
     if (!isRecoverableChatError(error)) return false;
@@ -56,9 +81,38 @@ export class ChatRecovery {
     return true;
   }
 
+  /**
+   * Compact-before-retry recovery: allows exactly one attempt for a context-limit error.
+   * Respects cancellation and bounds recovery.
+   */
+  scheduleContextRecovery(
+    error: unknown,
+    compactAndRecover: (signal: AbortSignal) => Promise<void> | void
+  ): boolean {
+    if (!isContextLimitError(error)) return false;
+    if (this.used) return false;
+    this.used = true;
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
+    try {
+      Promise.resolve(compactAndRecover(signal)).catch((err) => {
+        if (!signal.aborted) {
+          console.error("Context recovery execution failed:", err);
+        }
+      });
+    } catch (err) {
+      console.error("Context recovery synchronous launch failed:", err);
+    }
+    return true;
+  }
+
   cancel(): void {
     clearTimeout(this.timer);
     this.timer = undefined;
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
     this.used = true;
   }
 

@@ -50,6 +50,9 @@ export function getSessionsDb(dbPath = DEFAULT_SESSIONS_DB_PATH): Database.Datab
   if (!sessionColumns.some((column) => column.name === "revision")) {
     db.exec("ALTER TABLE sessions ADD COLUMN revision INTEGER NOT NULL DEFAULT 0");
   }
+  if (!sessionColumns.some((column) => column.name === "compact_context")) {
+    db.exec("ALTER TABLE sessions ADD COLUMN compact_context TEXT");
+  }
 
   sessionsDb = db;
   return db;
@@ -62,6 +65,66 @@ export type SessionSummary = {
   updated_at: string;
 };
 
+import type { ModelMessage } from "ai";
+
+export type StoredCompactContext = {
+  messages: ModelMessage[];
+  boundaryMessageId?: string;
+  snapshot?: unknown | null;
+};
+
+function isValidModelMessage(m: unknown): m is ModelMessage {
+  if (!m || typeof m !== "object") return false;
+  const rec = m as Record<string, unknown>;
+  if (typeof rec.role !== "string") return false;
+  if (!["user", "assistant", "system", "tool"].includes(rec.role)) return false;
+  return rec.content !== undefined || Array.isArray(rec.parts);
+}
+
+export function parseCompactContext(raw: unknown): StoredCompactContext | null {
+  if (!raw) return null;
+  let parsed = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+
+  if (Array.isArray(parsed)) {
+    if (parsed.length > 0 && parsed.every(isValidModelMessage)) {
+      return { messages: parsed as ModelMessage[] };
+    }
+    return null;
+  }
+
+  const rec = parsed as Record<string, unknown>;
+  if (Array.isArray(rec.messages) && rec.messages.length > 0 && rec.messages.every(isValidModelMessage)) {
+    return {
+      messages: rec.messages as ModelMessage[],
+      boundaryMessageId: typeof rec.boundaryMessageId === "string" ? rec.boundaryMessageId : undefined,
+      snapshot: rec.snapshot ?? null
+    };
+  }
+  return null;
+}
+
+const activeCompactingSessions = new Set<string>();
+
+export function setSessionCompacting(sessionId: string, compacting: boolean): void {
+  if (compacting) {
+    activeCompactingSessions.add(sessionId);
+  } else {
+    activeCompactingSessions.delete(sessionId);
+  }
+}
+
+export function isSessionCompacting(sessionId: string): boolean {
+  return activeCompactingSessions.has(sessionId);
+}
+
 export type SessionRecord = {
   id: string;
   created_at: string;
@@ -71,6 +134,7 @@ export type SessionRecord = {
   currency: string | null;
   messages: unknown[];
   build_state: unknown | null;
+  compact_context?: StoredCompactContext | null;
   revision: number;
 };
 
@@ -82,6 +146,7 @@ export type SaveSessionInput = {
   countryCode?: string | null;
   currency?: string | null;
   buildState?: unknown;
+  compactContext?: unknown;
 };
 
 export type SaveSessionResult =
@@ -117,10 +182,12 @@ export function saveSession(input: SaveSessionInput): SaveSessionResult {
     const messagesJson = input.messages !== undefined ? JSON.stringify(input.messages) : null;
     const buildStateJson =
       input.buildState !== undefined && input.buildState !== null ? JSON.stringify(input.buildState) : null;
+    const compactContextJson =
+      input.compactContext !== undefined && input.compactContext !== null ? JSON.stringify(input.compactContext) : null;
 
     db.prepare(
-      `INSERT INTO sessions (id, created_at, updated_at, title, country_code, currency, messages, build_state, revision)
-       VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, '[]'), ?, ?)
+      `INSERT INTO sessions (id, created_at, updated_at, title, country_code, currency, messages, build_state, compact_context, revision)
+       VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, '[]'), ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          messages = CASE WHEN ? THEN excluded.messages ELSE sessions.messages END,
          title = CASE WHEN ? THEN excluded.title ELSE sessions.title END,
@@ -128,6 +195,7 @@ export function saveSession(input: SaveSessionInput): SaveSessionResult {
          currency = CASE WHEN ? THEN excluded.currency ELSE sessions.currency END,
          updated_at = excluded.updated_at,
          build_state = CASE WHEN ? THEN excluded.build_state ELSE sessions.build_state END,
+         compact_context = CASE WHEN ? THEN excluded.compact_context ELSE sessions.compact_context END,
          revision = excluded.revision`
     ).run(
       input.id,
@@ -138,12 +206,14 @@ export function saveSession(input: SaveSessionInput): SaveSessionResult {
       input.currency ?? null,
       messagesJson,
       buildStateJson,
+      compactContextJson,
       input.revision,
       input.messages !== undefined ? 1 : 0,
       input.title !== undefined ? 1 : 0,
       input.countryCode !== undefined ? 1 : 0,
       input.currency !== undefined ? 1 : 0,
-      input.buildState !== undefined ? 1 : 0
+      input.buildState !== undefined ? 1 : 0,
+      input.compactContext !== undefined ? 1 : 0
     );
     return { status: "saved", revision: input.revision };
   })();
@@ -170,6 +240,7 @@ export function getSession(id: string): SessionRecord | null {
         currency: string | null;
         messages: string;
         build_state: string | null;
+        compact_context?: string | null;
         revision: number;
       }
     | undefined;
@@ -179,6 +250,7 @@ export function getSession(id: string): SessionRecord | null {
   try {
     const messages: unknown = JSON.parse(row.messages);
     if (!Array.isArray(messages)) throw new Error("messages must be an array");
+    const compactContext = row.compact_context ? parseCompactContext(row.compact_context) : null;
     return {
       id: row.id,
       created_at: row.created_at,
@@ -188,9 +260,11 @@ export function getSession(id: string): SessionRecord | null {
       currency: row.currency,
       messages,
       build_state: row.build_state ? (JSON.parse(row.build_state) as unknown) : null,
+      compact_context: compactContext,
       revision: row.revision
     };
-  } catch {
+  } catch (err) {
+    if (err instanceof CorruptSessionError) throw err;
     throw new CorruptSessionError(row.id);
   }
 }

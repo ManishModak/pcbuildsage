@@ -32,7 +32,8 @@ import {
 } from "@/components/animate-ui/components/radix/sheet";
 import { sessionSignature, type SessionSaveQueue } from "./session-save-queue";
 import { TranscriptMenu } from "./transcript-menu";
-import { ChatRecovery, isIncompleteChatFinish, prepareChatRecovery } from "./chat-recovery";
+import { ChatRecovery, isIncompleteChatFinish, prepareChatRecovery, isContextLimitError } from "./chat-recovery";
+import { getModelContextLimit, estimateTokens, shouldTriggerCompaction, TOOL_DEFINITIONS_TOKEN_OVERHEAD } from "@/lib/llm/context-budget";
 
 function deriveTitle(messages: ChatUIMessage[]): string {
   const firstUser = messages.find((message) => message.role === "user");
@@ -86,12 +87,12 @@ function buildsSignature(builds: DerivedBuild[] | null): string {
     .join("|");
 }
 
-function ModelStatus({ modelName, streaming }: { modelName: string; streaming: boolean }) {
+function ModelStatus({ modelName, streaming, isCompacting }: { modelName: string; streaming: boolean; isCompacting?: boolean }) {
   const [dots, setDots] = useState("...");
   const displayName = useMemo(() => formatModelName(modelName), [modelName]);
 
   useEffect(() => {
-    if (!streaming) return;
+    if (!streaming && !isCompacting) return;
     const interval = setInterval(() => {
       setDots((prev) => {
         if (prev === "...") return ".";
@@ -101,7 +102,7 @@ function ModelStatus({ modelName, streaming }: { modelName: string; streaming: b
       });
     }, 500);
     return () => clearInterval(interval);
-  }, [streaming]);
+  }, [streaming, isCompacting]);
 
   return (
     <div
@@ -109,14 +110,14 @@ function ModelStatus({ modelName, streaming }: { modelName: string; streaming: b
       title={modelName ? `Model: ${modelName}` : undefined}
     >
       <span
-        className={`h-2 w-2 rounded-full shrink-0 ${streaming ? "animate-pulse" : ""}`}
+        className={`h-2 w-2 rounded-full shrink-0 ${streaming || isCompacting ? "animate-pulse" : ""}`}
         style={{
-          backgroundColor: "#10b981",
-          boxShadow: streaming ? "0 0 8px #10b981" : undefined
+          backgroundColor: isCompacting ? "#f59e0b" : "#10b981",
+          boxShadow: streaming || isCompacting ? (isCompacting ? "0 0 8px #f59e0b" : "0 0 8px #10b981") : undefined
         }}
       />
       <span className="font-mono text-caption text-text-muted truncate">
-        <span className="text-text-secondary">{displayName}</span> · {streaming ? `thinking${dots}` : "idle"}
+        <span className="text-text-secondary">{displayName}</span> · {isCompacting ? `compacting context${dots}` : streaming ? `thinking${dots}` : "idle"}
       </span>
     </div>
   );
@@ -200,11 +201,32 @@ export function ChatView({
 
   const [recovery] = useState(() => new ChatRecovery());
   const [incompleteNotice, setIncompleteNotice] = useState<{ sessionId: string } | null>(null);
+  const [isCompacting, setIsCompacting] = useState(false);
+  const [contextExceededNotice, setContextExceededNotice] = useState<string | null>(null);
+
+  const [prevSessionId, setPrevSessionId] = useState(sessionId);
+  if (sessionId !== prevSessionId) {
+    setPrevSessionId(sessionId);
+    setIsCompacting(false);
+    setContextExceededNotice(null);
+  }
+
+  useEffect(() => {
+    recovery.reset();
+    return () => recovery.cancel();
+  }, [recovery, sessionId]);
+
+  const handleErrorRef = useRef<(err: Error) => void>(() => {});
+
   const { messages, sendMessage, status, stop, error, setMessages } = useChat<ChatUIMessage>({
     id: sessionId,
     messages: initialMessages,
     transport,
+    onError: (chatError) => {
+      handleErrorRef.current(chatError);
+    },
     onFinish: ({ message, isAbort, isError }) => {
+      setIsCompacting(false);
       if (isIncompleteChatFinish(message, { isAbort, isError })) {
         const scheduled = recovery.scheduleIncomplete(() => {
           setMessages((current) => prepareChatRecovery(current));
@@ -218,18 +240,81 @@ export function ChatView({
     throttle: 50
   });
 
+  const sendMessageRef = useRef(sendMessage);
   useEffect(() => {
-    if (status === "error" && error) {
-      recovery.schedule(error, () => {
-        setMessages((current) => prepareChatRecovery(current));
-        void sendMessage();
+    sendMessageRef.current = sendMessage;
+  });
+
+  const setMessagesRef = useRef(setMessages);
+  useEffect(() => {
+    setMessagesRef.current = setMessages;
+  });
+
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    handleErrorRef.current = (chatError: Error) => {
+      if (isContextLimitError(chatError)) {
+        if (recovery.canRecover()) {
+          setIsCompacting(true);
+          setContextExceededNotice(null);
+          const scheduled = recovery.scheduleContextRecovery(chatError, async (signal) => {
+            try {
+              const res = await fetch("/api/chat/compact", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(injectByokHeaders(apiKeyHeaders(configRef.current.chatChain, configRef.current)) as Record<string, string>)
+                },
+                body: JSON.stringify({
+                  sessionId: sessionIdRef.current,
+                  messages: messagesRef.current,
+                  config: resolveChatRequestBody(configRef.current, sessionIdRef.current),
+                  force: true
+                }),
+                signal
+              });
+              if (signal.aborted) return;
+              if (!res.ok) throw new Error("Compaction failed");
+              const data = (await res.json()) as { compacted?: boolean };
+              if (!data.compacted) {
+                throw new Error("Compaction was unable to compress history further");
+              }
+              setIsCompacting(false);
+              setMessagesRef.current((current) => prepareChatRecovery(current));
+              void sendMessageRef.current();
+            } catch {
+              setIsCompacting(false);
+              if (!signal.aborted) {
+                setContextExceededNotice(
+                  "Context limit exceeded. Compaction was unable to compress history further within this model's context window. Please start a new chat."
+                );
+              }
+            }
+          });
+          if (!scheduled) {
+            setIsCompacting(false);
+            setContextExceededNotice(
+              "Context limit exceeded. The conversation history is too large to fit in this model's context window. Please start a new chat."
+            );
+          }
+        } else {
+          setIsCompacting(false);
+          setContextExceededNotice(
+            "Context limit exceeded. The conversation history is too large to fit in this model's context window. Please start a new chat."
+          );
+        }
+        return;
+      }
+      recovery.schedule(chatError, () => {
+        setMessagesRef.current((current) => prepareChatRecovery(current));
+        void sendMessageRef.current();
       });
-    }
-  }, [status, error, recovery, setMessages, sendMessage]);
-  useEffect(() => {
-    recovery.reset();
-    return () => recovery.cancel();
-  }, [recovery, sessionId]);
+    };
+  });
 
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [activeBuilds, setActiveBuilds] = useState<DerivedBuild[] | null>(null);
@@ -348,7 +433,7 @@ export function ChatView({
     setHeaderSuffix(
       <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
-          <ModelStatus modelName={activeModel} streaming={streaming} />
+          <ModelStatus modelName={activeModel} streaming={streaming} isCompacting={isCompacting} />
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {messages.length > 0 ? (
@@ -403,6 +488,7 @@ export function ChatView({
     setHeaderSuffix,
     activeModel,
     streaming,
+    isCompacting,
     displayBuilds,
     headerBuildPrice,
     sidePanelOpen,
@@ -449,12 +535,6 @@ export function ChatView({
     persistSnapshot(messages);
   }, [status, messages, persistSnapshot]);
 
-  // Keep a ref to latest messages for unmount saving so no state is ever lost.
-  const messagesRef = useRef(messages);
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-
   useEffect(() => {
     return () => {
       if (messagesRef.current.length > 0) {
@@ -472,10 +552,20 @@ export function ChatView({
     };
   }, [saveQueue]);
 
+  const checkShouldCompact = (currentMsgs: ChatUIMessage[], newText: string) => {
+    const entry = configRef.current.chatChain?.[0];
+    const limit = getModelContextLimit(entry || resolveActiveModel(configRef.current));
+    const tokenEst = estimateTokens(currentMsgs) + estimateTokens(newText) + TOOL_DEFINITIONS_TOKEN_OVERHEAD;
+    return shouldTriggerCompaction(tokenEst, limit);
+  };
+
   const send = (text: string) => {
     if (!text.trim() || streaming) return;
     recovery.reset();
     setIncompleteNotice(null);
+    if (checkShouldCompact(messages, text)) {
+      setIsCompacting(true);
+    }
     void sendMessage({ text });
     const userMsg: ChatUIMessage = {
       id: crypto.randomUUID(),
@@ -490,6 +580,9 @@ export function ChatView({
     recovery.reset();
     setIncompleteNotice(null);
     const truncated = messages.slice(0, index);
+    if (checkShouldCompact(truncated, newText)) {
+      setIsCompacting(true);
+    }
     setMessages(truncated);
     void sendMessage({ text: newText });
     const editedUserMsg: ChatUIMessage = {
@@ -565,7 +658,37 @@ export function ChatView({
                 Response ended before completion. You can send “continue” to try again.
               </p>
             ) : null}
-            {error ? (
+            {contextExceededNotice ? (
+              <div
+                className="mt-4 flex items-start gap-2 rounded-card border px-4 py-3 text-sm"
+                style={{
+                  color: "var(--warn)",
+                  borderColor: "color-mix(in srgb, var(--warn) 45%, transparent)",
+                  backgroundColor: "color-mix(in srgb, var(--warn) 8%, transparent)"
+                }}
+                role="alert"
+              >
+                <Icon icon={TriangleAlert} size={16} className="mt-0.5 shrink-0" />
+                <span className="flex-1 whitespace-pre-wrap leading-relaxed">
+                  {contextExceededNotice}
+                </span>
+              </div>
+            ) : isCompacting ? (
+              <div
+                className="mt-4 flex items-center gap-2 rounded-card border px-4 py-3 text-sm"
+                style={{
+                  color: "var(--accent)",
+                  borderColor: "color-mix(in srgb, var(--accent) 45%, transparent)",
+                  backgroundColor: "color-mix(in srgb, var(--accent) 8%, transparent)"
+                }}
+                role="status"
+              >
+                <span className="h-2 w-2 rounded-full bg-accent animate-pulse shrink-0" />
+                <span className="flex-1 whitespace-pre-wrap leading-relaxed">
+                  Compacting conversation context before retrying...
+                </span>
+              </div>
+            ) : error ? (
               <div
                 className="mt-4 flex items-start gap-2 rounded-card border px-4 py-3 text-sm"
                 style={{
@@ -586,7 +709,15 @@ export function ChatView({
 
         <div className="border-t border-border bg-bg shrink-0">
           <div className="mx-auto w-full max-w-[760px] px-4 py-3">
-            <Composer onSend={send} onStop={() => { recovery.cancel(); void stop(); }} streaming={streaming} />
+            <Composer
+              onSend={send}
+              onStop={() => {
+                recovery.cancel();
+                setIsCompacting(false);
+                void stop();
+              }}
+              streaming={streaming || isCompacting}
+            />
             <p className="mt-2 text-center text-caption text-text-muted">
               {isHostedMode() ? (
                 <>Prices live from cloud catalog ({config.currency}){relativeTime ? ` · Updated ${relativeTime}` : ""}</>

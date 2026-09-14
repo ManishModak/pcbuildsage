@@ -53,7 +53,8 @@ export const llmEntrySchema = z.object({
   keySource: keySourceSchema.default("env"),
   apiKey: z.string().optional(),
   baseUrl: z.string().optional(),
-  reasoningEffort: reasoningEffortSchema.optional()
+  reasoningEffort: reasoningEffortSchema.optional(),
+  contextLimit: z.number().int().positive().optional()
 });
 
 const configInputSchema = z.object({

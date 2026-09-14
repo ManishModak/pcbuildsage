@@ -21,6 +21,7 @@ export * from "./turso-schema";
 export * from "./publisher";
 export * from "./compact";
 export * from "./model-aggregator";
+export * from "./build-snapshot";
 
 export type RepositoryFactory = () => CatalogRepository;
 
