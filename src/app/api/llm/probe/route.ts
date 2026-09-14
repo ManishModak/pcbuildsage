@@ -28,12 +28,16 @@ export async function POST(request: Request): Promise<Response> {
         }
       }
     }
+    const hasHeaderKey = Boolean(
+      request.headers.get(`x-pcbuildsage-api-key-${body.provider.toLowerCase()}`) ||
+      request.headers.get(`x-${body.provider.toLowerCase()}-api-key`)
+    );
     const entry = entryFromRequest({
       provider: body.provider,
       model: body.model,
       baseUrl: body.baseUrl,
       apiKey: body.key,
-      keySource: body.keySource ?? (body.key ? "ui" : "env")
+      keySource: body.keySource ?? (body.key || hasHeaderKey ? "ui" : "env")
     }, request.headers);
     const started = Date.now();
     try {

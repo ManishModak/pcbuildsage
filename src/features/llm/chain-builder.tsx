@@ -12,8 +12,9 @@ import {
   TriangleAlert,
   Trash2
 } from "lucide-react";
-import { fetchModels, probeEntry } from "@/lib/api-client";
-import { saveUiKey } from "@/lib/client-config-store";
+import { fetchModels, isHostedMode, probeEntry } from "@/lib/api-client";
+import { hasUiKey, saveUiKey } from "@/lib/client-config-store";
+import { hasByokKey, setByokKey } from "@/lib/llm/client-byok-store";
 import { formatLatency, getErrorMessage } from "@/lib/format";
 import type {
   ChainEntry,
@@ -125,7 +126,12 @@ export function ChainBuilder({
   const commitKey = (entry: ChainEntry) => {
     const draft = keyDraft[entry.id];
     if (draft && draft.trim()) {
-      saveUiKey(entry.provider, draft.trim());
+      const trimmed = draft.trim();
+      if (isHostedMode()) {
+        setByokKey(entry.provider, trimmed, false);
+      } else {
+        saveUiKey(entry.provider, trimmed);
+      }
       update(entry.id, { hasSavedKey: true });
     }
   };
@@ -329,22 +335,33 @@ function ChainCard({
         ) : null}
 
         {entry.keySource === "ui" ? (
-          <Field
-            label="API key"
-            hint={entry.hasSavedKey ? "A key is saved for this provider (write-only)." : "Stored locally, sent only as a request header."}
-          >
-            {(controlProps) => (
-              <Input
-                {...controlProps}
-                type="password"
-                autoComplete="off"
-                value={keyDraft}
-                placeholder={entry.hasSavedKey ? "•••••••• saved" : "paste key"}
-                onChange={(event) => onKeyDraft(event.target.value)}
-                onBlur={onCommitKey}
-              />
-            )}
-          </Field>
+          (() => {
+            const keySaved = Boolean(entry.hasSavedKey || (isHostedMode() ? hasByokKey(entry.provider) : hasUiKey(entry.provider)));
+            return (
+              <Field
+                label="API key"
+                hint={
+                  keySaved
+                    ? "A key is saved for this provider (write-only)."
+                    : isHostedMode()
+                    ? "Stored in ephemeral session storage, sent only as a request header."
+                    : "Stored locally, sent only as a request header."
+                }
+              >
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    type="password"
+                    autoComplete="off"
+                    value={keyDraft}
+                    placeholder={keySaved ? "•••••••• saved" : "paste key"}
+                    onChange={(event) => onKeyDraft(event.target.value)}
+                    onBlur={onCommitKey}
+                  />
+                )}
+              </Field>
+            );
+          })()
         ) : entry.keySource === "env" ? (
           <ReadOnlyValue label="Credential">
             <span className="inline-flex h-11 items-center gap-2 rounded-btn border border-border bg-surface px-3 text-caption text-text-secondary">

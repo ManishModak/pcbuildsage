@@ -197,8 +197,7 @@ export async function probeEntry(
       provider: entry.provider,
       model: entry.model,
       baseUrl: entry.baseUrl,
-      keySource: entry.keySource,
-      ...(apiKey ? { key: apiKey } : {})
+      keySource: entry.keySource ?? (apiKey ? "ui" : undefined)
     })
   }, isPingResult);
 }

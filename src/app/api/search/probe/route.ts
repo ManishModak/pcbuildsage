@@ -28,11 +28,12 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
-    // Resolve API key from body or headers
+    // Resolve API key strictly prioritizing request headers
+    const normalizedProvider = provider.toLowerCase();
     const apiKey =
+      request.headers.get(`x-pcbuildsage-api-key-${normalizedProvider}`) ||
+      request.headers.get(`x-${normalizedProvider}-api-key`) ||
       parsed.apiKey ||
-      request.headers.get(`x-pcbuildsage-api-key-${provider}`) ||
-      request.headers.get(`x-${provider}-api-key`) ||
       process.env[`${provider.toUpperCase()}_API_KEY`];
 
     if (["brave", "tavily", "exa"].includes(provider) && !apiKey) {

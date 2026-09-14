@@ -1,4 +1,5 @@
 import type { ChainEntry, ClientConfig, ScrapeRunConfig, SearchProvider } from "@/types/client";
+import { getByokKey } from "@/lib/llm/client-byok-store";
 
 const CONFIG_KEY = "pcbuildsage:config";
 const SCRAPE_KEY = "pcbuildsage:lastScrape";
@@ -135,7 +136,7 @@ export function saveUiKey(provider: string, key: string): void {
 }
 
 export function hasUiKey(provider: string): boolean {
-  return Boolean(readKeyMap()[provider]);
+  return Boolean(readKeyMap()[provider] || getByokKey(provider));
 }
 
 export function apiKeyHeaders(chain: ChainEntry[], config?: ClientConfig): Record<string, string> {
@@ -143,13 +144,13 @@ export function apiKeyHeaders(chain: ChainEntry[], config?: ClientConfig): Recor
   const headers: Record<string, string> = {};
   for (const entry of chain) {
     if (entry.keySource === "ui") {
-      const key = map[entry.provider];
+      const key = map[entry.provider] || getByokKey(entry.provider);
       if (key) headers[`x-pcbuildsage-api-key-${entry.provider}`] = key;
     }
   }
   if (config && config.searchProvider) {
     if (["exa", "tavily", "brave"].includes(config.searchProvider)) {
-      const key = map[config.searchProvider];
+      const key = map[config.searchProvider] || getByokKey(config.searchProvider);
       if (key) {
         headers[`x-pcbuildsage-api-key-${config.searchProvider}`] = key;
       }

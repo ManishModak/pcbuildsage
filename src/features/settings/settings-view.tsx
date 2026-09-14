@@ -129,10 +129,12 @@ function SettingsLayout({
       const apiKey = isHosted ? (getByokKey(provider) || undefined) : (uiKeys[provider] || undefined);
       const res = await fetch("/api/search/probe", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(apiKey ? { [`x-pcbuildsage-api-key-${provider}`]: apiKey } : {})
+        },
         body: JSON.stringify({
           provider,
-          apiKey,
           baseUrl: isHosted ? undefined : config.searchBaseUrl,
           query: "DDR5 RAM",
         })
