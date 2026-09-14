@@ -12,6 +12,7 @@ import { extractBuildsFromMessage, type DerivedBuild, type BuildVersion } from "
 import { FailoverPill } from "./failover-pill";
 import { Markdown } from "./markdown";
 import { ToolChip, type ToolPart } from "./tool-chip";
+import { isFollowupsPart } from "@/lib/followups";
 import { isTextPart, isReasoningPart, isToolPart } from "@/lib/message-parts";
 
 export type ChatUIMessage = UIMessage<ChatMetadata> & {
@@ -58,12 +59,16 @@ export function MessageView({
   currency,
   versions,
   onEdit,
+  followups = [],
+  onFollowup,
   onViewBuild
 }: {
   message: ChatUIMessage;
   currency: string;
   versions?: BuildVersion[];
   onEdit?: (newText: string) => void;
+  followups?: string[];
+  onFollowup?: (prompt: string) => void;
   onViewBuild?: (builds: DerivedBuild[], versionOrId?: number | string) => void;
 }) {
   const [hasMounted, setHasMounted] = useState(false);
@@ -206,6 +211,7 @@ export function MessageView({
         if (isTextPart(part)) {
           return <Markdown key={index} text={part.text} />;
         }
+        if (isFollowupsPart(part)) return null;
         if (isToolPart(part)) {
           return <ToolChip key={index} part={part} />;
         }
@@ -317,6 +323,20 @@ export function MessageView({
         </div>
       ) : null}
 
+      {followups.length > 0 && onFollowup ? (
+        <div className="mt-3 flex flex-wrap gap-2" aria-label="Suggested follow-ups">
+          {followups.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => onFollowup(prompt)}
+              className="rounded-btn border border-border bg-surface px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent cursor-pointer"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="mt-1 flex items-center gap-2 text-caption text-text-muted">
         {timestamp ? <span>{timestamp}</span> : null}
       </div>

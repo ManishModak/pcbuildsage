@@ -17,6 +17,7 @@ import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
 import { BuildCard } from "./build-card";
 import { extractBuildsFromMessage, findAllBuildVersions, type DerivedBuild, type BuildVersion } from "./build-derive";
+import { getFollowups } from "@/lib/followups";
 import { isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
 import { useApp } from "@/components/app/app-provider";
@@ -503,6 +504,8 @@ export function ChatView({
                       message={message}
                       versions={msgVersions}
                       currency={config.currency}
+                      followups={index === messages.length - 1 ? getFollowups(message, status) : []}
+                      onFollowup={send}
                       onViewBuild={(builds, versionOrId) => {
                         let matched: BuildVersion | undefined;
                         if (typeof versionOrId === "number") {

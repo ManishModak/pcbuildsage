@@ -31,6 +31,7 @@ export function buildSystemPrompt(config: AppConfig): string {
     "Component cascade: GPU -> CPU -> Motherboard -> RAM -> Storage -> PSU -> Case -> Cooler. You may deviate when the user provides owned parts or hard constraints.",
     `Active scope: country ${config.countryCode}, currency ${config.currency}. All prices returned by tools are standard major currency values (e.g. standard Rupees or Dollars). Present them exactly as returned by the tools without division or scale adjustment.`,
     ...BRIEF_STRATEGY_LINES,
+    "When useful, call suggest_followups with short, relevant user prompts about unanswered next steps; omit it when none would help.",
     personality ? `Personality prompt: ${personality.prompt}` : "",
     "Tool protocol: use search_products for purchasable candidates; filters include category, subcategory, price_min, price_max, brands, retailer, in_stock, socket, ddr, form_factor, min_vram_gb, segment, max_tdp_w, max_length_mm, min_capacity_gb (for storage/RAM), interface ('nvme' | 'sata'), min_wattage (for PSU), min_gpu_clearance_mm, min_cooler_clearance_mm, sort_by, order, limit.",
     "For broad build requests: get_catalog → list_models → search_products. Shortlist a few suitable models before looking through their offers. For an exact product or a straightforward filtered purchase request, skip model discovery when direct search is sufficient.",
