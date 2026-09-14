@@ -114,7 +114,8 @@ export function resolveChatRequestBody(
     model: entry.model,
     keySource: (hasKeyFn(entry.provider) ? "ui" : entry.keySource) as "env" | "ui",
     baseUrl: isHosted ? undefined : entry.baseUrl,
-    ...(entry.reasoningEffort ? { reasoningEffort: entry.reasoningEffort } : {})
+    ...(entry.reasoningEffort ? { reasoningEffort: entry.reasoningEffort } : {}),
+    ...(entry.contextLimit ? { contextLimit: entry.contextLimit } : {})
   }));
 
   let subagentChain = serverChain;
@@ -128,7 +129,8 @@ export function resolveChatRequestBody(
         model: entry.model,
         keySource: (hasKeyFn(entry.provider) ? "ui" : entry.keySource) as "env" | "ui",
         baseUrl: isHosted ? undefined : entry.baseUrl,
-        ...(entry.reasoningEffort ? { reasoningEffort: entry.reasoningEffort } : {})
+        ...(entry.reasoningEffort ? { reasoningEffort: entry.reasoningEffort } : {}),
+        ...(entry.contextLimit ? { contextLimit: entry.contextLimit } : {})
       }));
     }
   }

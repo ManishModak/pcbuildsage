@@ -255,6 +255,12 @@ export function ChatView({
     messagesRef.current = messages;
   }, [messages]);
 
+  const lastMsg = messages.at(-1);
+  const activeIsCompacting =
+    isCompacting &&
+    status !== "streaming" &&
+    !(lastMsg?.role === "assistant" && (lastMsg.parts?.length ?? 0) > 0);
+
   useEffect(() => {
     handleErrorRef.current = (chatError: Error) => {
       if (isContextLimitError(chatError)) {
@@ -433,7 +439,7 @@ export function ChatView({
     setHeaderSuffix(
       <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
-          <ModelStatus modelName={activeModel} streaming={streaming} isCompacting={isCompacting} />
+          <ModelStatus modelName={activeModel} streaming={streaming} isCompacting={activeIsCompacting} />
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {messages.length > 0 ? (
@@ -488,7 +494,7 @@ export function ChatView({
     setHeaderSuffix,
     activeModel,
     streaming,
-    isCompacting,
+    activeIsCompacting,
     displayBuilds,
     headerBuildPrice,
     sidePanelOpen,
@@ -673,7 +679,7 @@ export function ChatView({
                   {contextExceededNotice}
                 </span>
               </div>
-            ) : isCompacting ? (
+            ) : activeIsCompacting ? (
               <div
                 className="mt-4 flex items-center gap-2 rounded-card border px-4 py-3 text-sm"
                 style={{
@@ -685,7 +691,9 @@ export function ChatView({
               >
                 <span className="h-2 w-2 rounded-full bg-accent animate-pulse shrink-0" />
                 <span className="flex-1 whitespace-pre-wrap leading-relaxed">
-                  Compacting conversation context before retrying...
+                  {recovery.canRecover() && !streaming
+                    ? "Compacting conversation context before retrying..."
+                    : "Compacting conversation context..."}
                 </span>
               </div>
             ) : error ? (
@@ -716,7 +724,7 @@ export function ChatView({
                 setIsCompacting(false);
                 void stop();
               }}
-              streaming={streaming || isCompacting}
+              streaming={streaming || activeIsCompacting}
             />
             <p className="mt-2 text-center text-caption text-text-muted">
               {isHostedMode() ? (

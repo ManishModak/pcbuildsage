@@ -55,9 +55,45 @@ export function parseContextLimitFromError(error: unknown): number | undefined {
   return undefined;
 }
 
+export const KNOWN_MODEL_CONTEXT_LIMITS: Record<string, number> = {
+  "nex-agi/nex-n2.5-mini": 262_144,
+  "nex-agi/nex-n2.5-pro": 262_144,
+  "nex-n2.5-mini": 262_144,
+  "nex-n2.5-pro": 262_144,
+  "anthropic/claude-3.5-sonnet": 200_000,
+  "anthropic/claude-3-5-sonnet": 200_000,
+  "anthropic/claude-3.7-sonnet": 200_000,
+  "claude-3-5-sonnet": 200_000,
+  "claude-3.5-sonnet": 200_000,
+  "google/gemini-2.5-flash": 1_048_576,
+  "google/gemini-2.0-flash": 1_048_576,
+  "gemini-2.5-flash": 1_048_576,
+  "gemini-2.0-flash": 1_048_576,
+  "openai/gpt-4o": 128_000,
+  "openai/gpt-4o-mini": 128_000,
+  "gpt-4o": 128_000,
+  "gpt-4o-mini": 128_000,
+  "meta-llama/llama-3.3-70b-instruct": 131_072,
+  "llama-3.3-70b-versatile": 131_072
+};
+
+export function resolveKnownModelLimit(modelId: string): number | undefined {
+  if (!modelId) return undefined;
+  const normalized = modelId.toLowerCase().replace(/:free$/, "");
+  if (KNOWN_MODEL_CONTEXT_LIMITS[normalized]) {
+    return KNOWN_MODEL_CONTEXT_LIMITS[normalized];
+  }
+  for (const [key, limit] of Object.entries(KNOWN_MODEL_CONTEXT_LIMITS)) {
+    if (normalized.includes(key)) {
+      return limit;
+    }
+  }
+  return undefined;
+}
+
 /**
  * Resolve the active model's context limit using configuration, provider metadata,
- * or the explicit conservative budget (32,768 tokens).
+ * known model registry, or the explicit conservative budget (32,768 tokens).
  */
 export function getModelContextLimit(
   entryOrModelId?: string | { model?: string; provider?: string; contextLimit?: number },
@@ -68,10 +104,18 @@ export function getModelContextLimit(
     if (typeof entryOrModelId.contextLimit === "number" && entryOrModelId.contextLimit > 0) {
       return entryOrModelId.contextLimit;
     }
+    if (entryOrModelId.model) {
+      const known = resolveKnownModelLimit(entryOrModelId.model);
+      if (known) return known;
+    }
     return DEFAULT_FALLBACK_CONTEXT_LIMIT;
   }
   if (typeof configuredLimit === "number" && configuredLimit > 0) {
     return configuredLimit;
+  }
+  if (typeof entryOrModelId === "string") {
+    const known = resolveKnownModelLimit(entryOrModelId);
+    if (known) return known;
   }
   return DEFAULT_FALLBACK_CONTEXT_LIMIT;
 }

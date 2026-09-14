@@ -56,7 +56,7 @@ export function ByokSection({
 }: {
   className?: string;
   onKeyChange?: (provider: string, hasKey: boolean) => void;
-  onModelChange?: (provider: string, model: string) => void;
+  onModelChange?: (provider: string, model: string, contextLimit?: number) => void;
 }) {
   const [keys, setKeys] = useState<Record<string, string | undefined>>(() => ({
     gemini: getByokKey("gemini"),
@@ -181,7 +181,8 @@ export function ByokSection({
         : provider === "groq"
           ? "llama-3.3-70b-versatile"
           : "anthropic/claude-3.5-sonnet");
-    onModelChange?.(provider, activeModel);
+    const matched = models[provider]?.find((m) => m.id === activeModel);
+    onModelChange?.(provider, activeModel, matched?.contextLimit);
 
     void loadModelsForProvider(provider, raw, true);
   };
@@ -212,7 +213,8 @@ export function ByokSection({
     setActiveByokProvider(providerId, persists[providerId]);
     setActiveProviderState(providerId);
     setCustomInputs((prev) => ({ ...prev, [providerId]: false }));
-    onModelChange?.(providerId, trimmed);
+    const matched = models[providerId]?.find((m) => m.id === trimmed);
+    onModelChange?.(providerId, trimmed, matched?.contextLimit);
   };
 
   const handleActiveProviderChange = (providerId: "gemini" | "openrouter" | "groq") => {
@@ -220,7 +222,8 @@ export function ByokSection({
     setActiveByokProvider(providerId, persists[providerId]);
     const activeModel = selectedModels[providerId];
     if (activeModel) {
-      onModelChange?.(providerId, activeModel);
+      const matched = models[providerId]?.find((m) => m.id === activeModel);
+      onModelChange?.(providerId, activeModel, matched?.contextLimit);
     }
   };
 

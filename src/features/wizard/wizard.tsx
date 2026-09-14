@@ -180,10 +180,18 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
                   </header>
 
                   <ByokSection
-                    onModelChange={(provider, model) => {
+                    onModelChange={(provider, model, contextLimit) => {
                       updateConfig((prev) => ({
                         ...prev,
-                        chatChain: [{ id: `hosted-${provider}`, provider: provider as LLMProvider, model, keySource: "ui" }]
+                        chatChain: [
+                          {
+                            id: `hosted-${provider}`,
+                            provider: provider as LLMProvider,
+                            model,
+                            keySource: "ui",
+                            ...(contextLimit ? { contextLimit } : {})
+                          }
+                        ]
                       }));
                     }}
                   />

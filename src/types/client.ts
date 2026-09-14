@@ -11,6 +11,7 @@ export type ChainEntry = {
   baseUrl?: string;
   keySource: KeySource;
   reasoningEffort?: ReasoningEffort;
+  contextLimit?: number;
   /** Present only for keySource "ui"; never rendered back into an input. */
   hasSavedKey?: boolean;
   presetName?: string;
@@ -105,7 +106,7 @@ export type EndpointPreset = {
   launch_flags?: string;
 };
 
-export type DiscoveredModel = { id: string; name?: string };
+export type DiscoveredModel = { id: string; name?: string; contextLimit?: number };
 
 export type ScrapeEvent =
   | { type: "started"; id?: string }

@@ -68,6 +68,18 @@ describe("context-budget", () => {
       expect(getModelContextLimit("gpt-4o", "openai", 128000)).toBe(128000);
     });
 
+    it("resolves known models from registry when configured limit is not provided", () => {
+      expect(getModelContextLimit("nex-agi/nex-n2.5-mini:free")).toBe(262144);
+      expect(getModelContextLimit({ model: "nex-agi/nex-n2.5-mini:free" })).toBe(262144);
+      expect(getModelContextLimit({ model: "nex-agi/nex-n2.5-mini", provider: "openrouter" })).toBe(262144);
+      expect(getModelContextLimit("anthropic/claude-3.5-sonnet")).toBe(200000);
+      expect(getModelContextLimit("google/gemini-2.5-flash")).toBe(1048576);
+    });
+
+    it("prefers explicit contextLimit on entry object over known model registry", () => {
+      expect(getModelContextLimit({ model: "nex-agi/nex-n2.5-mini:free", contextLimit: 65536 })).toBe(65536);
+    });
+
     it("falls back to explicit conservative 32,768 tokens without regex guessing", () => {
       expect(getModelContextLimit("unknown-model", "custom-proxy")).toBe(DEFAULT_FALLBACK_CONTEXT_LIMIT);
       expect(getModelContextLimit("deepseek-r1", "ollama")).toBe(32768);

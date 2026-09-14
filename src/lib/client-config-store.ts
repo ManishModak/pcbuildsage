@@ -174,7 +174,9 @@ export function toServerChain(chain: ChainEntry[]) {
     provider: entry.provider,
     model: entry.model,
     keySource: entry.keySource,
-    baseUrl: entry.baseUrl
+    baseUrl: entry.baseUrl,
+    reasoningEffort: entry.reasoningEffort,
+    contextLimit: entry.contextLimit
     // apiKey deliberately omitted: keys travel via headers, never body.
   }));
 }

@@ -367,7 +367,14 @@ function ChainCard({
               <ModelField
                 inputProps={controlProps}
                 value={entry.model}
-                onChange={(value) => onUpdate({ model: value, ping: undefined })}
+                onChange={(value) => {
+                  const matched = modelState.models.find((m) => m.id === value);
+                  onUpdate({
+                    model: value,
+                    contextLimit: matched?.contextLimit,
+                    ping: undefined
+                  });
+                }}
                 models={modelState.models}
                 loading={modelState.loading}
                 onRefresh={onLoadModels}

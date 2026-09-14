@@ -310,10 +310,18 @@ function SettingsLayout({
             <div className="flex flex-col gap-8">
               {isHosted ? (
                 <ByokSection
-                  onModelChange={(provider, model) => {
+                  onModelChange={(provider, model, contextLimit) => {
                     updateConfig((prev) => ({
                       ...prev,
-                      chatChain: [{ id: `hosted-${provider}`, provider: provider as LLMProvider, model, keySource: "ui" }]
+                      chatChain: [
+                        {
+                          id: `hosted-${provider}`,
+                          provider: provider as LLMProvider,
+                          model,
+                          keySource: "ui",
+                          ...(contextLimit ? { contextLimit } : {})
+                        }
+                      ]
                     }));
                   }}
                 />
