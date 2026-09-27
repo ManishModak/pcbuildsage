@@ -179,6 +179,11 @@ describe("Compact Search Module", () => {
     expect(compact.valid_filters).toEqual(["category", "price_max"]);
   });
 
+  it("accepts any casing for category but rejects unknown categories", () => {
+    expect(searchProductsInputSchema.parse({ category: " GPU " }).category).toBe("gpu");
+    expect(searchProductsInputSchema.safeParse({ category: "graphics card" }).success).toBe(false);
+  });
+
   it("enforces schema limit validation (default 12, allows > 12 without Zod rejection)", () => {
     expect(searchProductsInputSchema.parse({}).limit).toBe(12);
     expect(searchProductsInputSchema.safeParse({ limit: 8 }).success).toBe(true);

@@ -24,6 +24,23 @@ describe("validate_build input schema", () => {
     expect(validateBuildInputSchema.safeParse(threeBuilds).success).toBe(true);
     expect(validateBuildInputSchema.safeParse({ builds: [] }).success).toBe(false);
   });
+
+  it("rejects duplicate labels, since results are keyed by label", () => {
+    const duplicate = {
+      builds: [
+        { label: "Best Value", parts: { cpu: { key: "amd-ryzen-5-5600" } } },
+        { label: "best value ", parts: { cpu: { key: "amd-ryzen-5-7600" } } }
+      ]
+    };
+    expect(validateBuildInputSchema.safeParse(duplicate).success).toBe(false);
+  });
+
+  it("ships a description example that is valid input", () => {
+    const rawDescription = createValidateBuildTool().description;
+    const description = typeof rawDescription === "string" ? rawDescription : "";
+    const example = description.slice(description.indexOf("{"), description.lastIndexOf("}") + 1);
+    expect(validateBuildInputSchema.safeParse(JSON.parse(example)).success).toBe(true);
+  });
 });
 
 describe("validate_build catalog ID resolution and normalization", () => {

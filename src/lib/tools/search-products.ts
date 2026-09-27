@@ -22,7 +22,10 @@ export const searchProductsInputSchema = z.object({
     .optional()
     .describe("Unique component model ID or registry key to filter listings by (e.g. from list_models)."),
   category: z
-    .enum(["gpu", "cpu", "motherboard", "ram", "storage", "psu", "case", "cooler"])
+    .string()
+    .trim()
+    .toLowerCase()
+    .pipe(z.enum(["gpu", "cpu", "motherboard", "ram", "storage", "psu", "case", "cooler"]))
     .optional()
     .describe("Component category to search, such as gpu, cpu, motherboard, ram, storage, psu, case, or cooler."),
   price_min: z.number().nonnegative().optional().describe("Minimum product price in standard major units for the active currency, such as Rupees or Dollars."),

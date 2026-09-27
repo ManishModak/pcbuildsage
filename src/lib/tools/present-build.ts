@@ -13,6 +13,7 @@ export const presentBuildInputSchema = z.object({
           ),
         product_ids: z
           .array(z.string())
+          .min(1)
           .describe(
             "List of exact catalog product IDs included in this build from search_products or the validation snapshot."
           ),

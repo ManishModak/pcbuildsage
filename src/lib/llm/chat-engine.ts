@@ -3,7 +3,7 @@ import type { AppConfig } from "@/types";
 import { streamTextWithFallback } from "./client";
 import { appendChatLog } from "@/lib/logger";
 import { createToolRegistry, getCatalog } from "@/lib/tools";
-import type { GetCatalogResult } from "@/lib/catalog";
+import type { CatalogRepository, GetCatalogResult } from "@/lib/catalog";
 import { getPersonality } from "./personalities";
 import { getSession, saveSession, setSessionCompacting } from "@/lib/sessions";
 import { type ChatMessage, capMessages } from "./messages";
@@ -44,6 +44,21 @@ export function formatCatalogSummary(catalog: GetCatalogResult): string {
   });
 
   return `Catalog summary (${catalog.scope.country_code}, ${currency}):\n${lines.join("\n")}`;
+}
+
+/**
+ * Catalog summary for the system prompt. A catalog outage must not take the
+ * whole chat down, so a failed lookup returns an empty block and the model
+ * still has search_products to discover what exists.
+ */
+export async function loadCatalogSummary(config: AppConfig, repository?: CatalogRepository): Promise<string> {
+  try {
+    const catalog = await getCatalog({ dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency }, repository);
+    return formatCatalogSummary(catalog);
+  } catch (error) {
+    console.warn("Catalog summary unavailable:", error instanceof Error ? error.message : String(error));
+    return "";
+  }
 }
 
 /**
@@ -158,9 +173,7 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
   if (lastUser) {
     await appendChatLog({ role: "user", content: lastUser.content ?? "", session_id: sessionId });
   }
-  const catalog = await getCatalog({ dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency });
-  const catalogSummary = formatCatalogSummary(catalog);
-  let systemPrompt = buildSystemPrompt(config, catalogSummary);
+  let systemPrompt = buildSystemPrompt(config, await loadCatalogSummary(config));
   const session = sessionId ? getSession(sessionId) : null;
   if (session && session.build_state) {
     systemPrompt += `\n\nCurrent build state (authoritative): ${JSON.stringify(session.build_state)}`;

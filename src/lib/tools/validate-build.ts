@@ -44,7 +44,11 @@ export const validateBuildInputSchema = z.object({
     .array(singleBuildValidationSchema)
     .min(1)
     .max(5)
-    .describe("One to five complete build proposals to validate side by side.")
+    // Results are keyed by label, so duplicate labels would silently overwrite each other.
+    .refine((builds) => new Set(builds.map((b) => b.label.trim().toLowerCase())).size === builds.length, {
+      message: "Each build needs a unique label."
+    })
+    .describe("One to five complete build proposals to validate side by side, each with a unique label.")
 });
 
 export type ValidateBuildInput = z.infer<typeof validateBuildInputSchema>;
@@ -52,7 +56,7 @@ export type ValidateBuildInput = z.infer<typeof validateBuildInputSchema>;
 export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US", currency: "USD" }, repository?: CatalogRepository) {
   return tool({
     description:
-      "Use validate_build to validate 1 to 5 proposed PC builds side by side in a single call before presenting them. Each build must have a short label naming its tradeoff (e.g. 'Within budget', 'Small upgrade', 'Max Performance') and its component parts. Returns compatibility results and authoritative code-calculated build snapshots with catalog prices, exact product IDs, and totals keyed by label. Preferred parts format uses exact catalog product IDs: {\"builds\":[{\"label\":\"Within budget\",\"parts\":{\"cpu\":{\"product_id\":\"in-cpu-amd-ryzen-5-5600-01\"},\"gpu\":{\"product_id\":\"in-gpu-msi-rtx-4060-01\"}}]}}.",
+      "Use validate_build to validate 1 to 5 proposed PC builds side by side in a single call before presenting them. Each build must have a short label naming its tradeoff (e.g. 'Within budget', 'Small upgrade', 'Max Performance') and its component parts. Returns compatibility results and authoritative code-calculated build snapshots with catalog prices, exact product IDs, and totals keyed by label. Preferred parts format uses exact catalog product IDs: {\"builds\":[{\"label\":\"Within budget\",\"parts\":{\"cpu\":{\"product_id\":\"in-cpu-amd-ryzen-5-5600-01\"},\"gpu\":{\"product_id\":\"in-gpu-msi-rtx-4060-01\"}}}]}.",
     inputSchema: validateBuildInputSchema,
     execute: async (rawInput: unknown) => {
       const input = (rawInput ?? {}) as {

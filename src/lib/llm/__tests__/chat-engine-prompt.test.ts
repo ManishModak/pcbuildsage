@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { buildSystemPrompt } from "../chat-engine";
+import { buildSystemPrompt, loadCatalogSummary } from "../chat-engine";
 import type { AppConfig } from "@/types";
+import type { CatalogRepository } from "@/lib/catalog";
+
+describe("loadCatalogSummary", () => {
+  it("returns an empty block instead of failing the chat when the catalog is unreachable", async () => {
+    const failing = {
+      getCatalog: async () => {
+        throw new Error("Turso unreachable");
+      }
+    } as unknown as CatalogRepository;
+    const config = { dbPath: ":memory:", countryCode: "IN", currency: "INR" } as AppConfig;
+    await expect(loadCatalogSummary(config, failing)).resolves.toBe("");
+  });
+});
 
 // These tests pin the presence of guidance concepts, not exact prose: rewording
 // a paragraph must not break them, and passing them proves nothing about model
