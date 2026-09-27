@@ -223,10 +223,13 @@ export function MessageView({
       {parts.map((part, index) => {
         if (isReasoningPart(part)) {
           if (part.text) {
-            // Anything but a terminal state means the model is still thinking;
-            // a part saved with no state at all keeps the old behaviour.
+            // Only these states mean the model is still thinking. A part with
+            // no state at all is not evidence of a live stream - it is usually
+            // a saved one - so it renders static rather than pulsing forever.
             const state = (part as { state?: string }).state;
-            return <ThinkingTrace key={index} text={part.text} live={state !== "done"} />;
+            const live =
+              state === "reasoning" || state === "reasoning-streaming" || state === "streaming";
+            return <ThinkingTrace key={index} text={part.text} live={live} />;
           }
         }
         if (isTextPart(part)) {

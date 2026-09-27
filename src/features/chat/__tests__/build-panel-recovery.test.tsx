@@ -1082,26 +1082,38 @@ describe("R-A2: a build parsed out of the assistant's text says so", () => {
 });
 
 describe("R-A3: the thinking trace stops pulsing once the message is done", () => {
-  const reasoningMessage = (state: string): ChatUIMessage => ({
+  const reasoningMessage = (state?: string): ChatUIMessage => ({
     id: "a1",
     role: "assistant",
     parts: [
-      { type: "reasoning", state, text: "Comparing catalog options." }
+      state === undefined
+        ? { type: "reasoning", text: "Comparing catalog options." }
+        : { type: "reasoning", state, text: "Comparing catalog options." }
     ] as unknown as ChatUIMessage["parts"]
   });
 
-  it("animates a live reasoning part and not a finished one", () => {
-    const live = renderToStaticMarkup(<MessageView message={reasoningMessage("streaming")} currency="INR" />);
-    expect(live).toContain("animate-pulse");
-    expect(live).toContain("Sage thinking process...");
-    expect(live).toContain('aria-busy="true"');
+  it.each(["reasoning", "reasoning-streaming", "streaming"])(
+    "animates a %s reasoning part",
+    (state) => {
+      const live = renderToStaticMarkup(<MessageView message={reasoningMessage(state)} currency="INR" />);
+      expect(live).toContain("animate-pulse");
+      expect(live).toContain("Sage thinking process...");
+      expect(live).toContain('aria-busy="true"');
+    }
+  );
 
-    const done = renderToStaticMarkup(<MessageView message={reasoningMessage("done")} currency="INR" />);
-    expect(done).not.toContain("animate-pulse");
-    // The trace and its name are still there - it just is not busy any more.
-    expect(done).toContain("Sage thinking process...");
-    expect(done).toContain('aria-busy="false"');
-  });
+  it.each(["done", undefined])(
+    "does not animate a %s reasoning part",
+    (state) => {
+      const done = renderToStaticMarkup(
+        <MessageView message={reasoningMessage(state as string | undefined)} currency="INR" />
+      );
+      expect(done).not.toContain("animate-pulse");
+      // The trace and its name are still there - it just is not busy any more.
+      expect(done).toContain("Sage thinking process...");
+      expect(done).toContain('aria-busy="false"');
+    }
+  );
 });
 
 describe("R-A4: a session switch cannot leave the previous chat's build on screen", () => {
