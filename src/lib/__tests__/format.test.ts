@@ -7,6 +7,7 @@ import {
   formatRelativeTime,
   minorDigits,
   sumPrices,
+  sumPricesByCurrency,
   titleCase,
   getErrorMessage,
   getErrorMessageText,
@@ -41,6 +42,24 @@ describe("formatPrice", () => {
 describe("sumPrices", () => {
   it("ignores null and undefined entries", () => {
     expect(sumPrices([100, null, 200, undefined, 50])).toBe(350);
+  });
+});
+
+describe("sumPricesByCurrency", () => {
+  it("sums rows that share one currency", () => {
+    expect(sumPricesByCurrency([{ price: 4900, currency: "INR" }, { price: 6880, currency: "inr" }])).toBe(
+      11780
+    );
+  });
+
+  it("returns null rather than a total that is quietly too low", () => {
+    // An unpriced part means the total is unknown, not zero.
+    expect(sumPricesByCurrency([{ price: 4900, currency: "INR" }, { price: null, currency: "INR" }])).toBeNull();
+    expect(sumPricesByCurrency([])).toBeNull();
+  });
+
+  it("returns null for mixed currencies instead of a meaningless sum", () => {
+    expect(sumPricesByCurrency([{ price: 4000, currency: "INR" }, { price: 4000, currency: "USD" }])).toBeNull();
   });
 });
 

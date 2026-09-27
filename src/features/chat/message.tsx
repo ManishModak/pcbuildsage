@@ -3,12 +3,12 @@
 import { useEffect, useId, useState } from "react";
 import type { UIMessage } from "@ai-sdk/react";
 import { ArrowRight, Brain, ChevronDown, Package, Pencil, RefreshCw } from "lucide-react";
-import { formatClock, formatPrice, sumPrices } from "@/lib/format";
+import { formatClock, formatPrice } from "@/lib/format";
 import type { ChatMetadata } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/components/ui/cn";
 import { Button } from "@/components/ui/button";
-import { extractBuildsFromMessage, type DerivedBuild, type BuildVersion } from "./build-derive";
+import { extractBuildsFromMessage, resolveBuildTotal, type DerivedBuild, type BuildVersion } from "./build-derive";
 import { FailoverPill } from "./failover-pill";
 import { Markdown } from "./markdown";
 import { ToolChip, type ToolPart } from "./tool-chip";
@@ -249,10 +249,7 @@ export function MessageView({
                     <span className="truncate text-sm font-medium text-text">
                       {primaryBuild.label ? `${primaryBuild.label} · ` : ""}
                       <span className="font-mono font-semibold text-accent">
-                        {formatPrice(
-                          sumPrices(primaryBuild.components.map((c) => c.price)),
-                          primaryBuild.currency
-                        )}
+                        {formatPrice(resolveBuildTotal(primaryBuild), primaryBuild.currency)}
                       </span>
                     </span>
                   </div>
@@ -303,10 +300,7 @@ export function MessageView({
                 <span className="truncate text-sm font-medium text-text">
                   {fallbackBuilds[0].label ? `${fallbackBuilds[0].label} · ` : ""}
                   <span className="font-mono font-semibold text-accent">
-                    {formatPrice(
-                      sumPrices(fallbackBuilds[0].components.map((c) => c.price)),
-                      fallbackBuilds[0].currency
-                    )}
+                    {formatPrice(resolveBuildTotal(fallbackBuilds[0]), fallbackBuilds[0].currency)}
                   </span>
                 </span>
               </div>

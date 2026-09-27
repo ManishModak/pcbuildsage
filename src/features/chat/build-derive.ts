@@ -1,5 +1,6 @@
 import type { BuildIssue, ProductRow, ValidationResult } from "@/types/client";
 import type { BuildSnapshot, BuildSnapshotComponent } from "@/lib/catalog/build-snapshot";
+import { sumPricesByCurrency } from "@/lib/format";
 import { isTextPart, isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
 export type { ChatUIMessage } from "./message";
@@ -64,11 +65,35 @@ export type DerivedBuild = {
   components: BuildComponent[];
   currency: string;
   validation: ValidationResult | null;
+  /**
+   * Authoritative total when one exists (from the validate_build snapshot,
+   * which is already null when any part is unpriced). `undefined` means "no
+   * snapshot", and the total is then summed from the components.
+   */
   total?: number | null;
   isLegacy?: boolean;
+  /**
+   * Set when the turn said a build existed but nothing renderable came with
+   * it (no validation, no snapshot, only raw product ids). The card shows an
+   * explicit "ask again" message instead of a blank or invented total.
+   */
+  detailsUnavailable?: boolean;
 };
 
 type PartIdentity = { product_id?: string; key?: string; name: string };
+
+/**
+ * The total to display for a build.
+ *
+ * A validate_build snapshot is authoritative and already reports `total: null`
+ * when any part is unpriced, so prefer it. Without a snapshot the components
+ * are summed, which yields null (rendered as an em dash) when a price is
+ * missing or the parts span more than one currency.
+ */
+export function resolveBuildTotal(build: Pick<DerivedBuild, "total" | "components">): number | null {
+  if (build.total !== undefined) return build.total;
+  return sumPricesByCurrency(build.components);
+}
 
 function partLabel(part: unknown): PartIdentity {
   if (typeof part === "string") return { key: part, name: part };
@@ -723,6 +748,153 @@ function isComponentMatch(vPart: PartIdentity, bPart: PartIdentity): boolean {
   return false;
 }
 
+/** A saved snapshot is usable when it still carries the component list. */
+export function isBuildSnapshot(value: unknown): value is BuildSnapshot {
+  return Boolean(value) && typeof value === "object" && Array.isArray((value as BuildSnapshot).components);
+}
+
+/** The AI SDK lets a tool part name its tool by `type` or by `toolName`. */
+export function isValidatePart(part: ToolPart): boolean {
+  return part.type === "tool-validate_build" || part.toolName === "validate_build";
+}
+
+/** Is this part a `present_build` call at all? */
+export function isPresentBuildPart(part: ToolPart): boolean {
+  return part.type === "tool-present_build" || part.toolName === "present_build";
+}
+
+/**
+ * A `present_build` is a build only once the model finished it. Treating "has
+ * any input" as finished is what left interrupted sessions with a build panel
+ * that rendered nothing at all: the tool chip kept spinning forever, the call
+ * was replayed on reload, and the card was rebuilt from a half-written input.
+ * `input-available` / `input-streaming` still count while the part belongs to
+ * the message currently being streamed.
+ */
+export function isFinishedPresentPart(
+  part: ToolPart,
+  messageId?: string,
+  streamingMessageId?: string
+): boolean {
+  if (!isPresentBuildPart(part)) return false;
+  if (part.state === "output-available") return true;
+  if (part.state === "input-available" || part.state === "input-streaming") {
+    return Boolean(messageId) && messageId === streamingMessageId;
+  }
+  return false;
+}
+
+/** True when a validate_build output carries at least one build snapshot. */
+export function hasValidationSnapshot(part: ToolPart): boolean {
+  const output = part.output;
+  if (!output || typeof output !== "object") return false;
+  const out = output as { builds?: unknown; snapshot?: unknown };
+  if (isBuildSnapshot(out.snapshot)) return true;
+  if (out.builds && typeof out.builds === "object") {
+    return Object.values(out.builds as Record<string, unknown>).some((entry) =>
+      Boolean(entry) && typeof entry === "object" && isBuildSnapshot((entry as { snapshot?: unknown }).snapshot)
+    );
+  }
+  return false;
+}
+
+/**
+ * A snapshot component falls back to the raw product id the model passed in
+ * when the catalog has no listing for it (`createBuildSnapshot` does exactly
+ * that). That id is not a product name and must never reach the name slot.
+ */
+function isOpaqueProductId(name: string, productId?: string): boolean {
+  if (!name) return true;
+  if (productId && name === productId) return true;
+  if (/\s/.test(name)) return false;
+  return /^[0-9a-f]{16,}$/i.test(name) || /^[0-9a-z]{20,}$/i.test(name);
+}
+
+/**
+ * Render a build straight from a `validate_build` snapshot. Snapshots are the
+ * catalog-calculated data the rules engine produced, so this is what a turn
+ * can still show when it validated a build but was interrupted before it got
+ * to present one.
+ */
+export function derivedBuildFromSnapshot(
+  snapshot: BuildSnapshot,
+  validation: ValidationResult | null,
+  fallbackCurrency = "USD"
+): DerivedBuild {
+  const currency =
+    typeof snapshot.currency === "string" && snapshot.currency ? snapshot.currency : fallbackCurrency;
+  const rawComponents = Array.isArray(snapshot.components) ? snapshot.components : [];
+
+  const components: BuildComponent[] = rawComponents
+    .map((raw): BuildComponent => {
+      const snapComp = (raw ?? {}) as BuildSnapshotComponent;
+      const category = typeof snapComp.category === "string" ? snapComp.category : "other";
+      const categoryLabel = CATEGORY_LABELS[category] ?? category;
+      const productId =
+        typeof snapComp.product_id === "string" && snapComp.product_id.trim() ? snapComp.product_id.trim() : undefined;
+      const rawName = typeof snapComp.name === "string" ? snapComp.name.trim() : "";
+      const price = typeof snapComp.price === "number" && !Number.isNaN(snapComp.price) ? snapComp.price : null;
+      const componentCurrency =
+        typeof snapComp.currency === "string" && snapComp.currency ? snapComp.currency : currency;
+      const issue = validation
+        ? findComponentIssue(validation.issues ?? [], category, productId, rawName)
+        : undefined;
+      const statusInfo = decorateComponentStatus(issue, Boolean(validation));
+
+      return {
+        category,
+        categoryLabel,
+        // An unresolved part is named by its category, never by its product id.
+        name: isOpaqueProductId(rawName, productId) ? categoryLabel : rawName,
+        registryKey: undefined,
+        productId,
+        price,
+        currency: componentCurrency,
+        retailer: typeof snapComp.retailer === "string" ? snapComp.retailer : undefined,
+        url: typeof snapComp.url === "string" ? snapComp.url : undefined,
+        notInCatalog: price === null,
+        ...statusInfo
+      };
+    })
+    .sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category));
+
+  return {
+    label: typeof snapshot.label === "string" && snapshot.label.trim() ? snapshot.label.trim() : undefined,
+    components,
+    currency,
+    validation,
+    // The snapshot total is null unless every part is priced in its own
+    // currency — better an honest "—" than a sum that is quietly too low.
+    total: typeof snapshot.total === "number" ? snapshot.total : null,
+    isLegacy: false
+  };
+}
+
+/**
+ * Every build a finished `validate_build` call produced, taken from its
+ * snapshots. Used for turns that never reached `present_build`.
+ */
+export function derivedBuildsFromValidation(part: ToolPart, fallbackCurrency: string): DerivedBuild[] {
+  const output = part.output;
+  if (!output || typeof output !== "object") return [];
+  const out = output as { builds?: unknown; snapshot?: unknown };
+
+  const builds: DerivedBuild[] = [];
+
+  if (out.builds && typeof out.builds === "object") {
+    for (const entry of Object.values(out.builds as Record<string, ValidationResult>)) {
+      const snapshot = (entry as { snapshot?: unknown } | undefined)?.snapshot;
+      if (isBuildSnapshot(snapshot)) builds.push(derivedBuildFromSnapshot(snapshot, entry, fallbackCurrency));
+    }
+  }
+
+  if (builds.length === 0 && isBuildSnapshot(out.snapshot)) {
+    builds.push(derivedBuildFromSnapshot(out.snapshot, output as ValidationResult, fallbackCurrency));
+  }
+
+  return builds;
+}
+
 export type MatchedValidation = {
   validation: ValidationResult;
   snapshot?: BuildSnapshot;
@@ -857,15 +1029,12 @@ export function deriveBuildsFromToolParts(
   fallbackCurrency: string,
   targetPresentPart?: ToolPart
 ): DerivedBuild[] {
+  // Auto-discovery has no streaming context, so only a finished call counts:
+  // a half-written present_build must never become a build (see
+  // isFinishedPresentPart for why that used to blank the panel).
   const presentPart =
     targetPresentPart ??
-    [...parts]
-      .reverse()
-      .find(
-        (part) =>
-          (part.type === "tool-present_build" || part.toolName === "present_build") &&
-          (part.state === "output-available" || part.state === "input-available" || Boolean(part.input))
-      );
+    [...parts].reverse().find((part) => isFinishedPresentPart(part));
 
   if (presentPart) {
     const input = presentPart.input as
@@ -975,7 +1144,13 @@ export function deriveBuildsFromToolParts(
             label: build.label,
             currency,
             validation: matchedValidation,
-            total: matchedSnapshot?.total ?? matchedSnapshot?.subtotal ?? null,
+            // Authoritative when there is a snapshot: null (an em dash) rather
+            // than a subtotal that silently omits unpriced parts.
+            total: matchedSnapshot
+              ? typeof matchedSnapshot.total === "number"
+                ? matchedSnapshot.total
+                : null
+              : undefined,
             components,
             isLegacy: false
           };
@@ -1055,7 +1230,11 @@ export function deriveBuildsFromToolParts(
           label: build.label,
           currency,
           validation: matchedValidation,
-          total: matchedSnapshot?.total ?? matchedSnapshot?.subtotal ?? null,
+          total: matchedSnapshot
+            ? typeof matchedSnapshot.total === "number"
+              ? matchedSnapshot.total
+              : null
+            : undefined,
           components,
           isLegacy: true
         };

@@ -18,12 +18,12 @@ import { Composer } from "./composer";
 import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
 import { BuildCard } from "./build-card";
-import { extractBuildsFromMessage, findAllBuildVersions, type DerivedBuild, type BuildVersion } from "./build-derive";
+import { extractBuildsFromMessage, findAllBuildVersions, resolveBuildTotal, type DerivedBuild, type BuildVersion } from "./build-derive";
 import { getFollowups } from "@/lib/followups";
 import { isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
 import { useApp } from "@/components/app/app-provider";
-import { getErrorMessage, formatRelativeTime, formatPrice, sumPrices, formatModelName } from "@/lib/format";
+import { getErrorMessage, formatRelativeTime, formatPrice, formatModelName } from "@/lib/format";
 import { useIsDesktop } from "@/hooks/use-mobile";
 import {
   Sheet,
@@ -469,10 +469,7 @@ export function ChatView({
   );
   const activeBuild = displayBuilds?.[safeAlternativeIndex];
   const headerBuildPrice = activeBuild
-    ? formatPrice(
-        sumPrices(activeBuild.components.map((c) => c.price)),
-        activeBuild.currency
-      )
+    ? formatPrice(resolveBuildTotal(activeBuild), activeBuild.currency)
     : null;
 
   useEffect(() => {

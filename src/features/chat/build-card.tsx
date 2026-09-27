@@ -2,13 +2,13 @@
 
 import { useState, useId } from "react";
 import { AlertCircle, ExternalLink, FlaskConical } from "lucide-react";
-import { formatPrice, sumPrices } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import { Icon } from "@/components/ui/icon";
 import { PillTabs } from "@/components/ui/pill-tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/components/ui/cn";
 import type { DerivedBuild, BuildVersion } from "./build-derive";
-import { validationStrip } from "./build-derive";
+import { resolveBuildTotal, validationStrip } from "./build-derive";
 
 export interface BuildCardProps {
   builds?: DerivedBuild[];
@@ -74,7 +74,7 @@ export function BuildCard({
     value: String(i),
     label: build.label ?? `Build ${i + 1}`
   }));
-  const total = sumPrices(active.components.map((component) => component.price));
+  const total = resolveBuildTotal(active);
   const strip = validationStrip(active.validation);
 
   return (

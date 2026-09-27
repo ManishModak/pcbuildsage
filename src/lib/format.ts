@@ -44,6 +44,30 @@ export function sumPrices(prices: Array<number | null | undefined>): number {
   return prices.reduce<number>((total, price) => total + (typeof price === "number" ? price : 0), 0);
 }
 
+/**
+ * Sum a set of priced rows for display, refusing to invent a total.
+ *
+ * Returns null when any price is missing or when the rows span more than one
+ * currency: `formatPrice(null, ...)` renders an em dash, which is honest,
+ * where summing unpriced rows into a smaller number (the old `sumPrices` path
+ * turned a fully unpriced build into "₹0.00") or adding 4000 USD to 4000 INR
+ * is a confidently wrong figure.
+ */
+export function sumPricesByCurrency(
+  rows: Array<{ price?: number | null; currency?: string | null }>
+): number | null {
+  if (rows.length === 0) return null;
+  const currencies = new Set<string>();
+  let total = 0;
+  for (const row of rows) {
+    if (typeof row.price !== "number" || Number.isNaN(row.price)) return null;
+    total += row.price;
+    currencies.add(typeof row.currency === "string" ? row.currency.trim().toUpperCase() : "");
+  }
+  if (currencies.size !== 1) return null;
+  return total;
+}
+
 export function formatLatency(ms: number | undefined): string {
   if (ms === undefined || Number.isNaN(ms)) return "—";
   if (ms < 1000) return `${Math.round(ms)}ms`;
