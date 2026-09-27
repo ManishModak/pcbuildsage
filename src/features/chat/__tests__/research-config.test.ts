@@ -162,6 +162,32 @@ describe("Research Configuration & Error Handling", () => {
       expect(json.ok).toBe(false);
       expect(json.crawler).toEqual({ ready: false, reason: "Python process exceeded its 8000 ms deadline." });
     });
+
+    it("refuses checkCrawler and spawns nothing in hosted mode", async () => {
+      const prevMode = process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
+      process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "hosted-demo";
+      mockCheckCrawlerReadiness.mockClear();
+      try {
+        const req = new Request("http://localhost/api/search/probe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ checkCrawler: true, recheck: true })
+        });
+        const res = await probeRoute(req);
+        const json = await res.json();
+        expect(res.status).toBe(200);
+        expect(json.ok).toBe(false);
+        expect(json.message).toContain("Unavailable: Crawler is unavailable in hosted mode");
+        expect(json.crawler).toEqual({ ready: false, reason: "Crawler is unavailable in hosted mode" });
+        expect(mockCheckCrawlerReadiness).not.toHaveBeenCalled();
+      } finally {
+        if (prevMode !== undefined) {
+          process.env.PCBUILDSAGE_DEPLOYMENT_MODE = prevMode;
+        } else {
+          delete process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
+        }
+      }
+    });
   });
 
   describe("Capability-Specific Research Readiness Isolation", () => {
@@ -641,4 +667,5 @@ describe("Research Configuration & Error Handling", () => {
       expect(probeFn).toHaveBeenCalledTimes(1);
     });
   });
+
 });

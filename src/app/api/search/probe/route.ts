@@ -20,6 +20,13 @@ export async function POST(request: Request): Promise<Response> {
     const parsed = probeSchema.parse(body);
 
     if (parsed.checkCrawler) {
+      if (isHostedDemo()) {
+        return json({
+          ok: false,
+          crawler: { ready: false, reason: "Crawler is unavailable in hosted mode" },
+          message: "Unavailable: Crawler is unavailable in hosted mode"
+        });
+      }
       const readiness = await checkCrawlerReadiness({ force: parsed.recheck });
       return json({
         ok: readiness.ready,
