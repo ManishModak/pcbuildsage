@@ -352,6 +352,10 @@ export function ChatView({
     };
   });
 
+  // Memoised on the messages identity, so the stringify the header signature
+  // needs costs one pass per message update rather than one per render.
+  const messagesSignature = useMemo(() => sessionSignature(messages), [messages]);
+
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   // Stored with the session it belongs to: ChatView is not remounted on a
   // switch, so a build from the previous chat must never reach the panel.
@@ -488,7 +492,10 @@ export function ChatView({
     compacting: activeIsCompacting,
     sidePanelOpen,
     messageCount: messages.length,
-    title: deriveTitle(messages),
+    // The transcript menu copies and downloads the messages it closed over, so
+    // their content is part of what the header shows - a reply streaming in has
+    // to move this or the export goes out without it.
+    transcript: messagesSignature,
     error: error ? getErrorMessage(error) : "",
     currency: config.currency,
     countryCode: config.countryCode,

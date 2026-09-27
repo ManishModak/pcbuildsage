@@ -14,6 +14,7 @@ import { BuildCard } from "../build-card";
 import { BuildErrorBoundary } from "../build-error-boundary";
 import { MessageView, type ChatUIMessage } from "../message";
 import type { DerivedBuild } from "../build-derive";
+import { sessionSignature } from "../session-save-queue";
 
 // Ids and shapes copied from the real interrupted session in data/sessions.db
 // (id 371612d7-294e-4a53-9fc3-2de07ecf2340): four finished validate_build
@@ -742,6 +743,11 @@ describe("a malformed saved build cannot take the chat down", () => {
   });
 });
 
+/** True when every transcript here has the same number of messages. */
+function messagesCountIsStable(...transcripts: ChatUIMessage[][]): boolean {
+  return transcripts.every((messages) => messages.length === transcripts[0].length);
+}
+
 /** SSR escapes an apostrophe as &#x27;; assertions read better without it. */
 function decodeEntities(markup: string): string {
   return markup.replace(/&#x27;/g, "'").replace(/&quot;/g, '"');
@@ -792,7 +798,7 @@ describe("R-A1: the header effect cannot re-arm itself", () => {
       compacting: false,
       sidePanelOpen: true,
       messageCount: 2,
-      title: "Just tell me a build in a table.",
+      transcript: JSON.stringify(markdownOnlySession),
       error: "",
       currency: "INR",
       countryCode: "IN",
@@ -804,9 +810,52 @@ describe("R-A1: the header effect cannot re-arm itself", () => {
     );
 
     // A build that really changed still moves the signature.
-    expect(
-      buildHeaderSignature({ ...header, builds: undefined })
-    ).not.toBe(buildHeaderSignature(header));
+    expect(buildHeaderSignature({ ...header, builds: undefined })).not.toBe(
+      buildHeaderSignature(header)
+    );
+  });
+
+  it("moves the header signature when a streamed reply changes", () => {
+    // The header closes over `messages`: the transcript menu copies and
+    // downloads them. Keyed on the message count alone, the export went out
+    // missing the whole reply, because the count only changes when the message
+    // is first appended.
+    const beforeStream = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build" }] },
+      { id: "a1", role: "assistant", parts: [{ type: "text", text: "" }] }
+    ] as unknown as ChatUIMessage[];
+    const midStream = [
+      beforeStream[0],
+      { id: "a1", role: "assistant", parts: [{ type: "text", text: "Starting with the " }] }
+    ] as unknown as ChatUIMessage[];
+    const afterStream = [
+      beforeStream[0],
+      { id: "a1", role: "assistant", parts: [{ type: "text", text: "Starting with the GPU." }] }
+    ] as unknown as ChatUIMessage[];
+
+    const header = {
+      sessionId: "s1",
+      model: "gemini-2.5-flash",
+      streaming: true,
+      compacting: false,
+      sidePanelOpen: false,
+      currency: "INR",
+      countryCode: "IN",
+      error: "",
+      buildPrice: null,
+      builds: null
+    };
+    const signatureFor = (messages: ChatUIMessage[]) =>
+      buildHeaderSignature({
+        ...header,
+        messageCount: messages.length,
+        transcript: sessionSignature(messages)
+      });
+
+    // Same message count throughout: only the content differs.
+    expect(messagesCountIsStable(beforeStream, midStream, afterStream)).toBe(true);
+    expect(signatureFor(midStream)).not.toBe(signatureFor(beforeStream));
+    expect(signatureFor(afterStream)).not.toBe(signatureFor(midStream));
   });
 
   it("shows the markdown build in the panel", () => {

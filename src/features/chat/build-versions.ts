@@ -244,7 +244,12 @@ export function buildHeaderSignature(header: {
   compacting: boolean;
   sidePanelOpen: boolean;
   messageCount: number;
-  title: string;
+  /**
+   * Value fingerprint of the whole transcript, not just its length: the header
+   * closes over the messages (the transcript menu copies and downloads them),
+   * so a reply streaming in has to move this or the export goes out missing it.
+   */
+  transcript: string;
   error: string;
   currency: string;
   countryCode: string;
@@ -258,7 +263,7 @@ export function buildHeaderSignature(header: {
     header.compacting ? "1" : "0",
     header.sidePanelOpen ? "1" : "0",
     header.messageCount,
-    header.title,
+    header.transcript,
     header.error,
     header.currency,
     header.countryCode,
