@@ -35,10 +35,10 @@ PCBuildSage fixes all three:
 
 A public live demonstration is available at [https://pcbuildsage.onrender.com](https://pcbuildsage.onrender.com). The hosted demo runs in a dedicated stateless mode with strict privacy boundaries:
 
-- **Bring-Your-Own-Key (BYOK)**: Visitors provide their own API key (e.g. Gemini, OpenRouter, Groq). In hosted mode, the backend strictly ignores server environment keys, ensuring visitor requests execute exclusively against visitor-provided keys ([`src/app/api/_lib/credentials.ts`](src/app/api/_lib/credentials.ts#L147-L170), [`src/lib/config/deployment.ts`](src/lib/config/deployment.ts#L8-L32)).
-- **Keys Stored in Browser Only**: API keys are saved in browser `sessionStorage` (scoped to tab lifetime) and forwarded per-request via HTTP headers. Keys are never logged, stored in databases, or persisted to server disk ([`src/lib/llm/client-byok-store.ts`](src/lib/llm/client-byok-store.ts#L1-L25)).
-- **Stateless Sessions**: Chat sessions and build recommendations live entirely in the browser using client-side IndexedDB and `localStorage`. The server operates on an ephemeral read-only filesystem with zero server session database or disk persistence ([`src/lib/sessions/client-store.ts`](src/lib/sessions/client-store.ts#L29-L40), [`tests/container/dockerfile.test.ts`](tests/container/dockerfile.test.ts)).
-- **India-Only Catalog**: The hosted catalog currently ingests and serves in-stock hardware pricing exclusively for the Indian market (`IN`). Market selection dynamically presents only markets with verified in-stock catalog records ([`src/lib/catalog/sql-repository.ts`](src/lib/catalog/sql-repository.ts#L258-L270), [`src/app/api/markets/route.ts`](src/app/api/markets/route.ts#L18-L35)).
+- **Bring-Your-Own-Key (BYOK)**: Visitors provide their own API key (e.g. Gemini, OpenRouter, Groq). In hosted mode, the backend strictly ignores server environment keys, ensuring visitor requests execute exclusively against visitor-provided keys ([`src/app/api/_lib/credentials.ts`](src/app/api/_lib/credentials.ts), [`src/lib/config/deployment.ts`](src/lib/config/deployment.ts)).
+- **Keys Stored in Browser Only**: API keys are saved in browser `sessionStorage` (scoped to tab lifetime). Keys are forwarded per-request through the server in headers to execute LLM calls, but are never written to disk, stored in any database, or logged on the server ([`src/lib/llm/client-byok-store.ts`](src/lib/llm/client-byok-store.ts)).
+- **Stateless Sessions**: Chat sessions and build recommendations live entirely in the browser using client-side IndexedDB and `localStorage`. The server operates on an ephemeral read-only filesystem with zero server session database or disk persistence ([`src/lib/sessions/client-store.ts`](src/lib/sessions/client-store.ts), [`tests/container/dockerfile.test.ts`](tests/container/dockerfile.test.ts)).
+- **India-Only Catalog**: The hosted catalog currently ingests and serves in-stock hardware pricing exclusively for the Indian market (`IN`). Market selection dynamically presents only markets with verified in-stock catalog records ([`src/lib/catalog/sql-repository.ts`](src/lib/catalog/sql-repository.ts), [`src/app/api/markets/route.ts`](src/app/api/markets/route.ts)).
 
 ---
 
@@ -81,6 +81,14 @@ To quickly populate a sample SQLite database from fixtures without scraping:
 
 ```bash
 npm run generate-sample-db
+```
+
+### Docker (Self-Hosting)
+
+The container runs in hosted-demo mode by default. To run it in local mode, set `-e PCBUILDSAGE_DEPLOYMENT_MODE=local`:
+
+```bash
+docker run -d -p 3000:3000 -e PCBUILDSAGE_DEPLOYMENT_MODE=local pcbuildsage
 ```
 
 ---
@@ -131,7 +139,7 @@ npm run validate:data
 
 **Does it work offline?** Scraped data, search, and compatibility checks are fully offline. Chat needs whatever your LLM needs (local Ollama = fully offline).
 
-**Is my data private?** Yes. When running locally, all data, databases, and keys stay 100% on your machine. On the hosted demo, your sessions remain in your browser's local storage and your BYOK API keys are kept in ephemeral browser memory (`sessionStorage`), sent directly to your chosen provider via request headers without server-side persistence.
+**Is my data private?** Yes. When running locally, all data, databases, and keys stay 100% on your machine. On the hosted demo, your sessions remain in your browser's local storage and your BYOK API keys are kept in ephemeral browser memory (`sessionStorage`). Keys are forwarded per-request through the server in headers to execute LLM calls, but are never written to disk, stored in any database, or logged on the server.
 
 ---
 
