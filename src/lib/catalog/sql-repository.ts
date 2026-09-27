@@ -19,6 +19,7 @@ import { toPriceMinor } from "@/types/catalog";
 import { STANDARD_MARKETS, type MarketMetadata } from "@/lib/config/deployment";
 import type { SqlDriver } from "./sql-driver";
 import { aggregateModels, matchesModelId } from "./model-aggregator";
+import { matchesSocket, matchesFormFactor, matchesDdr } from "./spec-filters";
 import type {
   CatalogRepository,
   CatalogScope,
@@ -925,15 +926,9 @@ export class SqlCatalogRepository implements CatalogRepository {
       const haystack = `${spec?.brand ?? ""} ${product.name}`.toLowerCase();
       if (!input.brands.some((brand) => haystack.includes(brand.toLowerCase()))) return false;
     }
-    if (input.socket && spec?.socket !== input.socket) return false;
-    if (input.ddr && spec?.ddr !== input.ddr) return false;
-    if (input.form_factor) {
-      const forms = [
-        spec?.form_factor,
-        ...(Array.isArray(spec?.form_factors) ? spec.form_factors : [])
-      ];
-      if (!forms.includes(input.form_factor)) return false;
-    }
+    if (input.socket && !matchesSocket(spec, input.socket)) return false;
+    if (input.ddr && !matchesDdr(spec, input.ddr)) return false;
+    if (input.form_factor && !matchesFormFactor(spec, input.form_factor)) return false;
     if (input.min_vram_gb !== undefined && Number(spec?.vram_gb ?? -1) < input.min_vram_gb)
       return false;
     if (input.segment && spec?.segment !== input.segment) return false;

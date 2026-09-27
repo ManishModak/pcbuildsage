@@ -122,7 +122,10 @@ describe("crawl enhancement", () => {
 
     const response = await createSearchClient(
       { provider: "exa", apiKey: "key" },
-      { runPythonModule }
+      {
+        runPythonModule,
+        checkCrawlerReadiness: async () => ({ ready: true })
+      }
     ).search("gpu", { crawlEnabled: true });
 
     expect(runPythonModule).toHaveBeenCalledWith(
@@ -147,7 +150,10 @@ describe("crawl enhancement", () => {
 
     const response = await createSearchClient(
       { provider: "exa", apiKey: "key" },
-      { runPythonModule }
+      {
+        runPythonModule,
+        checkCrawlerReadiness: async () => ({ ready: true })
+      }
     ).search("gpu", { crawlEnabled: true });
 
     expect(response.results[0].snippet).toBe("search snippet");

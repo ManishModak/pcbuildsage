@@ -17,6 +17,7 @@ export type RegistrySpec = {
   sources?: string[];
   confidence?: Confidence;
   researched_at?: string;
+  supported_memory?: string[];
   [key: string]: unknown;
 };
 export type ResolvedSpec = {
@@ -57,13 +58,13 @@ export function resolveComponent(
   const name = typeof input === "string" ? input : input.name ?? input.key ?? "";
   const category = typeof input === "string" ? undefined : input.category;
 
-  const canonical = key ? registry.byKey.get(key) : undefined;
+  const canonical = key ? getRegistryEntry(registry.byKey, key) : undefined;
   const normalized = normalizeTitle(name);
   const alias = registry.byAlias.get(normalized);
   const variant = gpuVariant(name);
   const compatible = (candidate: ResolvedSpec) => candidate.category !== "gpu" || (
     (!variant.family || gpuVariant(candidate.spec.model).family === variant.family) &&
-    (variant.vram === undefined || Number(candidate.spec.vram_gb) === variant.vram)
+    (!variant.ambiguousVram && (variant.vram === undefined || Number(candidate.spec.vram_gb) === variant.vram))
   );
   let hit =
     canonical && (!category || canonical.category === category)
@@ -97,7 +98,9 @@ export function resolveComponent(
 
   const result = (() => {
     // A high/medium-confidence registry entry is the best answer available.
-    if (hit && hit.confidence !== "low") return hit;
+    if (hit && hit.confidence !== "low") {
+      return hit.category === "gpu" ? withTitleGpuLength(hit, name) : hit;
+    }
 
     // An unsourced registry entry is a placeholder, not a fact, so anything with a
     // provenance outranks it: a researched row (cites URLs), then a title parse
@@ -106,19 +109,19 @@ export function resolveComponent(
     // compute a verdict from it and asks for research instead.
     if (!options.skipDbLookup && options.db !== null) {
       const researched = lookupResearch({ key: key ?? slugifyComponent(name), name, category }, options.db ?? getDb());
-      if (researched && compatible(researched)) return researched;
+      if (researched && compatible(researched)) return normalizeResolvedSpec(researched);
       if (researched?.category === "gpu" && !compatible(researched)) rejectedGpu ??= researched;
     }
 
     const derived = parseSpecsFromTitle(name, category);
     if (derived) {
-      return {
+      return normalizeResolvedSpec({
         key: key ?? slugifyComponent(name),
         category: (category ?? "storage") as ComponentCategory,
         spec: derived,
         source: "derived" as const,
         confidence: "medium" as const
-      };
+      });
     }
 
     return hit;
@@ -126,18 +129,47 @@ export function resolveComponent(
 
   if (rejectedGpu) {
     const conflict = `GPU listing variant conflicts with registry record ${rejectedGpu.key}; the conflicting record was not used.`;
-    if (result) return normalizeResolvedSpec({
+    if (result) return {
       ...result,
       key: result.source === "derived" ? slugifyComponent(name) : result.key,
       spec: { ...result.spec, ...(variant.vram !== undefined ? { vram_gb: variant.vram } : {}), spec_conflict: conflict }
-    });
+    };
     return {
       key: slugifyComponent(name), category: "gpu", source: "derived", confidence: "medium",
       spec: { brand: name.split(/\s+/)[0] ?? "", model: name, aliases: [name],
         ...(variant.vram !== undefined ? { vram_gb: variant.vram } : {}), spec_conflict: conflict }
     };
   }
-  return normalizeResolvedSpec(result);
+  return result;
+}
+
+/**
+ * The single narrow merge path for retailer-title GPU lengths. A stated length
+ * the registry lacks is recorded with its title provenance; a length that
+ * contradicts the registry record flags the dimension conflict without erasing
+ * the other trusted GPU facts (validateBuild surfaces spec_conflict as
+ * unverified). One board partner's title never rewrites a family record.
+ */
+export function withTitleGpuLength(hit: ResolvedSpec, name: string): ResolvedSpec {
+  if (hit.category !== "gpu") return hit;
+  const existing = typeof hit.spec.length_mm === "number" ? hit.spec.length_mm : undefined;
+  const derived = parseSpecsFromTitle(name, "gpu");
+  const stated = derived && typeof derived.length_mm === "number" ? derived.length_mm : undefined;
+  if (existing === undefined) {
+    if (stated === undefined) return hit;
+    return {
+      ...hit,
+      spec: { ...hit.spec, length_mm: stated, length_mm_source: "listing-title" }
+    };
+  }
+  if (stated === undefined || stated === existing) return hit;
+  return {
+    ...hit,
+    spec: {
+      ...hit.spec,
+      spec_conflict: `GPU listing states card length ${stated}mm but the registry record ${hit.key} states ${existing}mm; the dimension is unverified.`
+    }
+  };
 }
 
 export function hasWattageConflict(spec: RegistrySpec): boolean {
@@ -157,6 +189,14 @@ export function normalizeResolvedSpec(resolved?: ResolvedSpec): ResolvedSpec | u
   ) {
     spec.wattage_conflict = true;
   }
+
+  if (spec.capacity_gb === undefined && typeof spec.capacity === "string") {
+    const match = spec.capacity.match(/^(\d+)\s*GB$/i);
+    if (match) {
+      spec.capacity_gb = parseInt(match[1], 10);
+    }
+  }
+
   return { ...resolved, spec };
 }
 
@@ -181,6 +221,20 @@ function entryConfidence(spec: RegistrySpec): Confidence {
   return Array.isArray(spec.sources) && spec.sources.length > 0 ? "high" : "low";
 }
 
+export const LEGACY_KEY_MAP: Record<string, string> = {
+  "be-quiet-dark-power-pro-12-850w": "be-quiet-dark-power-12-850w",
+  "g-skill-ripjaws-v-16gb-ddr4-3200": "g-skill-ripjaws-v-16gb-2x8gb-ddr4-3200"
+};
+
+/**
+ * Explicit legacy-key translation at the lookup boundary. Canonical entries
+ * live in a plain Map (one listing per entry for listRegistrySpecs); legacy
+ * keys redirect without duplicating the entry.
+ */
+function getRegistryEntry(byKey: Map<string, ResolvedSpec>, key: string): ResolvedSpec | undefined {
+  return byKey.get(key) ?? (LEGACY_KEY_MAP[key] !== undefined ? byKey.get(LEGACY_KEY_MAP[key]) : undefined);
+}
+
 function buildRegistry(registryDir: string) {
   const byKey = new Map<string, ResolvedSpec>();
   const byAlias = new Map<string, ResolvedSpec>();
@@ -193,7 +247,9 @@ function buildRegistry(registryDir: string) {
     const parsed = JSON.parse(readFileSync(path.join(registryDir, file), "utf8")) as Record<string, RegistrySpec | string>;
     for (const [key, spec] of Object.entries(parsed)) {
       if (key === "$schema" || typeof spec === "string") continue;
-      const resolved: ResolvedSpec = { key, category, spec, source: "registry", confidence: entryConfidence(spec) };
+      const rawResolved: ResolvedSpec = { key, category, spec, source: "registry", confidence: entryConfidence(spec) };
+      const resolved = normalizeResolvedSpec(rawResolved);
+      if (!resolved) continue;
       byKey.set(key, resolved);
       for (const alias of [key, spec.model, spec.brand + " " + spec.model, ...(spec.aliases ?? [])]) {
         const norm = normalizeTitle(alias);

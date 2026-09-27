@@ -35,8 +35,8 @@
       "RTX 5080 16GB",
       "GeForce RTX 5080 16GB"
     ],
-    "tdp_w": 400,
-    "recommended_psu_w": 750,
+    "tdp_w": 360,
+    "recommended_psu_w": 850,
     "vram_gb": 16,
     "segment": "gaming",
     "sources": [
@@ -105,7 +105,7 @@
       "NVIDIA GeForce RTX 5060 Ti 16GB"
     ],
     "tdp_w": 180,
-    "recommended_psu_w": 550,
+    "recommended_psu_w": 600,
     "vram_gb": 16,
     "segment": "gaming",
     "sources": [
@@ -133,7 +133,7 @@
       "NVIDIA GeForce RTX 5060 Ti"
     ],
     "tdp_w": 180,
-    "recommended_psu_w": 550,
+    "recommended_psu_w": 600,
     "vram_gb": 8,
     "segment": "gaming",
     "sources": [

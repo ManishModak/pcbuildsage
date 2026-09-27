@@ -36,6 +36,8 @@ const saveSchema = z.object({
   currency: z.string().optional().nullable()
 });
 
+export async function GET(request: Request): Promise<Response>;
+export async function GET(): Promise<Response>;
 export async function GET(request: Request = new Request("http://localhost/api/sessions")): Promise<Response> {
   const blocked = guardHostedRoute(request, { customPayload: HOSTED_MODE_FORBIDDEN_RESPONSE });
   if (blocked) return blocked;
