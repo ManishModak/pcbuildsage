@@ -645,5 +645,32 @@ describe("ClientStore", () => {
         saveClientSession({ id: "gone-2", revision: 2, title: "Back", messages: [] })
       ).rejects.toMatchObject({ reason: "session_deleted" });
     });
+
+    it("a deleted chat whose row survived is not advertised in the sidebar", async () => {
+      // `deleteClientSession` swallows a failed IndexedDB delete, so the row can
+      // outlive the tombstone. Listing it would show a chat that opens empty.
+      const mockIdb = createMockIndexedDB();
+      vi.stubGlobal("indexedDB", mockIdb);
+      const mockLs = createMockLocalStorage();
+      vi.stubGlobal("localStorage", mockLs);
+
+      await saveClientSession({ id: "zombie", revision: 1, title: "Zombie", messages: [] });
+      // Tombstone it, then put the row back as a surviving delete would.
+      await deleteClientSession("zombie");
+      mockIdb._rows().set("zombie", {
+        id: "zombie",
+        revision: 1,
+        title: "Zombie",
+        created_at: "2026-09-01T00:00:00.000Z",
+        updated_at: "2026-09-01T00:00:00.000Z",
+        country_code: null,
+        currency: null,
+        messages: [],
+        build_state: null
+      });
+
+      expect((await listClientSessions()).map((s) => s.id)).not.toContain("zombie");
+      expect(await getClientSession("zombie")).toBeNull();
+    });
   });
 });

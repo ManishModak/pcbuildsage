@@ -686,7 +686,11 @@ async function readableSessionCopies(id: string): Promise<StoredClientSession[]>
  * Resilient against corrupted entries.
  */
 export async function listClientSessions(): Promise<SessionSummary[]> {
-  const merged = mergeNewestById(await readableLayers());
+  // Tombstoned ids are filtered here as well as on read: a delete whose IndexedDB
+  // write failed leaves the row behind, and listing it would advertise a chat that
+  // opens as an empty screen because `getClientSession` honours the tombstone.
+  const tombstones = readTombstones();
+  const merged = mergeNewestById(await readableLayers()).filter((record) => !tombstones.has(record.id));
   const summaries: SessionSummary[] = merged.map(toSessionSummary);
 
   // Sort newest-first by updated_at
