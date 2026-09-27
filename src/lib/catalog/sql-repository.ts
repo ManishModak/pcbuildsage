@@ -792,13 +792,85 @@ export class SqlCatalogRepository implements CatalogRepository {
   }
 
   /**
-   * Returns supported markets metadata.
+   * Returns supported markets metadata for markets that actually have in-stock products.
+   * Derives available country codes from the catalog; STANDARD_MARKETS supplies names,
+   * currencies and locales.
    */
   async getMarkets(): Promise<MarketMetadata[]> {
     if (!this.driver.isOpen()) {
       throw new Error("Repository is closed");
     }
-    return [...STANDARD_MARKETS];
+
+    let rows: Array<{
+      country_code?: string;
+      countryCode?: string;
+      currency?: string;
+    }> = [];
+
+    try {
+      rows = await this.driver.all<{
+        country_code?: string;
+        countryCode?: string;
+        currency?: string;
+      }>(`
+        SELECT DISTINCT country_code, currency
+        FROM products
+        WHERE in_stock = 1
+        ORDER BY country_code ASC
+      `);
+    } catch {
+      return [];
+    }
+
+    const standardByCode = new Map<string, MarketMetadata>(
+      STANDARD_MARKETS.map((m) => [m.code.toUpperCase(), m])
+    );
+
+    const marketsMap = new Map<string, MarketMetadata>();
+
+    for (const row of rows) {
+      const rawCode = row.country_code ?? row.countryCode;
+      if (!rawCode) continue;
+      const code = String(rawCode).trim().toUpperCase();
+      const currency = row.currency ? String(row.currency).trim().toUpperCase() : undefined;
+
+      const standard = standardByCode.get(code);
+      if (!marketsMap.has(code)) {
+        if (standard) {
+          const supportedCurrencies = [...standard.supportedCurrencies];
+          if (currency && !supportedCurrencies.includes(currency)) {
+            supportedCurrencies.push(currency);
+          }
+          marketsMap.set(code, {
+            ...standard,
+            supportedCurrencies
+          });
+        } else {
+          let name = code;
+          try {
+            const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+            name = displayNames.of(code) ?? code;
+          } catch {
+            name = code;
+          }
+          const defaultCurrency = currency ?? "USD";
+          marketsMap.set(code, {
+            code,
+            name,
+            defaultCurrency,
+            supportedCurrencies: [defaultCurrency],
+            locale: `en-${code}`
+          });
+        }
+      } else if (currency) {
+        const existing = marketsMap.get(code)!;
+        if (!existing.supportedCurrencies.includes(currency)) {
+          existing.supportedCurrencies.push(currency);
+        }
+      }
+    }
+
+    return Array.from(marketsMap.values());
   }
 
   /**
