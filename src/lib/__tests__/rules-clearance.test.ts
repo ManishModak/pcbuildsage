@@ -336,13 +336,39 @@ describe("rule: clearance", () => {
         expect(psuClearanceCheck?.message).toContain("PSU form factor fit couldn’t be verified against case");
         expect(result.valid).toBe(true);
       });
-  it("leaves cooler fit unverified for unknown construction even with a small height", () => {
+  it("leaves cooler fit unverified for unknown construction and pushes needs_research issue", () => {
     const result = run({
       cooler: makeResolved("cooler-unknown", "cooler", { brand: "Generic", model: "Mystery Cooler", aliases: ["Mystery"], height_mm: 60, sockets: ["AM5"], tdp_rating_w: 150 })
     });
     const coolerCheck = result.checks.find((c) => c.rule === "clearance" && c.components.includes("cooler-unknown"));
     expect(coolerCheck?.status).toBe("unverified");
     expect(coolerCheck?.message).toContain("construction is unknown");
+    expect(result.issues).toContainEqual(expect.objectContaining({ severity: "needs_research", rule: "spec_resolution" }));
+    expect(result.valid).toBe(true);
+  });
+  it("passes cooler clearance for backfilled air cooler noctua-nh-d15 in case with enough height", () => {
+    const nhD15 = resolveComponent("noctua-nh-d15");
+    expect(nhD15).toBeDefined();
+    expect(nhD15?.spec.cooler_type).toBe("air");
+
+    const bigCase = makeResolved("case-big", "case", {
+      brand: "Fractal Design",
+      model: "Define 7",
+      max_cooler_height_mm: 185,
+      max_gpu_length_mm: 400,
+      form_factors: ["ATX"],
+      aliases: ["Define 7"]
+    });
+
+    const result = validateBuild(
+      { cooler: nhD15!.key, case: bigCase.key },
+      { resolve: (part) => (part === nhD15!.key ? nhD15 : part === bigCase.key ? bigCase : undefined) }
+    );
+    const clearanceCheck = result.checks.find(
+      (c) => c.rule === "clearance" && c.components.includes(nhD15!.key)
+    );
+    expect(clearanceCheck?.status).toBe("passed");
+    expect(clearanceCheck?.message).toContain("Cooler height fits: 165mm cooler / 185mm case clearance.");
     expect(result.valid).toBe(true);
   });
   it("does not pass GPU clearance when title length contradicts registry record", () => {

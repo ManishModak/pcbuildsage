@@ -28,7 +28,8 @@
       "https://noctua.at/en/nh-d15",
       "https://noctua.at/en/nh-d15/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-d15-chromax-black": {
     "brand": "Noctua",
@@ -57,7 +58,8 @@
       "https://noctua.at/en/nh-d15-chromax-black",
       "https://noctua.at/en/nh-d15-chromax-black/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-d15-g2": {
     "brand": "Noctua",
@@ -84,7 +86,8 @@
       "https://noctua.at/en/nh-d15-g2",
       "https://noctua.at/en/nh-d15-g2/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-d15-g2-lbc": {
     "brand": "Noctua",
@@ -110,7 +113,8 @@
       "https://noctua.at/en/nh-d15-g2-lbc",
       "https://noctua.at/en/nh-d15-g2-lbc/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-d15-g2-hbc": {
     "brand": "Noctua",
@@ -136,7 +140,8 @@
       "https://noctua.at/en/nh-d15-g2-hbc",
       "https://noctua.at/en/nh-d15-g2-hbc/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-d15s": {
     "brand": "Noctua",
@@ -165,7 +170,8 @@
       "https://noctua.at/en/nh-d15s",
       "https://noctua.at/en/nh-d15s/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-d12l": {
     "brand": "Noctua",
@@ -191,7 +197,8 @@
       "https://noctua.at/en/nh-d12l",
       "https://noctua.at/en/nh-d12l/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u12a": {
     "brand": "Noctua",
@@ -219,7 +226,8 @@
       "https://noctua.at/en/nh-u12a",
       "https://noctua.at/en/nh-u12a/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u12a-chromax-black": {
     "brand": "Noctua",
@@ -248,7 +256,8 @@
       "https://noctua.at/en/nh-u12a-chromax-black",
       "https://noctua.at/en/nh-u12a-chromax-black/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u12s": {
     "brand": "Noctua",
@@ -276,7 +285,8 @@
       "https://noctua.at/en/nh-u12s",
       "https://noctua.at/en/nh-u12s/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u12s-redux": {
     "brand": "Noctua",
@@ -305,7 +315,8 @@
       "https://noctua.at/en/nh-u12s-redux",
       "https://noctua.at/en/nh-u12s-redux/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u12s-chromax-black": {
     "brand": "Noctua",
@@ -334,7 +345,8 @@
       "https://noctua.at/en/nh-u12s-chromax-black",
       "https://noctua.at/en/nh-u12s-chromax-black/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u14s": {
     "brand": "Noctua",
@@ -362,7 +374,8 @@
       "https://noctua.at/en/nh-u14s",
       "https://noctua.at/en/nh-u14s/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u14s-chromax-black": {
     "brand": "Noctua",
@@ -390,7 +403,8 @@
     "sources": [
       "https://noctua.at/en/nh-u14s"
     ],
-    "confidence": "medium"
+    "confidence": "medium",
+    "cooler_type": "air"
   },
   "noctua-nh-u9s": {
     "brand": "Noctua",
@@ -418,7 +432,8 @@
       "https://noctua.at/en/nh-u9s",
       "https://noctua.at/en/nh-u9s/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u9s-chromax-black": {
     "brand": "Noctua",
@@ -447,7 +462,8 @@
       "https://noctua.at/en/nh-u9s-chromax-black",
       "https://noctua.at/en/nh-u9s-chromax-black/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-l9i": {
     "brand": "Noctua",
@@ -469,7 +485,8 @@
       "https://noctua.at/en/nh-l9i",
       "https://noctua.at/en/nh-l9i/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-l9i-17xx-chromax-black": {
     "brand": "Noctua",
@@ -489,7 +506,8 @@
       "https://noctua.at/en/nh-l9i-17xx-chromax-black",
       "https://noctua.at/en/nh-l9i-17xx-chromax-black/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-l9a": {
     "brand": "Noctua",
@@ -507,7 +525,8 @@
       "https://noctua.at/en/nh-l9a-am4",
       "https://noctua.at/en/nh-l9a-am4/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-l9a-am5-chromax-black": {
     "brand": "Noctua",
@@ -526,7 +545,8 @@
       "https://noctua.at/en/nh-l9a-am5-chromax-black",
       "https://noctua.at/en/nh-l9a-am5-chromax-black/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-l12s": {
     "brand": "Noctua",
@@ -554,7 +574,8 @@
       "https://pcspecchart.com/pc_parts/cpu_cooler/90/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "be-quiet-dark-rock-pro-4": {
     "brand": "be quiet!",
@@ -587,7 +608,8 @@
       "https://pcpartmatch.com/cooler/be-quiet-dark-rock-pro-4"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "be-quiet-dark-rock-4": {
     "brand": "be quiet!",
@@ -620,7 +642,8 @@
       "https://mobilespecs.net/cooler/be_quiet/be_quiet_Dark_Rock_4_Air_Cooler_BK021.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "be-quiet-pure-rock-2": {
     "brand": "be quiet!",
@@ -652,7 +675,8 @@
       "https://www.pcbuilder.info/products/cooler/bequiet-pure-rock-2/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "be-quiet-silent-loop-2-240": {
     "brand": "be quiet!",
@@ -786,7 +810,8 @@
       "https://store.coolermaster.eu/products/hyper-212-spectrum-v3"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-212-rgb": {
     "brand": "Cooler Master",
@@ -817,7 +842,8 @@
       "https://www.manua.ls/cooler-master/hyper-212-rgb/manual"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-212-black-edition": {
     "brand": "Cooler Master",
@@ -849,7 +875,8 @@
       "https://www.manua.ls/cooler-master/hyper-212-black-edition/manual"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-212-halo": {
     "brand": "Cooler Master",
@@ -877,7 +904,8 @@
       "https://www.coolermaster.com/en-global/products/hyper-212-halo-black/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-212-halo-white": {
     "brand": "Cooler Master",
@@ -905,7 +933,8 @@
       "https://pcspecchart.com/pc_parts/cpu_cooler/155/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-212-3dhp": {
     "brand": "Cooler Master",
@@ -933,7 +962,8 @@
       "https://www.tomshardware.com/pc-components/air-cooling/cooler-master-hyper-212-3dhp-review"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-612-apex": {
     "brand": "Cooler Master",
@@ -961,7 +991,8 @@
       "https://www.techpowerup.com/331553/cooler-master-launches-the-hyper-612-apex-cpu-cooler"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-620s": {
     "brand": "Cooler Master",
@@ -989,7 +1020,8 @@
       "https://pcspecchart.com/pc_parts/cpu_cooler/160/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-h410r": {
     "brand": "Cooler Master",
@@ -1017,7 +1049,8 @@
       "https://www.manua.ls/cooler-master/hyper-h410r/manual"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-ma620m": {
     "brand": "Cooler Master",
@@ -1048,7 +1081,8 @@
       "https://www.manua.ls/cooler-master/masterair-ma620m/manual"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-ml240l-v2": {
     "brand": "Cooler Master",
@@ -1986,7 +2020,8 @@
       "https://www.techpowerup.com/review/arctic-freezer-34-esports-duo-cpu-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "air"
   },
   "arctic-freezer-34-esports-duo": {
     "brand": "Arctic",
@@ -2016,7 +2051,8 @@
       "https://www.techpowerup.com/review/arctic-freezer-34-esports-duo-cpu-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "air"
   },
   "arctic-freezer-36": {
     "brand": "Arctic",
@@ -2038,7 +2074,8 @@
       "https://www.techpowerup.com/review/arctic-freezer-36-cpu-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "air"
   },
   "arctic-freezer-36-a-rgb": {
     "brand": "Arctic",
@@ -2060,7 +2097,8 @@
       "https://www.arctic.de/en/Freezer-36-A-RGB-Black/ACFRE00124A"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "air"
   },
   "arctic-freezer-7x": {
     "brand": "Arctic",
@@ -2086,7 +2124,8 @@
       "https://www.arctic.de/en/Freezer-7-X/ACFRE00077A"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "air"
   },
   "arctic-liquid-freezer-ii-240": {
     "brand": "Arctic",
@@ -2392,7 +2431,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AK620-High-Performance-CPU-Cooler-1700/2021/13067.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "deepcool-ak620-zero-dark": {
     "brand": "DeepCool",
@@ -2415,7 +2455,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AK620-ZERO-DARK-High-Performance-CPU-Cooler-1700/2022/16124.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "air"
   },
   "deepcool-ak400": {
     "brand": "DeepCool",
@@ -2442,7 +2483,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AK400-Performance-CPU-Cooler/2021/15222.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "deepcool-ak400-digital": {
     "brand": "DeepCool",
@@ -2469,7 +2511,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AK400-Digital-CPU-Cooler-With-Status-Display/2023/17203.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "deepcool-ag400-argb": {
     "brand": "DeepCool",
@@ -2495,7 +2538,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG400-ARGB-Single-Tower-CPU-Cooler/2022/15898.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "deepcool-ag400-plus": {
     "brand": "DeepCool",
@@ -2518,7 +2562,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG400-PLUS-Single-Tower-CPU-Cooler/2022/16120.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "air"
   },
   "deepcool-ag620-argb": {
     "brand": "DeepCool",
@@ -2541,7 +2586,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG620-ARGB-Dual-Tower-CPU-Cooler/2022/16084.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "air"
   },
   "deepcool-ag620-wh-argb": {
     "brand": "DeepCool",
@@ -2564,7 +2610,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG620-WH-ARGB-Dual-Tower-CPU-Cooler/2022/16117.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "air"
   },
   "deepcool-an600": {
     "brand": "DeepCool",
@@ -2587,7 +2634,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AN600-Low-Profile-CPU-Cooler/2023/17094.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "air"
   },
   "deepcool-le240-v2": {
     "brand": "DeepCool",
@@ -2900,7 +2948,8 @@
       "https://www.thermalright.com/product/peerless-assassin-120/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "thermalright-peerless-assassin-120-se": {
     "brand": "Thermalright",
@@ -2928,7 +2977,8 @@
       "https://www.thermalright.com/product/peerless-assassin-120-se/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "thermalright-peerless-assassin-120-white": {
     "brand": "Thermalright",
@@ -2957,7 +3007,8 @@
       "https://www.thermalright.com/product/peerless-assassin-120-white/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "msi-mag-corefrozr-aa13": {
     "brand": "MSI",
@@ -2978,7 +3029,8 @@
       "https://www.msi.com/CPU-Air-Cooler/MAG-COREFROZR-AA13"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "msi-mag-coreliquid-240r": {
     "brand": "MSI",
@@ -3368,7 +3420,8 @@
       "https://www.thermaltake.com/ux100-argb-lighting-cpu-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-ux200-se-argb": {
     "brand": "Thermaltake",
@@ -3394,7 +3447,8 @@
       "https://www.thermaltake.com/ux200-se-argb-lighting-cpu-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-ux400-argb": {
     "brand": "Thermaltake",
@@ -3420,7 +3474,8 @@
       "https://www.thermaltake.com/ux400-argb-sync-cpu-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-ux600-argb": {
     "brand": "Thermaltake",
@@ -3441,7 +3496,8 @@
     ],
     "sources": [],
     "confidence": "low",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-astria-200": {
     "brand": "Thermaltake",
@@ -3469,7 +3525,8 @@
       "https://www.thermaltake.com/astria-200-argb-sync-cpu-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-astria-400": {
     "brand": "Thermaltake",
@@ -3497,7 +3554,8 @@
       "https://www.thermaltake.com/astria-400-argb-sync-cpu-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-astria-600": {
     "brand": "Thermaltake",
@@ -3525,7 +3583,8 @@
       "https://www.thermaltake.com/astria-600-argb-sync-cpu-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-th240-argb-sync": {
     "brand": "Thermaltake",
@@ -4132,7 +4191,8 @@
       "https://www.newegg.com/p/13C-00VB-00003"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "montech-metal-dt24": {
     "brand": "Montech",
@@ -4162,7 +4222,8 @@
       "https://www.tomshardware.com/reviews/montech-metal-dt24-premium-review"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "montech-hyperflow-argb-240": {
     "brand": "Montech",
@@ -4266,7 +4327,8 @@
       "https://www.gamdias.com/en/component/cooler/BOREAS_E1-410"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "gamdias-boreas-e2": {
     "brand": "Gamdias",
@@ -4294,7 +4356,8 @@
       "https://www.gamdias.com/en/component/cooler/BOREAS_E2-410"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "gamdias-boreas-m1": {
     "brand": "Gamdias",
@@ -4332,7 +4395,8 @@
       "https://www.gamdias.com/en/component/cooler/BOREAS_M1-610"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "gamdias-boreas-m2": {
     "brand": "Gamdias",
@@ -4360,7 +4424,8 @@
       "https://www.gamdias.com/en/component/cooler/BOREAS_M2-510"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "gamdias-aura-gl-240": {
     "brand": "Gamdias",
@@ -4468,7 +4533,8 @@
       "https://antesports.com/product/ant-esports-ice-c400-cpu-air-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "ant-esports-ice-c612": {
     "brand": "Ant Esports",
@@ -4501,7 +4567,8 @@
       "https://antesports.com/product/ant-esports-ice-c612-v2-cpu-air-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "ant-esports-ice-c621": {
     "brand": "Ant Esports",
@@ -4533,7 +4600,8 @@
       "https://antesports.com/product/ant-esports-ice-c621-cpu-air-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "ant-esports-ice-flow-240-argb": {
     "brand": "Ant Esports",
@@ -4628,7 +4696,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG400-Single-Tower-CPU-Cooler/2022/15897.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "deepcool-ag620": {
     "brand": "DeepCool",
@@ -4657,7 +4726,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG620-Dual-Tower-CPU-Cooler/2022/15900.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "deepcool-le520": {
     "brand": "DeepCool",
@@ -4784,7 +4854,8 @@
       "https://www.thermalright.com/product/phantom-spirit-120-se/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "thermalright-assassin-x-120-refined-se": {
     "brand": "Thermalright",
@@ -4813,7 +4884,8 @@
       "https://www.thermalright.com/product/assassin-x-120-refined-se/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "thermalright-assassin-king-120-se": {
     "brand": "Thermalright",
@@ -4841,7 +4913,8 @@
       "https://www.thermalright.com/product/assassin-king-120-se/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "thermalright-aqua-elite-360-v3": {
     "brand": "Thermalright",
@@ -4993,6 +5066,7 @@
       "https://www.intel.com/content/www/us/en/support/articles/000089190/processors.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-09-13T00:00:00Z"
+    "researched_at": "2026-09-13T00:00:00Z",
+    "cooler_type": "air"
   }
 }

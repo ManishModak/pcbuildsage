@@ -13,6 +13,7 @@ import {
   confidenceGate,
   isStockCooler,
   lowNames,
+  needsResearch,
   numberSpec,
   stringSpec,
   trustedNumber,
@@ -27,9 +28,12 @@ export type CoolerForm = "aio" | "air" | "unknown";
  * untyped cooler stays "unknown" and its fit stays unverified rather than
  * passing on a height number that may describe a pump block, not a tower.
  */
-export function coolerForm(cooler: ResolvedSpec): CoolerForm {
+export function coolerForm(cooler: ResolvedSpec, issues?: BuildIssue[]): CoolerForm {
   if (cooler.spec.cooler_type === "aio" || typeof cooler.spec.radiator_size_mm === "number") return "aio";
   if (cooler.spec.cooler_type === "air") return "air";
+  if (issues) {
+    issues.push(needsResearch([cooler.key], `${cooler.key} cooler construction is unknown. Research cooler_type with consult before clearance can be verified.`));
+  }
   return "unknown";
 }
 
@@ -99,7 +103,7 @@ function checkCoolerFit(
   issues: BuildIssue[]
 ) {
   if (!cooler || !pcCase) return;
-  const form = coolerForm(cooler);
+  const form = coolerForm(cooler, issues);
   if (form === "aio") {
     checkAioFit(cooler, pcCase, recordCheck, issues);
   } else if (form === "air") {
