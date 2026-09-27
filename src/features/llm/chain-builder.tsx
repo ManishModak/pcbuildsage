@@ -264,7 +264,7 @@ function ChainCard({
               options={PROVIDERS}
               value={entry.provider}
               onChange={(event) =>
-                onUpdate({ provider: event.target.value as LLMProvider, model: "", ping: undefined, hasSavedKey: false })
+                onUpdate({ provider: event.target.value as LLMProvider, model: "", contextLimit: undefined, ping: undefined, hasSavedKey: false })
               }
             />
           )}
@@ -422,6 +422,44 @@ function ChainCard({
             )}
           </Field>
         </div>
+
+        {isLocal ? (
+          <div>
+            <Field
+              label="Context limit (tokens)"
+              hint={
+                !entry.contextLimit
+                  ? "Required: specify the context limit for this local model."
+                  : "Configured context window in tokens."
+              }
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  type="number"
+                  min={512}
+                  step={1024}
+                  placeholder="e.g. 8192, 32768"
+                  value={entry.contextLimit ?? ""}
+                  onChange={(event) => {
+                    const parsed = parseInt(event.target.value, 10);
+                    onUpdate({ contextLimit: Number.isFinite(parsed) && parsed > 0 ? parsed : undefined });
+                  }}
+                />
+              )}
+            </Field>
+          </div>
+        ) : null}
+
+        {isLocal && (!entry.contextLimit || entry.contextLimit <= 0) ? (
+          <div
+            role="alert"
+            className="col-span-full flex items-center gap-2 rounded-btn border border-warn/40 bg-warn/10 p-2.5 text-caption text-warn"
+          >
+            <Icon icon={TriangleAlert} size={15} />
+            <span>Unknown context limit for local provider. Please enter the context limit to avoid unexpected behavior or truncation.</span>
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2.5">

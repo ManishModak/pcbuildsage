@@ -7,7 +7,12 @@ import type { CatalogRepository, GetCatalogResult } from "@/lib/catalog";
 import { getPersonality } from "./personalities";
 import { getSession, saveSession, setSessionCompacting } from "@/lib/sessions";
 import { type ChatMessage, capMessages } from "./messages";
-import { getModelContextLimit, estimateTokens, shouldTriggerCompaction, TOOL_DEFINITIONS_TOKEN_OVERHEAD } from "./context-budget";
+import {
+  getModelContextLimit,
+  shouldTriggerCompaction,
+  measureToolDefinitionsTokens,
+  calculateStepTokens
+} from "./context-budget";
 import { compactConversation } from "./compaction";
 import type { BuildSnapshot } from "../catalog/build-snapshot";
 
@@ -225,8 +230,15 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
     }
   }
 
+  const tools = createToolRegistry(config);
+  const toolsOverhead = measureToolDefinitionsTokens(tools);
+
   // Pre-stream compaction check if request already approaches 78–80% context
-  const initialTokens = estimateTokens(initialModelMessages) + estimateTokens(systemPrompt) + TOOL_DEFINITIONS_TOKEN_OVERHEAD;
+  const initialTokens = calculateStepTokens({
+    currentMessages: initialModelMessages,
+    systemPrompt,
+    toolsOverhead
+  });
   if (shouldTriggerCompaction(initialTokens, contextLimit)) {
     if (sessionId) setSessionCompacting(sessionId, true);
     try {
@@ -253,12 +265,17 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
     chain: config.llm.roles.chat,
     system: systemPrompt,
     messages: initialModelMessages,
-    tools: createToolRegistry(config),
+    tools,
     // 25 on purpose: small local models (≤27B quants) and ranking several builds from in-stock parts need the steps; 14 was tested and is too low.
     stopWhen: isStepCount(25),
     abortSignal,
     prepareStep: async ({ steps, messages: currentMessages }) => {
-      const currentTokens = estimateTokens(currentMessages) + estimateTokens(systemPrompt) + TOOL_DEFINITIONS_TOKEN_OVERHEAD;
+      const currentTokens = calculateStepTokens({
+        steps,
+        currentMessages,
+        systemPrompt,
+        toolsOverhead
+      });
       if (shouldTriggerCompaction(currentTokens, contextLimit)) {
         if (sessionId) setSessionCompacting(sessionId, true);
         try {
