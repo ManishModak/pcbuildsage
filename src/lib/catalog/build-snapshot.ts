@@ -116,7 +116,10 @@ export function createBuildSnapshot({
     const items = Array.isArray(raw) ? raw : [raw];
 
     for (const item of items) {
-      const productId = typeof item === "object" && item && item.product_id ? item.product_id.trim() : undefined;
+      const productId =
+        typeof item === "object" && item && item.product_id
+          ? item.product_id.trim()
+          : undefined;
       const catalogProduct = productId ? productsById.get(productId) : undefined;
 
       // Check for included cooler

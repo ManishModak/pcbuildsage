@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getDeploymentMode,
   getSupportedMarkets,
@@ -6,8 +6,10 @@ import {
   isLocal,
   isRouteBlockedInHostedMode,
   normalizeRoutePath,
+  resetDeploymentModeWarningForTesting,
   validateChatProviderUrl,
-  validateSearchBaseUrl
+  validateSearchBaseUrl,
+  warnIfProductionModeUnset
 } from "../deployment";
 
 describe("Deployment Config & Mode Detection", () => {
@@ -59,6 +61,26 @@ describe("Deployment Config & Mode Detection", () => {
     expect(getDeploymentMode({ PCBUILDSAGE_DEPLOYMENT_MODE: "local" })).toBe("local");
     expect(isHostedDemo({ PCBUILDSAGE_DEPLOYMENT_MODE: "local" })).toBe(false);
     expect(isLocal({ PCBUILDSAGE_DEPLOYMENT_MODE: "local" })).toBe(true);
+  });
+
+  it("warns when NODE_ENV is production and PCBUILDSAGE_DEPLOYMENT_MODE is unset", () => {
+    resetDeploymentModeWarningForTesting();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(warnIfProductionModeUnset({ NODE_ENV: "production" })).toBe(true);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("PCBUILDSAGE_DEPLOYMENT_MODE is unset while NODE_ENV=production")
+    );
+
+    // Only warns once
+    expect(warnIfProductionModeUnset({ NODE_ENV: "production" })).toBe(true);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    // Does not warn when deployment mode is set or non-production
+    expect(warnIfProductionModeUnset({ NODE_ENV: "production", PCBUILDSAGE_DEPLOYMENT_MODE: "hosted-demo" })).toBe(false);
+    expect(warnIfProductionModeUnset({ NODE_ENV: "development" })).toBe(false);
+
+    warnSpy.mockRestore();
   });
 });
 

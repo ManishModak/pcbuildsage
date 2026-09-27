@@ -28,7 +28,8 @@
       "https://noctua.at/en/nh-d15",
       "https://noctua.at/en/nh-d15/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-d15-chromax-black": {
     "brand": "Noctua",
@@ -57,7 +58,8 @@
       "https://noctua.at/en/nh-d15-chromax-black",
       "https://noctua.at/en/nh-d15-chromax-black/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-d15-g2": {
     "brand": "Noctua",
@@ -84,7 +86,8 @@
       "https://noctua.at/en/nh-d15-g2",
       "https://noctua.at/en/nh-d15-g2/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-d15-g2-lbc": {
     "brand": "Noctua",
@@ -110,7 +113,8 @@
       "https://noctua.at/en/nh-d15-g2-lbc",
       "https://noctua.at/en/nh-d15-g2-lbc/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-d15-g2-hbc": {
     "brand": "Noctua",
@@ -136,7 +140,8 @@
       "https://noctua.at/en/nh-d15-g2-hbc",
       "https://noctua.at/en/nh-d15-g2-hbc/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-d15s": {
     "brand": "Noctua",
@@ -165,7 +170,8 @@
       "https://noctua.at/en/nh-d15s",
       "https://noctua.at/en/nh-d15s/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-d12l": {
     "brand": "Noctua",
@@ -191,7 +197,8 @@
       "https://noctua.at/en/nh-d12l",
       "https://noctua.at/en/nh-d12l/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u12a": {
     "brand": "Noctua",
@@ -219,7 +226,8 @@
       "https://noctua.at/en/nh-u12a",
       "https://noctua.at/en/nh-u12a/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u12a-chromax-black": {
     "brand": "Noctua",
@@ -248,7 +256,8 @@
       "https://noctua.at/en/nh-u12a-chromax-black",
       "https://noctua.at/en/nh-u12a-chromax-black/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u12s": {
     "brand": "Noctua",
@@ -276,7 +285,8 @@
       "https://noctua.at/en/nh-u12s",
       "https://noctua.at/en/nh-u12s/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u12s-redux": {
     "brand": "Noctua",
@@ -305,7 +315,8 @@
       "https://noctua.at/en/nh-u12s-redux",
       "https://noctua.at/en/nh-u12s-redux/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u12s-chromax-black": {
     "brand": "Noctua",
@@ -334,7 +345,8 @@
       "https://noctua.at/en/nh-u12s-chromax-black",
       "https://noctua.at/en/nh-u12s-chromax-black/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u14s": {
     "brand": "Noctua",
@@ -362,7 +374,8 @@
       "https://noctua.at/en/nh-u14s",
       "https://noctua.at/en/nh-u14s/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u14s-chromax-black": {
     "brand": "Noctua",
@@ -390,7 +403,8 @@
     "sources": [
       "https://noctua.at/en/nh-u14s"
     ],
-    "confidence": "medium"
+    "confidence": "medium",
+    "cooler_type": "air"
   },
   "noctua-nh-u9s": {
     "brand": "Noctua",
@@ -418,7 +432,8 @@
       "https://noctua.at/en/nh-u9s",
       "https://noctua.at/en/nh-u9s/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-u9s-chromax-black": {
     "brand": "Noctua",
@@ -447,7 +462,8 @@
       "https://noctua.at/en/nh-u9s-chromax-black",
       "https://noctua.at/en/nh-u9s-chromax-black/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-l9i": {
     "brand": "Noctua",
@@ -469,7 +485,8 @@
       "https://noctua.at/en/nh-l9i",
       "https://noctua.at/en/nh-l9i/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-l9i-17xx-chromax-black": {
     "brand": "Noctua",
@@ -489,7 +506,8 @@
       "https://noctua.at/en/nh-l9i-17xx-chromax-black",
       "https://noctua.at/en/nh-l9i-17xx-chromax-black/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-l9a": {
     "brand": "Noctua",
@@ -507,7 +525,8 @@
       "https://noctua.at/en/nh-l9a-am4",
       "https://noctua.at/en/nh-l9a-am4/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-l9a-am5-chromax-black": {
     "brand": "Noctua",
@@ -526,7 +545,8 @@
       "https://noctua.at/en/nh-l9a-am5-chromax-black",
       "https://noctua.at/en/nh-l9a-am5-chromax-black/specification"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "cooler_type": "air"
   },
   "noctua-nh-l12s": {
     "brand": "Noctua",
@@ -554,7 +574,8 @@
       "https://pcspecchart.com/pc_parts/cpu_cooler/90/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "be-quiet-dark-rock-pro-4": {
     "brand": "be quiet!",
@@ -587,7 +608,8 @@
       "https://pcpartmatch.com/cooler/be-quiet-dark-rock-pro-4"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "be-quiet-dark-rock-4": {
     "brand": "be quiet!",
@@ -620,7 +642,8 @@
       "https://mobilespecs.net/cooler/be_quiet/be_quiet_Dark_Rock_4_Air_Cooler_BK021.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "be-quiet-pure-rock-2": {
     "brand": "be quiet!",
@@ -652,7 +675,8 @@
       "https://www.pcbuilder.info/products/cooler/bequiet-pure-rock-2/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "be-quiet-silent-loop-2-240": {
     "brand": "be quiet!",
@@ -685,7 +709,9 @@
       "https://www.manua.ls/be-quiet/silent-loop-2-240mm/manual"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "be-quiet-silent-loop-2-280": {
     "brand": "be quiet!",
@@ -718,7 +744,9 @@
       "https://www.manua.ls/be-quiet/silent-loop-2-280mm/manual"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 280
   },
   "be-quiet-silent-loop-2-360": {
     "brand": "be quiet!",
@@ -751,7 +779,9 @@
       "https://pcpartmatch.com/cooler/be-quiet-silent-loop-2-360mm"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "cooler-master-hyper-212-spectrum-v3": {
     "brand": "Cooler Master",
@@ -780,7 +810,8 @@
       "https://store.coolermaster.eu/products/hyper-212-spectrum-v3"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-212-rgb": {
     "brand": "Cooler Master",
@@ -811,7 +842,8 @@
       "https://www.manua.ls/cooler-master/hyper-212-rgb/manual"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-212-black-edition": {
     "brand": "Cooler Master",
@@ -843,7 +875,8 @@
       "https://www.manua.ls/cooler-master/hyper-212-black-edition/manual"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-212-halo": {
     "brand": "Cooler Master",
@@ -871,7 +904,8 @@
       "https://www.coolermaster.com/en-global/products/hyper-212-halo-black/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-212-halo-white": {
     "brand": "Cooler Master",
@@ -899,7 +933,8 @@
       "https://pcspecchart.com/pc_parts/cpu_cooler/155/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-212-3dhp": {
     "brand": "Cooler Master",
@@ -927,7 +962,8 @@
       "https://www.tomshardware.com/pc-components/air-cooling/cooler-master-hyper-212-3dhp-review"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-612-apex": {
     "brand": "Cooler Master",
@@ -955,7 +991,8 @@
       "https://www.techpowerup.com/331553/cooler-master-launches-the-hyper-612-apex-cpu-cooler"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-620s": {
     "brand": "Cooler Master",
@@ -983,7 +1020,8 @@
       "https://pcspecchart.com/pc_parts/cpu_cooler/160/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-hyper-h410r": {
     "brand": "Cooler Master",
@@ -1011,7 +1049,8 @@
       "https://www.manua.ls/cooler-master/hyper-h410r/manual"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-ma620m": {
     "brand": "Cooler Master",
@@ -1042,7 +1081,8 @@
       "https://www.manua.ls/cooler-master/masterair-ma620m/manual"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "air"
   },
   "cooler-master-ml240l-v2": {
     "brand": "Cooler Master",
@@ -1074,7 +1114,9 @@
       "https://www.amazon.com/CoolerMaster-MasterLiquid-Close-Loop-Cooler-SickleFlow/dp/B086BYYFG5"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "cooler-master-ml360l-v2": {
     "brand": "Cooler Master",
@@ -1106,7 +1148,9 @@
       "https://www.manuals.ca/cooler-master/masterliquid-ml360l-v2-argb/manual"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "cooler-master-ml360r-rgb": {
     "brand": "Cooler Master",
@@ -1137,7 +1181,9 @@
       "https://legacy.coolermaster.com/en-global/products/masterliquid-ml360r-rgb/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:38:00Z"
+    "researched_at": "2026-07-17T07:38:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "cooler-master-ml120l-v2": {
     "brand": "Cooler Master",
@@ -1163,7 +1209,9 @@
       "https://www.coolermaster.com/en-global/products/masterliquid-ml120l-v2-rgb/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 120
   },
   "cooler-master-ml240r-rgb": {
     "brand": "Cooler Master",
@@ -1190,7 +1238,9 @@
       "https://www.coolermaster.com/en-global/products/masterliquid-ml240r-rgb/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "cooler-master-masterliquid-core-240-nex": {
     "brand": "Cooler Master",
@@ -1217,7 +1267,9 @@
       "https://www.coolermaster.com/en-global/products/masterliquid-core-nex-series/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "cooler-master-masterliquid-core-240-nex-white": {
     "brand": "Cooler Master",
@@ -1244,7 +1296,9 @@
       "https://www.coolermaster.com/en-global/products/masterliquid-core-nex-series/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "cooler-master-masterliquid-core-360-nex": {
     "brand": "Cooler Master",
@@ -1271,7 +1325,9 @@
       "https://www.coolermaster.com/en-global/products/masterliquid-core-nex-series/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "cooler-master-masterliquid-core-360-nex-white": {
     "brand": "Cooler Master",
@@ -1298,7 +1354,9 @@
       "https://www.coolermaster.com/en-global/products/masterliquid-core-nex-series/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "cooler-master-masterliquid-ml360l-core-gen-s": {
     "brand": "Cooler Master",
@@ -1326,7 +1384,9 @@
       "https://www.coolermaster.com/en-global/products/masterliquid-360l-core-argb/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "cooler-master-masterliquid-atmos-ii-360": {
     "brand": "Cooler Master",
@@ -1352,7 +1412,9 @@
       "https://www.coolermaster.com/en-global/products/masterliquid-atmos-ii-series/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "corsair-h100i-rgb": {
     "brand": "Corsair",
@@ -1379,7 +1441,9 @@
       "https://www.corsair.com/us/en/p/cpu-coolers/cw-9060043-ww/icue-h100i-rgb-pro-xt-liquid-cpu-cooler-cw-9060043-ww"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "corsair-h100i-elite": {
     "brand": "Corsair",
@@ -1406,7 +1470,9 @@
       "https://www.corsair.com/us/en/p/cpu-coolers/cw-9060046-ww/icue-h100i-elite-capellix-liquid-cpu-cooler-cw-9060046-ww"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "corsair-h115i-rgb": {
     "brand": "Corsair",
@@ -1433,7 +1499,9 @@
       "https://www.corsair.com/us/en/p/cpu-coolers/cw-9060044-ww/icue-h115i-rgb-pro-xt-liquid-cpu-cooler-cw-9060044-ww"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 280
   },
   "corsair-h150i-rgb": {
     "brand": "Corsair",
@@ -1460,7 +1528,9 @@
       "https://www.corsair.com/us/en/p/cpu-coolers/cw-9060045-ww/icue-h150i-rgb-pro-xt-liquid-cpu-cooler-cw-9060045-ww"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "corsair-h150i-elite": {
     "brand": "Corsair",
@@ -1487,7 +1557,9 @@
       "https://www.corsair.com/us/en/p/cpu-coolers/cw-9060048-ww/icue-h150i-elite-capellix-liquid-cpu-cooler-cw-9060048-ww"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "corsair-h170i-elite": {
     "brand": "Corsair",
@@ -1513,7 +1585,9 @@
       "https://www.corsair.com/us/en/p/cpu-coolers/cw-9060055-ww/icue-h170i-elite-capellix-liquid-cpu-cooler-cw-9060055-ww"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 420
   },
   "corsair-icue-h100i-elite-lcd": {
     "brand": "Corsair",
@@ -1540,7 +1614,9 @@
       "https://www.corsair.com/us/en/p/cpu-coolers/cw-9060061-ww/icue-h100i-elite-lcd-display-liquid-cpu-cooler-cw-9060061-ww"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "corsair-icue-h150i-elite-lcd": {
     "brand": "Corsair",
@@ -1567,7 +1643,9 @@
       "https://www.corsair.com/us/en/p/cpu-coolers/cw-9060062-ww/icue-h150i-elite-lcd-display-liquid-cpu-cooler-cw-9060062-ww"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "nzxt-kraken-x53": {
     "brand": "NZXT",
@@ -1593,7 +1671,9 @@
       "https://support.nzxt.com/hc/en-us/articles/12608076634387-Kraken-X3-Series-Downloads"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "nzxt-kraken-x63": {
     "brand": "NZXT",
@@ -1619,7 +1699,9 @@
       "https://support.nzxt.com/hc/en-us/articles/12608076634387-Kraken-X3-Series-Downloads"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 280
   },
   "nzxt-kraken-x73": {
     "brand": "NZXT",
@@ -1645,7 +1727,9 @@
       "https://support.nzxt.com/hc/en-us/articles/12608076634387-Kraken-X3-Series-Downloads"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "nzxt-kraken-z53": {
     "brand": "NZXT",
@@ -1671,7 +1755,9 @@
       "https://support.nzxt.com/hc/en-us/articles/12674312658843-Kraken-Z3-Series-Downloads"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:33:00Z"
+    "researched_at": "2026-07-17T07:33:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "nzxt-kraken-z63": {
     "brand": "NZXT",
@@ -1701,7 +1787,9 @@
       "https://www.techpowerup.com/review/nzxt-kraken-z63-280-mm-aio/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 280
   },
   "nzxt-kraken-z73": {
     "brand": "NZXT",
@@ -1731,7 +1819,9 @@
       "https://www.techpowerup.com/review/nzxt-kraken-z73-360-mm-aio/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "nzxt-kraken-elite-240": {
     "brand": "NZXT",
@@ -1758,7 +1848,9 @@
       "https://www.techpowerup.com/review/nzxt-kraken-elite-360-rgb/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "nzxt-kraken-elite-360": {
     "brand": "NZXT",
@@ -1785,7 +1877,9 @@
       "https://www.techpowerup.com/review/nzxt-kraken-elite-360-rgb/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "nzxt-kraken-elite-420": {
     "brand": "NZXT",
@@ -1811,7 +1905,9 @@
       "https://nzxt.com/product/kraken-elite-420"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 420
   },
   "nzxt-kraken-core-360": {
     "brand": "NZXT",
@@ -1837,7 +1933,9 @@
       "https://nzxt.com/product/kraken-360"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "nzxt-kraken-360-rgb": {
     "brand": "NZXT",
@@ -1863,7 +1961,9 @@
       "https://nzxt.com/product/kraken-360-rgb"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "nzxt-kraken-elite-360-rgb": {
     "brand": "NZXT",
@@ -1889,7 +1989,9 @@
       "https://nzxt.com/product/kraken-elite-360-rgb"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "arctic-freezer-34": {
     "brand": "Arctic",
@@ -1918,7 +2020,8 @@
       "https://www.techpowerup.com/review/arctic-freezer-34-esports-duo-cpu-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "air"
   },
   "arctic-freezer-34-esports-duo": {
     "brand": "Arctic",
@@ -1948,7 +2051,8 @@
       "https://www.techpowerup.com/review/arctic-freezer-34-esports-duo-cpu-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "air"
   },
   "arctic-freezer-36": {
     "brand": "Arctic",
@@ -1970,7 +2074,8 @@
       "https://www.techpowerup.com/review/arctic-freezer-36-cpu-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "air"
   },
   "arctic-freezer-36-a-rgb": {
     "brand": "Arctic",
@@ -1992,7 +2097,8 @@
       "https://www.arctic.de/en/Freezer-36-A-RGB-Black/ACFRE00124A"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "air"
   },
   "arctic-freezer-7x": {
     "brand": "Arctic",
@@ -2018,7 +2124,8 @@
       "https://www.arctic.de/en/Freezer-7-X/ACFRE00077A"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "air"
   },
   "arctic-liquid-freezer-ii-240": {
     "brand": "Arctic",
@@ -2047,7 +2154,9 @@
       "https://www.techpowerup.com/review/arctic-liquid-freezer-ii-240-aio-liquid-cpu-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "arctic-liquid-freezer-ii-280": {
     "brand": "Arctic",
@@ -2076,7 +2185,9 @@
       "https://www.techpowerup.com/review/arctic-liquid-freezer-ii-280-liquid-cpu-cooler-review/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 280
   },
   "arctic-liquid-freezer-ii-360": {
     "brand": "Arctic",
@@ -2105,7 +2216,9 @@
       "https://www.techpowerup.com/review/arctic-liquid-freezer-ii-360-liquid-cpu-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "arctic-liquid-freezer-ii-420": {
     "brand": "Arctic",
@@ -2133,7 +2246,9 @@
       "https://www.arctic.de/en/Liquid-Freezer-II-420/ACFRE00092A"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 420
   },
   "arctic-liquid-freezer-iii-240": {
     "brand": "Arctic",
@@ -2161,7 +2276,9 @@
       "https://www.arctic.de/en/Liquid-Freezer-III-240/ACFRE00134A"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "arctic-liquid-freezer-iii-280": {
     "brand": "Arctic",
@@ -2183,7 +2300,9 @@
       "https://www.techpowerup.com/review/arctic-liquid-freezer-iii-280-a-rgb-liquid-cpu-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T13:20:00Z"
+    "researched_at": "2026-07-17T13:20:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 280
   },
   "arctic-liquid-freezer-iii-360": {
     "brand": "Arctic",
@@ -2211,7 +2330,9 @@
       "https://www.arctic.de/en/Liquid-Freezer-III-360/ACFRE00136A"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "arctic-liquid-freezer-iii-pro-240": {
     "brand": "Arctic",
@@ -2232,7 +2353,9 @@
       "https://www.arctic.de/en/Liquid-Freezer-III-Pro-240"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "arctic-liquid-freezer-iii-pro-360": {
     "brand": "Arctic",
@@ -2253,7 +2376,9 @@
       "https://www.arctic.de/en/Liquid-Freezer-III-Pro-360"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "arctic-liquid-freezer-iii-pro-420": {
     "brand": "Arctic",
@@ -2271,10 +2396,13 @@
       "Arctic Liquid Freezer III Pro 420"
     ],
     "sources": [
-      "https://www.arctic.de/en/Liquid-Freezer-III-Pro-420"
+      "https://www.arctic.de/en/Liquid-Freezer-III-Pro-420",
+      "https://www.arctic.de/media/b2/dc/e3/1749041473/Spec_Sheet_Liquid_Freezer_III_Pro_420_EN.pdf"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 420
   },
   "deepcool-ak620": {
     "brand": "DeepCool",
@@ -2303,7 +2431,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AK620-High-Performance-CPU-Cooler-1700/2021/13067.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "deepcool-ak620-zero-dark": {
     "brand": "DeepCool",
@@ -2326,7 +2455,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AK620-ZERO-DARK-High-Performance-CPU-Cooler-1700/2022/16124.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "air"
   },
   "deepcool-ak400": {
     "brand": "DeepCool",
@@ -2353,7 +2483,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AK400-Performance-CPU-Cooler/2021/15222.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "deepcool-ak400-digital": {
     "brand": "DeepCool",
@@ -2380,7 +2511,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AK400-Digital-CPU-Cooler-With-Status-Display/2023/17203.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "deepcool-ag400-argb": {
     "brand": "DeepCool",
@@ -2406,7 +2538,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG400-ARGB-Single-Tower-CPU-Cooler/2022/15898.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "deepcool-ag400-plus": {
     "brand": "DeepCool",
@@ -2429,7 +2562,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG400-PLUS-Single-Tower-CPU-Cooler/2022/16120.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "air"
   },
   "deepcool-ag620-argb": {
     "brand": "DeepCool",
@@ -2452,7 +2586,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG620-ARGB-Dual-Tower-CPU-Cooler/2022/16084.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "air"
   },
   "deepcool-ag620-wh-argb": {
     "brand": "DeepCool",
@@ -2475,7 +2610,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG620-WH-ARGB-Dual-Tower-CPU-Cooler/2022/16117.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "air"
   },
   "deepcool-an600": {
     "brand": "DeepCool",
@@ -2498,7 +2634,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AN600-Low-Profile-CPU-Cooler/2023/17094.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "air"
   },
   "deepcool-le240-v2": {
     "brand": "DeepCool",
@@ -2521,7 +2658,9 @@
       "https://www.deepcool.com/products/Coolers/liquidcoolers/LE240-V2-240mm-Liquid-CPU-Cooler/2023/17079.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "deepcool-le360-v2": {
     "brand": "DeepCool",
@@ -2544,7 +2683,9 @@
       "https://www.deepcool.com/products/Coolers/liquidcoolers/LE360-V2-360mm-Liquid-CPU-Cooler/2023/17081.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "deepcool-ld240": {
     "brand": "DeepCool",
@@ -2567,7 +2708,9 @@
       "https://www.deepcool.com/products/Coolers/liquidcoolers/LD240-240mm-Liquid-CPU-Cooler-With-Status-Display/2023/17215.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "deepcool-ld360": {
     "brand": "DeepCool",
@@ -2590,7 +2733,9 @@
       "https://www.deepcool.com/products/Coolers/liquidcoolers/LD360-360mm-Liquid-CPU-Cooler-With-Status-Display/2023/17217.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "deepcool-lt240": {
     "brand": "DeepCool",
@@ -2613,7 +2758,9 @@
       "https://www.deepcool.com/products/Coolers/liquidcoolers/LT520-240mm-Liquid-CPU-Cooler/2022/16281.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "deepcool-lt360": {
     "brand": "DeepCool",
@@ -2636,7 +2783,9 @@
       "https://www.deepcool.com/products/Coolers/liquidcoolers/LT720-360mm-Liquid-CPU-Cooler/2022/16283.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "deepcool-mystique-360": {
     "brand": "DeepCool",
@@ -2659,7 +2808,9 @@
       "https://www.deepcool.com/products/Coolers/liquidcoolers/MYSTIQUE-360-Liquid-CPU-Cooler-With-TFT-LCD-Screen/2024/18151.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "deepcool-spartacus-360": {
     "brand": "DeepCool",
@@ -2680,7 +2831,9 @@
       "https://www.deepcool.com/products/Coolers/liquidcoolers/SPARTACUS-360-Liquid-CPU-Cooler-With-LCD-Screen/2024/18250.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:34:00Z"
+    "researched_at": "2026-07-17T07:34:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "deepcool-ls720-se": {
     "brand": "DeepCool",
@@ -2707,7 +2860,9 @@
       "https://www.deepcool.com/products/Cooling/cpu_liquid_coolers/LS720-SE-360mm-AIO-Liquid-CPU-Cooler-1700-AM5/2022/16477.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "deepcool-ls520-se": {
     "brand": "DeepCool",
@@ -2733,7 +2888,9 @@
       "https://www.deepcool.com/products/Cooling/cpu_liquid_coolers/LS520-SE-240mm-AIO-Liquid-CPU-Cooler-1700-AM5/2022/16476.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "deepcool-ls320": {
     "brand": "DeepCool",
@@ -2760,7 +2917,9 @@
       "https://www.deepcool.com/products/Cooling/cpu_liquid_coolers/LS320-120mm-Premium-AIO-Liquid-CPU-Cooler-1700-AM5/2022/15830.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 120
   },
   "thermalright-peerless-assassin-120": {
     "brand": "Thermalright",
@@ -2789,7 +2948,8 @@
       "https://www.thermalright.com/product/peerless-assassin-120/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "thermalright-peerless-assassin-120-se": {
     "brand": "Thermalright",
@@ -2817,7 +2977,8 @@
       "https://www.thermalright.com/product/peerless-assassin-120-se/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "thermalright-peerless-assassin-120-white": {
     "brand": "Thermalright",
@@ -2846,7 +3007,8 @@
       "https://www.thermalright.com/product/peerless-assassin-120-white/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "msi-mag-corefrozr-aa13": {
     "brand": "MSI",
@@ -2867,7 +3029,8 @@
       "https://www.msi.com/CPU-Air-Cooler/MAG-COREFROZR-AA13"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "msi-mag-coreliquid-240r": {
     "brand": "MSI",
@@ -2895,7 +3058,9 @@
       "https://www.msi.com/Liquid-Cooling/MAG-CORELIQUID-240R"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "msi-mag-coreliquid-360r": {
     "brand": "MSI",
@@ -2923,7 +3088,9 @@
       "https://www.msi.com/Liquid-Cooling/MAG-CORELIQUID-360R"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "msi-mag-coreliquid-c360": {
     "brand": "MSI",
@@ -2951,7 +3118,9 @@
       "https://www.msi.com/Liquid-Cooling/MAG-CORELIQUID-C360"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "msi-mag-coreliquid-a13-240": {
     "brand": "MSI",
@@ -2973,7 +3142,9 @@
       "https://www.msi.com/Liquid-Cooling/MAG-CORELIQUID-A13-240-WHITE"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "msi-mag-coreliquid-a15-360": {
     "brand": "MSI",
@@ -2995,7 +3166,9 @@
       "https://www.msi.com/Liquid-Cooling/MAG-CORELIQUID-A15-360"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "msi-mag-coreliquid-e240": {
     "brand": "MSI",
@@ -3021,7 +3194,9 @@
       "https://www.msi.com/Liquid-Cooling/MAG-CORELIQUID-E240"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "msi-mag-coreliquid-i360": {
     "brand": "MSI",
@@ -3047,11 +3222,13 @@
       "https://www.msi.com/Liquid-Cooling/MAG-CORELIQUID-I360"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "msi-mpg-coreliquid-p13": {
     "brand": "MSI",
-    "model": "MSI MPG CORELIQUID P13",
+    "model": "MSI MPG CORELIQUID P13 360",
     "height_mm": 75,
     "sockets": [
       "AM4",
@@ -3062,13 +3239,16 @@
     "tdp_rating_w": 300,
     "aliases": [
       "MPG CORELIQUID P13",
-      "MSI MPG CORELIQUID P13"
+      "MSI MPG CORELIQUID P13",
+      "MPG CORELIQUID P13 360"
     ],
     "sources": [
       "https://www.msi.com/Liquid-Cooling/MPG-CORELIQUID-P13"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "asus-rog-strix-lc-ii-240": {
     "brand": "ASUS",
@@ -3096,7 +3276,9 @@
       "https://rog.asus.com/cooling/cpu-liquid-coolers/rog-strix-lc/rog-strix-lc-ii-240-argb-model/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "asus-rog-strix-lc-ii-360": {
     "brand": "ASUS",
@@ -3124,7 +3306,9 @@
       "https://rog.asus.com/cooling/cpu-liquid-coolers/rog-strix-lc/rog-strix-lc-ii-360-argb-model/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "asus-rog-ryujin-iii-360": {
     "brand": "ASUS",
@@ -3150,7 +3334,9 @@
       "https://rog.asus.com/cooling/cpu-liquid-coolers/rog-ryujin/rog-ryujin-iii-360/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "asus-tuf-gaming-lc-240-argb": {
     "brand": "ASUS",
@@ -3177,7 +3363,9 @@
       "https://www.asus.com/motherboards-components/cooling/tuf-gaming/tuf-gaming-lc-240-argb/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "asus-tuf-gaming-lc-360-argb": {
     "brand": "ASUS",
@@ -3204,7 +3392,9 @@
       "https://www.asus.com/motherboards-components/cooling/tuf-gaming/tuf-gaming-lc-360-argb/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "thermaltake-ux100-argb": {
     "brand": "Thermaltake",
@@ -3230,7 +3420,8 @@
       "https://www.thermaltake.com/ux100-argb-lighting-cpu-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-ux200-se-argb": {
     "brand": "Thermaltake",
@@ -3256,7 +3447,8 @@
       "https://www.thermaltake.com/ux200-se-argb-lighting-cpu-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-ux400-argb": {
     "brand": "Thermaltake",
@@ -3282,7 +3474,8 @@
       "https://www.thermaltake.com/ux400-argb-sync-cpu-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-ux600-argb": {
     "brand": "Thermaltake",
@@ -3303,7 +3496,8 @@
     ],
     "sources": [],
     "confidence": "low",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-astria-200": {
     "brand": "Thermaltake",
@@ -3331,7 +3525,8 @@
       "https://www.thermaltake.com/astria-200-argb-sync-cpu-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-astria-400": {
     "brand": "Thermaltake",
@@ -3359,7 +3554,8 @@
       "https://www.thermaltake.com/astria-400-argb-sync-cpu-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-astria-600": {
     "brand": "Thermaltake",
@@ -3387,7 +3583,8 @@
       "https://www.thermaltake.com/astria-600-argb-sync-cpu-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "air"
   },
   "thermaltake-th240-argb-sync": {
     "brand": "Thermaltake",
@@ -3416,7 +3613,9 @@
       "https://www.thermaltake.com/th240-argb-sync-aio-liquid-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "thermaltake-th360-argb-sync": {
     "brand": "Thermaltake",
@@ -3445,7 +3644,9 @@
       "https://www.thermaltake.com/th360-argb-sync-aio-liquid-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "thermaltake-th240-v2": {
     "brand": "Thermaltake",
@@ -3474,7 +3675,9 @@
       "https://www.thermaltake.com/th240-v2-argb-sync-all-in-one-liquid-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "thermaltake-th360-v2": {
     "brand": "Thermaltake",
@@ -3503,7 +3706,9 @@
       "https://www.thermaltake.com/th360-v2-argb-sync-all-in-one-liquid-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "thermaltake-th240-v3": {
     "brand": "Thermaltake",
@@ -3532,7 +3737,9 @@
       "https://www.thermaltake.com/th240-v3-argb-sync-aio-liquid-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "thermaltake-th360-v3": {
     "brand": "Thermaltake",
@@ -3561,7 +3768,9 @@
       "https://www.thermaltake.com/th360-v3-argb-sync-aio-liquid-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "thermaltake-water-3-0-240-argb": {
     "brand": "Thermaltake",
@@ -3590,7 +3799,9 @@
       "https://www.thermaltake.com/water-3-0-240-argb-sync-edition.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "thermaltake-water-3-0-360-argb": {
     "brand": "Thermaltake",
@@ -3619,7 +3830,9 @@
       "https://www.thermaltake.com/water-3-0-360-argb-sync-edition.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "thermaltake-la240": {
     "brand": "Thermaltake",
@@ -3646,7 +3859,9 @@
       "https://www.thermaltake.com/la240-argb-sync-all-in-one-liquid-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "thermaltake-la360": {
     "brand": "Thermaltake",
@@ -3673,7 +3888,9 @@
       "https://www.thermaltake.com/la360-argb-sync-all-in-one-liquid-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "thermaltake-magfloe-360": {
     "brand": "Thermaltake",
@@ -3701,7 +3918,9 @@
       "https://www.thermaltake.com/magfloe-360-ultra-argb-sync-aio-liquid-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "thermaltake-magfloe-240": {
     "brand": "Thermaltake",
@@ -3722,7 +3941,8 @@
     ],
     "sources": [],
     "confidence": "low",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio"
   },
   "thermaltake-toughliquid-ultra-240": {
     "brand": "Thermaltake",
@@ -3750,7 +3970,9 @@
       "https://www.thermaltake.com/toughliquid-ultra-240-all-in-one-liquid-cooler.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:48:40Z"
+    "researched_at": "2026-07-17T07:48:40Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "thermaltake-toughliquid-ultra-360": {
     "brand": "Thermaltake",
@@ -3779,7 +4001,9 @@
       "https://www.thermaltake.com/toughliquid-ultra-360.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "lian-li-ga-ii-lite-rgb-240": {
     "brand": "Lian Li",
@@ -3800,7 +4024,9 @@
       "https://lian-li.com/product/ga-ii-lite/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "lian-li-ga-ii-lite-rgb-360": {
     "brand": "Lian Li",
@@ -3821,7 +4047,9 @@
       "https://lian-li.com/product/ga-ii-lite/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "lian-li-galahad-ii-trinity-240": {
     "brand": "Lian Li",
@@ -3847,7 +4075,9 @@
       "https://lian-li.com/product/galahad-ii-trinity/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "lian-li-galahad-ii-trinity-360": {
     "brand": "Lian Li",
@@ -3873,7 +4103,9 @@
       "https://lian-li.com/product/galahad-ii-trinity/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "lian-li-hydroshift-ii-lcd-c-360": {
     "brand": "Lian Li",
@@ -3895,7 +4127,9 @@
       "https://lian-li.com/product/hydroshift-ii-lcd-c/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "lian-li-hydroshift-ii-lcd-s-360": {
     "brand": "Lian Li",
@@ -3917,7 +4151,9 @@
       "https://lian-li.com/product/hydroshift-ii-lcd-s/"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "montech-air-cooler-210": {
     "brand": "Montech",
@@ -3955,7 +4191,8 @@
       "https://www.newegg.com/p/13C-00VB-00003"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "montech-metal-dt24": {
     "brand": "Montech",
@@ -3985,7 +4222,8 @@
       "https://www.tomshardware.com/reviews/montech-metal-dt24-premium-review"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "montech-hyperflow-argb-240": {
     "brand": "Montech",
@@ -4016,7 +4254,9 @@
       "https://www.montechpc.com/en/products_detail.php?nid=372"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "montech-hyperflow-argb-360": {
     "brand": "Montech",
@@ -4047,7 +4287,9 @@
       "https://www.montechpc.com/en/products_detail.php?nid=372"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "gamdias-boreas-e1": {
     "brand": "Gamdias",
@@ -4085,7 +4327,8 @@
       "https://www.gamdias.com/en/component/cooler/BOREAS_E1-410"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "gamdias-boreas-e2": {
     "brand": "Gamdias",
@@ -4113,7 +4356,8 @@
       "https://www.gamdias.com/en/component/cooler/BOREAS_E2-410"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "gamdias-boreas-m1": {
     "brand": "Gamdias",
@@ -4151,7 +4395,8 @@
       "https://www.gamdias.com/en/component/cooler/BOREAS_M1-610"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "gamdias-boreas-m2": {
     "brand": "Gamdias",
@@ -4179,7 +4424,8 @@
       "https://www.gamdias.com/en/component/cooler/BOREAS_M2-510"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "air"
   },
   "gamdias-aura-gl-240": {
     "brand": "Gamdias",
@@ -4216,7 +4462,9 @@
       "https://www.gamdias.com/en/component/cooler/AURA_GL240"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "gamdias-aura-gl-360": {
     "brand": "Gamdias",
@@ -4253,7 +4501,9 @@
       "https://www.gamdias.com/en/component/cooler/AURA_GL360"
     ],
     "confidence": "high",
-    "researched_at": "2026-07-17T07:42:00Z"
+    "researched_at": "2026-07-17T07:42:00Z",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "ant-esports-ice-c400": {
     "brand": "Ant Esports",
@@ -4283,7 +4533,8 @@
       "https://antesports.com/product/ant-esports-ice-c400-cpu-air-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "ant-esports-ice-c612": {
     "brand": "Ant Esports",
@@ -4316,7 +4567,8 @@
       "https://antesports.com/product/ant-esports-ice-c612-v2-cpu-air-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "ant-esports-ice-c621": {
     "brand": "Ant Esports",
@@ -4348,7 +4600,8 @@
       "https://antesports.com/product/ant-esports-ice-c621-cpu-air-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "ant-esports-ice-flow-240-argb": {
     "brand": "Ant Esports",
@@ -4380,7 +4633,9 @@
       "https://antesports.com/product/ant-esports-ice-flow-240-argb-cpu-liquid-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "ant-esports-ice-flow-360-argb": {
     "brand": "Ant Esports",
@@ -4412,7 +4667,9 @@
       "https://antesports.com/product/ant-esports-ice-flow-360-argb-cpu-liquid-cooler/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "deepcool-ag400": {
     "brand": "DeepCool",
@@ -4439,7 +4696,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG400-Single-Tower-CPU-Cooler/2022/15897.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "deepcool-ag620": {
     "brand": "DeepCool",
@@ -4468,7 +4726,8 @@
       "https://www.deepcool.com/products/Coolers/cpuaircoolers/AG620-Dual-Tower-CPU-Cooler/2022/15900.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "deepcool-le520": {
     "brand": "DeepCool",
@@ -4496,7 +4755,9 @@
       "https://www.deepcool.com/products/Coolers/liquidaio/LE520-240mm-Liquid-CPU-Cooler-1700-AM5/2023/17094.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "deepcool-ls720": {
     "brand": "DeepCool",
@@ -4528,7 +4789,9 @@
       "https://www.deepcool.com/products/Coolers/liquidaio/LS720-High-Performance-360mm-Liquid-CPU-Cooler-1700-AM5/2022/15857.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "deepcool-lt720": {
     "brand": "DeepCool",
@@ -4560,7 +4823,9 @@
       "https://www.deepcool.com/products/Coolers/liquidaio/LT720-360mm-Liquid-CPU-Cooler-1700-AM5/2022/16286.shtml"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "thermalright-phantom-spirit-120-se": {
     "brand": "Thermalright",
@@ -4589,7 +4854,8 @@
       "https://www.thermalright.com/product/phantom-spirit-120-se/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "thermalright-assassin-x-120-refined-se": {
     "brand": "Thermalright",
@@ -4618,7 +4884,8 @@
       "https://www.thermalright.com/product/assassin-x-120-refined-se/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "thermalright-assassin-king-120-se": {
     "brand": "Thermalright",
@@ -4646,7 +4913,8 @@
       "https://www.thermalright.com/product/assassin-king-120-se/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "air"
   },
   "thermalright-aqua-elite-360-v3": {
     "brand": "Thermalright",
@@ -4676,7 +4944,9 @@
       "https://www.thermalright.com/product/aqua-elite-360-v3/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "cooler-master-masterliquid-240l-core": {
     "brand": "Cooler Master",
@@ -4705,7 +4975,9 @@
       "https://www.coolermaster.com/en-global/products/masterliquid-240l-core-argb/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "aio",
+    "radiator_size_mm": 240
   },
   "cooler-master-masterliquid-360l-core": {
     "brand": "Cooler Master",
@@ -4734,7 +5006,9 @@
       "https://www.coolermaster.com/en-global/products/masterliquid-360l-core-argb/"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T15:34:56+05:30"
+    "researched_at": "2026-08-16T15:34:56+05:30",
+    "cooler_type": "aio",
+    "radiator_size_mm": 360
   },
   "amd-wraith-stealth": {
     "brand": "AMD",
@@ -4753,7 +5027,8 @@
       "https://www.amd.com/en/technologies/cpu-cooler-solution"
     ],
     "confidence": "high",
-    "researched_at": "2026-09-13T00:00:00Z"
+    "researched_at": "2026-09-13T00:00:00Z",
+    "cooler_type": "air"
   },
   "amd-wraith-prism": {
     "brand": "AMD",
@@ -4772,7 +5047,8 @@
       "https://www.amd.com/en/technologies/cpu-cooler-solution"
     ],
     "confidence": "high",
-    "researched_at": "2026-09-13T00:00:00Z"
+    "researched_at": "2026-09-13T00:00:00Z",
+    "cooler_type": "air"
   },
   "intel-laminar-rm1": {
     "brand": "Intel",
@@ -4790,6 +5066,7 @@
       "https://www.intel.com/content/www/us/en/support/articles/000089190/processors.html"
     ],
     "confidence": "high",
-    "researched_at": "2026-09-13T00:00:00Z"
+    "researched_at": "2026-09-13T00:00:00Z",
+    "cooler_type": "air"
   }
 }

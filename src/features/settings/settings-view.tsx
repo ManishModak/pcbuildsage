@@ -100,6 +100,32 @@ function initialTab(hosted = isHostedMode()): SettingsTab {
   return settingsTabFromSearch(window.location.search, hosted);
 }
 
+export type CrawlerProbeStatus = "ready" | "checking" | "unavailable";
+
+/**
+ * Maps a /api/search/probe crawler response to picker state. One helper for
+ * both the mount probe and manual rechecks so the two cannot drift apart.
+ * Transport failures stay at the call sites (with their unmount guards).
+ */
+export function crawlerProbeStateFromResponse(
+  httpOk: boolean,
+  data: unknown
+): { status: CrawlerProbeStatus; reason?: string } {
+  const body = (typeof data === "object" && data !== null ? data : {}) as {
+    ok?: unknown;
+    crawler?: { reason?: unknown };
+    message?: unknown;
+  };
+  if (httpOk && body.ok) return { status: "ready" };
+  const reason =
+    typeof body.crawler?.reason === "string" && body.crawler.reason
+      ? body.crawler.reason
+      : typeof body.message === "string"
+        ? body.message.replace(/^Unavailable:\s*/, "")
+        : "Chromium is missing";
+  return { status: "unavailable", reason };
+}
+
 interface SettingsLayoutProps {
   activeTab: SettingsTab;
   onSelectTab: (tab: SettingsTab) => void;
@@ -120,10 +146,20 @@ function SettingsLayout({
   const [uiKeys, setUiKeys] = useState<KeyMap>({});
   const [hostedSearchKeyDraft, setHostedSearchKeyDraft] = useState("");
   const [hostedSearchRemember, setHostedSearchRemember] = useState(false);
-  const [probeState, setProbeState] = useState<{ busy: boolean; message?: string; isError?: boolean }>({ busy: false });
+  const [probeState, setProbeState] = useState<{
+    busy: boolean;
+    status?: "ready" | "checking" | "unavailable";
+    message?: string;
+    isError?: boolean;
+  }>({ busy: false });
+  const [crawlerProbeState, setCrawlerProbeState] = useState<{
+    busy: boolean;
+    status?: "ready" | "checking" | "unavailable";
+    reason?: string;
+  }>({ busy: false });
 
   const handleTestSearch = async () => {
-    setProbeState({ busy: true });
+    setProbeState({ busy: true, status: "checking" });
     try {
       const provider = config.searchProvider;
       const apiKey = isHosted ? (getByokKey(provider) || undefined) : (uiKeys[provider] || undefined);
@@ -143,12 +179,14 @@ function SettingsLayout({
       if (res.ok && data.ok) {
         setProbeState({
           busy: false,
-          message: `Connected successfully (${data.resultCount ?? 0} results returned).`,
+          status: "ready",
+          message: `Ready (${data.resultCount ?? 0} results returned).`,
           isError: false
         });
       } else {
         setProbeState({
           busy: false,
+          status: "unavailable",
           message: data.error || "Search probe failed.",
           isError: true
         });
@@ -156,11 +194,59 @@ function SettingsLayout({
     } catch (err) {
       setProbeState({
         busy: false,
+        status: "unavailable",
         message: err instanceof Error ? err.message : "Network error during search probe.",
         isError: true
       });
     }
   };
+
+  const handleProbeCrawler = useCallback(async (recheck = false) => {
+    setCrawlerProbeState({ busy: true, status: "checking" });
+    try {
+      const res = await fetch("/api/search/probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkCrawler: true, recheck })
+      });
+      const data = await res.json();
+      setCrawlerProbeState({ busy: false, ...crawlerProbeStateFromResponse(res.ok, data) });
+    } catch (err) {
+      setCrawlerProbeState({
+        busy: false,
+        status: "unavailable",
+        reason: err instanceof Error ? err.message : "Network error during probe"
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isHosted) return;
+    let ignore = false;
+    fetch("/api/search/probe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ checkCrawler: true, recheck: false })
+    })
+      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (ignore) return;
+        setCrawlerProbeState({ busy: false, ...crawlerProbeStateFromResponse(ok, data) });
+      })
+      .catch((err) => {
+        if (ignore) return;
+        setCrawlerProbeState({
+          busy: false,
+          status: "unavailable",
+          reason: err instanceof Error ? err.message : "Network error during probe"
+        });
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [isHosted]);
+
+
 
   const loadEndpoints = useCallback(() => {
     setEndpointCatalog({ status: "loading" });
@@ -493,12 +579,40 @@ function SettingsLayout({
                 )}
 
                 {!isHosted && !["none", "gemini-native"].includes(config.searchProvider) && (
-                  <Toggle
-                    checked={config.crawlEnabled}
-                    onChange={(value) => updateConfig({ crawlEnabled: value })}
-                    label="Enable page crawling (Crawl4AI)"
-                    description="Extracts main content from top search result for deeper context."
-                  />
+                  <div className="flex flex-col gap-2">
+                    <Toggle
+                      checked={config.crawlEnabled}
+                      onChange={(value) => updateConfig({ crawlEnabled: value })}
+                      label="Enable page crawling (Crawl4AI)"
+                      description="Extracts main content from top search result for deeper context."
+                    />
+                    <div className="flex items-center gap-3 pl-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={crawlerProbeState.busy}
+                        onClick={() => handleProbeCrawler(true)}
+                      >
+                        {crawlerProbeState.busy ? "Checking…" : "Check again"}
+                      </Button>
+                      {crawlerProbeState.busy && (
+                        <span className="text-caption text-text-muted">Checking…</span>
+                      )}
+                      {!crawlerProbeState.busy && crawlerProbeState.status === "ready" && (
+                        <span className="text-caption font-medium text-emerald-500">Ready</span>
+                      )}
+                      {!crawlerProbeState.busy && crawlerProbeState.status === "unavailable" && (
+                        <span className="text-caption font-medium text-blocking">
+                          Unavailable: {crawlerProbeState.reason || "Chromium is missing"}
+                        </span>
+                      )}
+                    </div>
+                    {!crawlerProbeState.busy && crawlerProbeState.status === "unavailable" && (
+                      <p className="text-caption text-text-muted pl-1">
+                        Page crawling unavailable: {crawlerProbeState.reason || "Chromium is missing"}. Web search is available.
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {config.searchProvider !== "none" && (
@@ -548,9 +662,12 @@ function SettingsLayout({
                         disabled={probeState.busy}
                         onClick={handleTestSearch}
                       >
-                        {probeState.busy ? "Testing connection..." : "Test connection"}
+                        {probeState.busy ? "Testing connection..." : probeState.status ? "Check again" : "Test connection"}
                       </Button>
-                      {probeState.message && (
+                      {probeState.busy && (
+                        <span className="text-caption text-text-muted">Checking…</span>
+                      )}
+                      {!probeState.busy && probeState.message && (
                         <span
                           className={cn(
                             "text-caption font-medium",
