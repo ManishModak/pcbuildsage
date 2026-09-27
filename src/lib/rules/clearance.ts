@@ -254,6 +254,9 @@ function checkPsuFit(
       const msg = `PSU form factor ${psuFf} is not supported by case (supported: ${supportedPsu.join(", ")}).`;
       recordCheck("clearance", "failed", [psu.key, pcCase.key], msg);
     }
+  } else {
+    const msg = "PSU form factor fit couldn’t be verified against case.";
+    recordCheck("clearance", "unverified", [psu.key, pcCase.key], msg);
   }
 }
 

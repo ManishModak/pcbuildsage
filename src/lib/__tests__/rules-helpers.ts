@@ -7,8 +7,8 @@ export const base = {
   motherboard: makeResolved("mobo-am5", "motherboard", { brand: "MSI", model: "Board", aliases: ["Board"], socket: "AM5", ddr: "DDR5", form_factor: "ATX", m2_slots: 2, sata_ports: 4 }),
   ram: makeResolved("ram-ddr5", "ram", { brand: "Corsair", model: "RAM", aliases: ["RAM"], ddr: "DDR5" }),
   storage: makeResolved("ssd-nvme", "storage", { brand: "Samsung", model: "SSD", aliases: ["SSD"], interface: "nvme", form_factor: "m2-2280", capacity_gb: 1000 }),
-  psu: makeResolved("psu-750", "psu", { brand: "Corsair", model: "PSU", aliases: ["PSU"], wattage: 750 }),
-  case: makeResolved("case-atx", "case", { brand: "Corsair", model: "Case", aliases: ["Case"], max_gpu_length_mm: 350, max_cooler_height_mm: 170, form_factors: ["ATX", "Micro-ATX"] }),
+  psu: makeResolved("psu-750", "psu", { brand: "Corsair", model: "PSU", aliases: ["PSU"], wattage: 750, form_factor: "ATX" }),
+  case: makeResolved("case-atx", "case", { brand: "Corsair", model: "Case", aliases: ["Case"], max_gpu_length_mm: 350, max_cooler_height_mm: 170, form_factors: ["ATX", "Micro-ATX"], supported_psu_form_factors: ["ATX"] }),
   cooler: makeResolved("cooler-am5", "cooler", { brand: "Noctua", model: "Cooler", aliases: ["Cooler"], cooler_type: "air", height_mm: 160, sockets: ["AM5"], tdp_rating_w: 150 })
 } satisfies Record<ComponentCategory, ResolvedSpec>;
 

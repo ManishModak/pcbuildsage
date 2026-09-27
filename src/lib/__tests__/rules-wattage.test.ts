@@ -4,7 +4,7 @@ import { base, run } from "./rules-helpers";
 
 describe("rule: wattage", () => {
   it("passes wattage at the exact 1.2 headroom boundary", () => {
-    const result = run({ psu: makeResolved("psu-438", "psu", { brand: "Corsair", model: "PSU", aliases: ["PSU"], wattage: 438 }) });
+    const result = run({ psu: makeResolved("psu-438", "psu", { ...base.psu.spec, wattage: 438 }) });
     expect(result.valid).toBe(true);
     expect(result.issues).toEqual([]);
   });

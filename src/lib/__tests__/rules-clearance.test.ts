@@ -313,7 +313,7 @@ describe("rule: clearance", () => {
         expect(clearanceCheck?.status).toBe("passed");
         expect(clearanceCheck?.message).toContain("PSU form factor SFX fits case");
       });
-      it("does not fail when case PSU form factor limits are un-sourced", () => {
+      it("records unverified when case PSU form factor limits are un-sourced", () => {
         const genericCase = makeResolved("generic-case", "case", {
           brand: "Generic",
           model: "Case Without PSU Limits",
@@ -332,8 +332,8 @@ describe("rule: clearance", () => {
 
         const result = run({ case: genericCase, psu });
         const psuClearanceCheck = result.checks.find((c) => c.rule === "clearance" && c.components.includes(psu.key));
-        // Missing case limits do not block or falsely fail the build
-        expect(psuClearanceCheck).toBeUndefined();
+        expect(psuClearanceCheck?.status).toBe("unverified");
+        expect(psuClearanceCheck?.message).toContain("PSU form factor fit couldn’t be verified against case");
         expect(result.valid).toBe(true);
       });
   it("leaves cooler fit unverified for unknown construction even with a small height", () => {
