@@ -178,6 +178,18 @@ describe("GPU variants and exact dimensions (moved from rules Item 5)", () => {
         expect(agreed.spec.spec_conflict).toBeUndefined();
         expect(agreed.spec.length_mm).toBe(320);
       });
+      it("only applies withTitleGpuLength to GPU hits", () => {
+        const cpuHit: ResolvedSpec = {
+          key: "amd-ryzen-7-7800x3d",
+          category: "cpu",
+          spec: { brand: "AMD", model: "AMD Ryzen 7 7800X3D", aliases: [] },
+          source: "registry",
+          confidence: "high"
+        };
+        const result = withTitleGpuLength(cpuHit, "AMD Ryzen 7 7800X3D (card length: 300mm)");
+        expect(result).toBe(cpuHit);
+        expect(result.spec.length_mm).toBeUndefined();
+      });
       it("resolves legacy keys without duplicate listings", () => {
         const specs = listRegistrySpecs();
         const keys = specs.map((s) => s.key);

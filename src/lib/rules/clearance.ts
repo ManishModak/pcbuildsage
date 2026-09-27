@@ -66,6 +66,11 @@ function checkGpuFit(
   issues: BuildIssue[]
 ) {
   if (!gpu || !pcCase) return;
+  if (typeof gpu.spec.spec_conflict === "string") {
+    const msg = "GPU fit couldn’t be verified due to conflicting length specs. Please check the card’s length against the case’s GPU clearance before buying.";
+    recordCheck("clearance", "unverified", [gpu.key, pcCase.key], msg);
+    return;
+  }
   const gpuLength = trustedNumber(gpu, "length_mm", issues);
   const maxGpu = trustedNumber(pcCase, "max_gpu_length_mm", issues);
   if (gpuLength !== undefined && maxGpu !== undefined) {

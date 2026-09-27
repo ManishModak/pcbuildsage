@@ -345,4 +345,28 @@ describe("rule: clearance", () => {
     expect(coolerCheck?.message).toContain("construction is unknown");
     expect(result.valid).toBe(true);
   });
+  it("does not pass GPU clearance when title length contradicts registry record", () => {
+    const gpuWithConflict = makeResolved("gpu-test", "gpu", {
+      brand: "Vendor",
+      model: "GPU 300mm",
+      length_mm: 300,
+      aliases: ["GPU 300mm"],
+      spec_conflict: "GPU listing states card length 340mm but the registry record gpu-test states 300mm; the dimension is unverified."
+    });
+    const midCase = makeResolved("case-320", "case", {
+      brand: "Vendor",
+      model: "Case 320mm",
+      max_gpu_length_mm: 320,
+      form_factors: ["ATX"],
+      aliases: ["Case 320mm"]
+    });
+
+    const result = run({ gpu: gpuWithConflict, case: midCase });
+    const gpuCheck = result.checks.find(
+      (c) => c.rule === "clearance" && c.components.includes(gpuWithConflict.key)
+    );
+    expect(gpuCheck?.status).toBe("unverified");
+    expect(gpuCheck?.status).not.toBe("passed");
+    expect(gpuCheck?.message).toContain("conflicting length specs");
+  });
 });

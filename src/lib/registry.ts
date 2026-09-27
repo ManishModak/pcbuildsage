@@ -99,7 +99,7 @@ export function resolveComponent(
   const result = (() => {
     // A high/medium-confidence registry entry is the best answer available.
     if (hit && hit.confidence !== "low") {
-      return withTitleGpuLength(hit, name);
+      return hit.category === "gpu" ? withTitleGpuLength(hit, name) : hit;
     }
 
     // An unsourced registry entry is a placeholder, not a fact, so anything with a
@@ -151,6 +151,7 @@ export function resolveComponent(
  * unverified). One board partner's title never rewrites a family record.
  */
 export function withTitleGpuLength(hit: ResolvedSpec, name: string): ResolvedSpec {
+  if (hit.category !== "gpu") return hit;
   const existing = typeof hit.spec.length_mm === "number" ? hit.spec.length_mm : undefined;
   const derived = parseSpecsFromTitle(name, "gpu");
   const stated = derived && typeof derived.length_mm === "number" ? derived.length_mm : undefined;
