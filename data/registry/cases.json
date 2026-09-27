@@ -11,6 +11,17 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 220,
     "aliases": [
       "Corsair 4000D AIRFLOW",
       "4000D AIRFLOW",
@@ -34,12 +45,23 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 200,
     "aliases": [
       "NZXT H510",
       "H510"
     ],
     "sources": [
-      "https://support.nzxt.com/hc/en-us/sections/360012543953-H510-H510i-H510-Elite"
+      "https://support.nzxt.com/hc/en-us/sections/360012543953-H510-H510i-H510-Elite",
+      "https://www.techpowerup.com/review/nzxt-h510-flow/"
     ],
     "confidence": "high",
     "researched_at": "2026-07-11T17:37:04Z"
@@ -54,12 +76,24 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 180,
     "aliases": [
       "Cooler Master MasterBox MB511",
       "MasterBox MB511"
     ],
     "sources": [
-      "https://www.coolermaster.com/catalog/legacy/cases/masterbox-mb511/"
+      "https://www.coolermaster.com/catalog/legacy/cases/masterbox-mb511/",
+      "https://www.coolermaster.com/en-global/products/masterbox-mb511-argb/"
     ],
     "confidence": "high",
     "researched_at": "2026-07-11T17:37:04Z"
@@ -75,12 +109,23 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 270,
     "aliases": [
       "Eclipse P400A",
       "Phanteks Eclipse P400A"
     ],
     "sources": [
-      "https://www.phanteks.com/End-of-Life.html"
+      "https://www.phanteks.com/End-of-Life.html",
+      "https://www.phanteks.com/Eclipse-P400A.html"
     ],
     "confidence": "high",
     "researched_at": "2026-07-11T17:37:04Z"
@@ -96,6 +141,19 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360,
+      420,
+      480
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 225,
     "aliases": [
       "Corsair 7000D Airflow",
       "7000D Airflow",
@@ -121,6 +179,18 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360,
+      420
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 284,
     "aliases": [
       "Dark Base Pro 900",
       "be quiet! Dark Base Pro 900"
@@ -143,6 +213,19 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360,
+      420,
+      480
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 240,
     "aliases": [
       "Phanteks Enthoo Pro 2",
       "Enthoo Pro 2"
@@ -158,20 +241,25 @@
     "model": "Cooler Master MasterBox Q300L",
     "max_gpu_length_mm": 360,
     "max_cooler_height_mm": 159,
-    "supported_radiators": [
-      120,
-      240
-    ],
     "form_factors": [
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 160,
     "aliases": [
       "MasterBox Q300L",
       "Cooler Master MasterBox Q300L"
     ],
     "sources": [
-      "https://www.coolermaster.com/catalog/cases/mini-tower/masterbox-q300l/"
+      "https://www.coolermaster.com/catalog/cases/mini-tower/masterbox-q300l/",
+      "https://www.coolermaster.com/en-global/products/masterbox-q300l/"
     ],
     "confidence": "high",
     "researched_at": "2026-07-11T17:37:04Z"
@@ -185,6 +273,15 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 220,
     "aliases": [
       "Thermaltake Versa H18",
       "Versa H18"
@@ -204,6 +301,14 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 230,
     "aliases": [
       "Fractal Design Focus G Mini",
       "Focus G Mini"
@@ -222,12 +327,21 @@
     "form_factors": [
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      140
+    ],
+    "supported_psu_form_factors": [
+      "SFX",
+      "SFX-L"
+    ],
+    "max_psu_length_mm": 130,
     "aliases": [
       "NZXT H1",
       "H1"
     ],
     "sources": [
-      "https://nzxt.com/product/h1"
+      "https://nzxt.com/product/h1",
+      "https://support.nzxt.com/hc/en-us/articles/360043884854-NZXT-H1-Information"
     ],
     "confidence": "high",
     "researched_at": "2026-07-11T17:37:04Z"
@@ -241,10 +355,17 @@
       "Mini-ITX",
       "Mini-DTX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280
+    ],
     "supported_psu_form_factors": [
       "SFX",
       "SFX-L"
     ],
+    "max_psu_length_mm": 130,
     "aliases": [
       "Cooler Master NR200",
       "NR200"
@@ -264,6 +385,18 @@
       "Mini-ITX",
       "Mini-DTX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX",
+      "SFX",
+      "SFX-L"
+    ],
+    "max_psu_length_mm": 170,
     "aliases": [
       "SSUPD Meshlicious",
       "Meshlicious"
@@ -283,6 +416,16 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 200,
     "aliases": [
       "Thermaltake Core V21",
       "Core V21"
@@ -302,6 +445,15 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 260,
     "aliases": [
       "Fractal Design Node 804",
       "Node 804"
@@ -322,6 +474,13 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 160,
     "aliases": [
       "Ant Esports SI28",
       "SI28",
@@ -329,7 +488,8 @@
       "Ant Esports SI28 Cabinet Black"
     ],
     "sources": [
-      "https://antesports.com/product/ant-esports-si28-cabinet-black/"
+      "https://antesports.com/product/ant-esports-si28-cabinet-black/",
+      "https://antesports.com/product/ant-esports-si28-cabinet/"
     ],
     "confidence": "high",
     "researched_at": "2026-08-16T10:05:00Z"
@@ -344,6 +504,14 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 160,
     "aliases": [
       "Ant Esports ICE-100",
       "Ant Esports ICE-100TG",
@@ -367,6 +535,14 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 160,
     "aliases": [
       "Ant Esports ICE-200TG",
       "ICE-200TG",
@@ -389,6 +565,16 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 160,
     "aliases": [
       "Ant Esports 211TG",
       "Ant Esports ICE-211TG",
@@ -410,6 +596,14 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 160,
     "aliases": [
       "Ant Esports 200 Air",
       "Ant Esports 200 Air Mini",
@@ -434,6 +628,14 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 160,
     "aliases": [
       "Ant Esports 510 Air",
       "510 Air",
@@ -456,6 +658,16 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 220,
     "aliases": [
       "Ant Esports 690 Air",
       "690 Air",
@@ -477,6 +689,15 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 160,
     "aliases": [
       "Ant Esports ICE-112",
       "ICE-112",
@@ -500,6 +721,17 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 170,
     "aliases": [
       "DeepCool CC560 V2",
       "CC560 V2",
@@ -508,7 +740,8 @@
       "DeepCool CC560"
     ],
     "sources": [
-      "https://www.deepcool.com/products/Cases/CC560-V2-Mid-Tower-ATX-Case/2023/17804.shtml"
+      "https://www.deepcool.com/products/Cases/CC560-V2-Mid-Tower-ATX-Case/2023/17804.shtml",
+      "https://www.deepcool.com/products/Cases/CC560-V2-Mid-Tower-ATX-Case/"
     ],
     "confidence": "high",
     "researched_at": "2026-08-16T10:05:00Z"
@@ -522,6 +755,16 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 160,
     "aliases": [
       "DeepCool Matrexx 40 3FS",
       "Matrexx 40 3FS",
@@ -529,7 +772,8 @@
       "Matrexx 40"
     ],
     "sources": [
-      "https://www.deepcool.com/products/Cases/MATREXX-40-3FS-Micro-ATX-Case/2021/11624.shtml"
+      "https://www.deepcool.com/products/Cases/MATREXX-40-3FS-Micro-ATX-Case/2021/11624.shtml",
+      "https://www.deepcool.com/products/Cases/MATREXX-40-3FS-Micro-ATX-Case/"
     ],
     "confidence": "high",
     "researched_at": "2026-08-16T10:05:00Z"
@@ -545,6 +789,17 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 170,
     "aliases": [
       "DeepCool Matrexx 55 Mesh",
       "Matrexx 55 Mesh",
@@ -553,7 +808,8 @@
       "Matrexx 55 Mesh ADD-RGB 4F"
     ],
     "sources": [
-      "https://www.deepcool.com/products/Cases/MATREXX-55-MESH-4F-Mid-Tower-ATX-Case/2021/11559.shtml"
+      "https://www.deepcool.com/products/Cases/MATREXX-55-MESH-4F-Mid-Tower-ATX-Case/2021/11559.shtml",
+      "https://www.deepcool.com/products/Cases/MATREXX-55-MESH-4F-Mid-Tower-ATX-Case/"
     ],
     "confidence": "high",
     "researched_at": "2026-08-16T10:05:00Z"
@@ -569,6 +825,17 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 170,
     "aliases": [
       "DeepCool CH560",
       "CH560",
@@ -577,7 +844,8 @@
       "DeepCool CH560 WH"
     ],
     "sources": [
-      "https://www.deepcool.com/products/Cases/CH560-High-Airflow-Case/2023/17118.shtml"
+      "https://www.deepcool.com/products/Cases/CH560-High-Airflow-Case/2023/17118.shtml",
+      "https://www.deepcool.com/products/Cases/CH560-High-Airflow-Case/"
     ],
     "confidence": "high",
     "researched_at": "2026-08-16T10:05:00Z"
@@ -591,6 +859,17 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 160,
     "aliases": [
       "DeepCool CH370",
       "CH370",
@@ -598,7 +877,8 @@
       "CH370 WH"
     ],
     "sources": [
-      "https://www.deepcool.com/products/Cases/CH370-Micro-ATX-Case/2022/15984.shtml"
+      "https://www.deepcool.com/products/Cases/CH370-Micro-ATX-Case/2022/15984.shtml",
+      "https://www.deepcool.com/products/Cases/CH370-Micro-ATX-Case/"
     ],
     "confidence": "high",
     "researched_at": "2026-08-16T10:05:00Z"
@@ -614,6 +894,17 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 240,
     "aliases": [
       "Montech AIR 903 MAX",
       "AIR 903 MAX",
@@ -637,6 +928,17 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 240,
     "aliases": [
       "Montech AIR 903 BASE",
       "AIR 903 BASE",
@@ -658,6 +960,16 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 160,
     "aliases": [
       "Montech AIR 100 ARGB",
       "AIR 100 ARGB",
@@ -681,6 +993,16 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 210,
     "aliases": [
       "Montech Sky Two",
       "Sky Two",
@@ -705,6 +1027,17 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 220,
     "aliases": [
       "Lian Li LANCOOL 216",
       "LANCOOL 216",
@@ -728,6 +1061,18 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360,
+      420
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 220,
     "aliases": [
       "Lian Li LANCOOL III",
       "LANCOOL III",
@@ -752,6 +1097,16 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 220,
     "aliases": [
       "Lian Li O11 Dynamic EVO",
       "O11 Dynamic EVO",
@@ -775,6 +1130,16 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 232,
     "aliases": [
       "Lian Li O11 Vision",
       "O11 Vision",
@@ -797,6 +1162,18 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX",
+      "SFX",
+      "SFX-L"
+    ],
+    "max_psu_length_mm": 220,
     "aliases": [
       "Lian Li A3-mATX",
       "A3-mATX",
@@ -821,6 +1198,17 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 250,
     "aliases": [
       "Corsair 5000D AIRFLOW",
       "5000D AIRFLOW",
@@ -844,6 +1232,17 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 220,
     "aliases": [
       "Corsair 3000D AIRFLOW",
       "3000D AIRFLOW",
@@ -867,6 +1266,15 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 170,
     "aliases": [
       "Fractal Design Pop Air",
       "Pop Air",
@@ -890,6 +1298,15 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 255,
     "aliases": [
       "Fractal Design North",
       "Fractal North",
@@ -915,6 +1332,18 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360,
+      420
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 250,
     "aliases": [
       "Fractal Design Meshify 2",
       "Meshify 2",
@@ -938,6 +1367,15 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 185,
     "aliases": [
       "NZXT H5 Flow",
       "H5 Flow",
@@ -962,6 +1400,17 @@
       "Micro-ATX",
       "Mini-ITX"
     ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 200,
     "aliases": [
       "Cooler Master MasterBox TD500 Mesh V2",
       "MasterBox TD500 Mesh V2",

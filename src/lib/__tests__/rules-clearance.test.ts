@@ -337,6 +337,25 @@ describe("rule: clearance", () => {
         expect(psuClearanceCheck?.message).toContain("PSU form factor fit couldn’t be verified against case");
         expect(result.valid).toBe(true);
       });
+      it("passes PSU and radiator clearance for backfilled case registry records", () => {
+        const result = validateBuild({
+          case: "corsair-4000d-airflow",
+          psu: "corsair-rm750e-2023",
+          cooler: "deepcool-ls720"
+        });
+
+        const psuCheck = result.checks.find(
+          (c) => c.rule === "clearance" && c.components.includes("corsair-rm750e-2023")
+        );
+        expect(psuCheck?.status).toBe("passed");
+        expect(psuCheck?.message).toContain("PSU form factor ATX fits case (supported: ATX)");
+
+        const radiatorCheck = result.checks.find(
+          (c) => c.rule === "clearance" && c.components.includes("deepcool-ls720")
+        );
+        expect(radiatorCheck?.status).toBe("passed");
+        expect(radiatorCheck?.message).toContain("360mm radiator is supported by case");
+      });
   it("leaves cooler fit unverified for unknown construction and pushes needs_research issue", () => {
     const result = run({
       cooler: makeResolved("cooler-unknown", "cooler", { brand: "Generic", model: "Mystery Cooler", aliases: ["Mystery"], height_mm: 60, sockets: ["AM5"], tdp_rating_w: 150 })
