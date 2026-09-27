@@ -43,22 +43,6 @@ export type BuildVersionOptions = {
   streamingMessageId?: string;
 };
 
-/**
- * Filter and extract the present_build tool parts of a message that finished
- * presenting a build.
- */
-export function extractPresentToolParts(
-  parts: unknown[],
-  options: BuildVersionOptions & { messageId?: string } = {}
-): ToolPart[] {
-  if (!Array.isArray(parts)) return [];
-  return parts.filter(
-    (part): part is ToolPart =>
-      isToolPart(part) &&
-      isFinishedPresentPart(part as unknown as ToolPart, options.messageId, options.streamingMessageId)
-  );
-}
-
 /** The last finished `validate_build` call in a message that produced a snapshot. */
 function latestValidatingPart(parts: ToolPart[]): ToolPart | undefined {
   for (let i = parts.length - 1; i >= 0; i--) {

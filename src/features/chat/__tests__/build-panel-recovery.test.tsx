@@ -297,17 +297,62 @@ describe("build panel recovery: an interrupted chat still has a build", () => {
     );
   });
 
-  it("counts a present_build that is still streaming only while its own message streams", () => {
+  it.each(["input-streaming", "input-available"])(
+    "counts a %s present_build only while its own message streams",
+    (state) => {
+      const messages: ChatUIMessage[] = [
+        { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build" }] },
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool-present_build",
+              toolCallId: "call-live",
+              state,
+              input: {
+                builds: [
+                  {
+                    label: "Live Build",
+                    parts: [
+                      { category: "gpu", name: "RTX 4060", price: 28500, currency: "INR" },
+                      { category: "cpu", name: "Ryzen 5 5600", price: 11200, currency: "INR" }
+                    ]
+                  }
+                ]
+              }
+            } as unknown as ChatUIMessage["parts"][number]
+          ]
+        }
+      ];
+
+      // Loaded from storage or after a reload: nothing is live, so nothing counts.
+      expect(findAllBuildVersions(messages, "INR")).toEqual([]);
+      // Live, but in some other message: still not this call's business.
+      expect(findAllBuildVersions(messages, "INR", { streamingMessageId: "a-other" })).toEqual([]);
+
+      const live = findAllBuildVersions(messages, "INR", { streamingMessageId: "a1" });
+      expect(live).toHaveLength(1);
+      expect(live[0].presentationId).toBe("call-live");
+      expect(live[0].builds[0].label).toBe("Live Build");
+      expect(live[0].builds[0].components[0].name).toBe("RTX 4060");
+    }
+  );
+
+  it("shows the in-flight build while the reply streams and drops it afterwards", () => {
+    // What chat-view does: pass the streaming assistant message's id only while
+    // a stream is live, and nothing at all once the turn is finished.
     const messages: ChatUIMessage[] = [
       { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build" }] },
       {
         id: "a1",
         role: "assistant",
         parts: [
+          { type: "text", text: "Here is the build" },
           {
             type: "tool-present_build",
             toolCallId: "call-live",
-            state: "input-streaming",
+            state: "input-available",
             input: {
               builds: [
                 {
@@ -319,19 +364,20 @@ describe("build panel recovery: an interrupted chat still has a build", () => {
                 }
               ]
             }
-          }
+          } as unknown as ChatUIMessage["parts"][number]
         ]
       }
     ];
 
-    // Loaded from storage or after a reload: nothing is live, so nothing counts.
-    expect(findAllBuildVersions(messages, "INR")).toEqual([]);
-    expect(findAllBuildVersions(messages, "INR", { streamingMessageId: "a-other" })).toEqual([]);
+    const streaming = findAllBuildVersions(messages, "INR", { streamingMessageId: "a1" });
+    expect(streaming).toHaveLength(1);
+    const liveMarkup = renderToStaticMarkup(<BuildCard versions={streaming} inSidePanel />);
+    expect(liveMarkup).toContain("RTX 4060");
+    expect(liveMarkup).toContain("₹39,700");
 
-    const live = findAllBuildVersions(messages, "INR", { streamingMessageId: "a1" });
-    expect(live).toHaveLength(1);
-    expect(live[0].presentationId).toBe("call-live");
-    expect(live[0].builds[0].label).toBe("Live Build");
+    // The stream ends: the same call is now an interrupted one, and a fresh
+    // load of this transcript shows no build at all.
+    expect(findAllBuildVersions(messages, "INR")).toEqual([]);
   });
 
   it("still renders an old-format session that has no parts, no revision and no snapshots", () => {

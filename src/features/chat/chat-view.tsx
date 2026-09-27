@@ -397,9 +397,21 @@ export function ChatView({
 
   const isDesktop = useIsDesktop(768);
 
+  // While a reply is streaming, a present_build that has not returned yet is
+  // still the build the user is watching being made. Once the turn is over the
+  // same call is treated as interrupted, and a finished or loaded transcript
+  // never counts one.
+  const streamingMessageId = useMemo(() => {
+    if (status !== "streaming" && status !== "submitted") return undefined;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return messages[i].id;
+    }
+    return undefined;
+  }, [status, messages]);
+
   const allBuildVersions = useMemo(
-    () => findAllBuildVersions(messages, config.currency),
-    [messages, config.currency]
+    () => findAllBuildVersions(messages, config.currency, { streamingMessageId }),
+    [messages, config.currency, streamingMessageId]
   );
 
   // Selected by stable id, not by version number: an edit or a truncation
