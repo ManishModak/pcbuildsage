@@ -8,7 +8,12 @@ import type { ChatUIMessage } from "./message";
 import { ChatSidebar } from "./chat-sidebar";
 import { AppShell } from "@/components/app/app-shell";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/animate-ui/components/radix/sidebar";
-import { chooseEvictionIndex, invalidateSessionSelection, selectLatestSession } from "./session-selection";
+import {
+  applySessionSelection,
+  invalidateSessionSelection,
+  selectLatestSession,
+  type PoolEntry
+} from "./session-selection";
 import { SessionSaveQueue, sessionSignature } from "./session-save-queue";
 
 // Neutral hover for the header menu trigger (base shadcn ghost Button):
@@ -27,19 +32,12 @@ function HeaderSidebarTrigger() {
   return <SidebarTrigger className={TRIGGER_HOVER} />;
 }
 
-interface ActiveSessionEntry {
-  id: string;
-  messages: ChatUIMessage[];
-  queue: SessionSaveQueue;
-  lastActiveAt: number;
-  /**
-   * Reported by `ChatView`. A streaming entry is never evicted from the pool:
-   * dropping it would unmount the view and kill the reply mid-flight.
-   */
-  isStreaming: boolean;
-}
-
-const MAX_ACTIVE_SESSIONS = 8;
+/**
+ * One open chat tab. `isStreaming` is reported by `ChatView`: a streaming entry
+ * is never evicted, because dropping it would unmount the view and kill the reply
+ * mid-flight. `isLoading` is true while its messages are still being fetched.
+ */
+type ActiveSessionEntry = PoolEntry<SessionSaveQueue>;
 
 /**
  * Build the save queue for a session. Every queue can resolve a revision
@@ -96,16 +94,27 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
   const selectionGuardRef = useRef({ generation: 0 });
   const saveQueuesRef = useRef(new Map<string, SessionSaveQueue>([[initialEntry.id, initialEntry.queue]]));
 
+  /**
+   * True only until the first list settles. Later refreshes (after a save or a
+   * delete) deliberately do not re-enter the loading state: the list is already
+   * on screen and flashing "Loading chats…" over it would be worse than nothing.
+   */
+  const [isSessionsLoading, setIsSessionsLoading] = useState(true);
+
   const refresh = useCallback(() => {
-    fetchSessions()
-      .then(setSessions)
+    return fetchSessions()
+      .then((list) => {
+        setSessions(list);
+        setIsSessionsLoading(false);
+      })
       .catch(() => {
         // A transient history-list failure must not erase the last known list.
+        setIsSessionsLoading(false);
       });
   }, []);
 
   const activateSessionInPool = useCallback(
-    (id: string, messages: ChatUIMessage[], revision = 0) => {
+    (id: string, messages: ChatUIMessage[], revision = 0, loaded = true) => {
       let queue = saveQueuesRef.current.get(id);
       if (!queue) {
         queue = createSaveQueue(id, messages, revision, refresh);
@@ -114,30 +123,16 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
         queue.observeRevision(revision);
       }
 
-      const now = Date.now();
-      setActiveSessions((prev) => {
-        const existingIndex = prev.findIndex((s) => s.id === id);
-        if (existingIndex !== -1) {
-          const updated = [...prev];
-          updated[existingIndex] = {
-            ...updated[existingIndex],
-            lastActiveAt: now
-          };
-          return updated;
-        }
-
-        let nextList = prev;
-        if (nextList.length >= MAX_ACTIVE_SESSIONS) {
-          // Never cut off a reply: only an idle, non-current tab is evictable, and
-          // if every other tab is streaming we simply go over the cap.
-          const oldestIndex = chooseEvictionIndex(prev, currentSessionIdRef.current);
-          if (oldestIndex !== -1) {
-            nextList = prev.filter((_, i) => i !== oldestIndex);
-          }
-        }
-
-        return [...nextList, { id, messages, queue, lastActiveAt: now, isStreaming: false }];
-      });
+      setActiveSessions((prev) =>
+        applySessionSelection({
+          pool: prev,
+          currentSessionId: currentSessionIdRef.current,
+          id,
+          loaded,
+          messages,
+          newEntry: { id, queue, isStreaming: false, lastActiveAt: Date.now() }
+        }).pool
+      );
 
       setCurrentSessionId(id);
     },
@@ -173,20 +168,33 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
 
       const existing = activeSessionsRef.current.find((s) => s.id === id);
       if (existing) {
+        // Already open in another tab: switch to it as it is, keeping its messages
+        // and any stream in progress. A loading entry here is one whose fetch has
+        // not landed yet, so the flag is cleared.
         invalidateSessionSelection(selectionGuardRef.current);
-        const now = Date.now();
         setActiveSessions((prev) =>
-          prev.map((s) => (s.id === id ? { ...s, lastActiveAt: now } : s))
+          prev.map((s) => (s.id === id ? { ...s, lastActiveAt: Date.now(), isLoading: false } : s))
         );
         setCurrentSessionId(id);
         return;
       }
 
-      await selectLatestSession(selectionGuardRef.current, id, fetchSession, (session) => {
-        activateSessionInPool(session.id, session.messages, session.revision);
+      const queue = createSaveQueue(id, [], 0, refresh);
+      saveQueuesRef.current.set(id, queue);
+      // Show the loading state immediately, with none of the previous chat's
+      // messages, instead of a new-chat screen that looks like an empty history.
+      activateSessionInPool(id, [], 0, false);
+
+      const loaded = await selectLatestSession(selectionGuardRef.current, id, fetchSession, (session) => {
+        activateSessionInPool(session.id, session.messages, session.revision, true);
       });
+      if (loaded) return;
+
+      // The fetch failed or there is no such chat: stop pretending to load and
+      // leave this tab genuinely empty.
+      setActiveSessions((prev) => prev.map((s) => (s.id === id ? { ...s, isLoading: false } : s)));
     },
-    [activateSessionInPool]
+    [activateSessionInPool, refresh]
   );
 
   const handleDelete = useCallback(
@@ -211,7 +219,8 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
             messages,
             queue: newQueue,
             lastActiveAt: Date.now(),
-            isStreaming: false
+            isStreaming: false,
+            isLoading: false
           };
           setCurrentSessionId(newId);
           return [newEntry];
@@ -240,6 +249,7 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
             onNew={handleNew}
             onSelect={handleSelect}
             onDelete={handleDelete}
+            isLoading={isSessionsLoading}
           />
         }
         actions={<HeaderSidebarTrigger />}
@@ -262,6 +272,7 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
                 onPersisted={refresh}
                 isActive={session.id === currentSessionId}
                 onStreamingChange={handleStreamingChange}
+                isLoading={session.isLoading === true}
               />
             </div>
           ))}

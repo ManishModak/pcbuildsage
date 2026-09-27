@@ -138,7 +138,8 @@ export function ChatView({
   saveQueue,
   onPersisted,
   isActive = true,
-  onStreamingChange
+  onStreamingChange,
+  isLoading = false
 }: {
   config: ClientConfig;
   sessionId: string;
@@ -148,6 +149,13 @@ export function ChatView({
   isActive?: boolean;
   /** Report streaming state so the workspace can refuse to evict this chat. */
   onStreamingChange?: (sessionId: string, streaming: boolean) => void;
+  /**
+   * True while this chat's messages are still being fetched. Renders a loading
+   * state instead of the new-chat screen, and suppresses the composer and build
+   * panel so a half-loaded chat cannot be written into. Optional: callers that
+   * omit it behave exactly as before.
+   */
+  isLoading?: boolean;
 }) {
   const { setHeaderSuffix, updateConfig } = useApp();
   const configRef = useRef(config);
@@ -703,7 +711,7 @@ export function ChatView({
   };
 
   const send = (text: string) => {
-    if (!text.trim() || streaming) return;
+    if (!text.trim() || streaming || isLoading) return;
     recovery.reset();
     setIncompleteNotice(null);
     if (checkShouldCompact(messages, text)) {
@@ -719,7 +727,7 @@ export function ChatView({
   };
 
   const handleEditMessage = (index: number, newText: string) => {
-    if (streaming) return;
+    if (streaming || isLoading) return;
     recovery.reset();
     setIncompleteNotice(null);
     const truncated = messages.slice(0, index);
@@ -742,7 +750,15 @@ export function ChatView({
       <div className="flex flex-1 flex-col min-w-0 h-full">
         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[760px] px-4 pb-6">
-            {messages.length === 0 ? (
+            {isLoading ? (
+              // An existing chat whose messages are still being fetched. Showing
+              // the new-chat screen here would look like an empty history and
+              // invite the user to type into a thread that is about to change.
+              <div className="flex items-center gap-2 pt-8 text-sm text-text-muted" role="status">
+                <span className="h-2 w-2 rounded-full bg-text-muted animate-pulse shrink-0" />
+                <span>Loading chat…</span>
+              </div>
+            ) : messages.length === 0 ? (
               <ChatEmptyState onPick={send} currency={config.currency} />
             ) : (
               <div className="flex flex-col gap-6 pt-6">
@@ -877,6 +893,9 @@ export function ChatView({
                 setIsCompacting(false);
                 void stop();
               }}
+              // A half-loaded chat must not be messaged into: the transcript it
+              // would be appended to is not the one the user is looking at.
+              disabled={isLoading}
               streaming={streaming || activeIsCompacting}
             />
             <p className="mt-2 text-center text-caption text-text-muted">
@@ -900,7 +919,7 @@ export function ChatView({
       </div>
 
       {/* Desktop Right Side Panel Splitter & Aside */}
-      {sidePanelOpen && displayBuilds && displayBuilds.length > 0 ? (
+      {!isLoading && sidePanelOpen && displayBuilds && displayBuilds.length > 0 ? (
         <>
           {/* Clean Draggable Splitter Area (no visible handle artifact) */}
           <div
@@ -991,7 +1010,10 @@ export function ChatView({
       ) : null}
 
       {/* Mobile/Tablet Slide-over Drawer / Sheet */}
-      <Sheet open={sidePanelOpen && !isDesktop && Boolean(displayBuilds?.length)} onOpenChange={setSidePanelOpen}>
+      <Sheet
+        open={!isLoading && sidePanelOpen && !isDesktop && Boolean(displayBuilds?.length)}
+        onOpenChange={setSidePanelOpen}
+      >
         <SheetContent
           side="right"
           className="w-full sm:max-w-md bg-surface p-0 flex flex-col h-full border-l border-border"

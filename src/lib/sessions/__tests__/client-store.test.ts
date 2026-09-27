@@ -7,6 +7,7 @@ import {
   listClientSessions,
   resetClientStoreState,
   saveClientSession,
+  SessionConflictError,
   SessionPersistenceError,
   _setStorageDriverForTesting,
   type SaveSessionRequest
@@ -484,6 +485,165 @@ describe("ClientStore", () => {
       expect(mockLs.getItem("pcbuildsage:session:s1")).not.toBeNull();
       const older = await getClientSession("s1");
       expect(older?.title).toBe("First Session");
+    });
+  });
+
+  describe("Layer drift", () => {
+    it("opens the newest copy, matching what the sidebar lists", async () => {
+      const mockIdb = createMockIndexedDB();
+      vi.stubGlobal("indexedDB", mockIdb);
+      const mockLs = createMockLocalStorage();
+      vi.stubGlobal("localStorage", mockLs);
+
+      // A stale copy in IndexedDB and a newer one in localStorage, which is what a
+      // failed IndexedDB write followed by a localStorage fallback leaves behind.
+      mockIdb._rows().set("drift", {
+        id: "drift",
+        revision: 1,
+        title: "Stale copy",
+        created_at: "2026-09-01T00:00:00.000Z",
+        updated_at: "2026-09-01T00:00:00.000Z",
+        country_code: "IN",
+        currency: "INR",
+        messages: [makeMessage("m1", "stale")],
+        build_state: null
+      });
+      mockLs.setItem(
+        "pcbuildsage:session:drift",
+        JSON.stringify({
+          id: "drift",
+          revision: 2,
+          title: "Newest copy",
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-02T00:00:00.000Z",
+          country_code: "IN",
+          currency: "INR",
+          messages: [makeMessage("m1", "newest")],
+          build_state: null
+        })
+      );
+
+      const listed = (await listClientSessions()).find((s) => s.id === "drift");
+      const opened = await getClientSession("drift");
+
+      // The list and the opened chat agree, which they did not before.
+      expect(listed?.title).toBe("Newest copy");
+      expect(opened?.title).toBe("Newest copy");
+      expect(opened?.revision).toBe(2);
+      expect(JSON.stringify(opened?.messages)).toContain("newest");
+    });
+
+    it("breaks a same-millisecond tie on the higher revision", async () => {
+      const mockIdb = createMockIndexedDB();
+      vi.stubGlobal("indexedDB", mockIdb);
+      vi.stubGlobal("localStorage", createMockLocalStorage());
+
+      // Two layers written in the same millisecond, so `updated_at` cannot decide.
+      const stamp = "2026-09-01T00:00:00.000Z";
+      const record = (revision: number, title: string) => ({
+        id: "tie",
+        revision,
+        title,
+        created_at: stamp,
+        updated_at: stamp,
+        country_code: null,
+        currency: null,
+        messages: [],
+        build_state: null
+      });
+      mockIdb._rows().set("tie", record(1, "older"));
+      localStorage.setItem("pcbuildsage:session:tie", JSON.stringify(record(5, "newer")));
+
+      const opened = await getClientSession("tie");
+      expect(opened?.revision).toBe(5);
+      expect(opened?.title).toBe("newer");
+    });
+
+    it("purges the fallback copies after a successful IndexedDB save", async () => {
+      const mockIdb = createMockIndexedDB();
+      vi.stubGlobal("indexedDB", mockIdb);
+      const mockLs = createMockLocalStorage();
+      vi.stubGlobal("localStorage", mockLs);
+
+      await saveClientSession({ id: "purged", revision: 1, title: "First", messages: [] });
+      // Simulate a leftover fallback copy from an earlier failed IndexedDB write.
+      mockLs.setItem(
+        "pcbuildsage:session:purged",
+        JSON.stringify({
+          id: "purged",
+          revision: 0,
+          title: "Stale fallback",
+          created_at: "2020-01-01T00:00:00.000Z",
+          updated_at: "2020-01-01T00:00:00.000Z",
+          messages: []
+        })
+      );
+
+      await saveClientSession({ id: "purged", revision: 2, title: "Second", messages: [] });
+
+      expect(mockLs.getItem("pcbuildsage:session:purged")).toBeNull();
+      expect((await getClientSession("purged"))?.title).toBe("Second");
+    });
+  });
+
+  describe("Revision conflicts and tombstones", () => {
+    it("rejects a save with an older revision than the stored copy", async () => {
+      vi.stubGlobal("indexedDB", undefined);
+      vi.stubGlobal("localStorage", createMockLocalStorage());
+
+      await saveClientSession({ id: "conflict", revision: 5, title: "Winner", messages: [] });
+
+      const failure = await saveClientSession({
+        id: "conflict",
+        revision: 3,
+        title: "Stale overwrite",
+        messages: []
+      }).catch((error: unknown) => error);
+
+      expect(failure).toBeInstanceOf(SessionConflictError);
+      expect((failure as SessionConflictError).reason).toBe("stale_revision");
+      expect((failure as SessionConflictError).revision).toBe(5);
+      // The newer copy is intact: the stale write did not land.
+      expect((await getClientSession("conflict"))?.title).toBe("Winner");
+    });
+
+    it("keeps a deleted chat deleted: a late save cannot resurrect it", async () => {
+      vi.stubGlobal("indexedDB", undefined);
+      vi.stubGlobal("localStorage", createMockLocalStorage());
+
+      await saveClientSession({ id: "gone", revision: 1, title: "Doomed", messages: [] });
+      await deleteClientSession("gone");
+
+      const failure = await saveClientSession({
+        id: "gone",
+        revision: 2,
+        title: "Resurrected",
+        messages: []
+      }).catch((error: unknown) => error);
+
+      expect(failure).toBeInstanceOf(SessionConflictError);
+      expect((failure as SessionConflictError).reason).toBe("session_deleted");
+      expect(await getClientSession("gone")).toBeNull();
+      expect(await listClientSessions()).toEqual([]);
+    });
+
+    it("the tombstone survives a reload", async () => {
+      const mockLs = createMockLocalStorage();
+      vi.stubGlobal("indexedDB", undefined);
+      vi.stubGlobal("localStorage", mockLs);
+
+      await saveClientSession({ id: "gone-2", revision: 1, title: "Doomed", messages: [] });
+      await deleteClientSession("gone-2");
+
+      // Simulate a page reload: module state is dropped, the storage layer is not.
+      resetClientStoreState();
+      vi.stubGlobal("localStorage", mockLs);
+
+      expect(mockLs.getItem("pcbuildsage:session_tombstones")).toContain("gone-2");
+      expect(await getClientSession("gone-2")).toBeNull();
+      await expect(
+        saveClientSession({ id: "gone-2", revision: 2, title: "Back", messages: [] })
+      ).rejects.toMatchObject({ reason: "session_deleted" });
     });
   });
 });
