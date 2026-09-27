@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_FALLBACK_CONTEXT_LIMIT,
+  TOOL_DEFINITIONS_TOKEN_OVERHEAD,
   estimateTokens,
   getModelContextLimit,
   parseContextLimitFromError,
-  shouldTriggerCompaction
+  shouldTriggerCompaction,
+  measureToolDefinitionsTokens,
+  calculateStepTokens
 } from "../llm/context-budget";
+import { createToolRegistry } from "../tools";
+import type { AppConfig } from "@/types";
 
 describe("context-budget", () => {
   describe("estimateTokens", () => {
@@ -110,6 +115,132 @@ describe("context-budget", () => {
     it("returns false for invalid or zero context limits", () => {
       expect(shouldTriggerCompaction(1000, 0)).toBe(false);
       expect(shouldTriggerCompaction(1000, -1)).toBe(false);
+    });
+  });
+
+  describe("measureToolDefinitionsTokens", () => {
+    const baseConfig: AppConfig = {
+      dbPath: ":memory:",
+      countryCode: "US",
+      currency: "USD",
+      personality: "balanced",
+      theme: "sage-dark",
+      tier2Enabled: false,
+      freeformConsultEnabled: false,
+      llm: { chain: [], roles: { chat: [], subagent: [], scraper: [] } },
+      search: { provider: "none", crawlEnabled: false }
+    };
+
+    it("measures tool definitions from actual schemas instead of hardcoded 1200", () => {
+      const tools = createToolRegistry(baseConfig);
+      const measured = measureToolDefinitionsTokens(tools);
+      // Actual schemas for search_products, list_models, validate_build, etc. total > 4000 tokens
+      expect(measured).toBeGreaterThan(4000);
+      expect(measured).not.toBe(TOOL_DEFINITIONS_TOKEN_OVERHEAD);
+    });
+
+    it("increases measured token overhead when additional tools (e.g. consult) are present", () => {
+      const standardTools = createToolRegistry(baseConfig);
+      const withConsultTools = createToolRegistry({
+        ...baseConfig,
+        tier2Enabled: true,
+        search: { provider: "duckduckgo", crawlEnabled: false }
+      });
+
+      const standardOverhead = measureToolDefinitionsTokens(standardTools);
+      const consultOverhead = measureToolDefinitionsTokens(withConsultTools);
+      expect(consultOverhead).toBeGreaterThan(standardOverhead);
+    });
+
+    it("handles null, undefined, or empty tool registry gracefully", () => {
+      expect(measureToolDefinitionsTokens(null)).toBe(TOOL_DEFINITIONS_TOKEN_OVERHEAD);
+      expect(measureToolDefinitionsTokens(undefined)).toBe(TOOL_DEFINITIONS_TOKEN_OVERHEAD);
+      expect(measureToolDefinitionsTokens({})).toBe(0);
+    });
+  });
+
+  describe("calculateStepTokens", () => {
+    it("falls back to characters ÷ 3.5 calculation when there is no usage data", () => {
+      const text = "A".repeat(350); // 350 / 3.5 = 100 tokens
+      const messages = [{ role: "user", content: text }];
+      const count = calculateStepTokens({
+        currentMessages: messages,
+        systemPrompt: "System",
+        toolsOverhead: 500
+      });
+      // 100 (text) + 4 (array struct) + 2 (System/3.5 ceil) + 500 (tools)
+      expect(count).toBeGreaterThanOrEqual(600);
+      expect(count).toBeLessThan(700);
+    });
+
+    it("uses previous step provider-reported input tokens plus estimate of only new content", () => {
+      const steps = [
+        {
+          usage: { inputTokens: 5000, outputTokens: 200 },
+          text: "Here is your recommendation",
+          toolCalls: [],
+          toolResults: [{ toolCallId: "call-1", output: { result: "ok" } }]
+        }
+      ];
+
+      const count = calculateStepTokens({
+        steps,
+        currentMessages: [{ role: "user", content: "Short message" }],
+        systemPrompt: "System prompt",
+        toolsOverhead: 1200
+      });
+
+      // Must be based on 5000 reported tokens + new content tokens, NOT full characters fallback
+      expect(count).toBeGreaterThan(5000);
+      expect(count).toBeLessThan(5500);
+    });
+
+    it("fires compaction at the real 78% with mocked model reporting usage, even when characters ÷ 3.5 would say 60%", () => {
+      const contextLimit = 32_768;
+      // 60% of 32,768 = ~19,660 tokens
+      // 78% of 32,768 = ~25,559 tokens
+      const tokens60 = Math.floor(contextLimit * 0.60);
+      const tokens78 = Math.ceil(contextLimit * 0.78);
+
+      // Character-based text sized to ~60% (19,660 * 3.5 = 68,810 characters)
+      const mockContent = "X".repeat(Math.floor(tokens60 * 3.5));
+      const messages = [{ role: "user", content: mockContent }];
+
+      // Without provider usage, characters ÷ 3.5 yields ~60%
+      const fallbackTokens = calculateStepTokens({
+        currentMessages: messages,
+        systemPrompt: "",
+        toolsOverhead: 0
+      });
+      const ratioFallback = fallbackTokens / contextLimit;
+      expect(ratioFallback).toBeCloseTo(0.60, 1);
+      // Compaction would NOT fire with fallback:
+      expect(shouldTriggerCompaction(fallbackTokens, contextLimit)).toBe(false);
+
+      // With mocked model reporting usage of 78% real usage:
+      const mockedSteps = [
+        {
+          usage: { inputTokens: tokens78, outputTokens: 10 },
+          text: "Done",
+          toolCalls: [],
+          toolResults: []
+        }
+      ];
+
+      const realTokens = calculateStepTokens({
+        steps: mockedSteps,
+        currentMessages: messages,
+        systemPrompt: "",
+        toolsOverhead: 0
+      });
+
+      // Uses the real reported usage (tokens78) + new content estimate
+      expect(realTokens).toBeGreaterThanOrEqual(tokens78);
+      const ratioReal = realTokens / contextLimit;
+      expect(ratioReal).toBeGreaterThanOrEqual(0.78);
+
+      // Compaction FIRES at the real 78%!
+      expect(shouldTriggerCompaction(realTokens, contextLimit)).toBe(true);
     });
   });
 });

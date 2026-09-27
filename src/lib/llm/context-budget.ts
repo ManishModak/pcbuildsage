@@ -129,3 +129,101 @@ export function shouldTriggerCompaction(currentTokens: number, contextLimit: num
   const reserveThreshold = contextLimit - RESERVED_OUTPUT_TOKENS;
   return ratio >= COMPACTION_TRIGGER_RATIO || currentTokens >= reserveThreshold;
 }
+
+/**
+ * Measures token overhead of tool definitions from their schemas in the tool registry.
+ * Inspects description and JSON Schema for parameters/inputSchema.
+ */
+export function measureToolDefinitionsTokens(tools?: Record<string, unknown> | null): number {
+  if (!tools || typeof tools !== "object") return TOOL_DEFINITIONS_TOKEN_OVERHEAD;
+  const entries = Object.entries(tools);
+  if (entries.length === 0) return 0;
+
+  let totalTokens = 0;
+  for (const [name, t] of entries) {
+    if (!t || typeof t !== "object") continue;
+    const toolObj = t as {
+      description?: string;
+      parameters?: unknown;
+      inputSchema?: unknown;
+    };
+
+    let schema: unknown = undefined;
+    if (toolObj.inputSchema && typeof toolObj.inputSchema === "object") {
+      const inputSchema = toolObj.inputSchema as { toJSONSchema?: () => unknown };
+      schema = typeof inputSchema.toJSONSchema === "function" ? inputSchema.toJSONSchema() : inputSchema;
+    } else if (toolObj.parameters && typeof toolObj.parameters === "object") {
+      const params = toolObj.parameters as { toJSONSchema?: () => unknown };
+      schema = typeof params.toJSONSchema === "function" ? params.toJSONSchema() : params;
+    }
+
+    const definition = {
+      name,
+      description: toolObj.description ?? "",
+      parameters: schema ?? {}
+    };
+    totalTokens += estimateTokens(definition);
+  }
+
+  return totalTokens > 0 ? totalTokens : TOOL_DEFINITIONS_TOKEN_OVERHEAD;
+}
+
+export type StepTokenCalculationOptions = {
+  steps?: Array<{
+    usage?: { inputTokens?: number; outputTokens?: number };
+    text?: string;
+    reasoningText?: string;
+    toolCalls?: unknown[];
+    toolResults?: unknown[];
+    content?: unknown;
+  }>;
+  currentMessages?: unknown[];
+  systemPrompt?: string;
+  toolsOverhead?: number;
+  previousUsage?: { inputTokens?: number; outputTokens?: number };
+  newContent?: unknown;
+};
+
+/**
+ * Calculates current token count for a generation step or pre-stream check.
+ * Uses the previous step's provider-reported input tokens plus an estimate
+ * of only the new content. Keeps characters ÷ 3.5 estimate as fallback when
+ * there is no usage data (such as the first step).
+ */
+export function calculateStepTokens(options: StepTokenCalculationOptions): number {
+  const toolsOverhead = options.toolsOverhead ?? TOOL_DEFINITIONS_TOKEN_OVERHEAD;
+  const steps = options.steps;
+  const lastStep = steps && steps.length > 0 ? steps[steps.length - 1] : undefined;
+  const usage = lastStep?.usage ?? options.previousUsage;
+  const rawInputTokens = usage?.inputTokens ?? (usage as { promptTokens?: number })?.promptTokens;
+  const reportedInputTokens = typeof rawInputTokens === "number" && rawInputTokens > 0 ? rawInputTokens : undefined;
+
+  if (reportedInputTokens !== undefined) {
+    let newContentTokens = 0;
+    if (options.newContent !== undefined) {
+      newContentTokens += estimateTokens(options.newContent);
+    } else if (lastStep) {
+      if (lastStep.content) {
+        newContentTokens += estimateTokens(lastStep.content);
+      } else {
+        if (lastStep.text) newContentTokens += estimateTokens(lastStep.text);
+        if (lastStep.reasoningText) newContentTokens += estimateTokens(lastStep.reasoningText);
+        if (lastStep.toolCalls && lastStep.toolCalls.length > 0) {
+          newContentTokens += estimateTokens(lastStep.toolCalls);
+        }
+        // step.content already includes tool results; count them separately only here.
+        if (lastStep.toolResults && lastStep.toolResults.length > 0) {
+          newContentTokens += estimateTokens(lastStep.toolResults);
+        }
+      }
+    }
+    return reportedInputTokens + newContentTokens;
+  }
+
+  return (
+    estimateTokens(options.currentMessages ?? []) +
+    estimateTokens(options.systemPrompt ?? "") +
+    toolsOverhead
+  );
+}
+

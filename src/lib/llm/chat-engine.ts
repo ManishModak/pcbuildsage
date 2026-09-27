@@ -1,15 +1,24 @@
-import { type OnFinishEvent, type OnStepFinishEvent, type ToolSet, type ModelMessage, convertToModelMessages, isStepCount } from "ai";
+import { type OnFinishEvent, type OnStepFinishEvent, type ToolSet, type ModelMessage, type UIMessage, convertToModelMessages, isStepCount } from "ai";
 import type { AppConfig } from "@/types";
 import { streamTextWithFallback } from "./client";
 import { appendChatLog } from "@/lib/logger";
 import { createToolRegistry, getCatalog } from "@/lib/tools";
 import type { CatalogRepository, GetCatalogResult } from "@/lib/catalog";
 import { getPersonality } from "./personalities";
-import { getSession, saveSession, setSessionCompacting } from "@/lib/sessions";
-import { type ChatMessage, capMessages } from "./messages";
-import { getModelContextLimit, estimateTokens, shouldTriggerCompaction, TOOL_DEFINITIONS_TOKEN_OVERHEAD } from "./context-budget";
+import { getSession, saveSession, setSessionCompacting, type StoredCompactContext } from "@/lib/sessions";
+import { type ChatMessage, capMessages, deriveBuildState } from "./messages";
+import {
+  getModelContextLimit,
+  shouldTriggerCompaction,
+  measureToolDefinitionsTokens,
+  calculateStepTokens
+} from "./context-budget";
 import { compactConversation } from "./compaction";
 import type { BuildSnapshot } from "../catalog/build-snapshot";
+import { isHostedDemo } from "../config/deployment";
+function isHosted(): boolean {
+  return isHostedDemo();
+}
 
 export type { ChatMessage };
 
@@ -153,7 +162,7 @@ function persistSessionCompactContext(
   boundaryMessageId?: string,
   snapshot?: BuildSnapshot | null
 ): void {
-  if (!sessionId) return;
+  if (isHosted() || !sessionId) return;
   const current = getSession(sessionId);
   if (!current) return;
   const nextRev = (current.revision ?? 0) + 1;
@@ -168,15 +177,23 @@ function persistSessionCompactContext(
   });
 }
 
-export async function streamChat(config: AppConfig, messages: ChatMessage[], sessionId?: string, abortSignal?: AbortSignal) {
+export async function streamChat(
+  config: AppConfig,
+  messages: ChatMessage[],
+  sessionId?: string,
+  abortSignal?: AbortSignal,
+  clientCompactContext?: StoredCompactContext | null,
+  responseMessageId?: string
+) {
   const lastUser = messages.filter((message) => message.role === "user").at(-1);
   if (lastUser) {
     await appendChatLog({ role: "user", content: lastUser.content ?? "", session_id: sessionId });
   }
   let systemPrompt = buildSystemPrompt(config, await loadCatalogSummary(config));
-  const session = sessionId ? getSession(sessionId) : null;
-  if (session && session.build_state) {
-    systemPrompt += `\n\nCurrent build state (authoritative): ${JSON.stringify(session.build_state)}`;
+  const session = (!isHosted() && sessionId) ? getSession(sessionId) : null;
+  const buildState = session?.build_state ?? deriveBuildState(messages as unknown as UIMessage[]);
+  if (buildState) {
+    systemPrompt += `\n\nCurrent build state (authoritative): ${JSON.stringify(buildState)}`;
   }
   const truncatedSystem = systemPrompt.slice(0, 500) + (systemPrompt.length > 500 ? "..." : "");
   await appendChatLog({ role: "system", content: truncatedSystem, session_id: sessionId });
@@ -190,17 +207,36 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
       id: m.id ?? crypto.randomUUID(),
       role: m.role,
       content: m.content ?? "",
-      parts: m.parts ?? []
+      parts: m.parts && m.parts.length > 0
+        ? m.parts
+        : typeof m.content === "string" && m.content
+          ? [{ type: "text", text: m.content }]
+          : []
     }))
   );
 
+  const assistantMsgId = responseMessageId ?? crypto.randomUUID();
+  const effectiveCompactContext = isHosted()
+    ? (clientCompactContext ?? null)
+    : (session?.compact_context ?? clientCompactContext ?? null);
+
+  let latestCompactContext: StoredCompactContext | null = effectiveCompactContext ? { ...effectiveCompactContext } : null;
+  // The conversation the model actually sees when resuming from compacted
+  // context (earlier summary plus this turn's messages, including the user's
+  // question). onFinish stores it with the final reply as the next context.
+  let compactBase: ModelMessage[] | null = null;
+
   let initialModelMessages = rawModelMessages;
-  if (session?.compact_context && session.compact_context.messages && session.compact_context.messages.length > 0) {
-    const boundaryId = session.compact_context.boundaryMessageId;
+  if (effectiveCompactContext && effectiveCompactContext.messages && effectiveCompactContext.messages.length > 0) {
+    const boundaryId = effectiveCompactContext.boundaryMessageId;
     if (boundaryId) {
       const boundaryIndex = capped.findIndex((m) => m.id === boundaryId);
       if (boundaryIndex !== -1) {
-        const laterCapped = capped.slice(boundaryIndex + 1);
+        const sliceIndex =
+          capped[boundaryIndex]?.role === "user" && capped[boundaryIndex + 1]?.role === "assistant"
+            ? boundaryIndex + 1
+            : boundaryIndex;
+        const laterCapped = capped.slice(sliceIndex + 1);
         if (laterCapped.length > 0) {
           const laterModelMessages = await convertToModelMessages(
             laterCapped.map((m: ChatMessage) => ({
@@ -210,59 +246,79 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
               parts: m.parts ?? []
             }))
           );
-          initialModelMessages = [...session.compact_context.messages, ...laterModelMessages];
+          initialModelMessages = [...effectiveCompactContext.messages, ...laterModelMessages];
         } else {
-          initialModelMessages = [...session.compact_context.messages];
+          initialModelMessages = [...effectiveCompactContext.messages];
         }
+        compactBase = initialModelMessages;
       } else {
         initialModelMessages = rawModelMessages;
       }
     } else {
       const lastUserMsg = rawModelMessages.filter((m) => m.role === "user").at(-1);
       initialModelMessages = lastUserMsg
-        ? [...session.compact_context.messages, lastUserMsg]
-        : [...session.compact_context.messages];
+        ? [...effectiveCompactContext.messages, lastUserMsg]
+        : [...effectiveCompactContext.messages];
+      compactBase = initialModelMessages;
     }
   }
 
+  const tools = createToolRegistry(config);
+  const toolsOverhead = measureToolDefinitionsTokens(tools);
+
   // Pre-stream compaction check if request already approaches 78–80% context
-  const initialTokens = estimateTokens(initialModelMessages) + estimateTokens(systemPrompt) + TOOL_DEFINITIONS_TOKEN_OVERHEAD;
+  const initialTokens = calculateStepTokens({
+    currentMessages: initialModelMessages,
+    systemPrompt,
+    toolsOverhead
+  });
   if (shouldTriggerCompaction(initialTokens, contextLimit)) {
-    if (sessionId) setSessionCompacting(sessionId, true);
+    if (!isHosted() && sessionId) setSessionCompacting(sessionId, true);
     try {
-      const sessionSnapshot = (session?.build_state as { snapshot?: BuildSnapshot } | null)?.snapshot;
+      const sessionSnapshot = (buildState as { snapshot?: BuildSnapshot } | null)?.snapshot;
       const initialCompaction = await compactConversation({
         chain: config.llm.roles.chat,
         systemPrompt,
         messages: initialModelMessages,
         snapshot: sessionSnapshot,
         contextLimit,
+        force: true,
         abortSignal
       });
       if (initialCompaction.compacted) {
         initialModelMessages = initialCompaction.messages;
-        const lastMsgId = capped.at(-1)?.id;
-        persistSessionCompactContext(sessionId, initialModelMessages, lastMsgId, sessionSnapshot);
+        compactBase = initialCompaction.messages;
+        latestCompactContext = {
+          messages: initialModelMessages,
+          boundaryMessageId: assistantMsgId,
+          snapshot: sessionSnapshot ?? null
+        };
+        persistSessionCompactContext(sessionId, initialModelMessages, assistantMsgId, sessionSnapshot);
       }
     } finally {
-      if (sessionId) setSessionCompacting(sessionId, false);
+      if (!isHosted() && sessionId) setSessionCompacting(sessionId, false);
     }
   }
 
-  return streamTextWithFallback({
+  const streamResult = await streamTextWithFallback({
     chain: config.llm.roles.chat,
     system: systemPrompt,
     messages: initialModelMessages,
-    tools: createToolRegistry(config),
+    tools,
     // 25 on purpose: small local models (≤27B quants) and ranking several builds from in-stock parts need the steps; 14 was tested and is too low.
     stopWhen: isStepCount(25),
     abortSignal,
     prepareStep: async ({ steps, messages: currentMessages }) => {
-      const currentTokens = estimateTokens(currentMessages) + estimateTokens(systemPrompt) + TOOL_DEFINITIONS_TOKEN_OVERHEAD;
+      const currentTokens = calculateStepTokens({
+        steps,
+        currentMessages,
+        systemPrompt,
+        toolsOverhead
+      });
       if (shouldTriggerCompaction(currentTokens, contextLimit)) {
-        if (sessionId) setSessionCompacting(sessionId, true);
+        if (!isHosted() && sessionId) setSessionCompacting(sessionId, true);
         try {
-          let latestSnapshot = (session?.build_state as { snapshot?: BuildSnapshot } | null)?.snapshot;
+          let latestSnapshot = (buildState as { snapshot?: BuildSnapshot } | null)?.snapshot;
           for (const step of steps) {
             for (const res of step.toolResults || []) {
               const snap = getSnapshotFromOutput((res as { output?: unknown }).output);
@@ -276,16 +332,22 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
             messages: currentMessages,
             snapshot: latestSnapshot,
             contextLimit,
+            force: true,
             abortSignal
           });
 
           if (compaction.compacted) {
-            const lastMsgId = capped.at(-1)?.id;
-            persistSessionCompactContext(sessionId, compaction.messages, lastMsgId, latestSnapshot);
+            compactBase = compaction.messages;
+            latestCompactContext = {
+              messages: compaction.messages,
+              boundaryMessageId: assistantMsgId,
+              snapshot: latestSnapshot ?? null
+            };
+            persistSessionCompactContext(sessionId, compaction.messages, assistantMsgId, latestSnapshot);
             return { messages: compaction.messages };
           }
         } finally {
-          if (sessionId) setSessionCompacting(sessionId, false);
+          if (!isHosted() && sessionId) setSessionCompacting(sessionId, false);
         }
       }
       return {};
@@ -310,6 +372,19 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
       await Promise.all(promises);
     },
     onFinish: async (finish: OnFinishEvent<ToolSet>) => {
+      if (compactBase && finish.text && finish.text.trim().length > 0) {
+        latestCompactContext = {
+          messages: [...compactBase, { role: "assistant", content: finish.text.trim() }],
+          boundaryMessageId: assistantMsgId,
+          snapshot: latestCompactContext?.snapshot ?? null
+        };
+        persistSessionCompactContext(
+          sessionId,
+          latestCompactContext.messages,
+          assistantMsgId,
+          latestCompactContext.snapshot as BuildSnapshot | null
+        );
+      }
       await appendChatLog({
         role: "assistant",
         session_id: sessionId,
@@ -320,6 +395,16 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
       });
     }
   });
+
+  Object.defineProperties(streamResult, {
+    responseMessageId: { value: assistantMsgId, enumerable: true },
+    compactContext: { get: () => latestCompactContext, enumerable: true }
+  });
+
+  return streamResult as typeof streamResult & {
+    responseMessageId: string;
+    compactContext: StoredCompactContext | null;
+  };
 }
 
 function summarizeToolResult(result: unknown) {

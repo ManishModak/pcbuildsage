@@ -1,6 +1,7 @@
 import type { ChatUIMessage } from "@/features/chat/message";
 import type { SessionSummary } from "@/types/client";
 import { deriveBuildState } from "@/lib/llm/messages";
+import { parseCompactContext, type StoredCompactContext } from "./compact-context";
 import type { UIMessage } from "ai";
 
 export type SessionDetail = {
@@ -12,7 +13,9 @@ export type SessionDetail = {
   country_code: string | null;
   currency: string | null;
   messages: ChatUIMessage[];
-  build_state: unknown | null;
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  build_state: {} | null;
+  compact_context?: StoredCompactContext | null;
 };
 
 export type SaveSessionRequest = {
@@ -22,9 +25,11 @@ export type SaveSessionRequest = {
   title?: string | null;
   countryCode?: string | null;
   currency?: string | null;
+  compact_context?: StoredCompactContext | null;
+  compactContext?: StoredCompactContext | null;
 };
 
-export type { SessionSummary };
+export type { SessionSummary, StoredCompactContext };
 
 export type StorageType = "indexeddb" | "localstorage" | "memory";
 
@@ -38,6 +43,7 @@ export type StoredClientSession = {
   currency: string | null;
   messages: unknown[];
   build_state: unknown | null;
+  compact_context?: StoredCompactContext | null;
 };
 
 export function normalizeUIMessage(m: unknown, index = 0): ChatUIMessage {
@@ -129,7 +135,8 @@ function parseStoredSession(raw: unknown): StoredClientSession | null {
           : null,
     currency: typeof rec.currency === "string" ? rec.currency : null,
     messages: Array.isArray(rec.messages) ? rec.messages : [],
-    build_state: rec.build_state !== undefined ? rec.build_state : null
+    build_state: rec.build_state !== undefined ? rec.build_state : null,
+    compact_context: parseCompactContext(rec.compact_context ?? rec.compactContext)
   };
 }
 
@@ -145,7 +152,8 @@ function toSessionDetail(record: StoredClientSession): SessionDetail {
     messages: Array.isArray(record.messages)
       ? record.messages.map((m, idx) => normalizeUIMessage(m, idx))
       : [],
-    build_state: record.build_state ?? null
+    build_state: record.build_state ?? null,
+    compact_context: record.compact_context ?? null
   };
 }
 
@@ -615,6 +623,11 @@ export async function saveClientSession(req: SaveSessionRequest): Promise<void> 
     buildState = null;
   }
 
+  const rawCompactContext = req.compactContext !== undefined ? req.compactContext : req.compact_context;
+  const compactContext = rawCompactContext !== undefined
+    ? parseCompactContext(rawCompactContext)
+    : (existing?.compact_context ?? null);
+
   const record: StoredClientSession = {
     id: req.id,
     revision: req.revision,
@@ -624,7 +637,8 @@ export async function saveClientSession(req: SaveSessionRequest): Promise<void> 
     country_code: req.countryCode !== undefined ? (req.countryCode ?? null) : (existing?.country_code ?? null),
     currency: req.currency !== undefined ? (req.currency ?? null) : (existing?.currency ?? null),
     messages: req.messages,
-    build_state: buildState ?? existing?.build_state ?? null
+    build_state: buildState ?? existing?.build_state ?? null,
+    compact_context: compactContext
   };
 
   const type = await getEffectiveStorageType();

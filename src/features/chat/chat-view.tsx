@@ -8,6 +8,8 @@ import { fetchStatus, isHostedMode } from "@/lib/api-client";
 import { apiKeyHeaders } from "@/lib/client-config-store";
 import { injectByokHeaders } from "@/lib/llm/client-byok-store";
 import { getMarketPreference } from "@/lib/market/client-market-store";
+import { getClientSession } from "@/lib/sessions/client-store";
+import type { StoredCompactContext } from "@/lib/sessions/compact-context";
 import { resolveActiveModel, resolveChatRequestBody } from "./chat-config-resolver";
 import type { ClientConfig, StatusResponse } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
@@ -188,13 +190,31 @@ export function ChatView({
 
   const relativeTime = lastScraped ? formatRelativeTime(lastScraped) : "";
 
+  const compactContextRef = useRef<StoredCompactContext | null>(null);
+
+  useEffect(() => {
+    compactContextRef.current = null;
+    if (sessionId) {
+      getClientSession(sessionId)
+        .then((s) => {
+          if (s?.compact_context) {
+            compactContextRef.current = s.compact_context;
+          }
+        })
+        .catch(() => {});
+    }
+  }, [sessionId]);
+
   const transport = useMemo(
     () =>
-      // eslint-disable-next-line react-hooks/refs -- configRef/sessionIdRef are read inside the transport's headers/body callbacks, which run at request time, not during render
+      // eslint-disable-next-line react-hooks/refs -- configRef/sessionIdRef/compactContextRef are read inside the transport's headers/body callbacks, which run at request time, not during render
       new DefaultChatTransport<ChatUIMessage>({
         api: "/api/chat",
         headers: () => injectByokHeaders(apiKeyHeaders(configRef.current.chatChain, configRef.current)) as Record<string, string>,
-        body: () => resolveChatRequestBody(configRef.current, sessionIdRef.current)
+        body: () =>
+          resolveChatRequestBody(configRef.current, sessionIdRef.current, {
+            compactContext: compactContextRef.current
+          })
       }),
     []
   );
@@ -227,6 +247,12 @@ export function ChatView({
     },
     onFinish: ({ message, isAbort, isError }) => {
       setIsCompacting(false);
+      // Persisted by the save queue (persistSnapshot) with the rest of the session,
+      // so revision handling stays in one place.
+      const meta = message?.metadata as { compactContext?: StoredCompactContext } | undefined;
+      if (meta?.compactContext) {
+        compactContextRef.current = meta.compactContext;
+      }
       if (isIncompleteChatFinish(message, { isAbort, isError })) {
         const scheduled = recovery.scheduleIncomplete(() => {
           setMessages((current) => prepareChatRecovery(current));
@@ -278,16 +304,31 @@ export function ChatView({
                 body: JSON.stringify({
                   sessionId: sessionIdRef.current,
                   messages: messagesRef.current,
-                  config: resolveChatRequestBody(configRef.current, sessionIdRef.current),
+                  config: resolveChatRequestBody(configRef.current, sessionIdRef.current, {
+                    compactContext: compactContextRef.current
+                  }),
                   force: true
                 }),
                 signal
               });
               if (signal.aborted) return;
               if (!res.ok) throw new Error("Compaction failed");
-              const data = (await res.json()) as { compacted?: boolean };
+              const data = (await res.json()) as {
+                compacted?: boolean;
+                compactContext?: StoredCompactContext;
+                messages?: StoredCompactContext["messages"];
+                boundaryMessageId?: string;
+              };
               if (!data.compacted) {
                 throw new Error("Compaction was unable to compress history further");
+              }
+              const compactCtx = data.compactContext ?? (data.messages ? {
+                messages: data.messages,
+                boundaryMessageId: data.boundaryMessageId
+              } : undefined);
+              if (compactCtx) {
+                // The resend below carries it; the save queue persists it after that turn.
+                compactContextRef.current = compactCtx;
               }
               setIsCompacting(false);
               setMessagesRef.current((current) => prepareChatRecovery(current));
@@ -524,12 +565,19 @@ export function ChatView({
       const signature = sessionSignature(currentMessages);
       const marketPref = getMarketPreference();
 
+      const lastAssistant = [...currentMessages].reverse().find((m) => m.role === "assistant");
+      const meta = lastAssistant?.metadata as { compactContext?: StoredCompactContext } | undefined;
+      if (meta?.compactContext) {
+        compactContextRef.current = meta.compactContext;
+      }
+
       void saveQueue.enqueue(signature, {
         id: sessionIdRef.current,
         messages: currentMessages,
         title: deriveTitle(currentMessages),
         countryCode: marketPref.countryCode || configRef.current.countryCode,
-        currency: marketPref.currencyCode || configRef.current.currency
+        currency: marketPref.currencyCode || configRef.current.currency,
+        compactContext: compactContextRef.current
       });
     },
     [saveQueue]
@@ -552,7 +600,8 @@ export function ChatView({
           messages: msgs,
           title: deriveTitle(msgs),
           countryCode: marketPref.countryCode || configRef.current.countryCode,
-          currency: marketPref.currencyCode || configRef.current.currency
+          currency: marketPref.currencyCode || configRef.current.currency,
+          compactContext: compactContextRef.current
         });
       }
     };
