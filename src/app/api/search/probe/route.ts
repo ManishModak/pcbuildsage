@@ -49,11 +49,12 @@ export async function POST(request: Request): Promise<Response> {
 
     // Resolve API key strictly prioritizing request headers
     const normalizedProvider = provider.toLowerCase();
+    const envApiKey = isHostedDemo() ? undefined : process.env[`${provider.toUpperCase()}_API_KEY`];
     const apiKey =
       request.headers.get(`x-pcbuildsage-api-key-${normalizedProvider}`) ||
       request.headers.get(`x-${normalizedProvider}-api-key`) ||
       parsed.apiKey ||
-      process.env[`${provider.toUpperCase()}_API_KEY`];
+      envApiKey;
 
     if (["brave", "tavily", "exa"].includes(provider) && !apiKey) {
       return json({ ok: false, error: `${provider} search API key is required.` });
