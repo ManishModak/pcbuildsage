@@ -146,20 +146,34 @@ describe("build panel recovery: an interrupted chat still has a build", () => {
   it("recovers the real stuck session: validated builds, not a blank panel and not ₹0.00", () => {
     const versions = findAllBuildVersions(stuckSession, "INR");
 
-    // Four finished validations exist, and none of them was ever presented.
-    expect(versions).toHaveLength(1);
-    expect(versions[0].label).toBe(VALIDATED_VERSION_LABEL);
-    expect(versions[0].label).toBe("Validated — not presented yet");
-    expect(versions[0].presentationId).toBeUndefined();
-    expect(versions[0].id).toBe("3:validated:xcW55TuwFySPUsFqzPnBKZlTj78i5xpK");
+    // Four finished validations exist across two turns, and neither turn ever
+    // presented one, so each is a recovered version.
+    expect(versions).toHaveLength(2);
+    expect(versions.map((v) => v.label)).toEqual([
+      VALIDATED_VERSION_LABEL,
+      VALIDATED_VERSION_LABEL
+    ]);
+    expect(versions[0].id).toBe("1:validated:RvUOcIhIs5fn8JJzg7gvTgExP1IoxiBQ");
+    expect(versions[1].id).toBe("3:validated:xcW55TuwFySPUsFqzPnBKZlTj78i5xpK");
+    expect(versions.some((v) => v.presentationId !== undefined)).toBe(false);
 
-    const build = versions[0].builds[0];
+    // The panel shows the newest, which is the last validation of the session.
+    const latest = versions[versions.length - 1];
+    const build = latest.builds[0];
     expect(build.label).toBe("Integrated-Graphics Competitive (3400G APU)");
     expect(build.currency).toBe("INR");
     expect(build.total).toBeNull();
     expect(build.components).toHaveLength(6);
 
-    const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
+    const markup = renderToStaticMarkup(
+      <BuildCard versions={versions} selectedVersionId={latest.id} inSidePanel />
+    );
+
+    // Two recovered versions share one label, so the picker disambiguates them.
+    expect(markup).toContain(`${VALIDATED_VERSION_LABEL} · APU Vega 11 competitive esports`);
+    expect(markup).toContain(
+      `${VALIDATED_VERSION_LABEL} · Integrated-Graphics Competitive (3400G APU) (Latest)`
+    );
 
     // Not blank: the parts the rules engine actually resolved are on screen.
     expect(markup).toContain("ASRock A520M-HVS M-ATX Motherboard");
@@ -179,7 +193,11 @@ describe("build panel recovery: an interrupted chat still has a build", () => {
   it("shows the validated builds in the message's own build button", () => {
     const versions = findAllBuildVersions(stuckSession, "INR");
     const markup = renderToStaticMarkup(
-      <MessageView message={stuckSession[3]} versions={versions} currency="INR" />
+      <MessageView
+        message={stuckSession[3]}
+        versions={versions.filter((v) => v.messageIndex === 3)}
+        currency="INR"
+      />
     );
 
     expect(markup).toContain("Validated — not presented yet");
@@ -187,6 +205,56 @@ describe("build panel recovery: an interrupted chat still has a build", () => {
     expect(markup).toContain('aria-label="View proposed build: Integrated-Graphics Competitive (3400G APU)"');
     // The button must not advertise a total it does not have.
     expect(markup).not.toContain("₹0.00");
+  });
+
+  it("never labels a snapshot-bearing turn as text-derived, however early it is", () => {
+    // Two turns, each with a usable snapshot AND a build table in its prose.
+    // The fallback exists for turns with no snapshot; both of these have one.
+    const proseTable = [
+      "Here is a build:",
+      "",
+      "| Component | Part | Price |",
+      "|---|---|---|",
+      "| GPU | RTX 4060 | ₹29,000 |",
+      "| CPU | Ryzen 5 5600 | ₹11,200 |"
+    ].join("\n");
+
+    const messages: ChatUIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          finishedValidation("v1", "First Draft"),
+          { type: "text", text: proseTable }
+        ]
+      },
+      { id: "u2", role: "user", parts: [{ type: "text", text: "Now with a discrete GPU" }] },
+      {
+        id: "a2",
+        role: "assistant",
+        parts: [
+          finishedValidation("v2", "Second Draft"),
+          { type: "text", text: proseTable }
+        ]
+      }
+    ];
+
+    const versions = findAllBuildVersions(messages, "INR");
+
+    // Both turns are recovered from their snapshots...
+    expect(versions).toHaveLength(2);
+    expect(versions.map((v) => v.id)).toEqual(["1:validated:v1", "3:validated:v2"]);
+    expect(versions.map((v) => v.label)).toEqual([
+      VALIDATED_VERSION_LABEL,
+      VALIDATED_VERSION_LABEL
+    ]);
+    // ...and the earlier one is not mistaken for a prose scrape.
+    expect(versions[0].builds[0].textDerived).toBeUndefined();
+    expect(versions[0].builds[0].label).toBe("First Draft");
+    expect(versions[0].builds[0].components.map((c) => c.name)).toContain(
+      "ASRock A520M-HVS M-ATX Motherboard"
+    );
   });
 
   it("ignores a present_build that never finished in an already-finished message", () => {

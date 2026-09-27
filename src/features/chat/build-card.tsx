@@ -42,6 +42,15 @@ export function BuildCard({
   const availableVersions = versions ?? [];
   const latestVersion = availableVersions.length > 0 ? availableVersions[availableVersions.length - 1] : undefined;
 
+  // A recovered version's label is a fixed string ("Validated - not presented
+  // yet"), and an interrupted session can have more than one, so fall back to
+  // the build's own label to keep the options tellable apart.
+  const ambiguousLabels = new Set(
+    availableVersions
+      .map((v) => v.label)
+      .filter((label, _index, all) => all.filter((other) => other === label).length > 1)
+  );
+
   const [internalVersionId, setInternalVersionId] = useState<string | undefined>(undefined);
   const requestedId = selectedVersionId ?? internalVersionId;
   // A selection can outlive the version it named (the transcript was edited or
@@ -139,11 +148,17 @@ export function BuildCard({
               }}
               className="rounded-btn border border-border bg-surface px-2.5 py-1 text-caption font-medium text-text hover:border-accent focus:border-accent focus:outline-none cursor-pointer"
             >
-              {availableVersions.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v === latestVersion ? `${v.label} (Latest)` : v.label}
-                </option>
-              ))}
+              {availableVersions.map((v) => {
+                const optionLabel =
+                  ambiguousLabels.has(v.label) && v.builds[0]?.label
+                    ? `${v.label} · ${v.builds[0].label}`
+                    : v.label;
+                return (
+                  <option key={v.id} value={v.id}>
+                    {v === latestVersion ? `${optionLabel} (Latest)` : optionLabel}
+                  </option>
+                );
+              })}
             </select>
           </div>
         </div>

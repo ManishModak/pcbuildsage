@@ -70,20 +70,26 @@ function latestValidatingPart(parts: ToolPart[]): ToolPart | undefined {
 }
 
 /**
- * Index of the last assistant turn that validated a build without presenting
- * one, or -1. Only the latest such turn becomes a version: earlier ones are
- * superseded, and the version label is a fixed string, so two of them would
- * be indistinguishable in the version picker.
+ * Every assistant turn that validated a build without presenting one.
+ *
+ * All of them, not just the latest: a turn that has a real snapshot must never
+ * be labelled as a build scraped out of prose, and the fallback below is gated
+ * on exactly this. Several can be true at once in a long interrupted session,
+ * which is why the version picker disambiguates a repeated label.
  */
-function findValidatedOnlyMessageIndex(messages: ChatUIMessage[], streamingMessageId?: string): number {
-  for (let i = messages.length - 1; i >= 0; i--) {
+function findValidatedOnlyMessageIndices(
+  messages: ChatUIMessage[],
+  streamingMessageId?: string
+): Set<number> {
+  const indices = new Set<number>();
+  for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     if (msg.role !== "assistant") continue;
     const parts = (Array.isArray(msg.parts) ? msg.parts : []).filter(isToolPart) as ToolPart[];
     if (parts.some((part) => isFinishedPresentPart(part, msg.id, streamingMessageId))) continue;
-    if (latestValidatingPart(parts)) return i;
+    if (latestValidatingPart(parts)) indices.add(i);
   }
-  return -1;
+  return indices;
 }
 
 /**
@@ -100,7 +106,7 @@ export function findAllBuildVersions(
   options: BuildVersionOptions = {}
 ): BuildVersion[] {
   const streamingMessageId = options.streamingMessageId;
-  const validatedOnlyIndex = findValidatedOnlyMessageIndex(messages, streamingMessageId);
+  const validatedOnlyIndices = findValidatedOnlyMessageIndices(messages, streamingMessageId);
 
   const toolPartsUpTo: ToolPart[] = [];
   const versions: BuildVersion[] = [];
@@ -155,7 +161,7 @@ export function findAllBuildVersions(
 
     toolPartsUpTo.push(...assistantToolParts);
 
-    if (i === validatedOnlyIndex) {
+    if (validatedOnlyIndices.has(i)) {
       const validatingPart = latestValidatingPart(assistantToolParts);
       const validated = validatingPart ? derivedBuildsFromValidation(validatingPart, currency) : [];
       if (validated.length > 0) {
