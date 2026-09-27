@@ -2,8 +2,11 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  buildHeaderSignature,
+  buildsFingerprint,
   findAllBuildVersions,
   followNewestVersion,
+  openedBuildsForSession,
   resolveSelectedVersion,
   VALIDATED_VERSION_LABEL
 } from "../build-versions";
@@ -540,11 +543,6 @@ describe("a malformed saved build cannot take the chat down", () => {
    * own contract: render the children, and if they throw, apply the state that
    * getDerivedStateFromError produced and render the boundary's error branch.
    */
-  /** SSR escapes an apostrophe as &#x27;; assertions read better without it. */
-  function decodeEntities(markup: string): string {
-    return markup.replace(/&#x27;/g, "'").replace(/&quot;/g, '"');
-  }
-
   function renderThroughBoundary(children: ReactNode, resetKeys: unknown[] = []): string {
     const instance = new BuildErrorBoundary({ children, resetKeys });
     try {
@@ -675,3 +673,260 @@ describe("a malformed saved build cannot take the chat down", () => {
     expect(setState).toHaveBeenCalledWith({ error: null });
   });
 });
+
+/** SSR escapes an apostrophe as &#x27;; assertions read better without it. */
+function decodeEntities(markup: string): string {
+  return markup.replace(/&#x27;/g, "'").replace(/&quot;/g, '"');
+}
+
+/** A session whose only build lives in the assistant's prose: no present_build, no validate_build. */
+const markdownOnlySession: ChatUIMessage[] = [
+  { id: "u1", role: "user", parts: [{ type: "text", text: "Just tell me a build in a table." }] },
+  {
+    id: "a1",
+    role: "assistant",
+    parts: [
+      {
+        type: "text",
+        text: [
+          "Here is a build:",
+          "",
+          "| Component | Part | Price |",
+          "|---|---|---|",
+          "| GPU | RTX 4060 | ₹29,000 |",
+          "| CPU | AMD Ryzen 5 5600 | ₹11,500 |"
+        ].join("\n")
+      }
+    ]
+  }
+];
+
+describe("R-A1: the header effect cannot re-arm itself", () => {
+  it("fingerprints a markdown build identically on every derive pass", () => {
+    // Two independent passes over the same transcript: the objects differ, which
+    // is exactly what re-armed the header effect until React gave up.
+    const first = findAllBuildVersions(markdownOnlySession, "INR");
+    const second = findAllBuildVersions(markdownOnlySession, "INR");
+
+    expect(first).toHaveLength(1);
+    expect(second).toHaveLength(1);
+    expect(second[0].builds).not.toBe(first[0].builds);
+    expect(second[0].builds[0]).not.toBe(first[0].builds[0]);
+    expect(second[0].builds[0].components[0]).not.toBe(first[0].builds[0].components[0]);
+
+    // ...while the value it renders is identical, so the effect sees no change.
+    expect(buildsFingerprint(second[0].builds)).toBe(buildsFingerprint(first[0].builds));
+
+    const header = {
+      sessionId: "s1",
+      model: "gemini-2.5-flash",
+      streaming: false,
+      compacting: false,
+      sidePanelOpen: true,
+      messageCount: 2,
+      title: "Just tell me a build in a table.",
+      error: "",
+      currency: "INR",
+      countryCode: "IN",
+      buildPrice: "₹40,500",
+      builds: first[0].builds
+    };
+    expect(buildHeaderSignature({ ...header, builds: second[0].builds })).toBe(
+      buildHeaderSignature(header)
+    );
+
+    // A build that really changed still moves the signature.
+    expect(
+      buildHeaderSignature({ ...header, builds: undefined })
+    ).not.toBe(buildHeaderSignature(header));
+  });
+
+  it("shows the markdown build in the panel", () => {
+    const versions = findAllBuildVersions(markdownOnlySession, "INR");
+    const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
+    expect(markup).toContain("RTX 4060");
+    expect(markup).toContain("₹40,500");
+  });
+});
+
+describe("R-A2: a build parsed out of the assistant's text says so", () => {
+  it("labels it instead of offering it as a normal version", () => {
+    const versions = findAllBuildVersions(markdownOnlySession, "INR");
+
+    expect(versions).toHaveLength(1);
+    expect(versions[0].label).toBe("Not validated — from the assistant's text");
+    expect(versions[0].label).not.toMatch(/^Version \d+$/);
+    expect(versions[0].builds[0].textDerived).toBe(true);
+
+    const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
+    expect(decodeEntities(markup)).toContain("Not validated — from the assistant's text");
+    // Never validated means never "ok": no component claims it was checked.
+    expect(markup).toContain("Unverified compatibility");
+    expect(markup).not.toContain("checks passed");
+
+    // The version picker must not dress it up as "Version 1".
+    const twoVersions = findAllBuildVersions(
+      [
+        ...markdownOnlySession,
+        { id: "u2", role: "user", parts: [{ type: "text", text: "and now with an M2?" }] },
+        {
+          id: "a2",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool-present_build",
+              toolCallId: "call-1",
+              state: "output-available",
+              input: {
+                builds: [
+                  {
+                    label: "Real Build",
+                    parts: [
+                      { category: "gpu", name: "RTX 4070", price: 54000, currency: "INR" }
+                    ]
+                  }
+                ]
+              }
+            } as unknown as ChatUIMessage["parts"][number]
+          ]
+        }
+      ],
+      "INR"
+    );
+    const picker = renderToStaticMarkup(
+      <BuildCard versions={twoVersions} selectedVersionId={twoVersions[1].id} inSidePanel />
+    );
+    expect(picker).toContain("Version 2 (Latest)");
+    expect(decodeEntities(picker)).toContain("Not validated — from the assistant's text");
+  });
+
+  it("surfaces a blocking issue from the same turn without claiming validation", () => {
+    const messages: ChatUIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build." }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-validate_build",
+            toolCallId: "v1",
+            state: "output-available",
+            input: { label: "Rejected", parts: { cpu: "ryzen-5-7600", ram: "ddr4-16" } },
+            output: {
+              valid: false,
+              issues: [
+                {
+                  severity: "blocking",
+                  rule: "ddr",
+                  components: ["ram", "cpu"],
+                  detail: "AM5 CPUs require DDR5 memory, but DDR4 was selected."
+                }
+              ],
+              resolved: {},
+              checks: []
+            }
+          } as unknown as ChatUIMessage["parts"][number],
+          {
+            type: "text",
+            text: [
+              "How about this:",
+              "",
+              "| Component | Part | Price |",
+              "|---|---|---|",
+              "| CPU | Ryzen 5 7600 | ₹18,500 |",
+              "| RAM | DDR4 16GB | ₹3,500 |"
+            ].join("\n")
+          }
+        ]
+      }
+    ];
+
+    const versions = findAllBuildVersions(messages, "INR");
+    expect(versions).toHaveLength(1);
+    expect(versions[0].label).toBe("Not validated — from the assistant's text");
+
+    const build = versions[0].builds[0];
+    expect(build.textDerived).toBe(true);
+    const ram = build.components.find((c) => c.category === "ram");
+    expect(ram?.failed).toBe(true);
+    expect(ram?.failedNote).toContain("DDR5");
+
+    const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
+    // The caveat and the blocking issue coexist.
+    expect(decodeEntities(markup)).toContain("Not validated — from the assistant's text");
+    expect(markup).toContain("AM5 CPUs require DDR5 memory");
+    expect(markup).toContain("check failed");
+  });
+});
+
+describe("R-A3: the thinking trace stops pulsing once the message is done", () => {
+  const reasoningMessage = (state: string): ChatUIMessage => ({
+    id: "a1",
+    role: "assistant",
+    parts: [
+      { type: "reasoning", state, text: "Comparing catalog options." }
+    ] as unknown as ChatUIMessage["parts"]
+  });
+
+  it("animates a live reasoning part and not a finished one", () => {
+    const live = renderToStaticMarkup(<MessageView message={reasoningMessage("streaming")} currency="INR" />);
+    expect(live).toContain("animate-pulse");
+    expect(live).toContain("Sage thinking process...");
+    expect(live).toContain('aria-busy="true"');
+
+    const done = renderToStaticMarkup(<MessageView message={reasoningMessage("done")} currency="INR" />);
+    expect(done).not.toContain("animate-pulse");
+    // The trace and its name are still there - it just is not busy any more.
+    expect(done).toContain("Sage thinking process...");
+    expect(done).toContain('aria-busy="false"');
+  });
+});
+
+describe("R-A4: a session switch cannot leave the previous chat's build on screen", () => {
+  it("drops the opened builds when the session id changes", () => {
+    const [versionA] = findAllBuildVersions(secondTurnForPanel(), "INR");
+    expect(versionA).toBeDefined();
+
+    const opened = { sessionId: "session-a", builds: versionA.builds };
+
+    // Still the same session: the panel keeps what was opened.
+    expect(openedBuildsForSession(opened, "session-a")).toBe(versionA.builds);
+
+    // Session B is on screen and has no builds of its own.
+    expect(openedBuildsForSession(opened, "session-b")).toBeNull();
+    expect(openedBuildsForSession(null, "session-b")).toBeNull();
+
+    // So the panel has nothing to fall back to: no stale build, and no price.
+    const displayBuilds = openedBuildsForSession(opened, "session-b");
+    expect(displayBuilds).toBeNull();
+    expect(buildsFingerprint(displayBuilds)).toBe("");
+  });
+});
+
+/** A single turn that presents a build, reused by the session-switch test. */
+function secondTurnForPanel(): ChatUIMessage[] {
+  return [
+    { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build" }] },
+    {
+      id: "a1",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-present_build",
+          toolCallId: "call-1",
+          state: "output-available",
+          input: {
+            builds: [
+              {
+                label: "Session A Build",
+                parts: [
+                  { category: "gpu", name: "RTX 4060", price: 28500, currency: "INR" }
+                ]
+              }
+            ]
+          }
+        } as unknown as ChatUIMessage["parts"][number]
+      ]
+    }
+  ];
+}

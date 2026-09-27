@@ -8,7 +8,7 @@ import { PillTabs } from "@/components/ui/pill-tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/components/ui/cn";
 import type { DerivedBuild, BuildVersion } from "./build-derive";
-import { resolveBuildTotal, validationStrip } from "./build-derive";
+import { resolveBuildTotal, validationStrip, TEXT_BUILD_CAVEAT } from "./build-derive";
 
 export interface BuildCardProps {
   builds?: DerivedBuild[];
@@ -167,6 +167,11 @@ export function BuildCard({
       )}
 
       <div className="px-4 py-3">
+        {active.textDerived ? (
+          <p className="mb-3 inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
+            {TEXT_BUILD_CAVEAT}
+          </p>
+        ) : null}
         <ul className="flex flex-col">
           {active.components.map((component, componentIndex) => (
             <li

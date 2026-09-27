@@ -10,10 +10,11 @@ import {
   isFinishedPresentPart,
   isPresentBuildPart,
   isValidatePart,
+  TEXT_BUILD_CAVEAT,
   type DerivedBuild
 } from "./build-derive";
 
-export { isFinishedPresentPart, isPresentBuildPart };
+export { isFinishedPresentPart, isPresentBuildPart, TEXT_BUILD_CAVEAT };
 
 /** Version label for a turn that validated a build but never presented one. */
 export const VALIDATED_VERSION_LABEL = "Validated — not presented yet";
@@ -177,13 +178,87 @@ export function findAllBuildVersions(
         id: `${i}:text:${versionNum}`,
         version: versionNum,
         messageIndex: i,
-        label: `Version ${versionNum}`,
+        // Parsed out of prose, not computed by the rules engine: it must never
+        // be offered as an ordinary "Version N" proposal.
+        label: TEXT_BUILD_CAVEAT,
         builds
       });
     }
   }
 
   return versions;
+}
+
+/**
+ * The builds the panel was opened on - but only for the session on screen.
+ *
+ * ChatView is not remounted on a session switch, so whatever the panel was
+ * showing would otherwise survive into the next chat. Scoping the stored builds
+ * to the session they came from makes that impossible by construction, rather
+ * than clearing it a frame later in an effect.
+ */
+export function openedBuildsForSession(
+  opened: { sessionId: string; builds: DerivedBuild[] } | null | undefined,
+  sessionId: string
+): DerivedBuild[] | null {
+  return opened && opened.sessionId === sessionId ? opened.builds : null;
+}
+
+/**
+ * A value-based fingerprint of a build list.
+ *
+ * The derived builds are rebuilt from tool parts on every pass, so identity
+ * comparisons say "changed" when nothing did. Anything that reacts to build
+ * data - the header effect in particular - has to compare this instead, or it
+ * re-arms itself forever: set state, re-render, derive fresh objects, re-arm.
+ */
+export function buildsFingerprint(builds: DerivedBuild[] | null | undefined): string {
+  if (!builds || builds.length === 0) return "";
+  return builds
+    .map(
+      (build) =>
+        `${build.label || ""}:${build.currency}:${build.total ?? "?"}:${build.textDerived ? "t" : ""}:${
+          build.validation ? "v" : ""
+        }:${build.components
+          .map((c) => `${c.category}:${c.name}:${c.price}:${c.currency}:${c.status ?? ""}`)
+          .join(",")}`
+    )
+    .join("|");
+}
+
+/**
+ * A value-based fingerprint of everything the chat header renders, so the
+ * effect that publishes it only fires when the header would actually look
+ * different.
+ */
+export function buildHeaderSignature(header: {
+  sessionId: string;
+  model: string;
+  streaming: boolean;
+  compacting: boolean;
+  sidePanelOpen: boolean;
+  messageCount: number;
+  title: string;
+  error: string;
+  currency: string;
+  countryCode: string;
+  buildPrice: string | null;
+  builds: DerivedBuild[] | null | undefined;
+}): string {
+  return [
+    header.sessionId,
+    header.model,
+    header.streaming ? "1" : "0",
+    header.compacting ? "1" : "0",
+    header.sidePanelOpen ? "1" : "0",
+    header.messageCount,
+    header.title,
+    header.error,
+    header.currency,
+    header.countryCode,
+    header.buildPrice ?? "",
+    buildsFingerprint(header.builds)
+  ].join("\u0001");
 }
 
 /**

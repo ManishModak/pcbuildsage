@@ -19,7 +19,7 @@ import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
 import { BuildCard } from "./build-card";
 import { BuildErrorBoundary } from "./build-error-boundary";
-import { extractBuildsFromMessage, findAllBuildVersions, followNewestVersion, resolveBuildTotal, resolveSelectedVersion, type DerivedBuild, type BuildVersion } from "./build-derive";
+import { buildHeaderSignature, buildsFingerprint, extractBuildsFromMessage, findAllBuildVersions, followNewestVersion, openedBuildsForSession, resolveBuildTotal, resolveSelectedVersion, type DerivedBuild, type BuildVersion } from "./build-derive";
 import { getFollowups } from "@/lib/followups";
 import { isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
@@ -76,18 +76,6 @@ function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedB
     }
   }
   return null;
-}
-
-function buildsSignature(builds: DerivedBuild[] | null): string {
-  if (!builds || builds.length === 0) return "";
-  return builds
-    .map(
-      (b) =>
-        `${b.label || ""}:${b.currency}:${b.components
-          .map((c) => `${c.category}:${c.name}:${c.price}`)
-          .join(",")}`
-    )
-    .join("|");
 }
 
 function ModelStatus({ modelName, streaming, isCompacting }: { modelName: string; streaming: boolean; isCompacting?: boolean }) {
@@ -365,7 +353,16 @@ export function ChatView({
   });
 
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
-  const [activeBuilds, setActiveBuilds] = useState<DerivedBuild[] | null>(null);
+  // Stored with the session it belongs to: ChatView is not remounted on a
+  // switch, so a build from the previous chat must never reach the panel.
+  const [openedBuilds, setOpenedBuilds] = useState<{ sessionId: string; builds: DerivedBuild[] } | null>(null);
+  const activeBuilds = openedBuildsForSession(openedBuilds, sessionId);
+  const setActiveBuilds = useCallback(
+    (builds: DerivedBuild[] | null) => {
+      setOpenedBuilds(builds ? { sessionId, builds } : null);
+    },
+    [sessionId]
+  );
   const [panelWidth, setPanelWidth] = useState(460);
   const [isDragging, setIsDragging] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -420,8 +417,12 @@ export function ChatView({
     return findLatestBuilds(messages, config.currency);
   }, [allBuildVersions, messages, config.currency]);
 
-  const displayBuilds = activeVersionObj?.builds ?? activeBuilds ?? latestBuilds;
-
+  // Memoised so the selection keeps its identity while nothing it selects from
+  // has changed; the header effect below also fingerprints the value.
+  const displayBuilds = useMemo(
+    () => activeVersionObj?.builds ?? activeBuilds ?? latestBuilds,
+    [activeVersionObj, activeBuilds, latestBuilds]
+  );
 
   const lastSigRef = useRef<string>("");
   const hasInitializedOpenRef = useRef(false);
@@ -438,7 +439,7 @@ export function ChatView({
   }, [allBuildVersions, selectedVersionId]);
 
   useEffect(() => {
-    const currentSig = buildsSignature(latestBuilds);
+    const currentSig = buildsFingerprint(latestBuilds);
     if (latestBuilds && currentSig) {
       if (currentSig !== lastSigRef.current) {
         lastSigRef.current = currentSig;
@@ -456,7 +457,7 @@ export function ChatView({
         });
       }
     }
-  }, [latestBuilds, isActive]);
+  }, [latestBuilds, isActive, setActiveBuilds]);
 
   const streaming = status === "streaming" || status === "submitted";
   const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
@@ -474,8 +475,32 @@ export function ChatView({
     ? formatPrice(resolveBuildTotal(activeBuild), activeBuild.currency)
     : null;
 
+  // Everything this header renders, as one value. `displayBuilds` is rebuilt
+  // from tool parts on every pass, so comparing it by identity re-armed this
+  // effect forever: publish a new element, re-render the provider, derive fresh
+  // builds, publish again - until React gave up with "Maximum update depth
+  // exceeded". The signature ends that cycle, and it is the whole header rather
+  // than just the build so nothing goes stale behind the guard.
+  const headerSignature = buildHeaderSignature({
+    sessionId,
+    model: activeModel,
+    streaming,
+    compacting: activeIsCompacting,
+    sidePanelOpen,
+    messageCount: messages.length,
+    title: deriveTitle(messages),
+    error: error ? getErrorMessage(error) : "",
+    currency: config.currency,
+    countryCode: config.countryCode,
+    buildPrice: headerBuildPrice,
+    builds: displayBuilds
+  });
+  const lastHeaderSignatureRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!isActive) return;
+    if (lastHeaderSignatureRef.current === headerSignature) return;
+    lastHeaderSignatureRef.current = headerSignature;
     setHeaderSuffix(
       <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -532,6 +557,7 @@ export function ChatView({
   }, [
     isActive,
     setHeaderSuffix,
+    headerSignature,
     activeModel,
     streaming,
     activeIsCompacting,

@@ -20,7 +20,15 @@ export type ChatUIMessage = UIMessage<ChatMetadata> & {
   createdAt?: Date;
 };
 
-function ThinkingTrace({ text }: { text: string }) {
+/**
+ * The collapsible reasoning trace.
+ *
+ * `live` is the part's own state: a finished message keeps its trace but must
+ * stop looking like work in progress, so the pulse and the busy state both
+ * follow it. The accessible name is the same either way, so a screen reader is
+ * told the trace exists and, through aria-busy, whether it is still running.
+ */
+function ThinkingTrace({ text, live }: { text: string; live: boolean }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const contentId = useId();
 
@@ -32,11 +40,12 @@ function ThinkingTrace({ text }: { text: string }) {
         type="button"
         aria-expanded={isExpanded}
         aria-controls={contentId}
+        aria-busy={live}
         onClick={() => setIsExpanded(!isExpanded)}
         className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-text-muted hover:bg-surface-muted/50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Icon icon={Brain} className="animate-pulse text-primary/70" />
+          <Icon icon={Brain} className={cn("text-primary/70", live && "animate-pulse")} />
           <span className="font-medium text-text-muted">Sage thinking process...</span>
         </div>
         <Icon
@@ -214,7 +223,10 @@ export function MessageView({
       {parts.map((part, index) => {
         if (isReasoningPart(part)) {
           if (part.text) {
-            return <ThinkingTrace key={index} text={part.text} />;
+            // Anything but a terminal state means the model is still thinking;
+            // a part saved with no state at all keeps the old behaviour.
+            const state = (part as { state?: string }).state;
+            return <ThinkingTrace key={index} text={part.text} live={state !== "done"} />;
           }
         }
         if (isTextPart(part)) {

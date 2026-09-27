@@ -11,8 +11,11 @@ import {
   type StripBadge
 } from "./validation-strip";
 import {
+  buildHeaderSignature,
+  buildsFingerprint,
   findAllBuildVersions,
   followNewestVersion,
+  openedBuildsForSession,
   resolveSelectedVersion,
   type BuildVersion
 } from "./build-versions";
@@ -24,8 +27,11 @@ export {
   type StripBadge
 };
 export {
+  buildHeaderSignature,
+  buildsFingerprint,
   findAllBuildVersions,
   followNewestVersion,
+  openedBuildsForSession,
   resolveSelectedVersion,
   type BuildVersion
 };
@@ -82,6 +88,12 @@ export type DerivedBuild = {
    * explicit "ask again" message instead of a blank or invented total.
    */
   detailsUnavailable?: boolean;
+  /**
+   * Set when the build was parsed out of the assistant's prose rather than
+   * computed by validate_build. The weakest evidence there is, so the card
+   * says so instead of presenting it as a validated proposal.
+   */
+  textDerived?: boolean;
 };
 
 type PartIdentity = { product_id?: string; key?: string; name: string };
@@ -818,6 +830,79 @@ function isOpaqueProductId(name: string, productId?: string): boolean {
   return /^[0-9a-f]{16,}$/i.test(name) || /^[0-9a-z]{20,}$/i.test(name);
 }
 
+/** What a build parsed out of the assistant's prose is labelled, exactly. */
+export const TEXT_BUILD_CAVEAT = "Not validated — from the assistant's text";
+
+/**
+ * The blocking issues the latest finished validate_build in this turn raised.
+ * A text-parsed build is still shown next to them: a build the rules engine
+ * rejected must not look clean just because it was never validated.
+ */
+function blockingIssuesFromToolParts(toolParts: ToolPart[]): BuildIssue[] {
+  for (let i = toolParts.length - 1; i >= 0; i--) {
+    const part = toolParts[i];
+    if (!isValidatePart(part) || part.state !== "output-available") continue;
+    const output = part.output as { issues?: unknown; builds?: unknown } | undefined;
+    if (!output || typeof output !== "object") continue;
+
+    const candidates: unknown[] = [];
+    if (output.builds && typeof output.builds === "object") {
+      for (const entry of Object.values(output.builds as Record<string, unknown>)) {
+        const issues = (entry as { issues?: unknown } | undefined)?.issues;
+        if (Array.isArray(issues)) candidates.push(...issues);
+      }
+    } else if (Array.isArray(output.issues)) {
+      candidates.push(...output.issues);
+    }
+
+    const blocking = candidates.filter(
+      (issue): issue is BuildIssue =>
+        Boolean(issue) &&
+        typeof issue === "object" &&
+        (issue as BuildIssue).severity === "blocking"
+    );
+    if (blocking.length > 0) return blocking;
+  }
+  return [];
+}
+
+/**
+ * Mark builds that came from the assistant's text rather than from
+ * validate_build, and surface any blocking issue raised in the same turn.
+ *
+ * Components with no issue stay unverified rather than becoming "ok": a text
+ * build was never checked, and the caveat label is what says so.
+ */
+export function markTextDerivedBuilds(builds: DerivedBuild[], toolParts: ToolPart[]): DerivedBuild[] {
+  const blocking = blockingIssuesFromToolParts(toolParts);
+  return builds.map((build) => {
+    // A component the rules engine named keeps its verdict; every other one
+    // stays unverified, because nothing ever checked it.
+    const components = build.components.map((component) => {
+      const issue =
+        blocking.length > 0
+          ? findComponentIssue(
+              blocking,
+              component.category,
+              component.registryKey ?? component.productId,
+              component.name
+            )
+          : undefined;
+      return {
+        ...component,
+        ...(issue ? decorateComponentStatus(issue, true) : decorateComponentStatus(undefined, false))
+      };
+    });
+
+    return {
+      ...build,
+      components,
+      textDerived: true,
+      validation: blocking.length > 0 ? { valid: false, issues: blocking, resolved: {} } : null
+    };
+  });
+}
+
 /**
  * Render a build straight from a `validate_build` snapshot. Snapshots are the
  * catalog-calculated data the rules engine produced, so this is what a turn
@@ -1463,7 +1548,7 @@ export function deriveBuilds(parts: unknown[], fallbackCurrency: string): Derive
     const combinedText = textParts.map((p) => p.text).join("\n\n");
     const markdownBuilds = parseBuildsFromMarkdown(combinedText, fallbackCurrency);
     if (markdownBuilds.length > 0) {
-      return enrichBuildsWithToolProducts(markdownBuilds, toolParts);
+      return enrichBuildsWithToolProducts(markTextDerivedBuilds(markdownBuilds, toolParts), toolParts);
     }
   }
 
@@ -1492,7 +1577,10 @@ export function extractBuildsFromMessage(
   if (typeof message.content === "string" && message.content.trim()) {
     const markdownBuilds = parseBuildsFromMarkdown(message.content, fallbackCurrency);
     if (markdownBuilds.length > 0) {
-      return enrichBuildsWithToolProducts(markdownBuilds, combinedToolParts);
+      return enrichBuildsWithToolProducts(
+        markTextDerivedBuilds(markdownBuilds, combinedToolParts),
+        combinedToolParts
+      );
     }
   }
 
