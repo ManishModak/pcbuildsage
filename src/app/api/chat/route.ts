@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import { z } from "zod";
 import { streamChat } from "@/lib/llm/chat-engine";
 import { compactChatMessages } from "@/lib/llm/messages";
+import { parseCompactContext, type StoredCompactContext } from "@/lib/sessions";
 import { buildAppConfig, UnsafeConfigError } from "../_lib/credentials";
 import { badRequest, readJson, serverError } from "../_lib/responses";
 
@@ -17,7 +18,8 @@ const messageSchema = z.object({
 const chatRequestSchema = z.object({
   messages: z.array(messageSchema),
   sessionId: z.string().optional(),
-  config: z.unknown().optional()
+  config: z.unknown().optional(),
+  compactContext: z.unknown().optional()
 });
 
 function extractDetailedErrorMessage(error: unknown): string {
@@ -114,16 +116,28 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const body = chatRequestSchema.parse(await readJson(request));
     const config = buildAppConfig(request.headers, body.config ?? {});
-    
-    const result = await streamChat(config, compactChatMessages(body.messages), body.sessionId, request.signal);
-    return result.toUIMessageStreamResponse<UIMessage<{ provider: string; model: string; fallbackIndex: number; primaryError?: string }>>({
+    const rawCompact =
+      body.compactContext ??
+      (body.config && typeof body.config === "object" ? (body.config as Record<string, unknown>).compactContext : undefined);
+    const clientCompactContext = parseCompactContext(rawCompact);
+
+    const result = await streamChat(
+      config,
+      compactChatMessages(body.messages),
+      body.sessionId,
+      request.signal,
+      clientCompactContext
+    );
+    return result.toUIMessageStreamResponse<UIMessage<{ provider: string; model: string; fallbackIndex: number; primaryError?: string; compactContext?: StoredCompactContext }>>({
+      generateMessageId: () => result.responseMessageId,
       messageMetadata: () => ({
         provider: result.provider,
         model: result.model,
         fallbackIndex: result.fallbackIndex,
         primaryError: result.errors?.[0]
           ? sanitizeErrorMessage(result.errors[0], request.headers)
-          : undefined
+          : undefined,
+        compactContext: result.compactContext ?? undefined
       }),
       onError: (error: unknown) => {
         const safeMsg = sanitizeErrorMessage(error, request.headers);

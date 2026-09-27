@@ -8,6 +8,7 @@
 import { isHostedMode } from "@/lib/api-client";
 import { getMarketPreference, type MarketPreference } from "@/lib/market/client-market-store";
 import { getActiveByokProvider, getByokModel, getByokReasoningEffort, hasByokKey } from "@/lib/llm/client-byok-store";
+import type { StoredCompactContext } from "@/lib/sessions";
 import type { ClientConfig, KeySource, LLMProvider, ReasoningEffort, SearchProvider } from "@/types/client";
 
 export interface ResolveChatOptions {
@@ -17,10 +18,12 @@ export interface ResolveChatOptions {
   hasKey?: (provider: string) => boolean;
   getModel?: (provider: string) => string | undefined;
   getReasoningEffort?: (provider: string) => ReasoningEffort | undefined;
+  compactContext?: StoredCompactContext | null;
 }
 
 export interface ChatRequestBody {
   sessionId: string;
+  compactContext?: StoredCompactContext | null;
   config: {
     chatLlmChain: Array<{
       provider: LLMProvider;
@@ -151,6 +154,7 @@ export function resolveChatRequestBody(
 
   return {
     sessionId,
+    ...(options?.compactContext ? { compactContext: options.compactContext } : {}),
     config: {
       chatLlmChain: serverChain,
       llmChain: serverChain,
