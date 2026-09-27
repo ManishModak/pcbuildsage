@@ -2,7 +2,6 @@ import type { ToolSet } from "ai";
 import type { AppConfig } from "@/types";
 import type { CatalogRepository } from "@/lib/catalog";
 import { createSearchProductsTool } from "./search-products";
-import { createGetCatalogTool } from "./get-catalog";
 import { createListModelsTool } from "./list-models";
 import { createValidateBuildTool } from "./validate-build";
 import { createPresentBuildTool } from "./present-build";
@@ -12,10 +11,6 @@ import { createConsultTool } from "./consult";
 export function createToolRegistry(config: AppConfig, options?: { repository?: CatalogRepository }): ToolSet {
   const tools: ToolSet = {
     search_products: createSearchProductsTool(
-      { dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency, repository: options?.repository },
-      options?.repository
-    ),
-    get_catalog: createGetCatalogTool(
       { dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency, repository: options?.repository },
       options?.repository
     ),

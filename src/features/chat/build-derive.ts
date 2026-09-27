@@ -1,4 +1,5 @@
 import type { BuildIssue, ProductRow, ValidationResult } from "@/types/client";
+import type { BuildSnapshot, BuildSnapshotComponent } from "@/lib/catalog/build-snapshot";
 import { isTextPart, isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
 export type { ChatUIMessage } from "./message";
@@ -54,6 +55,7 @@ export type BuildComponent = {
   advisory?: boolean;
   advisoryNote?: string;
   status?: "ok" | "failed" | "unverified" | "advisory";
+  notInCatalog?: boolean;
 };
 
 export type DerivedBuild = {
@@ -62,6 +64,8 @@ export type DerivedBuild = {
   components: BuildComponent[];
   currency: string;
   validation: ValidationResult | null;
+  total?: number | null;
+  isLegacy?: boolean;
 };
 
 type PartIdentity = { product_id?: string; key?: string; name: string };
@@ -285,7 +289,7 @@ export function deriveBuild(parts: ToolPart[], fallbackCurrency: string): Derive
     (a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category)
   );
 
-  return { label, components, currency, validation };
+  return { label, components, currency, validation, isLegacy: true };
 }
 
 /**
@@ -488,7 +492,8 @@ export function parseTableToBuild(
     label,
     components,
     currency: detectedCurrency,
-    validation: null
+    validation: null,
+    isLegacy: true
   };
 }
 
@@ -587,7 +592,8 @@ export function parseBulletListToBuild(
     label,
     components,
     currency: detectedCurrency,
-    validation: null
+    validation: null,
+    isLegacy: true
   };
 }
 
@@ -717,69 +723,133 @@ function isComponentMatch(vPart: PartIdentity, bPart: PartIdentity): boolean {
   return false;
 }
 
-function findMatchingValidation(
-  build: { label?: string; parts?: Array<{ category: string; name: string; product_id?: string }> },
-  validateParts: ToolPart[]
-): ValidationResult | null {
-  if (!build.parts || build.parts.length === 0 || validateParts.length === 0) return null;
+export type MatchedValidation = {
+  validation: ValidationResult;
+  snapshot?: BuildSnapshot;
+};
 
-  const bMap = new Map<string, PartIdentity[]>();
-  for (const p of build.parts) {
-    const normCat = normalizeCategory(p.category) ?? p.category.toLowerCase();
-    const list = bMap.get(normCat) ?? [];
-    list.push(p);
-    bMap.set(normCat, list);
-  }
+export function findMatchingValidationResult(
+  build: { label?: string; parts?: Array<{ category: string; name: string; product_id?: string }>; product_ids?: string[] },
+  validateParts: ToolPart[]
+): MatchedValidation | null {
+  if (validateParts.length === 0) return null;
 
   for (let i = validateParts.length - 1; i >= 0; i--) {
     const vPart = validateParts[i];
-    const vInput = vPart.input as { label?: string; parts?: Record<string, unknown> } | undefined;
-    const vValidation = (vPart as { output?: ValidationResult }).output;
-    if (!vInput?.parts || !vValidation) continue;
+    const output = (vPart as { output?: unknown }).output;
+    if (!output || typeof output !== "object") continue;
+    const out = output as Record<string, unknown>;
 
-    const vMap = new Map<string, PartIdentity[]>();
-    for (const [rawCategory, raw] of Object.entries(vInput.parts)) {
-      const normCat = normalizeCategory(rawCategory) ?? rawCategory.toLowerCase();
-      const items = Array.isArray(raw) ? raw : [raw];
-      vMap.set(normCat, items.map(partLabel));
+    // 1. Multi-build output: out.builds is an object keyed by label
+    if (out.builds && typeof out.builds === "object") {
+      const buildsObj = out.builds as Record<string, ValidationResult & { snapshot?: BuildSnapshot }>;
+      if (build.label && buildsObj[build.label]) {
+        return {
+          validation: buildsObj[build.label],
+          snapshot: buildsObj[build.label].snapshot
+        };
+      }
+      if (build.label) {
+        const matchKey = Object.keys(buildsObj).find(
+          (k) => k.trim().toLowerCase() === build.label!.trim().toLowerCase()
+        );
+        if (matchKey && buildsObj[matchKey]) {
+          return {
+            validation: buildsObj[matchKey],
+            snapshot: buildsObj[matchKey].snapshot
+          };
+        }
+      }
+      // If 1 build exists in output and label was omitted
+      const entries = Object.entries(buildsObj);
+      if (!build.label && entries.length === 1 && !Array.isArray(build.parts)) {
+        return {
+          validation: entries[0][1],
+          snapshot: entries[0][1].snapshot
+        };
+      }
     }
 
-    // Exact component-set identity: every category in build must exist in validation and vice-versa
-    if (bMap.size !== vMap.size) continue;
+    // 2. Output itself is keyed by label: out[build.label]
+    if (build.label && out[build.label] && typeof out[build.label] === "object" && "valid" in (out[build.label] as object)) {
+      const val = out[build.label] as ValidationResult & { snapshot?: BuildSnapshot };
+      return {
+        validation: val,
+        snapshot: val.snapshot
+      };
+    }
 
-    let allCategoriesMatch = true;
-    for (const [cat, bList] of bMap.entries()) {
-      const vList = vMap.get(cat);
-      if (!vList || vList.length !== bList.length) {
-        allCategoriesMatch = false;
-        break;
+    // 3. Single-build output (legacy): output has `valid` directly at top level
+    if ("valid" in out) {
+      const vInput = vPart.input as { label?: string; parts?: Record<string, unknown> } | undefined;
+      const vValidation = out as unknown as ValidationResult & { snapshot?: BuildSnapshot };
+
+      if (build.label && vInput?.label) {
+        if (vInput.label.trim().toLowerCase() === build.label.trim().toLowerCase()) {
+          return { validation: vValidation, snapshot: vValidation.snapshot };
+        }
+      } else if (!build.label && !vInput?.label && !Array.isArray(build.parts)) {
+        return { validation: vValidation, snapshot: vValidation.snapshot };
       }
 
-      // Check that every component in this category matches
-      const matchedIndices = new Set<number>();
-      for (const bName of bList) {
-        let foundMatch = false;
-        for (let vi = 0; vi < vList.length; vi++) {
-          if (!matchedIndices.has(vi) && isComponentMatch(vList[vi], bName)) {
-            matchedIndices.add(vi);
-            foundMatch = true;
-            break;
+      // Check component matching for legacy parts
+      if (Array.isArray(build.parts) && build.parts.length > 0 && vInput?.parts) {
+        const bMap = new Map<string, PartIdentity[]>();
+        for (const p of build.parts) {
+          const normCat = normalizeCategory(p.category) ?? p.category.toLowerCase();
+          const list = bMap.get(normCat) ?? [];
+          list.push(p);
+          bMap.set(normCat, list);
+        }
+
+        const vMap = new Map<string, PartIdentity[]>();
+        for (const [rawCategory, raw] of Object.entries(vInput.parts)) {
+          const normCat = normalizeCategory(rawCategory) ?? rawCategory.toLowerCase();
+          const items = Array.isArray(raw) ? raw : [raw];
+          vMap.set(normCat, items.map(partLabel));
+        }
+
+        if (bMap.size === vMap.size) {
+          let allMatch = true;
+          for (const [cat, bList] of bMap.entries()) {
+            const vList = vMap.get(cat);
+            if (!vList || vList.length !== bList.length) {
+              allMatch = false;
+              break;
+            }
+            const matchedIndices = new Set<number>();
+            for (const bName of bList) {
+              let foundMatch = false;
+              for (let vi = 0; vi < vList.length; vi++) {
+                if (!matchedIndices.has(vi) && isComponentMatch(vList[vi], bName)) {
+                  matchedIndices.add(vi);
+                  foundMatch = true;
+                  break;
+                }
+              }
+              if (!foundMatch) {
+                allMatch = false;
+                break;
+              }
+            }
+            if (!allMatch) break;
+          }
+          if (allMatch) {
+            return { validation: vValidation, snapshot: vValidation.snapshot };
           }
         }
-        if (!foundMatch) {
-          allCategoriesMatch = false;
-          break;
-        }
       }
-      if (!allCategoriesMatch) break;
-    }
-
-    if (allCategoriesMatch) {
-      return vValidation;
     }
   }
 
   return null;
+}
+
+export function findMatchingValidation(
+  build: { label?: string; parts?: Array<{ category: string; name: string; product_id?: string }>; product_ids?: string[] },
+  validateParts: ToolPart[]
+): ValidationResult | null {
+  return findMatchingValidationResult(build, validateParts)?.validation ?? null;
 }
 
 export function deriveBuildsFromToolParts(
@@ -802,6 +872,7 @@ export function deriveBuildsFromToolParts(
       | {
           builds?: Array<{
             label?: string;
+            product_ids?: string[];
             parts?: Array<{
               category: string;
               product_id?: string;
@@ -826,15 +897,108 @@ export function deriveBuildsFromToolParts(
       );
 
       return input.builds.map((build) => {
-        const matchedValidation = findMatchingValidation(build, validateParts);
-        const currency = build.parts?.find((p) => p.currency)?.currency ?? fallbackCurrency;
+        const isLegacy = Array.isArray(build.parts);
+        const matched = findMatchingValidationResult(build, validateParts);
+        const matchedValidation = matched?.validation ?? null;
+        const matchedSnapshot = matched?.snapshot ?? null;
+
+        if (!isLegacy) {
+          // New format: build card uses validated catalog data ONLY.
+          const currency = matchedSnapshot?.currency ?? fallbackCurrency;
+
+          let components: BuildComponent[] = [];
+          if (matchedSnapshot && Array.isArray(matchedSnapshot.components) && matchedSnapshot.components.length > 0) {
+            components = matchedSnapshot.components.map((snapComp) => {
+              const hasCatalogId = Boolean(snapComp.product_id && snapComp.product_id.trim());
+              const issue = matchedValidation
+                ? findComponentIssue(
+                    hasCatalogId
+                      ? (matchedValidation.issues ?? []).filter((issue) =>
+                          issue.components.includes(snapComp.product_id!) || issue.components.includes(String(snapComp.category))
+                        )
+                      : matchedValidation.issues ?? [],
+                    String(snapComp.category),
+                    snapComp.product_id,
+                    snapComp.name
+                  )
+                : undefined;
+              const statusInfo = decorateComponentStatus(issue, Boolean(matchedValidation));
+
+              if (hasCatalogId) {
+                return {
+                  category: String(snapComp.category),
+                  categoryLabel: CATEGORY_LABELS[String(snapComp.category)] ?? String(snapComp.category),
+                  name: snapComp.name,
+                  productId: snapComp.product_id,
+                  price: snapComp.price,
+                  currency: snapComp.currency || currency,
+                  retailer: snapComp.retailer,
+                  url: snapComp.url,
+                  notInCatalog: false,
+                  ...statusInfo
+                };
+              }
+
+              return {
+                category: String(snapComp.category),
+                categoryLabel: CATEGORY_LABELS[String(snapComp.category)] ?? String(snapComp.category),
+                name: snapComp.name,
+                productId: undefined,
+                price: null,
+                currency,
+                retailer: undefined,
+                url: undefined,
+                notInCatalog: true,
+                ...statusInfo
+              };
+            });
+          } else if (Array.isArray(build.product_ids)) {
+            components = build.product_ids.map((id) => ({
+              category: "other",
+              categoryLabel: "Part",
+              name: id,
+              productId: undefined,
+              price: null,
+              currency,
+              retailer: undefined,
+              url: undefined,
+              notInCatalog: true,
+              unverified: true,
+              unverifiedNote: "Unverified compatibility",
+              status: "unverified" as const
+            }));
+          }
+
+          components.sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category));
+
+          return {
+            label: build.label,
+            currency,
+            validation: matchedValidation,
+            total: matchedSnapshot?.total ?? matchedSnapshot?.subtotal ?? null,
+            components,
+            isLegacy: false
+          };
+        }
+
+        // Legacy format:
+        const currency = build.parts?.find((p) => p.currency)?.currency ?? matchedSnapshot?.currency ?? fallbackCurrency;
+
+        const snapshotMap = new Map<string, BuildSnapshotComponent>();
+        if (matchedSnapshot?.components) {
+          for (const sc of matchedSnapshot.components) {
+            if (sc.product_id) snapshotMap.set(sc.product_id.trim(), sc);
+          }
+        }
 
         const components: BuildComponent[] = (build.parts || [])
           .map((part) => {
             const issue = matchedValidation
               ? findComponentIssue(
                   part.product_id
-                    ? (matchedValidation.issues ?? []).filter((issue) => issue.components.includes(part.product_id!) || issue.components.includes(part.category))
+                    ? (matchedValidation.issues ?? []).filter((issue) =>
+                        issue.components.includes(part.product_id!) || issue.components.includes(part.category)
+                      )
                     : matchedValidation.issues ?? [],
                   part.category,
                   part.product_id,
@@ -842,6 +1006,36 @@ export function deriveBuildsFromToolParts(
                 )
               : undefined;
             const statusInfo = decorateComponentStatus(issue, Boolean(matchedValidation));
+
+            if (matchedSnapshot) {
+              const snapComp = part.product_id ? snapshotMap.get(part.product_id.trim()) : undefined;
+              if (snapComp) {
+                return {
+                  category: part.category,
+                  categoryLabel: CATEGORY_LABELS[part.category] ?? part.category,
+                  name: snapComp.name,
+                  productId: snapComp.product_id,
+                  price: snapComp.price,
+                  currency: snapComp.currency || currency,
+                  retailer: snapComp.retailer,
+                  url: snapComp.url,
+                  notInCatalog: false,
+                  ...statusInfo
+                };
+              }
+              return {
+                category: part.category,
+                categoryLabel: CATEGORY_LABELS[part.category] ?? part.category,
+                name: part.name,
+                productId: undefined,
+                price: null,
+                currency,
+                retailer: undefined,
+                url: undefined,
+                notInCatalog: true,
+                ...statusInfo
+              };
+            }
 
             return {
               category: part.category,
@@ -861,7 +1055,9 @@ export function deriveBuildsFromToolParts(
           label: build.label,
           currency,
           validation: matchedValidation,
-          components
+          total: matchedSnapshot?.total ?? matchedSnapshot?.subtotal ?? null,
+          components,
+          isLegacy: true
         };
       });
     }
@@ -871,6 +1067,9 @@ export function deriveBuildsFromToolParts(
 }
 
 export function enrichBuildsWithToolProducts(builds: DerivedBuild[], toolParts: ToolPart[]): DerivedBuild[] {
+  const hasLegacy = builds.some((b) => b.isLegacy);
+  if (!hasLegacy) return builds;
+
   const products: ProductRow[] = [];
   for (const part of toolParts) {
     if (part.type === "tool-search_products" && (part.state === "output-available" || (part as { output?: unknown }).output)) {
@@ -910,21 +1109,24 @@ export function enrichBuildsWithToolProducts(builds: DerivedBuild[], toolParts: 
     return undefined;
   };
 
-  return builds.map((build) => ({
-    ...build,
-    components: build.components.map((comp) => {
-      if (comp.retailer && comp.url) return comp;
-      const matched = findProduct(comp.name, comp.registryKey);
-      if (!matched) return comp;
-      return {
-        ...comp,
-        retailer: comp.retailer || matched.retailer,
-        url: comp.url || matched.url,
-        price: comp.price ?? matched.price,
-        registryKey: comp.registryKey || matched.registry_key || undefined
-      };
-    })
-  }));
+  return builds.map((build) => {
+    if (!build.isLegacy) return build;
+    return {
+      ...build,
+      components: build.components.map((comp) => {
+        if (comp.retailer && comp.url) return comp;
+        const matched = findProduct(comp.name, comp.registryKey);
+        if (!matched) return comp;
+        return {
+          ...comp,
+          retailer: comp.retailer || matched.retailer,
+          url: comp.url || matched.url,
+          price: comp.price ?? matched.price,
+          registryKey: comp.registryKey || matched.registry_key || undefined
+        };
+      })
+    };
+  });
 }
 
 /**

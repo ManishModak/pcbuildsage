@@ -151,7 +151,9 @@ export function BuildCard({
               <span className="min-w-0 flex-1">
                 <span className="block text-sm text-text">{component.name}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  {component.retailer ? (
+                  {component.notInCatalog ? (
+                    <span className="text-caption text-text-muted italic">not in catalog</span>
+                  ) : component.retailer ? (
                     component.url ? (
                       <a
                         href={component.url}

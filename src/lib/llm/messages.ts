@@ -36,11 +36,23 @@ export function deriveBuildState(uiMessages: UIMessage[]): { parts: unknown; ver
       const name = toolNameOf(part);
       if (!name || !name.includes("validate_build")) continue;
       const input = (part as { input?: unknown }).input;
-      const parts = input && typeof input === "object" ? (input as Record<string, unknown>).parts : undefined;
+      const inputObj = input && typeof input === "object" ? (input as Record<string, unknown>) : undefined;
+      const parts = inputObj?.parts ?? (Array.isArray(inputObj?.builds) ? (inputObj!.builds[0] as { parts?: unknown })?.parts : undefined);
       if (parts === undefined) continue;
       const output = (part as { output?: unknown }).output;
-      const verdict = compactVerdict(output);
-      const snapshot = output && typeof output === "object" ? (output as Record<string, unknown>).snapshot : undefined;
+      let verdict: unknown;
+      let snapshot: unknown;
+      if (output && typeof output === "object") {
+        const outObj = output as Record<string, unknown>;
+        if (outObj.builds && typeof outObj.builds === "object") {
+          const firstBuild = Object.values(outObj.builds)[0] as Record<string, unknown> | undefined;
+          verdict = compactVerdict(firstBuild);
+          snapshot = firstBuild?.snapshot;
+        } else {
+          verdict = compactVerdict(output);
+          snapshot = outObj.snapshot;
+        }
+      }
       found = {
         parts,
         ...(verdict !== undefined ? { verdict } : {}),

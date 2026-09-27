@@ -21,7 +21,10 @@ export const searchProductsInputSchema = z.object({
     .string()
     .optional()
     .describe("Unique component model ID or registry key to filter listings by (e.g. from list_models)."),
-  category: z.string().optional().describe("Component category to search, such as gpu, cpu, motherboard, ram, storage, psu, case, or cooler."),
+  category: z
+    .enum(["gpu", "cpu", "motherboard", "ram", "storage", "psu", "case", "cooler"])
+    .optional()
+    .describe("Component category to search, such as gpu, cpu, motherboard, ram, storage, psu, case, or cooler."),
   price_min: z.number().nonnegative().optional().describe("Minimum product price in standard major units for the active currency, such as Rupees or Dollars."),
   price_max: z.number().nonnegative().optional().describe("Maximum product price in standard major units for the active currency, such as Rupees or Dollars."),
   brands: z.array(z.string()).optional().describe("Allowed component brands, matched case-insensitively against registry brand or product title."),
@@ -67,7 +70,7 @@ export const searchProductsInputSchema = z.object({
   sort_by: z.enum(["price", "name", "retailer", "last_scraped"]).default("price").describe("Sort field. Use price for value comparisons (asc for affordable options, desc for higher-end listings), last_scraped for freshest listings."),
   order: z.enum(["asc", "desc"]).optional().describe("Sort direction. 'asc' sorts ascending (e.g. lowest price first to compare affordable options), 'desc' sorts descending (highest price first). Price order describes price only, not performance ranking."),
   limit: z.number().int().positive().default(12).describe("Maximum result count. Defaults to 12 (showing up to 12 results—the maximum per search).")
-});
+}).strict();
 
 export type SearchProductsInput = z.input<typeof searchProductsInputSchema>;
 
@@ -94,17 +97,8 @@ export async function searchProducts(
   scope: SearchProductsScope,
   repository?: CatalogRepository
 ): Promise<CompactSearchProductsResult> {
-  const unknown = Object.keys(input).filter((key) => !validFilters.includes(key));
-  if (unknown.length) {
-    return {
-      results: [],
-      error: `Unknown filter(s): ${unknown.join(", ")}`,
-      valid_filters: validFilters
-    };
-  }
-
   // [r9] Normalize category at the tool boundary: trim and lowercase before category guards and repository search
-  const category = input.category ? input.category.trim().toLowerCase() : undefined;
+  const category = input.category ? (input.category.trim().toLowerCase() as SearchProductsInput["category"]) : undefined;
 
   // Validate category-restricted filters
   if (input.min_gpu_clearance_mm !== undefined || input.min_cooler_clearance_mm !== undefined) {

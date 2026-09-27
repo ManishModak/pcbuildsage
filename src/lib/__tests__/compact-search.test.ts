@@ -199,7 +199,7 @@ describe("Compact Search Module", () => {
       getCatalog: async () => ({ categories: [], scope: { country_code: "IN", currency: "INR" } })
     };
 
-    const originalInput = { category: "gpu", limit: 30 };
+    const originalInput = { category: "gpu" as const, limit: 30 };
     const res = await searchProducts(originalInput, { countryCode: "IN", currency: "INR" }, mockRepo as unknown as Parameters<typeof searchProducts>[2]);
 
     // Original input object was NOT mutated
