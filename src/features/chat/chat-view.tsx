@@ -36,6 +36,7 @@ import {
   decideStreamPersist,
   registerPageCloseFlush,
   sessionSignature,
+  shouldFlushOnPageHide,
   type ServerSessionCopy,
   type SessionSaveQueue
 } from "./session-save-queue";
@@ -501,6 +502,13 @@ export function ChatView({
 
   const streaming = status === "streaming" || status === "submitted";
 
+  // Read by the page-close flush, which is registered once and must not need
+  // re-registering every time the status flips.
+  const streamingRef = useRef(streaming);
+  useEffect(() => {
+    streamingRef.current = streaming;
+  }, [streaming]);
+
   // Tell the workspace whether this chat may be evicted. Unmounting a streaming
   // view kills its stream, so the pool must be allowed over its cap instead.
   useEffect(() => {
@@ -668,13 +676,27 @@ export function ChatView({
 
   /**
    * Best-effort flush when the page is being hidden or closed. Local mode sends
-   * this with `fetch(..., { keepalive: true })`, which MDN documents as not
-   * being aborted when the initiating page unloads. It is a last-chance write, not
-   * a guarantee: the browser can also skip the event entirely (no `visibilitychange`
-   * fires if the user kills the app from the OS task switcher), the body is capped
-   * at 64 KiB, and a request already in flight cannot be jumped ahead of. The
-   * throttled mid-stream saves above are what make durability real; this only
-   * recovers the last few seconds.
+   * this with `fetch(..., { keepalive: true })`, which MDN documents as not being
+   * aborted by the unload: "the browser will not abort the associated request if
+   * the page that initiated it is unloaded before the request is complete".
+   *
+   * Two honest limits, both of which make this a tail-risk reducer rather than
+   * the durability mechanism:
+   *
+   * - It cannot work above 64 KiB of body. MDN: "The body size for `keepalive`
+   *   requests is limited to 64 kibibytes." A real long chat is far larger, so the
+   *   flush refuses and throws rather than letting the browser silently drop it.
+   *   The 5-second throttle above is what actually protects a long conversation.
+   * - `visibilitychange` (hidden) also fires on an ordinary tab switch, and an
+   *   urgent write deliberately bypasses the queue's dedupe. Re-uploading an
+   *   unchanged transcript on every tab switch would be pure waste, so the flush
+   *   only fires when there is something the last save does not already have:
+   *   a live stream, or messages that have changed since it.
+   *
+   * The browser can also skip the event entirely - MDN notes that for
+   * `pagehide` "this event is not fired at all" if the user kills the browser from
+   * the OS app switcher - and a request already in flight cannot be jumped ahead
+   * of. None of that changes what the throttle guarantees.
    */
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -686,10 +708,17 @@ export function ChatView({
       removeEventListener: (type: string, listener: () => void) => document.removeEventListener(type, listener)
     };
     return registerPageCloseFlush(lifecycle, () => {
-      if (messagesRef.current.length === 0) return;
-      persistSnapshot(messagesRef.current, { urgent: true });
+      const messages = messagesRef.current;
+      const shouldFlush = shouldFlushOnPageHide({
+        messageCount: messages.length,
+        streaming: streamingRef.current,
+        signature: sessionSignature(messages),
+        isAcknowledged: (signature) => saveQueue.isAcknowledged(signature)
+      });
+      if (!shouldFlush) return;
+      persistSnapshot(messages, { urgent: true });
     });
-  }, [persistSnapshot]);
+  }, [persistSnapshot, saveQueue]);
 
   // The view is going away (pool eviction, app teardown), so this is the last
   // chance to write: same urgent path as the page-close flush, and the same

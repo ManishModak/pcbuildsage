@@ -68,6 +68,15 @@ export class SessionSaveQueue {
   }
 
   /**
+   * Whether this exact transcript is the one currently held durably. The page-close
+   * flush uses it to tell "nothing new to write" apart from "the last save failed and
+   * this is my last chance", which it cannot infer on its own.
+   */
+  isAcknowledged(signature: string): boolean {
+    return signature === this.acknowledgedSignature;
+  }
+
+  /**
    * Late-bind the collaborators a mounted view owns (UI callbacks). The workspace
    * supplies `loadServerCopy` at construction; the chat view supplies the handlers
    * that need React state.
@@ -176,7 +185,10 @@ export class SessionSaveQueue {
         }
 
         if (!isTransient(error)) {
-          this.options.onPersistError?.(error);
+          // An oversize page-close flush is an expected outcome, not a save
+          // failure: storage is working and the throttle is still saving. The
+          // snapshot stays unacknowledged, so the next ordinary save carries it.
+          if (!isKeepaliveOversize(error)) this.options.onPersistError?.(error);
           return false;
         }
       }
@@ -326,6 +338,30 @@ export function registerPageCloseFlush(events: PageLifecycleEvents, flush: () =>
   };
 }
 
+/**
+ * Whether hiding or closing the page should trigger a write.
+ *
+ * `visibilitychange` (hidden) fires on an ordinary tab switch, not just a close,
+ * and an urgent write deliberately bypasses the queue's own de-duplication. Without
+ * this gate, switching tabs N times re-uploads an unchanged transcript N times -
+ * on a long chat that is hundreds of kilobytes of pointless traffic, and on a chat
+ * over the 64 KiB keepalive limit it produces a failed request every time.
+ *
+ * So flush when there is genuinely something the last save does not have: a live
+ * stream, or a transcript the queue has not yet stored. The second case also
+ * covers a failed save, because the queue only acknowledges what it actually wrote.
+ */
+export function shouldFlushOnPageHide(args: {
+  messageCount: number;
+  streaming: boolean;
+  signature: string;
+  isAcknowledged: (signature: string) => boolean;
+}): boolean {
+  if (args.messageCount === 0) return false;
+  if (args.streaming) return true;
+  return !args.isAcknowledged(args.signature);
+}
+
 // ---------------------------------------------------------------------------
 // Error inspection
 // ---------------------------------------------------------------------------
@@ -357,12 +393,27 @@ function getSessionDeleted(error: unknown): boolean {
 }
 
 /**
+ * A page-close flush that could not fit through `keepalive`. Storage is fine and
+ * the ordinary throttled saves are still landing, so this is neither a retryable
+ * failure nor anything the user needs to hear about.
+ */
+function isKeepaliveOversize(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { isKeepaliveTooLarge?: unknown }).isKeepaliveTooLarge === true
+  );
+}
+
+/**
  * Network hiccups and 5xx are worth another try. A rejected revision, a deleted
- * session, any other 4xx, and a browser storage layer that is full or blocked
- * will fail identically every time, so retrying them only delays the notice the
- * user needs to see.
+ * session, any other 4xx, a browser storage layer that is full or blocked, and an
+ * oversize page-close flush will all fail identically every time, so retrying
+ * them only delays the notice the user needs to see - or, for the flush, means
+ * the page is gone before anything leaves.
  */
 function isTransient(error: unknown): boolean {
+  if (isKeepaliveOversize(error)) return false;
   if (error instanceof HttpError) return error.status >= 500 || error.status === 429;
   if (isStoreError(error)) return false;
   return true;

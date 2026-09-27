@@ -198,6 +198,35 @@ describe("SessionSaveQueue", () => {
     expect(adopted).toEqual([{ revision: 6, text: "B-tab" }]);
   });
 
+  it("does not warn the user when a page-close flush cannot fit through keepalive", async () => {
+    // Storage is fine and the ordinary throttle is still saving; the flush simply
+    // cannot be made from an unloading page at this size. A warning here would be
+    // a lie, and a fresh one on every tab switch.
+    const oversize = Object.assign(new Error("body too large"), { isKeepaliveTooLarge: true });
+    const persist = vi.fn().mockRejectedValue(oversize);
+    const onPersistError = vi.fn();
+    const onPersisted = vi.fn();
+    const queue = new SessionSaveQueue(persist, "initial", 0, onPersisted, { sleep: noSleep });
+
+    await queue.enqueue("partial", snapshot("partial"), { urgent: true });
+
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(onPersistError).not.toHaveBeenCalled();
+    // Not acknowledged either: the next ordinary save still carries the snapshot.
+    expect(onPersisted).not.toHaveBeenCalled();
+    expect(queue.isAcknowledged("partial")).toBe(false);
+  });
+
+  it("reports which transcript is durably stored, so a redundant flush can be skipped", async () => {
+    const queue = new SessionSaveQueue(vi.fn(async () => {}), "initial", 0, () => {}, { sleep: noSleep });
+
+    expect(queue.isAcknowledged("initial")).toBe(true);
+    expect(queue.isAcknowledged("something-else")).toBe(false);
+
+    await queue.enqueue("next", snapshot("next"));
+    expect(queue.isAcknowledged("next")).toBe(true);
+  });
+
   it("a retry does not re-upload when the earlier attempt actually landed", async () => {
     const writes: number[] = [];
     const persist = vi.fn(async (request: SaveSessionRequest) => {

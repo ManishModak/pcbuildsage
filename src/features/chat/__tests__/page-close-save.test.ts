@@ -5,6 +5,7 @@ import {
   decideStreamPersist,
   registerPageCloseFlush,
   sessionSignature,
+  shouldFlushOnPageHide,
   SessionSaveQueue,
   STREAM_PERSIST_INTERVAL_MS,
   type PageLifecycleEvents
@@ -195,8 +196,7 @@ describe("closing mid-stream", () => {
     expect(JSON.stringify(persisted[0].messages)).toContain("Start with an AM5 board");
   });
 
-  it("a throttle cycle writes intermediate replies, not just the final one", () => {
-    const decisions: string[] = [];
+  it("a throttle cycle writes intermediate replies, not just the final one", () => {    const decisions: string[] = [];
     let lastSavedAt: number | null = null;
     let lastSavedSignature: string | null = null;
     let now = 0;
@@ -219,5 +219,108 @@ describe("closing mid-stream", () => {
     }
 
     expect(decisions).toEqual(["t1", "t6"]);
+  });
+});
+
+describe("shouldFlushOnPageHide", () => {
+  const acknowledged = new Set(["stored"]);
+
+  it("skips an idle chat whose transcript is already stored", () => {
+    // The tab-switch case: re-uploading an unchanged transcript is pure waste,
+    // and on a long chat it is hundreds of kilobytes per switch.
+    expect(
+      shouldFlushOnPageHide({
+        messageCount: 2,
+        streaming: false,
+        signature: "stored",
+        isAcknowledged: (signature) => acknowledged.has(signature)
+      })
+    ).toBe(false);
+  });
+
+  it("flushes while a reply is streaming, even if the last save matched", () => {
+    expect(
+      shouldFlushOnPageHide({
+        messageCount: 2,
+        streaming: true,
+        signature: "stored",
+        isAcknowledged: (signature) => acknowledged.has(signature)
+      })
+    ).toBe(true);
+  });
+
+  it("flushes when the transcript has changed since the last save", () => {
+    expect(
+      shouldFlushOnPageHide({
+        messageCount: 3,
+        streaming: false,
+        signature: "newer",
+        isAcknowledged: (signature) => acknowledged.has(signature)
+      })
+    ).toBe(true);
+  });
+
+  it("flushes when the last save failed, so the queue never acknowledged it", () => {
+    // `isAcknowledged` is false precisely because the save did not land: this is
+    // the last chance to get the transcript out.
+    expect(
+      shouldFlushOnPageHide({
+        messageCount: 3,
+        streaming: false,
+        signature: "never-stored",
+        isAcknowledged: () => false
+      })
+    ).toBe(true);
+  });
+
+  it("never flushes an empty chat", () => {
+    expect(
+      shouldFlushOnPageHide({
+        messageCount: 0,
+        streaming: true,
+        signature: "stored",
+        isAcknowledged: () => true
+      })
+    ).toBe(false);
+  });
+});
+
+describe("repeated tab switches", () => {
+  it("does not re-upload an unchanged transcript", async () => {
+    const uploads: string[] = [];
+    const persist = vi.fn(async (request: SaveSessionRequest) => {
+      uploads.push(JSON.stringify(request.messages));
+    });
+    const queue = new SessionSaveQueue(persist, sessionSignature([]), 0, () => {}, {
+      sleep: () => Promise.resolve()
+    });
+    const messages = [userMessage("a settled conversation")];
+
+    const lifecycle = fakeLifecycle();
+    registerPageCloseFlush(lifecycle.events, () => {
+      const current = messages;
+      const shouldFlush = shouldFlushOnPageHide({
+        messageCount: current.length,
+        streaming: false,
+        signature: sessionSignature(current),
+        isAcknowledged: (signature) => queue.isAcknowledged(signature)
+      });
+      if (!shouldFlush) return;
+      void queue.enqueue(sessionSignature(current), snapshot(current), { urgent: true });
+    });
+
+    // The ordinary save happens first, as it would after a finished turn.
+    await queue.enqueue(sessionSignature(messages), snapshot(messages));
+    expect(uploads).toHaveLength(1);
+
+    // Five tab switches, nothing changed in between.
+    for (let i = 0; i < 5; i++) {
+      lifecycle.setVisibilityState("hidden");
+      lifecycle.fire("visibilitychange");
+      lifecycle.setVisibilityState("visible");
+      await Promise.resolve();
+    }
+
+    expect(uploads).toHaveLength(1);
   });
 });
