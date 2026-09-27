@@ -9,7 +9,7 @@ import { apiKeyHeaders } from "@/lib/client-config-store";
 import { injectByokHeaders } from "@/lib/llm/client-byok-store";
 import { getMarketPreference } from "@/lib/market/client-market-store";
 import { getClientSession, saveClientSession } from "@/lib/sessions/client-store";
-import type { StoredCompactContext } from "@/lib/sessions";
+import type { StoredCompactContext } from "@/lib/sessions/compact-context";
 import { resolveActiveModel, resolveChatRequestBody } from "./chat-config-resolver";
 import type { ClientConfig, StatusResponse } from "@/types/client";
 import { Icon } from "@/components/ui/icon";

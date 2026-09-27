@@ -1,7 +1,7 @@
 import type { ChatUIMessage } from "@/features/chat/message";
 import type { SessionSummary } from "@/types/client";
 import { deriveBuildState } from "@/lib/llm/messages";
-import { parseCompactContext, type StoredCompactContext } from "@/lib/sessions";
+import { parseCompactContext, type StoredCompactContext } from "./compact-context";
 import type { UIMessage } from "ai";
 
 export type SessionDetail = {

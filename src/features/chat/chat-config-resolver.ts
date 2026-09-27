@@ -8,7 +8,7 @@
 import { isHostedMode } from "@/lib/api-client";
 import { getMarketPreference, type MarketPreference } from "@/lib/market/client-market-store";
 import { getActiveByokProvider, getByokModel, getByokReasoningEffort, hasByokKey } from "@/lib/llm/client-byok-store";
-import type { StoredCompactContext } from "@/lib/sessions";
+import type { StoredCompactContext } from "@/lib/sessions/compact-context";
 import type { ClientConfig, KeySource, LLMProvider, ReasoningEffort, SearchProvider } from "@/types/client";
 
 export interface ResolveChatOptions {
