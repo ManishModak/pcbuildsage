@@ -80,6 +80,12 @@ export type PoolEntry<TQueue = unknown> = {
 export type SessionSelection<TQueue> = {
   pool: PoolEntry<TQueue>[];
   currentId: string;
+  /**
+   * The id of an entry that left the pool, if any, so the host can release what it
+   * is holding for it. Always an entry that was **not** streaming: `chooseEvictionIndex`
+   * only ever evicts an idle one, so a live stream's resources are never yanked.
+   */
+  evictedId?: string;
 };
 
 /**
@@ -133,9 +139,13 @@ export function applySessionSelection<TQueue>(options: {
   }
 
   let next = pool;
+  let evictedId: string | undefined;
   if (next.length >= MAX_ACTIVE_SESSIONS) {
     const evicted = chooseEvictionIndex(next, currentSessionId);
-    if (evicted !== -1) next = next.filter((_, index) => index !== evicted);
+    if (evicted !== -1) {
+      evictedId = next[evicted].id;
+      next = next.filter((_, index) => index !== evicted);
+    }
   }
 
   const entry: PoolEntry<TQueue> = {
@@ -144,7 +154,7 @@ export function applySessionSelection<TQueue>(options: {
     lastActiveAt: now,
     isLoading: !loaded
   };
-  return { pool: [...next, entry], currentId: id };
+  return { pool: [...next, entry], currentId: id, evictedId };
 }
 
 /**

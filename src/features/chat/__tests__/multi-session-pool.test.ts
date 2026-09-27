@@ -220,6 +220,49 @@ describe("Option A - Multi-Session Background Tab Pool", () => {
 });
 
 describe("re-opening a chat whose load was cancelled", () => {
+  it("reports the id it evicted, so the host can release that chat's resources", () => {
+    const pool = poolOf(MAX_ACTIVE_SESSIONS);
+    const { pool: next, evictedId } = applySessionSelection({
+      pool,
+      currentSessionId: "session-8",
+      id: "session-9",
+      loaded: true,
+      messages: [],
+      newEntry: { id: "session-9", queue: makeQueue(), isStreaming: false, lastActiveAt: 900 }
+    });
+
+    expect(evictedId).toBe("session-1");
+    expect(next.map((s) => s.id)).not.toContain("session-1");
+  });
+
+  it("never reports an eviction for a streaming chat", () => {
+    const pool = poolOf(MAX_ACTIVE_SESSIONS, ["session-1", "session-2", "session-3", "session-4", "session-5", "session-6", "session-7"]);
+    const { evictedId } = applySessionSelection({
+      pool,
+      currentSessionId: "session-8",
+      id: "session-9",
+      loaded: true,
+      messages: [],
+      newEntry: { id: "session-9", queue: makeQueue(), isStreaming: false, lastActiveAt: 900 }
+    });
+
+    // The pool went over the cap rather than reporting anything to release.
+    expect(evictedId).toBeUndefined();
+  });
+
+  it("reports nothing when the pool had room", () => {
+    const { evictedId } = applySessionSelection({
+      pool: [entry("session-a", 100, { messages: [userMessage("hi")] })],
+      currentSessionId: "session-a",
+      id: "session-b",
+      loaded: true,
+      messages: [],
+      newEntry: { id: "session-b", queue: makeQueue(), isStreaming: false, lastActiveAt: 200 }
+    });
+
+    expect(evictedId).toBeUndefined();
+  });
+
   it("re-fetches instead of showing the fake new-chat screen", () => {
     const failed = entry("session-a", 100, { isLoading: false });
     expect(shouldRefetchOnOpen(failed)).toBe(true);

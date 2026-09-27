@@ -103,6 +103,8 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
 
   const selectionGuardRef = useRef({ generation: 0 });
   const saveQueuesRef = useRef(new Map<string, SessionSaveQueue>([[initialEntry.id, initialEntry.queue]]));
+  /** Ids dropped from the pool, drained by the effect that frees their queues. */
+  const releasedIdsRef = useRef(new Set<string>());
 
   /**
    * True only until the first list settles. Later refreshes (after a save or a
@@ -133,8 +135,8 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
         queue.observeRevision(revision);
       }
 
-      setActiveSessions((prev) =>
-        applySessionSelection({
+      setActiveSessions((prev) => {
+        const selection = applySessionSelection({
           pool: prev,
           currentSessionId: currentSessionIdRef.current,
           id,
@@ -142,8 +144,10 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
           messages,
           pendingLoad,
           newEntry: { id, queue, isStreaming: false, lastActiveAt: Date.now() }
-        }).pool
-      );
+        });
+        if (selection.evictedId) releasedIdsRef.current.add(selection.evictedId);
+        return selection.pool;
+      });
 
       setCurrentSessionId(id);
     },
@@ -153,6 +157,23 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  /**
+   * A `SessionSaveQueue` holds its `acknowledgedSignature`, which is a full
+   * `JSON.stringify` of the transcript - roughly half a megabyte per long chat.
+   * Eight evicted queues that are never released would pin that memory until a
+   * reload, so an evicted id drops its queue.
+   *
+   * `chooseEvictionIndex` only ever evicts an idle entry, so this can never yank a
+   * live stream's queue: a streaming chat stays in the pool until it finishes.
+   */
+  useEffect(() => {
+    if (releasedIdsRef.current.size === 0) return;
+    for (const id of releasedIdsRef.current) {
+      saveQueuesRef.current.delete(id);
+    }
+    releasedIdsRef.current.clear();
+  }, [activeSessions]);
 
   const handleStreamingChange = useCallback((id: string, isStreaming: boolean) => {
     setActiveSessions((prev) => {
