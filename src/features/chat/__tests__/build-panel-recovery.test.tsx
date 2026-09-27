@@ -156,9 +156,9 @@ describe("build panel recovery: an interrupted chat still has a build", () => {
     expect(markup).toContain("₹4,900");
 
     // A product id is never a part name: the unresolved RAM falls back to its
-    // category label, and the id stays out of the name slot.
-    expect(markup).not.toContain(RAM_ID);
-    expect(markup).toContain("Memory");
+    // category label, and the id only ever shows in the secondary line.
+    expect(markup).toContain('<span class="block text-sm text-text">Memory</span>');
+    expect(markup).not.toContain(`text-text">${RAM_ID}`);
 
     // An incomplete snapshot has no total, and that reads as an em dash.
     expect(markup).toContain("—");
@@ -284,5 +284,149 @@ describe("build panel recovery: an interrupted chat still has a build", () => {
     const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
     expect(markup).toContain("RTX 4060");
     expect(markup).toContain("₹40,500");
+  });
+});
+
+describe("matching a presented build to the validation that produced it", () => {
+  it("falls back to product ids when the model relabelled the build", () => {
+    const messages: ChatUIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          // Validated as "Value Pick" ...
+          finishedValidation("v1", "Value Pick"),
+          // ... and presented as something else entirely, with the same ids.
+          {
+            type: "tool-present_build",
+            toolCallId: "call-1",
+            state: "output-available",
+            input: {
+              builds: [
+                {
+                  label: "Budget 1080p Competitive (renamed)",
+                  product_ids: [MOTHERBOARD_ID, STORAGE_ID]
+                }
+              ]
+            }
+          } as unknown as ChatUIMessage["parts"][number]
+        ]
+      }
+    ];
+
+    const versions = findAllBuildVersions(messages, "INR");
+    expect(versions).toHaveLength(1);
+
+    const build = versions[0].builds[0];
+    // Matched by product id, so the catalog data and the verdict come through.
+    expect(build.validation?.valid).toBe(true);
+    expect(build.components.map((c) => c.name)).toContain("ASRock A520M-HVS M-ATX Motherboard");
+    expect(build.total).toBeNull();
+  });
+
+  it("says the details are unavailable instead of naming raw product ids", () => {
+    const messages: ChatUIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-present_build",
+            toolCallId: "call-1",
+            state: "output-available",
+            input: {
+              builds: [
+                {
+                  label: "Untraceable Build",
+                  product_ids: ["ffffffffffffffffffffffffffffffffffffffff"]
+                }
+              ]
+            }
+          } as unknown as ChatUIMessage["parts"][number]
+        ]
+      }
+    ];
+
+    const versions = findAllBuildVersions(messages, "INR");
+    expect(versions).toHaveLength(1);
+    expect(versions[0].builds[0].detailsUnavailable).toBe(true);
+
+    const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
+    expect(markup).toContain("Build details unavailable — ask the assistant to present it again");
+    expect(markup).not.toContain("ffffffffffffffffffffffffffffffffffffffff");
+    expect(markup).not.toContain("₹0.00");
+  });
+
+  it("lets the parts decide when two turns reuse the same build label", () => {
+    // Both validations are called "Balanced": the parts, not the label, say
+    // which one the presented build came from.
+    const firstValidation = finishedValidation("v1", "Balanced", {
+      components: [
+        {
+          category: "gpu",
+          product_id: "gpu-id-1",
+          name: "Sapphire RX 7700 XT",
+          price: 42000,
+          currency: "INR"
+        }
+      ],
+      total: 42000,
+      subtotal: 42000,
+      is_complete: true,
+      component_count: 1,
+      unpriced_count: 0
+    });
+    const secondValidation = finishedValidation("v2", "Balanced", {
+      components: [
+        {
+          category: "gpu",
+          product_id: "gpu-id-2",
+          name: "GeForce RTX 4060 Ti",
+          price: 37000,
+          currency: "INR"
+        }
+      ],
+      total: 37000,
+      subtotal: 37000,
+      is_complete: true,
+      component_count: 1,
+      unpriced_count: 0
+    });
+
+    const messages: ChatUIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          firstValidation,
+          secondValidation,
+          {
+            type: "tool-present_build",
+            toolCallId: "call-1",
+            state: "output-available",
+            input: {
+              builds: [
+                {
+                  label: "Balanced",
+                  // The older of the two validations.
+                  product_ids: ["gpu-id-1"]
+                }
+              ]
+            }
+          } as unknown as ChatUIMessage["parts"][number]
+        ]
+      }
+    ];
+
+    const versions = findAllBuildVersions(messages, "INR");
+    expect(versions).toHaveLength(1);
+
+    const build = versions[0].builds[0];
+    // The first label match would have been the 4060 Ti; the parts rule it out.
+    expect(build.components[0].name).toBe("Sapphire RX 7700 XT");
+    expect(build.total).toBe(42000);
   });
 });

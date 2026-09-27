@@ -70,6 +70,31 @@ export function BuildCard({
   const active = activeBuilds[safeIndex];
   if (!active) return null;
 
+  // The turn said a build existed but nothing renderable came with it. Say so
+  // instead of showing an empty card with a made-up total.
+  if (active.detailsUnavailable || active.components.length === 0) {
+    return (
+      <section
+        className={cn(
+          "overflow-hidden rounded-card border border-border bg-surface",
+          !inSidePanel && "my-3"
+        )}
+        aria-label="Proposed build"
+      >
+        <div className="px-4 py-4">
+          {active.label ? (
+            <span className="inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
+              {active.label}
+            </span>
+          ) : null}
+          <p className="mt-3 text-sm text-text-secondary">
+            {"Build details unavailable \u2014 ask the assistant to present it again"}
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   const tabs = activeBuilds.map((build, i) => ({
     value: String(i),
     label: build.label ?? `Build ${i + 1}`
@@ -140,9 +165,11 @@ export function BuildCard({
 
       <div className="px-4 py-3">
         <ul className="flex flex-col">
-          {active.components.map((component) => (
+          {active.components.map((component, componentIndex) => (
             <li
-              key={`${component.category}-${component.name}`}
+              // Two identical parts in one category are legal (a matched pair
+              // of sticks, say), so the key needs the position too.
+              key={`${componentIndex}-${component.category}-${component.name}`}
               className="flex items-baseline gap-3 border-b border-border py-2.5 last:border-b-0"
             >
               <span className="w-24 shrink-0 text-caption font-medium uppercase tracking-wide text-text-muted">
@@ -152,7 +179,13 @@ export function BuildCard({
                 <span className="block text-sm text-text">{component.name}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                   {component.notInCatalog ? (
-                    <span className="text-caption text-text-muted italic">not in catalog</span>
+                    <span className="inline-flex flex-wrap items-baseline gap-x-2 text-caption text-text-muted">
+                      <span className="italic">not in catalog</span>
+                      {/* The id belongs here, not in the name above it. */}
+                      {component.productId ? (
+                        <span className="font-mono text-[11px]">{component.productId}</span>
+                      ) : null}
+                    </span>
                   ) : component.retailer ? (
                     component.url ? (
                       <a
