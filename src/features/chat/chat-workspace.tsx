@@ -10,6 +10,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/animate-ui/components/radix/sidebar";
 import {
   applySessionSelection,
+  chatViewKey,
   decideOpenAction,
   invalidateSessionSelection,
   selectLatestSession,
@@ -131,6 +132,8 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
       if (!queue) {
         queue = createSaveQueue(id, messages, revision, refresh);
         saveQueuesRef.current.set(id, queue);
+      } else if (loaded) {
+        queue.observeLoaded(sessionSignature(messages), revision);
       } else {
         queue.observeRevision(revision);
       }
@@ -293,7 +296,7 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
         <div className="relative flex flex-1 h-full w-full min-w-0">
           {activeSessions.map((session) => (
             <div
-              key={session.id}
+              key={chatViewKey(session)}
               className={
                 session.id === currentSessionId
                   ? "flex flex-1 h-full w-full min-w-0"

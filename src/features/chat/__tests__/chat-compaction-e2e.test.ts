@@ -77,6 +77,7 @@ describe("Chat Compaction End-to-End Integration Suite", () => {
       compact_context: null
     });
     const saveSessionSpy = vi.spyOn(sessionsModule, "saveSession");
+    const saveCompactSpy = vi.spyOn(sessionsModule, "saveCompactContext").mockImplementation(() => {});
     const setCompactingSpy = vi.spyOn(sessionsModule, "setSessionCompacting");
 
     let prepareStepFn: ((opts: { steps: unknown[]; messages: unknown[] }) => Promise<{ messages?: unknown[] }>) | undefined;
@@ -130,13 +131,17 @@ describe("Chat Compaction End-to-End Integration Suite", () => {
     expect(prepareStepResult.messages).toBeDefined();
     expect(setCompactingSpy).toHaveBeenCalledWith("sess-local-e2e", true);
     expect(setCompactingSpy).toHaveBeenCalledWith("sess-local-e2e", false);
-    expect(saveSessionSpy).toHaveBeenCalled();
-    const saved = saveSessionSpy.mock.calls[0][0];
-    expect(saved.id).toBe("sess-local-e2e");
-    expect(saved.compactContext).toBeDefined();
+    // The engine stores compacted context without a transcript save, so it never
+    // bumps the revision the browser's save queue is tracking.
+    expect(saveSessionSpy).not.toHaveBeenCalled();
+    expect(saveCompactSpy).toHaveBeenCalled();
+    const [savedId, savedContext] = saveCompactSpy.mock.calls[0];
+    expect(savedId).toBe("sess-local-e2e");
+    expect(savedContext).toBeDefined();
 
     getSessionSpy.mockRestore();
     saveSessionSpy.mockRestore();
+    saveCompactSpy.mockRestore();
     setCompactingSpy.mockRestore();
   });
 

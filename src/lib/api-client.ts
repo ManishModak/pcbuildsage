@@ -478,7 +478,10 @@ export async function saveSession(input: SaveSessionRequest, options?: SaveSessi
   const keepalive = options?.urgent === true;
   return withSessionFallback(
     async () => {
-      const body = JSON.stringify(input);
+      // The server owns compacted context in local mode; see /api/sessions.
+      const { compactContext: _serverOwned, ...transcript } = input;
+      void _serverOwned;
+      const body = JSON.stringify(transcript);
       if (keepalive) {
         const bodyBytes = requestBodyByteLength(body);
         if (bodyBytes > KEEPALIVE_BODY_LIMIT_BYTES) {

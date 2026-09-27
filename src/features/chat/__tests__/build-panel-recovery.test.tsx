@@ -1097,14 +1097,20 @@ describe("R-A3: the thinking trace stops pulsing once the message is done", () =
   });
 
   it.each(["reasoning", "reasoning-streaming", "streaming"])(
-    "animates a %s reasoning part",
+    "animates a %s reasoning part while its message streams",
     (state) => {
-      const live = renderToStaticMarkup(<MessageView message={reasoningMessage(state)} />);
+      const live = renderToStaticMarkup(<MessageView message={reasoningMessage(state)} isStreaming />);
       expect(live).toContain("animate-pulse");
       expect(live).toContain("Sage thinking process...");
       expect(live).toContain('aria-busy="true"');
     }
   );
+
+  it("does not animate a part saved mid-stream once its message is done", () => {
+    const saved = renderToStaticMarkup(<MessageView message={reasoningMessage("streaming")} />);
+    expect(saved).not.toContain("animate-pulse");
+    expect(saved).toContain('aria-busy="false"');
+  });
 
   it.each(["done", undefined])(
     "does not animate a %s reasoning part",

@@ -5,7 +5,7 @@ import { appendChatLog } from "@/lib/logger";
 import { createToolRegistry, getCatalog } from "@/lib/tools";
 import type { CatalogRepository, GetCatalogResult } from "@/lib/catalog";
 import { getPersonality } from "./personalities";
-import { getSession, saveSession, setSessionCompacting, type StoredCompactContext } from "@/lib/sessions";
+import { getSession, saveCompactContext, setSessionCompacting, type StoredCompactContext } from "@/lib/sessions";
 import { type ChatMessage, capMessages, deriveBuildState } from "./messages";
 import {
   getModelContextLimit,
@@ -163,17 +163,10 @@ function persistSessionCompactContext(
   snapshot?: BuildSnapshot | null
 ): void {
   if (isHosted() || !sessionId) return;
-  const current = getSession(sessionId);
-  if (!current) return;
-  const nextRev = (current.revision ?? 0) + 1;
-  saveSession({
-    id: sessionId,
-    revision: nextRev,
-    compactContext: {
-      messages,
-      boundaryMessageId,
-      snapshot: snapshot ?? null
-    }
+  saveCompactContext(sessionId, {
+    messages,
+    boundaryMessageId,
+    snapshot: snapshot ?? null
   });
 }
 

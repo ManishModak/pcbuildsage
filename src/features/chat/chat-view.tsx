@@ -68,6 +68,20 @@ function deriveTitle(messages: ChatUIMessage[]): string {
   return text.length > 60 ? `${text.slice(0, 60)}…` : text;
 }
 
+/**
+ * Build derivation runs during ChatView's own render, outside the build error
+ * boundary, so a malformed part in saved data (e.g. a null component) must not
+ * take down the whole chat: fall back to "no builds" and log it instead.
+ */
+function deriveSafely<T>(derive: () => T, fallback: T): T {
+  try {
+    return derive();
+  } catch (error) {
+    console.warn("Could not derive builds from this chat:", error);
+    return fallback;
+  }
+}
+
 function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedBuild[] | null {
   const allToolParts: ToolPart[] = [];
   for (const m of messages) {
@@ -459,7 +473,7 @@ export function ChatView({
   }, [status, messages]);
 
   const allBuildVersions = useMemo(
-    () => findAllBuildVersions(messages, config.currency, { streamingMessageId }),
+    () => deriveSafely(() => findAllBuildVersions(messages, config.currency, { streamingMessageId }), []),
     [messages, config.currency, streamingMessageId]
   );
 
@@ -479,7 +493,7 @@ export function ChatView({
     if (allBuildVersions.length > 0) {
       return allBuildVersions[allBuildVersions.length - 1].builds;
     }
-    return findLatestBuilds(messages, config.currency);
+    return deriveSafely(() => findLatestBuilds(messages, config.currency), null);
   }, [allBuildVersions, messages, config.currency]);
 
   // Memoised so the selection keeps its identity while nothing it selects from
@@ -588,7 +602,13 @@ export function ChatView({
   const lastHeaderSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      // Another pooled chat owns the header while this one is hidden. Forget what
+      // we published, so switching back republishes ours instead of leaving the
+      // other chat's header (and its transcript export) on screen.
+      lastHeaderSignatureRef.current = null;
+      return;
+    }
     if (lastHeaderSignatureRef.current === headerSignature) return;
     lastHeaderSignatureRef.current = headerSignature;
     setHeaderSuffix(
@@ -785,13 +805,21 @@ export function ChatView({
   // The view is going away (pool eviction, app teardown), so this is the last
   // chance to write: same urgent path as the page-close flush, and the same
   // compactContext carry-over, because it goes through `persistSnapshot`.
+  // Same rule as the page-close flush: an idle chat whose transcript is already
+  // saved has nothing to write, and re-saving it would bump its revision and
+  // move it to the top of the sidebar on every eviction.
   useEffect(() => {
     return () => {
-      if (messagesRef.current.length > 0) {
-        persistSnapshot(messagesRef.current, { urgent: true });
-      }
+      const messages = messagesRef.current;
+      const shouldFlush = shouldFlushOnPageHide({
+        messageCount: messages.length,
+        streaming: streamingRef.current,
+        signature: sessionSignature(messages),
+        isAcknowledged: (signature) => saveQueue.isAcknowledged(signature)
+      });
+      if (shouldFlush) persistSnapshot(messages, { urgent: true });
     };
-  }, [persistSnapshot]);
+  }, [persistSnapshot, saveQueue]);
 
   const checkShouldCompact = (currentMsgs: ChatUIMessage[], newText: string) => {
     const entry = configRef.current.chatChain?.[0];
@@ -858,6 +886,7 @@ export function ChatView({
                     <MessageView
                       key={message.id || `msg-${index}`}
                       message={message}
+                      isStreaming={streaming && index === messages.length - 1 && message.role === "assistant"}
                       versions={msgVersions}
                       followups={index === messages.length - 1 ? getFollowups(message, status) : []}
                       onFollowup={send}

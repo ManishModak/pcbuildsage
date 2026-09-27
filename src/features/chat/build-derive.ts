@@ -1358,7 +1358,9 @@ export function deriveBuildsFromToolParts(
                   currency: snapComp.currency || currency,
                   retailer: snapComp.retailer,
                   url: snapComp.url,
-                  notInCatalog: false,
+                  // A catalog miss keeps its product id but has no price: same rule
+                  // as derivedBuildFromSnapshot, so it never reads as a "derived requirement".
+                  notInCatalog: snapComp.price == null || isOpaqueProductId(snapComp.name, snapComp.product_id),
                   ...statusInfo
                 };
               }
@@ -1438,7 +1440,9 @@ export function deriveBuildsFromToolParts(
                   currency: snapComp.currency || currency,
                   retailer: snapComp.retailer,
                   url: snapComp.url,
-                  notInCatalog: false,
+                  // A catalog miss keeps its product id but has no price: same rule
+                  // as derivedBuildFromSnapshot, so it never reads as a "derived requirement".
+                  notInCatalog: snapComp.price == null || isOpaqueProductId(snapComp.name, snapComp.product_id),
                   ...statusInfo
                 };
               }

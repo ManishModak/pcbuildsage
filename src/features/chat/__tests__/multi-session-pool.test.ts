@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ChatUIMessage } from "../message";
 import {
   applySessionSelection,
+  chatViewKey,
   chooseEvictionIndex,
   decideOpenAction,
   invalidateSessionSelection,
@@ -354,5 +355,12 @@ describe("re-opening a chat whose load was cancelled", () => {
     expect(fetches).toEqual(["session-a", "session-a"]);
     // And the user sees a loading state, not the new-chat screen.
     expect(pool.find((e) => e.id === "session-a")?.isLoading).toBe(true);
+  });
+});
+
+describe("chatViewKey", () => {
+  it("changes when a loading chat's transcript arrives, so useChat remounts with it", () => {
+    expect(chatViewKey({ id: "s1", isLoading: true })).not.toBe(chatViewKey({ id: "s1", isLoading: false }));
+    expect(chatViewKey({ id: "s1" })).toBe(chatViewKey({ id: "s1", isLoading: false }));
   });
 });

@@ -182,3 +182,13 @@ export function decideOpenAction(entry: PoolEntry<unknown> | undefined): "switch
   if (!entry) return "fetch";
   return shouldRefetchOnOpen(entry) ? "fetch" : "switch";
 }
+
+/**
+ * React key for a pooled chat view. useChat reads its messages once, on mount,
+ * so a chat opened while its transcript is still loading must remount when the
+ * transcript arrives - otherwise the view stays empty and the next message
+ * overwrites the saved conversation.
+ */
+export function chatViewKey(entry: { id: string; isLoading?: boolean }): string {
+  return entry.isLoading ? `${entry.id}:loading` : entry.id;
+}

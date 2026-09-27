@@ -96,6 +96,17 @@ export class SessionSaveQueue {
     this.nextRevision = Math.max(this.nextRevision, revision);
   }
 
+  /**
+   * A transcript just loaded from storage is already durable. Acknowledge it so
+   * opening a chat does not write it straight back (which would bump its
+   * revision and updated_at, and persist load-time repairs such as
+   * "Interrupted" tool parts). Ignored while a save is queued or in flight.
+   */
+  observeLoaded(signature: string, revision: number): void {
+    this.observeRevision(revision);
+    if (!this.pending && !this.running) this.acknowledgedSignature = signature;
+  }
+
   enqueue(signature: string, snapshot: SessionSnapshot, options?: PersistOptions): Promise<void> {
     const urgent = options?.urgent === true;
     if (!urgent && signature === this.acknowledgedSignature) return this.running ?? Promise.resolve();
@@ -188,7 +199,7 @@ export class SessionSaveQueue {
         if (isStaleRevision(error)) {
           // Either the newer copy was adopted, or the host could not load one and
           // the conflict is left for a later edit/load to observe.
-          return await this.resolveConflict(request);
+          return await this.resolveConflict(current, request);
         }
 
         if (!isTransient(error)) {
@@ -236,9 +247,19 @@ export class SessionSaveQueue {
    * This never writes: the adopted copy is handed back to the view, and anything
    * the user does next is re-enqueued through the normal queue path.
    */
-  private async resolveConflict(attempt: SaveSessionRequest): Promise<boolean> {
+  private async resolveConflict(current: PendingSave, attempt: SaveSessionRequest): Promise<boolean> {
     const copy = await this.readServerCopy();
-    if (!copy || copy.revision <= attempt.revision) return false;
+    if (!copy) return false;
+    // The server already holds exactly this transcript: an earlier attempt landed.
+    if (sessionSignature(copy.messages) === current.signature) {
+      this.observeRevision(copy.revision);
+      return true;
+    }
+    // A stale_revision means the server's revision is at least ours. An equal one
+    // is the common two-tab case (both tabs saved the same next revision), so it
+    // is a real conflict too - not adopting it would let our next save, one
+    // revision higher, overwrite the other tab's turn.
+    if (copy.revision < attempt.revision) return false;
     this.adoptServerCopy(copy);
     // Our snapshot was not written, so it must not be acknowledged: the same
     // content enqueued later is still ours to save.

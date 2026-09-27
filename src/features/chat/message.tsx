@@ -70,7 +70,8 @@ export function MessageView({
   onEdit,
   followups = [],
   onFollowup,
-  onViewBuild
+  onViewBuild,
+  isStreaming = false
 }: {
   message: ChatUIMessage;
   versions?: BuildVersion[];
@@ -83,6 +84,8 @@ export function MessageView({
    * build list that no version in the picker refers to.
    */
   onViewBuild?: (versionId: string) => void;
+  /** True only for the assistant message the chat is streaming right now. */
+  isStreaming?: boolean;
 }) {
   const [hasMounted, setHasMounted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -221,12 +224,13 @@ export function MessageView({
       {parts.map((part, index) => {
         if (isReasoningPart(part)) {
           if (part.text) {
-            // Only these states mean the model is still thinking. A part with
-            // no state at all is not evidence of a live stream - it is usually
-            // a saved one - so it renders static rather than pulsing forever.
+            // Only these states mean the model is still thinking, and only while
+            // this message is the one streaming now. A part saved mid-stream keeps
+            // `state: "streaming"` forever, so the state alone is not enough.
             const state = (part as { state?: string }).state;
             const live =
-              state === "reasoning" || state === "reasoning-streaming" || state === "streaming";
+              isStreaming &&
+              (state === "reasoning" || state === "reasoning-streaming" || state === "streaming");
             return <ThinkingTrace key={index} text={part.text} live={live} />;
           }
         }

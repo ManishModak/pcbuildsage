@@ -373,7 +373,56 @@ describe("SessionSaveQueue", () => {
     expect(onConflictAdopted).not.toHaveBeenCalled();
   });
 
-  it("does not adopt an older or equal copy", async () => {
+  it("two tabs saving the same next revision: the loser adopts the winner's copy", async () => {
+    // Both tabs loaded rev 5; the other tab saved rev 6 first, so ours (also rev 6)
+    // is rejected. Not adopting here would let our next save (rev 7) overwrite it.
+    const persist = vi.fn().mockRejectedValue(staleRevision(6));
+    const onConflictAdopted = vi.fn();
+    const queue = new SessionSaveQueue(persist, "initial", 5, () => {}, {
+      sleep: noSleep,
+      loadServerCopy: async () => ({ revision: 6, messages: [{ id: "theirs", role: "user", parts: [] }] }),
+      onConflictAdopted
+    });
+
+    await queue.enqueue("mine", snapshot("mine"));
+
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(onConflictAdopted).toHaveBeenCalledWith(expect.objectContaining({ revision: 6 }));
+  });
+
+  it("treats a conflict whose server copy is exactly ours as saved", async () => {
+    const mine = snapshot("mine");
+    const persist = vi.fn().mockRejectedValue(staleRevision(6));
+    const onPersisted = vi.fn();
+    const onConflictAdopted = vi.fn();
+    const queue = new SessionSaveQueue(persist, "initial", 5, onPersisted, {
+      sleep: noSleep,
+      loadServerCopy: async () => ({ revision: 6, messages: mine.messages }),
+      onConflictAdopted
+    });
+    const signature = sessionSignature(mine.messages);
+
+    await queue.enqueue(signature, mine);
+
+    expect(onConflictAdopted).not.toHaveBeenCalled();
+    expect(queue.isAcknowledged(signature)).toBe(true);
+  });
+
+  it("counts a freshly loaded transcript as saved, so opening a chat does not rewrite it", async () => {
+    const persist = vi.fn(async () => {});
+    const queue = new SessionSaveQueue(persist, sessionSignature([]), 0, () => {}, { sleep: noSleep });
+    const loaded = [userMessage("hello")];
+
+    queue.observeLoaded(sessionSignature(loaded), 9);
+    await queue.enqueue(sessionSignature(loaded), { id: "session", messages: loaded });
+    expect(persist).not.toHaveBeenCalled();
+
+    const next = [...loaded, userMessage("again")];
+    await queue.enqueue(sessionSignature(next), { id: "session", messages: next });
+    expect(persist).toHaveBeenCalledWith(expect.objectContaining({ revision: 10 }), { urgent: false });
+  });
+
+  it("does not adopt an older copy", async () => {
     const persist = vi.fn().mockRejectedValue(staleRevision(4));
     const onConflictAdopted = vi.fn();
     const queue = new SessionSaveQueue(persist, "initial", 4, () => {}, {

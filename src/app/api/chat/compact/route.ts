@@ -6,13 +6,11 @@ import { buildSystemPrompt } from "@/lib/llm/chat-engine";
 import { compactConversation } from "@/lib/llm/compaction";
 import { getModelContextLimit } from "@/lib/llm/context-budget";
 import { deriveBuildState } from "@/lib/llm/messages";
-import { getSession, saveSession, isSessionCompacting } from "@/lib/sessions";
+import { getSession, saveCompactContext, isSessionCompacting } from "@/lib/sessions";
 import type { BuildSnapshot } from "@/lib/catalog/build-snapshot";
 import { isHostedDemo } from "@/lib/config/deployment";
-import { isHostedMode } from "@/lib/api-client";
-
 function isHosted(): boolean {
-  return isHostedDemo() || isHostedMode();
+  return isHostedDemo();
 }
 
 export const runtime = "nodejs";
@@ -77,16 +75,10 @@ export async function POST(request: Request): Promise<Response> {
 
     const lastMsgId = body.messages.at(-1)?.id;
     if (result.compacted && body.sessionId && !isHosted()) {
-      const current = getSession(body.sessionId);
-      const nextRev = (current?.revision ?? 0) + 1;
-      saveSession({
-        id: body.sessionId,
-        revision: nextRev,
-        compactContext: {
-          messages: result.messages,
-          boundaryMessageId: lastMsgId,
-          snapshot: sessionSnapshot ?? null
-        }
+      saveCompactContext(body.sessionId, {
+        messages: result.messages,
+        boundaryMessageId: lastMsgId,
+        snapshot: sessionSnapshot ?? null
       });
     }
 
