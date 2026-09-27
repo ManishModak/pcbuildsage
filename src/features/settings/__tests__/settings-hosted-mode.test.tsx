@@ -5,6 +5,7 @@ import {
   setCachedDeploymentMode,
   resetCachedDeploymentMode
 } from "@/lib/api-client";
+import { STANDARD_MARKETS } from "@/lib/config/deployment";
 import {
   getMarketPreference,
   setMarketPreference,
@@ -137,8 +138,8 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
   });
 
   describe("3. Market Preference Section", () => {
-    it("renders Market Preference section with country and currency selection controls", () => {
-      const html = renderToStaticMarkup(<MarketPreferenceSection />);
+    it("renders Market Preference section with country and currency selection controls when markets are available", () => {
+      const html = renderToStaticMarkup(<MarketPreferenceSection initialMarkets={STANDARD_MARKETS} />);
 
       expect(html).toContain("Market Preference");
       expect(html).toContain("Country / Region");
@@ -150,7 +151,7 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
 
     it("reads current market preference from client-market-store", () => {
       setMarketPreference({ countryCode: "UK", currencyCode: "GBP", locale: "en-GB" });
-      const html = renderToStaticMarkup(<MarketPreferenceSection />);
+      const html = renderToStaticMarkup(<MarketPreferenceSection initialMarkets={STANDARD_MARKETS} />);
 
       expect(html).toContain("United Kingdom");
       expect(html).toContain("GBP");
@@ -175,6 +176,15 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
 
       expect(updated.countryCode).toBe("UK");
       expect(updated.currencyCode).toBe("EUR");
+    });
+
+    it("renders 'catalog unavailable' when markets list is empty", () => {
+      const htmlEmpty = renderToStaticMarkup(<MarketPreferenceSection initialMarkets={[]} />);
+      expect(htmlEmpty.toLowerCase()).toContain("catalog unavailable");
+      expect(htmlEmpty).toContain("data-testid=\"catalog-unavailable\"");
+
+      const htmlDefault = renderToStaticMarkup(<MarketPreferenceSection />);
+      expect(htmlDefault.toLowerCase()).toContain("catalog unavailable");
     });
   });
 

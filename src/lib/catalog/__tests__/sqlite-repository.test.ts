@@ -130,12 +130,24 @@ describe("SqliteCatalogRepository", () => {
       await expect(repo.close()).resolves.toBeUndefined();
     });
 
-    it("returns standard markets metadata via getMarkets()", async () => {
-      const markets = await repo.getMarkets();
-      expect(Array.isArray(markets)).toBe(true);
-      expect(markets.length).toBeGreaterThan(0);
-      expect(markets.map((m) => m.code)).toContain("US");
-      expect(markets.map((m) => m.code)).toContain("IN");
+    it("returns only markets with in-stock products via getMarkets()", async () => {
+      // Empty catalog yields no active markets
+      expect(await repo.getMarkets()).toEqual([]);
+
+      // Insert in-stock products for IN, out-of-stock for US
+      insertProduct(db, { id: "p-in", country_code: "IN", currency: "INR", in_stock: 1 });
+      insertProduct(db, { id: "p-us-out", country_code: "US", currency: "USD", in_stock: 0 });
+
+      let markets = await repo.getMarkets();
+      expect(markets).toHaveLength(1);
+      expect(markets[0].code).toBe("IN");
+      expect(markets[0].name).toBe("India");
+
+      // Once US has in-stock inventory, it is included
+      insertProduct(db, { id: "p-us-in", country_code: "US", currency: "USD", in_stock: 1 });
+      markets = await repo.getMarkets();
+      expect(markets).toHaveLength(2);
+      expect(markets.map((m) => m.code)).toEqual(["IN", "US"]);
     });
   });
 

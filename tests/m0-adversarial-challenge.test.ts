@@ -15,6 +15,7 @@ import { NextRequest } from "next/server";
 import { GET as getStatus } from "@/app/api/status/route";
 import { GET as getHealth } from "@/app/api/health/route";
 import { GET as getMarkets } from "@/app/api/markets/route";
+import { setCatalogRepository, type CatalogRepository } from "@/lib/catalog";
 import { POST as postChat } from "@/app/api/chat/route";
 import { POST as postProbe } from "@/app/api/llm/probe/route";
 import { GET as getModels } from "@/app/api/models/route";
@@ -38,6 +39,7 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
     } else {
       delete process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
     }
+    setCatalogRepository(null);
   });
 
   describe("Category 1: SSRF & LLM Provider URL Validation Attacks", () => {
@@ -553,54 +555,71 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
 
   describe("Category 4: Market Metadata Endpoint & Data Leakage Prevention", () => {
     it("returns clean market metadata conforming strictly to MarketMetadata contract", async () => {
-      const response = await getMarkets();
-      expect(response.status).toBe(200);
+      const fixtureRepo: Partial<CatalogRepository> = {
+        getMarkets: async () => [
+          {
+            code: "IN",
+            name: "India",
+            defaultCurrency: "INR",
+            supportedCurrencies: ["INR"],
+            locale: "en-IN"
+          }
+        ]
+      };
+      setCatalogRepository(fixtureRepo as CatalogRepository);
+      try {
+        const response = await getMarkets();
+        expect(response.status).toBe(200);
 
-      const body = await response.json();
-      expect(body).toHaveProperty("markets");
-      expect(Array.isArray(body.markets)).toBe(true);
-      expect(body.markets.length).toBeGreaterThanOrEqual(5);
+        const body = await response.json();
+        expect(body).toHaveProperty("markets");
+        expect(Array.isArray(body.markets)).toBe(true);
+        expect(body.markets.length).toBeGreaterThanOrEqual(1);
+        expect(body.markets.some((m: { code: string }) => m.code === "IN")).toBe(true);
 
-      const stringified = JSON.stringify(body);
+        const stringified = JSON.stringify(body);
 
-      // Verify absence of scraper selectors, cheerio configs, crawler internals
-      const forbiddenTokens = [
-        "selector",
-        "cheerio",
-        "crawler",
-        "category_url",
-        "search_url",
-        "product_link",
-        "price_selector",
-        "title_selector",
-        "availability_selector",
-        "user_agent",
-        "headers",
-        "cookies",
-        "api_key",
-        "token",
-        "secret",
-        "password",
-        "turso",
-        "sqlite",
-        "dbPath"
-      ];
+        // Verify absence of scraper selectors, cheerio configs, crawler internals
+        const forbiddenTokens = [
+          "selector",
+          "cheerio",
+          "crawler",
+          "category_url",
+          "search_url",
+          "product_link",
+          "price_selector",
+          "title_selector",
+          "availability_selector",
+          "user_agent",
+          "headers",
+          "cookies",
+          "api_key",
+          "token",
+          "secret",
+          "password",
+          "turso",
+          "sqlite",
+          "dbPath"
+        ];
 
-      for (const token of forbiddenTokens) {
-        expect(stringified.toLowerCase()).not.toContain(token.toLowerCase());
-      }
+        for (const token of forbiddenTokens) {
+          expect(stringified.toLowerCase()).not.toContain(token.toLowerCase());
+        }
 
-      // Verify exact keys on every market entry
-      for (const m of body.markets) {
-        const keys = Object.keys(m);
-        expect(keys.sort()).toEqual(["code", "defaultCurrency", "locale", "name", "supportedCurrencies"].sort());
-        expect(typeof m.code).toBe("string");
-        expect(m.code).toMatch(/^[A-Z]{2}$/);
-        expect(typeof m.name).toBe("string");
-        expect(typeof m.defaultCurrency).toBe("string");
-        expect(m.defaultCurrency).toMatch(/^[A-Z]{3}$/);
-        expect(Array.isArray(m.supportedCurrencies)).toBe(true);
-        expect(typeof m.locale).toBe("string");
+        // Verify exact keys on every market entry
+        for (const m of body.markets) {
+          const keys = Object.keys(m);
+          expect(keys.sort()).toEqual(["code", "defaultCurrency", "locale", "name", "supportedCurrencies"].sort());
+          expect(typeof m.code).toBe("string");
+          expect(m.code).toMatch(/^[A-Z]{2}$/);
+          expect(typeof m.name).toBe("string");
+          expect(typeof m.defaultCurrency).toBe("string");
+          expect(m.defaultCurrency).toMatch(/^[A-Z]{3}$/);
+          expect(Array.isArray(m.supportedCurrencies)).toBe(true);
+          expect(typeof m.locale).toBe("string");
+        }
+      } finally {
+        setCatalogRepository(null);
       }
     });
 
