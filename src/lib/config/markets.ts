@@ -15,6 +15,87 @@ export { STANDARD_MARKETS };
 export type { MarketMetadata };
 
 /**
+ * Returns market metadata strictly derived from installed scraper profiles
+ * (data/profiles/*.json), with country_code and default_currency from profiles,
+ * and names, locales, and currencies resolved from STANDARD_MARKETS.
+ */
+export function listMarketsFromProfiles(profilesDir?: string): MarketMetadata[] {
+  const dir = profilesDir ?? path.join(/*turbopackIgnore: true*/ process.cwd(), "data", "profiles");
+  const marketsMap = new Map<string, MarketMetadata>();
+
+  const standardByCode = new Map<string, MarketMetadata>(
+    STANDARD_MARKETS.map((m) => [m.code.toUpperCase(), m])
+  );
+
+  if (existsSync(dir)) {
+    try {
+      const files = readdirSync(dir).filter((file) => file.endsWith(".json"));
+      for (const file of files) {
+        try {
+          const raw = readFileSync(path.join(dir, file), "utf8");
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed.country_code === "string") {
+            const code = parsed.country_code.trim().toUpperCase();
+            if (/^[A-Z]{2}$/.test(code)) {
+              const standard = standardByCode.get(code);
+              const profileCurrency =
+                typeof parsed.default_currency === "string" && /^[A-Z]{3}$/.test(parsed.default_currency.trim().toUpperCase())
+                  ? parsed.default_currency.trim().toUpperCase()
+                  : undefined;
+
+              const defaultCurrency = profileCurrency ?? standard?.defaultCurrency ?? "USD";
+
+              let name = standard?.name;
+              if (!name) {
+                try {
+                  const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+                  name = displayNames.of(code) ?? code;
+                } catch {
+                  name = code;
+                }
+              }
+
+              const locale = standard?.locale ?? `en-${code}`;
+
+              const baseSupported = standard
+                ? [...standard.supportedCurrencies]
+                : [defaultCurrency];
+
+              const supportedCurrencies = baseSupported.includes(defaultCurrency)
+                ? baseSupported
+                : [defaultCurrency, ...baseSupported];
+
+              if (!marketsMap.has(code)) {
+                marketsMap.set(code, {
+                  code,
+                  name: name ?? code,
+                  defaultCurrency,
+                  supportedCurrencies: [...supportedCurrencies],
+                  locale
+                });
+              } else {
+                const existing = marketsMap.get(code)!;
+                for (const c of supportedCurrencies) {
+                  if (!existing.supportedCurrencies.includes(c)) {
+                    existing.supportedCurrencies.push(c);
+                  }
+                }
+              }
+            }
+          }
+        } catch {
+          // Ignore individual unparseable profile file
+        }
+      }
+    } catch {
+      // Ignore directory read failure
+    }
+  }
+
+  return Array.from(marketsMap.values()).sort((a, b) => a.code.localeCompare(b.code));
+}
+
+/**
  * Returns deduplicated market metadata for all supported regions.
  * Dynamically augments standard markets with any valid profiles found on disk,
  * strictly filtering out scraper internals, selectors, and URLs.

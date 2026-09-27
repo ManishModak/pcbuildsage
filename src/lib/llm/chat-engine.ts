@@ -196,6 +196,7 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
     system: systemPrompt,
     messages: initialModelMessages,
     tools: createToolRegistry(config),
+    // 25 on purpose: small local models (≤27B quants) and ranking several builds from in-stock parts need the steps; 14 was tested and is too low.
     stopWhen: isStepCount(25),
     abortSignal,
     prepareStep: async ({ steps, messages: currentMessages }) => {
