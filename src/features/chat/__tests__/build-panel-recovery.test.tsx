@@ -534,7 +534,9 @@ describe("matching a presented build to the validation that produced it", () => 
     expect(versions[0].builds[0].detailsUnavailable).toBe(true);
 
     const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
-    expect(markup).toContain("Build details unavailable — ask the assistant to present it again");
+    expect(decodeEntities(markup)).toContain(
+      "Build details unavailable — ask the assistant to present it again"
+    );
     expect(markup).not.toContain("ffffffffffffffffffffffffffffffffffffffff");
     expect(markup).not.toContain("₹0.00");
   });
@@ -1134,9 +1136,70 @@ describe("R-A4: a session switch cannot leave the previous chat's build on scree
     expect(displayBuilds).toBeNull();
     expect(buildsFingerprint(displayBuilds)).toBe("");
   });
+
+  it("shows the new session's own build and never the previous session's", () => {
+    const sessionA = [versionFrom(secondTurnForPanel(), "Session A Build", "RTX 4060", 28500)];
+    const sessionB = [versionFrom(secondTurnForPanel(), "Session B Build", "RTX 4070", 54000)];
+    const [versionA] = sessionA;
+    const versionsB = sessionB;
+    expect(versionsB).toHaveLength(1);
+    expect(versionsB[0].builds[0].label).toBe("Session B Build");
+
+    // Session A's build was open in the panel...
+    const opened = { sessionId: "session-a", builds: versionA.builds };
+    expect(openedBuildsForSession(opened, "session-b")).toBeNull();
+
+    // ...and on the new session the panel shows B's own version, whose selection
+    // resolves against B's list, so A's build is unreachable either way.
+    const activeVersion = resolveSelectedVersion(versionsB, undefined);
+    const displayBuilds = activeVersion?.builds ?? openedBuildsForSession(opened, "session-b");
+    expect(displayBuilds).toBe(versionsB[0].builds);
+    expect(displayBuilds).not.toBe(versionA.builds);
+    // A's stale id cannot select anything on B's list either.
+    expect(resolveSelectedVersion(versionsB, versionA.id)).toBe(versionsB[0]);
+
+    const markup = renderToStaticMarkup(
+      <BuildCard versions={versionsB} selectedVersionId={activeVersion?.id} inSidePanel />
+    );
+    expect(markup).toContain("RTX 4070");
+    expect(markup).not.toContain("RTX 4060");
+  });
 });
 
-/** A single turn that presents a build, reused by the session-switch test. */
+/** One presented build, shaped like a session's only build version. */
+function versionFrom(
+  messages: ChatUIMessage[],
+  buildLabel: string,
+  partName: string,
+  price: number
+) {
+  const versions = findAllBuildVersions(messages, "INR");
+  expect(versions).toHaveLength(1);
+  // Re-derive with this session's own part, so the two versions are distinct
+  // objects carrying distinct data, the way two chats' builds are.
+  const [version] = versions;
+  return {
+    ...version,
+    id: `${version.id}:${buildLabel}`,
+    builds: version.builds.map((build) => ({
+      ...build,
+      label: buildLabel,
+      components: [
+        {
+          category: "gpu",
+          categoryLabel: "GPU",
+          name: partName,
+          price,
+          currency: "INR",
+          unverified: false,
+          status: "ok" as const
+        }
+      ]
+    }))
+  };
+}
+
+/** A single turn that presents a build, reused by the session-switch tests. */
 function secondTurnForPanel(): ChatUIMessage[] {
   return [
     { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build" }] },
