@@ -923,7 +923,11 @@ describe("R-A2: a build parsed out of the assistant's text says so", () => {
     // The caveat and the blocking issue coexist.
     expect(decodeEntities(markup)).toContain("Not validated — from the assistant's text");
     expect(markup).toContain("AM5 CPUs require DDR5 memory");
-    expect(markup).toContain("check failed");
+    expect(markup).toContain("1 check failed");
+    // No check ever passed on a text build, and none may be claimed. The strip
+    // always prints an "N passed" clause, so the honest reading is the zero.
+    expect(markup).toContain("0 passed");
+    expect(markup).not.toMatch(/[1-9]\d* passed/);
   });
 });
 

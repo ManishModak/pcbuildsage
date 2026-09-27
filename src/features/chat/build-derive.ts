@@ -898,7 +898,23 @@ export function markTextDerivedBuilds(builds: DerivedBuild[], toolParts: ToolPar
       ...build,
       components,
       textDerived: true,
-      validation: blocking.length > 0 ? { valid: false, issues: blocking, resolved: {} } : null
+      // The summary is load-bearing: without it computeValidationStats falls
+      // back to counting the rules a build was never run against, and the card
+      // would report "1 check failed - 6 passed" for a build nothing checked.
+      validation:
+        blocking.length > 0
+          ? {
+              valid: false,
+              issues: blocking,
+              resolved: {},
+              summary: {
+                passed: 0,
+                failed: blocking.length,
+                unverified: 0,
+                text: `${blocking.length} check(s) failed`
+              }
+            }
+          : null
     };
   });
 }
