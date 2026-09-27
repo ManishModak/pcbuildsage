@@ -377,8 +377,7 @@ export function classifyConsultError(error: unknown): ClassifiedConsultError {
   // 2. Rejected credentials
   if (
     lower.includes("unauthorized") ||
-    lower.includes("401") ||
-    lower.includes("403") ||
+    /\b(401|403)\b/.test(lower) ||
     lower.includes("forbidden") ||
     lower.includes("invalid api key") ||
     lower.includes("api key not valid") ||
@@ -394,15 +393,16 @@ export function classifyConsultError(error: unknown): ClassifiedConsultError {
   }
 
   // 3. Quota exceeded
+  const has429 = /\b429\b/.test(lower);
   if (
-    lower.includes("429") ||
+    has429 ||
     lower.includes("quota") ||
     lower.includes("rate limit") ||
     lower.includes("rate_limit") ||
     lower.includes("free-models-per-day") ||
     lower.includes("resource has been exhausted")
   ) {
-    const codeHint = lower.includes("429") ? " (429)" : "";
+    const codeHint = has429 ? " (429)" : "";
     return {
       type: "quota_exceeded",
       message: `Research quota exceeded${codeHint}. Specifications remain unverified.`,
@@ -427,10 +427,7 @@ export function classifyConsultError(error: unknown): ClassifiedConsultError {
 
   // 5. Service / network failure
   if (
-    lower.includes("500") ||
-    lower.includes("502") ||
-    lower.includes("503") ||
-    lower.includes("504") ||
+    /\b(50[0-4])\b/.test(lower) ||
     lower.includes("econnrefused") ||
     lower.includes("enotfound") ||
     lower.includes("fetch failed") ||

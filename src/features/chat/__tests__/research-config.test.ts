@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { POST as probeRoute } from "@/app/api/search/probe/route";
-import { consult } from "@/lib/tools/consult";
+import { classifyConsultError, consult } from "@/lib/tools/consult";
 import { createSearchClient } from "@/lib/web-search";
 import {
   checkCrawlerEnvironment,
@@ -668,4 +668,25 @@ describe("Research Configuration & Error Handling", () => {
     });
   });
 
+  describe("classifyConsultError token matching", () => {
+    it("classifies an error mentioning RTX 5000 as unknown instead of 500 service failure", () => {
+      const result = classifyConsultError(new Error("RTX 5000 series is not yet supported by benchmark scraper"));
+      expect(result.type).toBe("unknown");
+    });
+
+    it("matches status codes as whole word tokens only", () => {
+      expect(classifyConsultError("Server returned 500 Internal Server Error").type).toBe("service_failure");
+      expect(classifyConsultError("Gateway 502 Bad Gateway").type).toBe("service_failure");
+      expect(classifyConsultError("HTTP 503 Unavailable").type).toBe("service_failure");
+      expect(classifyConsultError("504 Gateway Error").type).toBe("service_failure");
+      expect(classifyConsultError("Model RX 5020 error").type).toBe("unknown");
+
+      expect(classifyConsultError("HTTP 401 Unauthorized").type).toBe("rejected_credentials");
+      expect(classifyConsultError("HTTP 403 Forbidden").type).toBe("rejected_credentials");
+      expect(classifyConsultError("Error on port 4010").type).toBe("unknown");
+
+      expect(classifyConsultError("429 Too Many Requests").type).toBe("quota_exceeded");
+      expect(classifyConsultError("Item 4290 not found").type).toBe("unknown");
+    });
+  });
 });
