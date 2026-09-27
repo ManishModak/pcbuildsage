@@ -27,6 +27,7 @@ export type CheckRecorder = (
  * research looping forever on a part the web simply has little data about.
  */
 export function untrusted(component: ResolvedSpec, issues: BuildIssue[]): boolean {
+  if (component.key === "included-stock-cooler") return false;
   if (component.source !== "registry" || component.confidence !== "low") return false;
   issues.push(
     needsResearch(

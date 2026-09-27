@@ -112,7 +112,8 @@ export function resolveIncludedCooler(
     spec: {
       brand: "Stock",
       model: modelName,
-      aliases: ["Stock Cooler", "included"]
+      aliases: ["Stock Cooler", "included"],
+      cooler_type: "air"
     },
     confidence: "low",
     source: "registry"

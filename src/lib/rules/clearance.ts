@@ -30,7 +30,7 @@ export type CoolerForm = "aio" | "air" | "unknown";
  */
 export function coolerForm(cooler: ResolvedSpec, issues?: BuildIssue[]): CoolerForm {
   if (cooler.spec.cooler_type === "aio" || typeof cooler.spec.radiator_size_mm === "number") return "aio";
-  if (cooler.spec.cooler_type === "air") return "air";
+  if (cooler.spec.cooler_type === "air" || isStockCooler(cooler)) return "air";
   if (issues) {
     issues.push(needsResearch([cooler.key], `${cooler.key} cooler construction is unknown. Research cooler_type with consult before clearance can be verified.`));
   }
@@ -70,7 +70,10 @@ function checkGpuFit(
   issues: BuildIssue[]
 ) {
   if (!gpu || !pcCase) return;
-  if (typeof gpu.spec.spec_conflict === "string") {
+  const hasLengthConflict =
+    typeof gpu.spec.spec_conflict === "string" &&
+    /length|dimension/i.test(gpu.spec.spec_conflict);
+  if (hasLengthConflict) {
     const msg = "GPU fit couldn’t be verified due to conflicting length specs. Please check the card’s length against the case’s GPU clearance before buying.";
     recordCheck("clearance", "unverified", [gpu.key, pcCase.key], msg);
     return;
@@ -271,7 +274,15 @@ export function checkCooler(
   issues: BuildIssue[]
 ) {
   if (!cpu || !cooler) return;
-
+  if (cooler.key === "included-stock-cooler") {
+    recordCheck(
+      "cooler",
+      "unverified",
+      [cpu.key, cooler.key],
+      "Cooler compatibility couldn't be verified due to missing specs."
+    );
+    return;
+  }
   const cpuTdp = numberSpec(cpu, "tdp_w", issues);
   const rating = numberSpec(cooler, "tdp_rating_w", issues);
   const socket = stringSpec(cpu, "socket", issues);

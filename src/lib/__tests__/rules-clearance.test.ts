@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { makeResolved, validateBuild } from "../rules-engine";
+import { makeResolved, validateBuild, type BuildIssue } from "../rules-engine";
 import { resolveComponent } from "../registry";
+import { coolerForm } from "../rules/clearance";
 import { base, run } from "./rules-helpers";
 
 describe("rule: clearance", () => {
@@ -394,5 +395,55 @@ describe("rule: clearance", () => {
     expect(gpuCheck?.status).toBe("unverified");
     expect(gpuCheck?.status).not.toBe("passed");
     expect(gpuCheck?.message).toContain("conflicting length specs");
+  });
+  it("treats stock coolers as air coolers without pushing needs_research for unknown construction", () => {
+    const stockCooler = makeResolved("included-stock-cooler", "cooler", {
+      brand: "Stock",
+      model: "Stock Cooler",
+      aliases: ["Stock Cooler", "included"]
+    });
+    const pcCase = makeResolved("case-test", "case", {
+      brand: "Corsair",
+      model: "4000D",
+      max_cooler_height_mm: 170,
+      max_gpu_length_mm: 360,
+      form_factors: ["ATX"],
+      aliases: ["4000D"]
+    });
+    const issues: BuildIssue[] = [];
+    expect(coolerForm(stockCooler, issues)).toBe("air");
+    expect(issues).toHaveLength(0);
+
+    const result = run({ cooler: stockCooler, case: pcCase });
+    const coolerCheck = result.checks.find(
+      (c) => c.rule === "clearance" && c.components.includes(stockCooler.key)
+    );
+    expect(coolerCheck?.status).toBe("unverified");
+    expect(coolerCheck?.message).toContain("Cooler height fit couldn’t be verified against case clearance.");
+    expect(result.issues.some((i) => i.detail.includes("cooler construction is unknown"))).toBe(false);
+  });
+  it("does not attribute non-length conflict to length fit in checkGpuFit", () => {
+    const gpuWithVramConflict = makeResolved("gpu-vram", "gpu", {
+      brand: "Nvidia",
+      model: "GeForce RTX 4060",
+      length_mm: 242,
+      aliases: ["RTX 4060"],
+      spec_conflict: "GPU listing variant conflicts with registry record nvidia-rtx-4060; the conflicting record was not used."
+    });
+    const midCase = makeResolved("case-320", "case", {
+      brand: "Vendor",
+      model: "Case 320mm",
+      max_gpu_length_mm: 320,
+      form_factors: ["ATX"],
+      aliases: ["Case 320mm"]
+    });
+
+    const result = run({ gpu: gpuWithVramConflict, case: midCase });
+    const gpuCheck = result.checks.find(
+      (c) => c.rule === "clearance" && c.components.includes(gpuWithVramConflict.key)
+    );
+    expect(gpuCheck?.status).toBe("passed");
+    expect(gpuCheck?.message).toContain("GPU length fits: 242mm card / 320mm case clearance.");
+    expect(gpuCheck?.message).not.toContain("conflicting length specs");
   });
 });

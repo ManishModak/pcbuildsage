@@ -126,5 +126,9 @@ describe("rule: cooler", () => {
     expect(result.valid).toBe(true);
     const coolerCheck = result.checks.find((c) => c.rule === "cooler");
     expect(coolerCheck?.status).toBe("unverified");
+    const researchIssues = result.issues.filter(
+      (i) => i.severity === "needs_research" && i.components.includes("included-stock-cooler")
+    );
+    expect(researchIssues).toHaveLength(0);
   });
 });
