@@ -134,9 +134,10 @@ describe("SqliteCatalogRepository", () => {
     });
 
     it("returns markets from installed profiles when empty, and active catalog markets when stocked", async () => {
-      // Empty catalog in local mode falls back to installed profiles (IN and US from data/profiles)
+      // Empty catalog in local mode falls back to installed profiles; the us-example.json
+      // template (example.com) has no real retailer, so only India is offered
       const initialMarkets = await repo.getMarkets();
-      expect(initialMarkets.map((m) => m.code)).toEqual(["IN", "US"]);
+      expect(initialMarkets.map((m) => m.code)).toEqual(["IN"]);
 
       // Insert in-stock products for IN, out-of-stock for US
       insertProduct(db, { id: "p-in", country_code: "IN", currency: "INR", in_stock: 1 });
@@ -161,7 +162,17 @@ describe("SqliteCatalogRepository", () => {
         path.join(tmpDir, "india.json"),
         JSON.stringify({
           country_code: "IN",
-          default_currency: "INR"
+          default_currency: "INR",
+          sites: [{ base_url: "https://mdcomputers.in/" }]
+        })
+      );
+      // Template profile: every site on a reserved example domain, so it must not add a market
+      fs.writeFileSync(
+        path.join(tmpDir, "us-example.json"),
+        JSON.stringify({
+          country_code: "US",
+          default_currency: "USD",
+          sites: [{ base_url: "https://example.com/" }, { base_url: "https://shop.example.org/" }]
         })
       );
 

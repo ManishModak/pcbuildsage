@@ -14,10 +14,29 @@ import { STANDARD_MARKETS } from "./deployment";
 export { STANDARD_MARKETS };
 export type { MarketMetadata };
 
+const EXAMPLE_HOST = /^([a-z0-9-]+\.)*example\.(com|org|net)$/i;
+
+/**
+ * True for template profiles: every site points at a reserved example domain
+ * (RFC 2606), so the profile documents the format and can never scrape. Same
+ * rule as the weekly smoke test.
+ */
+function isTemplateProfile(profile: { sites?: unknown }): boolean {
+  if (!Array.isArray(profile.sites) || profile.sites.length === 0) return false;
+  return profile.sites.every((site) => {
+    try {
+      return EXAMPLE_HOST.test(new URL(String((site as { base_url?: unknown }).base_url)).hostname);
+    } catch {
+      return false;
+    }
+  });
+}
+
 /**
  * Returns market metadata strictly derived from installed scraper profiles
  * (data/profiles/*.json), with country_code and default_currency from profiles,
  * and names, locales, and currencies resolved from STANDARD_MARKETS.
+ * Template profiles are skipped: they have no real retailer behind them.
  */
 export function listMarketsFromProfiles(profilesDir?: string): MarketMetadata[] {
   const dir = profilesDir ?? path.join(/*turbopackIgnore: true*/ process.cwd(), "data", "profiles");
@@ -34,7 +53,7 @@ export function listMarketsFromProfiles(profilesDir?: string): MarketMetadata[] 
         try {
           const raw = readFileSync(path.join(dir, file), "utf8");
           const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed.country_code === "string") {
+          if (parsed && typeof parsed.country_code === "string" && !isTemplateProfile(parsed)) {
             const code = parsed.country_code.trim().toUpperCase();
             if (/^[A-Z]{2}$/.test(code)) {
               const standard = standardByCode.get(code);
