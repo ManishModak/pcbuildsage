@@ -195,9 +195,10 @@ export function calculateStepTokens(options: StepTokenCalculationOptions): numbe
   const steps = options.steps;
   const lastStep = steps && steps.length > 0 ? steps[steps.length - 1] : undefined;
   const usage = lastStep?.usage ?? options.previousUsage;
-  const reportedInputTokens = usage?.inputTokens;
+  const rawInputTokens = usage?.inputTokens ?? (usage as { promptTokens?: number })?.promptTokens;
+  const reportedInputTokens = typeof rawInputTokens === "number" && rawInputTokens > 0 ? rawInputTokens : undefined;
 
-  if (typeof reportedInputTokens === "number" && reportedInputTokens > 0) {
+  if (reportedInputTokens !== undefined) {
     let newContentTokens = 0;
     if (options.newContent !== undefined) {
       newContentTokens += estimateTokens(options.newContent);

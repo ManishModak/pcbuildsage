@@ -209,7 +209,11 @@ export async function streamChat(
       id: m.id ?? crypto.randomUUID(),
       role: m.role,
       content: m.content ?? "",
-      parts: m.parts ?? []
+      parts: m.parts && m.parts.length > 0
+        ? m.parts
+        : typeof m.content === "string" && m.content
+          ? [{ type: "text", text: m.content }]
+          : []
     }))
   );
 
@@ -274,6 +278,7 @@ export async function streamChat(
         messages: initialModelMessages,
         snapshot: sessionSnapshot,
         contextLimit,
+        force: true,
         abortSignal
       });
       if (initialCompaction.compacted) {
@@ -322,6 +327,7 @@ export async function streamChat(
             messages: currentMessages,
             snapshot: latestSnapshot,
             contextLimit,
+            force: true,
             abortSignal
           });
 
