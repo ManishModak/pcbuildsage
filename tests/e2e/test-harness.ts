@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 
 // ============================================================================
-// Types & Interfaces (Matching PROJECT.md & TEST_INFRA.md Contracts)
+// Types & Interfaces (Matching the hosted-demo deployment contracts)
 // ============================================================================
 
 export type DeploymentMode = "local" | "hosted-demo";

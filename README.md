@@ -37,7 +37,7 @@ A public live demonstration is available at [https://pcbuildsage.onrender.com](h
 
 - **Bring-Your-Own-Key (BYOK)**: Visitors provide their own API key (e.g. Gemini, OpenRouter, Groq). In hosted mode, the backend strictly ignores server environment keys, ensuring visitor requests execute exclusively against visitor-provided keys ([`src/app/api/_lib/credentials.ts`](src/app/api/_lib/credentials.ts), [`src/lib/config/deployment.ts`](src/lib/config/deployment.ts)).
 - **Keys Stored in Browser Only**: API keys are saved in browser `sessionStorage` (scoped to tab lifetime). Keys are forwarded per-request through the server in headers to execute LLM calls, but are never written to disk, stored in any database, or logged on the server ([`src/lib/llm/client-byok-store.ts`](src/lib/llm/client-byok-store.ts)).
-- **Stateless Sessions**: Chat sessions and build recommendations live entirely in the browser using client-side IndexedDB and `localStorage`. The server operates on an ephemeral read-only filesystem with zero server session database or disk persistence ([`src/lib/sessions/client-store.ts`](src/lib/sessions/client-store.ts), [`tests/container/dockerfile.test.ts`](tests/container/dockerfile.test.ts)).
+- **Stateless Sessions**: Chat sessions and build recommendations live entirely in the browser using client-side IndexedDB and `localStorage`. The server runs on an ephemeral filesystem (wiped on every restart) with no server session database or disk persistence ([`src/lib/sessions/client-store.ts`](src/lib/sessions/client-store.ts), [`tests/container/dockerfile.test.ts`](tests/container/dockerfile.test.ts)).
 - **India-Only Catalog**: The hosted catalog currently ingests and serves in-stock hardware pricing exclusively for the Indian market (`IN`). Market selection dynamically presents only markets with verified in-stock catalog records ([`src/lib/catalog/sql-repository.ts`](src/lib/catalog/sql-repository.ts), [`src/app/api/markets/route.ts`](src/app/api/markets/route.ts)).
 
 ---
@@ -85,11 +85,14 @@ npm run generate-sample-db
 
 ### Docker (Self-Hosting)
 
-The container runs in hosted-demo mode by default. To run it in local mode, set `-e PCBUILDSAGE_DEPLOYMENT_MODE=local`:
+The container runs in hosted-demo mode by default and listens on port 10000. To run it in local mode, set `-e PCBUILDSAGE_DEPLOYMENT_MODE=local`:
 
 ```bash
-docker run -d -p 3000:3000 -e PCBUILDSAGE_DEPLOYMENT_MODE=local pcbuildsage
+docker build -t pcbuildsage .
+docker run -d -p 3000:10000 -e PCBUILDSAGE_DEPLOYMENT_MODE=local pcbuildsage
 ```
+
+Then open http://localhost:3000.
 
 ---
 
