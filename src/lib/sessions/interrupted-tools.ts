@@ -16,31 +16,19 @@ export function isStuckToolState(state: unknown): boolean {
   return typeof state === "string" && STUCK_TOOL_STATES.has(state);
 }
 
-export type InterruptedCleanupOptions = {
-  /**
-   * True when the transcript being cleaned is attached to a *live* stream. On a
-   * fresh load nothing is streaming, so every stuck part is a leftover.
-   */
-  isStreaming?: boolean;
-};
-
 /**
  * Rewrite stuck tool calls in a **finished** turn into a visible
  * `output-error` / "Interrupted" state. Applied in memory on read only: the
  * stored transcript is never rewritten, and a live stream is never touched.
  *
- * A turn counts as finished when it is not the last message, or when the
- * transcript as a whole is not currently streaming.
+ * Every caller is a fresh read of a stored session, where nothing is streaming by
+ * definition, so a stuck part is always a leftover. The live-stream case does not
+ * reach here: a streaming transcript is in memory, not in storage.
  */
-export function markInterruptedToolCalls(
-  messages: readonly unknown[],
-  options: InterruptedCleanupOptions = {}
-): unknown[] {
-  const lastIndex = messages.length - 1;
+export function markInterruptedToolCalls(messages: readonly unknown[]): unknown[] {
   let changed = false;
 
-  const cleaned = messages.map((message, index) => {
-    if (options.isStreaming && index === lastIndex) return message;
+  const cleaned = messages.map((message) => {
     if (typeof message !== "object" || message === null) return message;
     const parts = (message as { parts?: unknown }).parts;
     if (!Array.isArray(parts)) return message;

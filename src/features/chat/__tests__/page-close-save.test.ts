@@ -196,6 +196,31 @@ describe("closing mid-stream", () => {
     expect(JSON.stringify(persisted[0].messages)).toContain("Start with an AM5 board");
   });
 
+  it("an idle render does not pay for a transcript signature", () => {
+    // The mid-stream effect runs on every render of every mounted pool entry.
+    // sessionSignature is a full JSON.stringify, so the streaming check has to come
+    // first or an idle background tab pays ~0.86 ms per render for nothing.
+    let signatures = 0;
+    const messages = [userMessage("a"), partialReply()];
+    const markSignature = () => {
+      signatures += 1;
+      return sessionSignature(messages);
+    };
+
+    // Mirrors the guard order in chat-view's streaming effect.
+    for (const streaming of [false, false, false]) {
+      if (!streaming || messages.length === 0) continue;
+      markSignature();
+    }
+    expect(signatures).toBe(0);
+
+    for (const streaming of [true, false, true]) {
+      if (!streaming || messages.length === 0) continue;
+      markSignature();
+    }
+    expect(signatures).toBe(2);
+  });
+
   it("a throttle cycle writes intermediate replies, not just the final one", () => {    const decisions: string[] = [];
     let lastSavedAt: number | null = null;
     let lastSavedSignature: string | null = null;

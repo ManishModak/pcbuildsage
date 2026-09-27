@@ -52,11 +52,13 @@ describe("markInterruptedToolCalls", () => {
     expect(cleaned.parts[0]).toBe(message.parts[0]);
   });
 
-  it("leaves a live stream's last turn alone but cleans finished earlier turns", () => {
+  it("cleans a stuck part in the last message too, since a stored read is never live", () => {
     const messages = [stuckAssistant("input-streaming"), stuckAssistant("input-available")];
+    const cleaned = markInterruptedToolCalls(messages) as ChatUIMessage[];
 
-    const [cleaned] = markInterruptedToolCalls(messages, { isStreaming: true }) as ChatUIMessage[];
-    expect((cleaned.parts[0] as ToolPart).state).toBe("output-error");
+    expect((cleaned[0].parts[0] as ToolPart).state).toBe("output-error");
+    expect((cleaned[1].parts[0] as ToolPart).state).toBe("output-error");
+    // The input is untouched, so nothing rendered from a live stream is affected.
     expect((messages[1].parts[0] as ToolPart).state).toBe("input-available");
   });
 

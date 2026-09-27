@@ -520,6 +520,14 @@ export function ChatView({
     onStreamingChange?.(sessionId, streaming);
   }, [onStreamingChange, sessionId, streaming]);
 
+  // Unmount only. A stream that dies with its view would otherwise leave the entry
+  // flagged streaming forever, which makes it permanently unevictable. Split from
+  // the effect above so the reset does not also fire on every status change.
+  useEffect(
+    () => () => onStreamingChange?.(sessionId, false),
+    [onStreamingChange, sessionId]
+  );
+
   const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
   const activeModel = useMemo(
     () => resolveActiveModel(config, lastAssistantMessage?.metadata?.model),
@@ -664,7 +672,11 @@ export function ChatView({
   // ever runs once a turn reaches "ready" or "error".
   const streamSaveRef = useRef<{ signature: string | null; at: number | null }>({ signature: null, at: null });
   useEffect(() => {
-    if (messages.length === 0) return;
+    // The guard comes first on purpose: sessionSignature is a full JSON.stringify
+    // of the transcript, and this effect runs on every render of every mounted pool
+    // entry. Deciding "skip" first keeps an idle background tab from paying for a
+    // signature nobody reads.
+    if (!streaming || messages.length === 0) return;
     const signature = sessionSignature(messages);
     const now = Date.now();
     const decision = decideStreamPersist({
