@@ -7,6 +7,7 @@ import {
   listClientSessions,
   resetClientStoreState,
   saveClientSession,
+  SessionPersistenceError,
   _setStorageDriverForTesting,
   type SaveSessionRequest
 } from "../client-store";
@@ -29,7 +30,7 @@ class MockIDBRequest {
   }
 }
 
-function createMockIndexedDB() {
+function createMockIndexedDB(options?: { rollBackWrites?: boolean }) {
   const stores = new Map<string, Map<string, unknown>>();
 
   return {
@@ -54,41 +55,65 @@ function createMockIndexedDB() {
             const storeMap = stores.get(storeName) ?? new Map();
             if (!stores.has(storeName)) stores.set(storeName, storeMap);
 
-            return {
-              onerror: null as (() => void) | null,
-              objectStore() {
-                return {
-                  get(key: string) {
-                    const req = new MockIDBRequest();
-                    req.succeed(storeMap.get(key));
-                    return req;
-                  },
-                  getAll() {
-                    const req = new MockIDBRequest();
-                    req.succeed(Array.from(storeMap.values()));
-                    return req;
-                  },
-                  put(val: { id: string }) {
-                    const req = new MockIDBRequest();
-                    storeMap.set(val.id, JSON.parse(JSON.stringify(val)));
-                    req.succeed(undefined);
-                    return req;
-                  },
-                  delete(key: string) {
-                    const req = new MockIDBRequest();
-                    storeMap.delete(key);
-                    req.succeed(undefined);
-                    return req;
-                  },
-                  clear() {
-                    const req = new MockIDBRequest();
-                    storeMap.clear();
-                    req.succeed(undefined);
-                    return req;
-                  }
-                };
-              }
+            // Real IndexedDB settles a write on the *transaction*: the request's
+            // `success` fires first, then the transaction commits (`oncomplete`).
+            // A request error bubbles up to the transaction, which aborts it.
+            const tx: {
+              oncomplete: (() => void) | null;
+              onabort: (() => void) | null;
+              onerror: (() => void) | null;
+              objectStore: () => unknown;
+            } = { oncomplete: null, onabort: null, onerror: null, objectStore: () => undefined };
+
+            const commit = (apply: () => void) => {
+              queueMicrotask(() => {
+                apply();
+                if (options?.rollBackWrites) tx.onabort?.();
+                else tx.oncomplete?.();
+              });
             };
+
+            tx.objectStore = () => ({
+              get(key: string) {
+                const req = new MockIDBRequest();
+                req.succeed(storeMap.get(key));
+                return req;
+              },
+              getAll() {
+                const req = new MockIDBRequest();
+                req.succeed(Array.from(storeMap.values()));
+                return req;
+              },
+              put(val: { id: string }) {
+                const req = new MockIDBRequest();
+                commit(() => {
+                  if (options?.rollBackWrites) return;
+                  storeMap.set(val.id, JSON.parse(JSON.stringify(val)));
+                  req.succeed(undefined);
+                });
+                return req;
+              },
+              delete(key: string) {
+                const req = new MockIDBRequest();
+                commit(() => {
+                  if (options?.rollBackWrites) return;
+                  storeMap.delete(key);
+                  req.succeed(undefined);
+                });
+                return req;
+              },
+              clear() {
+                const req = new MockIDBRequest();
+                commit(() => {
+                  if (options?.rollBackWrites) return;
+                  storeMap.clear();
+                  req.succeed(undefined);
+                });
+                return req;
+              }
+            });
+
+            return tx;
           },
           close() {},
           onversionchange: null,
@@ -102,6 +127,10 @@ function createMockIndexedDB() {
         openReq.onsuccess?.();
       });
       return openReq;
+    },
+    /** Rows that actually committed, for asserting what reached storage. */
+    _rows(storeName = "chat_sessions") {
+      return stores.get(storeName) ?? new Map<string, unknown>();
     }
   };
 }
@@ -197,6 +226,26 @@ describe("ClientStore", () => {
       await clearClientSessions();
       expect(await listClientSessions()).toEqual([]);
     });
+
+    it("rejects a write whose transaction aborts, instead of reporting the request's success", async () => {
+      vi.stubGlobal("indexedDB", createMockIndexedDB({ rollBackWrites: true }));
+      const mockLs = createMockLocalStorage();
+      vi.stubGlobal("localStorage", mockLs);
+
+      expect(await getEffectiveStorageType()).toBe("indexeddb");
+
+      // The put's `onsuccess` fires and *then* the transaction aborts. Resolving
+      // on the request (the old behaviour) would report a save that was rolled back.
+      await saveClientSession({
+        id: "rolled-back",
+        revision: 1,
+        title: "Never Committed",
+        messages: [makeMessage("m1", "gone")]
+      });
+
+      // Nothing reached IndexedDB; the write fell through to localStorage instead.
+      expect(mockLs.getItem("pcbuildsage:session:rolled-back")).not.toBeNull();
+    });
   });
 
   describe("LocalStorage Fallback", () => {
@@ -258,36 +307,29 @@ describe("ClientStore", () => {
     });
   });
 
-  describe("In-Memory Fallback", () => {
-    it("falls back to in-memory store when both IndexedDB and localStorage are unavailable", async () => {
+  describe("No durable storage (memory-only)", () => {
+    it("reports the save as failed when both IndexedDB and localStorage are unavailable", async () => {
       vi.stubGlobal("indexedDB", undefined);
       vi.stubGlobal("localStorage", undefined);
 
       expect(await getEffectiveStorageType()).toBe("memory");
 
-      await saveClientSession({
-        id: "mem-sess-1",
-        revision: 1,
-        title: "In-Memory Session",
-        messages: [makeMessage("m1", "Ephemeral message")]
-      });
+      // An in-memory copy is gone the moment the tab closes, so reporting success
+      // here would be a lie. The throw is what makes the queue retry and the UI warn.
+      await expect(
+        saveClientSession({
+          id: "mem-sess-1",
+          revision: 1,
+          title: "In-Memory Session",
+          messages: [makeMessage("m1", "Ephemeral message")]
+        })
+      ).rejects.toBeInstanceOf(SessionPersistenceError);
 
-      const retrieved = await getClientSession("mem-sess-1");
-      expect(retrieved).not.toBeNull();
-      expect(retrieved?.id).toBe("mem-sess-1");
-      expect(retrieved?.title).toBe("In-Memory Session");
-      expect(retrieved?.messages.length).toBe(1);
-
-      const list = await listClientSessions();
-      expect(list.length).toBe(1);
-      expect(list[0].id).toBe("mem-sess-1");
-
-      await deleteClientSession("mem-sess-1");
       expect(await getClientSession("mem-sess-1")).toBeNull();
       expect(await listClientSessions()).toEqual([]);
     });
 
-    it("falls back to in-memory store when localStorage throws SecurityError", async () => {
+    it("carries a machine-readable reason and the underlying cause", async () => {
       vi.stubGlobal("indexedDB", undefined);
       vi.stubGlobal("localStorage", {
         setItem() {
@@ -304,21 +346,24 @@ describe("ClientStore", () => {
 
       expect(await getEffectiveStorageType()).toBe("memory");
 
-      await saveClientSession({
+      const failure = await saveClientSession({
         id: "mem-sess-2",
         revision: 1,
         title: "Fallback on security error",
         messages: []
-      });
+      }).catch((error: unknown) => error);
 
-      const retrieved = await getClientSession("mem-sess-2");
-      expect(retrieved?.title).toBe("Fallback on security error");
+      expect(failure).toBeInstanceOf(SessionPersistenceError);
+      expect((failure as SessionPersistenceError).reason).toBe("no_durable_storage");
+      expect(await getClientSession("mem-sess-2")).toBeNull();
     });
   });
 
   describe("Sorting", () => {
     it("orders sessions newest-first by updated_at", async () => {
-      _setStorageDriverForTesting("memory");
+      vi.stubGlobal("indexedDB", undefined);
+      vi.stubGlobal("localStorage", createMockLocalStorage());
+      _setStorageDriverForTesting("localstorage");
 
       vi.useFakeTimers();
 
@@ -341,7 +386,9 @@ describe("ClientStore", () => {
     });
 
     it("moves updated sessions to top of list", async () => {
-      _setStorageDriverForTesting("memory");
+      vi.stubGlobal("indexedDB", undefined);
+      vi.stubGlobal("localStorage", createMockLocalStorage());
+      _setStorageDriverForTesting("localstorage");
 
       vi.useFakeTimers();
 
@@ -400,7 +447,7 @@ describe("ClientStore", () => {
   });
 
   describe("Quota Handling Resilience", () => {
-    it("handles localStorage quota exceeded error by evicting oldest session or falling back to memory", async () => {
+    it("reports a full store instead of deleting an older chat to make room", async () => {
       vi.stubGlobal("indexedDB", undefined);
       const mockLs = createMockLocalStorage();
 
@@ -422,16 +469,21 @@ describe("ClientStore", () => {
       // Now activate quota error
       quotaActive = true;
 
-      // Saving should not throw unhandled error; it falls back gracefully to in-memory
-      await expect(
-        saveClientSession({ id: "s-large", revision: 1, title: "Large Session", messages: [] })
-      ).resolves.toBeUndefined();
+      const failure = await saveClientSession({
+        id: "s-large",
+        revision: 1,
+        title: "Large Session",
+        messages: []
+      }).catch((error: unknown) => error);
 
-      // It is still retrievable via getClientSession!
-      const retrieved = await getClientSession("s-large");
-      expect(retrieved).not.toBeNull();
-      expect(retrieved?.id).toBe("s-large");
-      expect(retrieved?.title).toBe("Large Session");
+      expect(failure).toBeInstanceOf(SessionPersistenceError);
+      expect((failure as SessionPersistenceError).reason).toBe("quota_exceeded");
+      expect((failure as SessionPersistenceError).cause).toBeInstanceOf(DOMException);
+
+      // The older chat is untouched: only the user decides what to delete.
+      expect(mockLs.getItem("pcbuildsage:session:s1")).not.toBeNull();
+      const older = await getClientSession("s1");
+      expect(older?.title).toBe("First Session");
     });
   });
 });

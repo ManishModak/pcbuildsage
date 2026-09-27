@@ -22,6 +22,7 @@ import {
   type SaveSessionRequest,
   type SessionDetail
 } from "./sessions/client-store";
+import { markInterruptedToolCalls } from "./sessions/interrupted-tools";
 
 export class HttpError extends Error {
   constructor(
@@ -400,8 +401,12 @@ export async function fetchSession(id: string): Promise<SessionDetail | null> {
         country_code: (data.session.country_code as string | undefined) ?? null,
         currency: (data.session.currency as string | undefined) ?? null,
         build_state: data.session.build_state ?? null,
+        // Repaired in memory on read: a tool call that was persisted mid-flight
+        // must not come back as a permanent spinner. The stored row is untouched.
         messages: Array.isArray(data.session.messages)
-          ? data.session.messages.map((m, idx) => normalizeUIMessage(m, idx))
+          ? (markInterruptedToolCalls(data.session.messages) as SessionDetailRaw["messages"]).map((m, idx) =>
+              normalizeUIMessage(m, idx)
+            )
           : []
       };
     },
@@ -409,15 +414,42 @@ export async function fetchSession(id: string): Promise<SessionDetail | null> {
   );
 }
 
-export async function saveSession(input: SaveSessionRequest): Promise<void> {
+/**
+ * MDN: "The body size for `keepalive` requests is limited to 64 kibibytes."
+ * A longer transcript simply cannot be flushed through an unload handler; the
+ * caller gets a thrown error rather than a silent no-op so the snapshot stays
+ * unacknowledged and the next ordinary save can still write it.
+ */
+export const KEEPALIVE_BODY_LIMIT_BYTES = 64 * 1024;
+
+export type SaveSessionOptions = {
+  /**
+   * Best-effort flush for a page that is being hidden or closed. Sent with
+   * `fetch(..., { keepalive: true })`: MDN documents that "the browser will not
+   * abort the associated request if the page that initiated it is unloaded before
+   * the request is complete". Not a durability guarantee — see the page-close
+   * flush in `chat-view.tsx`.
+   */
+  urgent?: boolean;
+};
+
+export async function saveSession(input: SaveSessionRequest, options?: SaveSessionOptions): Promise<void> {
+  const keepalive = options?.urgent === true;
   return withSessionFallback(
     async () => {
+      const body = JSON.stringify(input);
+      if (keepalive && body.length > KEEPALIVE_BODY_LIMIT_BYTES) {
+        throw new Error(
+          `Skipped the page-close flush for session ${input.id}: ${body.length} bytes exceeds the 64 KiB keepalive limit.`
+        );
+      }
       await requestJson(
         "/api/sessions",
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(input)
+          body,
+          keepalive
         },
         (value): value is { ok: true; revision: number } =>
           isRecord(value) && value.ok === true && value.revision === input.revision
