@@ -21,6 +21,10 @@ const CAPACITY = /(\d+(?:\.\d+)?)\s*(TB|GB)\b/i;
 const NVME = /\bnv[mn]e\b|\bnnme\b/i;
 const SATA = /\bsata\b/i;
 const SPINNING = /\b(hdd|hard\s+disk|hard\s+drive)\b/i;
+const EXTERNAL = /\b(external|portable|usb)\b/i;
+// A bare accessory or cable mention is not a drive. External titles resolve only
+// with credible drive evidence: a capacity plus a drive/storage indication.
+const DRIVE_WORD = /\b(drive|ssd|hdd|storage|disk|enclosure)\b/i;
 const M2 = /\bm\.?2\b/i;
 const TWO_FIVE = /\b2\.5\s*(?:inch|in|")?\b/i;
 const PCIE_GEN = /\bgen\s*([345])\b/i;
@@ -31,25 +35,37 @@ export function parseStorageSpecs(name: string): RegistrySpec | undefined {
     ? Math.round(Number(capacityMatch[1]) * (capacityMatch[2].toLowerCase() === "tb" ? 1000 : 1))
     : undefined;
 
-  const isNvme = NVME.test(name);
-  const isSpinning = SPINNING.test(name);
+  const isExternal = EXTERNAL.test(name);
+  const isNvme = !isExternal && NVME.test(name);
+  const isSpinning = !isExternal && SPINNING.test(name);
   // Every consumer desktop HDD in this catalog is SATA; nothing else has shipped
   // for a decade. NVMe wins over a stray SATA token ("NVMe Gen4" beside "SATA III").
-  const iface = isNvme ? "nvme" : SATA.test(name) || isSpinning ? "sata" : undefined;
-
-  const form_factor = M2.test(name)
-    ? "m2-2280"
-    : isSpinning
-      ? "3.5in"
-      : TWO_FIVE.test(name) || (iface === "sata" && !isNvme)
-        ? "2.5in"
+  // External / portable drives use USB and must not be classified as internal SATA/3.5in.
+  const iface = isExternal
+    ? "usb"
+    : isNvme
+      ? "nvme"
+      : SATA.test(name) || isSpinning
+        ? "sata"
         : undefined;
+
+  const form_factor = isExternal
+    ? undefined
+    : M2.test(name)
+      ? "m2-2280"
+      : isSpinning
+        ? "3.5in"
+        : TWO_FIVE.test(name) || (iface === "sata" && !isNvme)
+          ? "2.5in"
+          : undefined;
 
   const pcieMatch = isNvme ? PCIE_GEN.exec(name) : null;
 
   // Nothing readable means nothing derived - do not hand back an empty shell that
-  // would read as a resolved component.
+  // would read as a resolved component. External accessories without drive
+  // evidence (e.g. "USB Cable") are not drives either.
   if (capacity_gb === undefined && !iface) return undefined;
+  if (isExternal && (capacity_gb === undefined || !DRIVE_WORD.test(name))) return undefined;
 
   return {
     brand: name.trim().split(/\s+/)[0] ?? "",
@@ -116,12 +132,22 @@ export function parseMotherboardSpecs(name: string): RegistrySpec | undefined {
 }
 
 export function parsePsuSpecs(name: string): RegistrySpec | undefined {
-  const wMatch = name.match(/(\d{3,4})\s*W\b/i) || name.match(/\b(450|500|550|600|650|700|750|800|850|1000|1200|1300|1600)\b/);
-  const wattage = wMatch ? parseInt(wMatch[1] || wMatch[0], 10) : undefined;
-  if (!wattage || wattage < 250 || wattage > 2000) return undefined;
+  const matches = Array.from(name.matchAll(/(?<!\d)(\d{3,4})\s*(?:watts?|w)\b/gi));
+  const candidateWattages = matches.map((m) => parseInt(m[1], 10));
+  const uniqueWattages = Array.from(new Set(candidateWattages));
 
+  // A bare model number is not treated as a measured wattage (uniqueWattages.length === 0).
+  // Conflicting explicit values stay unresolved (uniqueWattages.length > 1).
+  if (uniqueWattages.length !== 1) return undefined;
+
+  const wattage = uniqueWattages[0];
+  if (wattage < 250 || wattage > 2000) return undefined;
+
+  const isSfxL = /\bSFX[-\s]?L\b/i.test(name);
   const isSfx = /\bSFX\b/i.test(name);
-  const form_factor = isSfx ? "SFX" : "ATX";
+  // SFX-L is a distinct, larger standard: detect it before the bare SFX token,
+  // which would otherwise also match inside "SFX-L".
+  const form_factor = isSfxL ? "SFX-L" : isSfx ? "SFX" : "ATX";
 
   return {
     brand: name.trim().split(/\s+/)[0] ?? "",

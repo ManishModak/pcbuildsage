@@ -158,6 +158,10 @@
     "model": "Cooler Master MasterBox Q300L",
     "max_gpu_length_mm": 360,
     "max_cooler_height_mm": 159,
+    "supported_radiators": [
+      120,
+      240
+    ],
     "form_factors": [
       "Micro-ATX",
       "Mini-ITX"
@@ -236,6 +240,10 @@
     "form_factors": [
       "Mini-ITX",
       "Mini-DTX"
+    ],
+    "supported_psu_form_factors": [
+      "SFX",
+      "SFX-L"
     ],
     "aliases": [
       "Cooler Master NR200",

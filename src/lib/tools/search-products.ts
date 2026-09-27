@@ -32,8 +32,14 @@ export const searchProductsInputSchema = z.object({
     .describe(
       "Defaults to true: only products currently marked in stock, which is what a build should be assembled from. Pass false only to inspect rows a re-scrape retired, for example when the user asks what happened to a part they were looking at."
     ),
-  socket: z.string().optional().describe("Registry-resolved CPU or motherboard socket filter, for example AM5 or LGA 1700."),
-  ddr: z.enum(["DDR3", "DDR4", "DDR5"]).optional().describe("Registry-resolved memory generation filter."),
+  socket: z.string().optional().describe("Registry-resolved CPU, motherboard, or cooler socket filter, for example AM5 or LGA 1700."),
+  ddr: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .pipe(z.enum(["DDR3", "DDR4", "DDR5"]))
+    .optional()
+    .describe("Registry-resolved memory generation filter (case-insensitive, e.g. ddr5)."),
   subcategory: z.enum(["internal", "external", "removable", "accessory"]).optional().describe("Storage build role. Omit for builds - defaults to internal (SSD/HDD/NVMe that go inside a PC). Pass 'removable' (pen drive, memory card) or 'external' (portable drive) ONLY when the user explicitly asks for portable or USB storage."),
   form_factor: z.string().optional().describe("Registry-resolved motherboard or case form factor filter, for example ATX or Mini-ITX."),
   min_vram_gb: z.number().nonnegative().optional().describe("Minimum registry-resolved GPU VRAM in GB."),

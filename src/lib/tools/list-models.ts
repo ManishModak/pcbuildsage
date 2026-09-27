@@ -27,9 +27,12 @@ export const listModelsInputSchema = z.object({
     .optional()
     .describe("CPU or motherboard socket filter (e.g. AM5, LGA 1700)."),
   ddr: z
-    .enum(["DDR3", "DDR4", "DDR5"])
+    .string()
+    .trim()
+    .toUpperCase()
+    .pipe(z.enum(["DDR3", "DDR4", "DDR5"]))
     .optional()
-    .describe("Memory generation filter (DDR3, DDR4, DDR5)."),
+    .describe("Memory generation filter (case-insensitive, e.g. ddr5)."),
   min_vram_gb: z
     .number()
     .nonnegative()
