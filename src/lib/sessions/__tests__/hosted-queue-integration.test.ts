@@ -131,3 +131,49 @@ describe("hosted store driven by the real save queue", () => {
     expect(JSON.stringify(stored?.messages)).toContain("partial");
   });
 });
+
+describe("compacted context rides along on queue-driven saves", () => {
+  beforeEach(() => {
+    resetClientStoreState();
+    vi.stubGlobal("indexedDB", undefined);
+    vi.stubGlobal("localStorage", createMemoryStorage());
+    _setStorageDriverForTesting("localstorage");
+  });
+
+  afterEach(() => {
+    resetClientStoreState();
+    vi.unstubAllGlobals();
+  });
+
+  it("persists compactContext supplied by the snapshot, like chat-view's persistSnapshot does", async () => {
+    const compactContext = {
+      messages: [{ role: "user" as const, content: "earlier history, summarised" }],
+      boundaryMessageId: "m-1"
+    };
+    const messages = [userMessage("after compaction")];
+
+    // Exactly the queue call chat-view makes: compactContext is just another
+    // optional field of the snapshot, so `Omit<SaveSessionRequest, "revision">`
+    // carries it without the queue knowing anything about compaction.
+    const queue = new SessionSaveQueue(saveClientSession, sessionSignature([]), 0, () => {}, {
+      sleep: () => Promise.resolve()
+    });
+    await queue.enqueue(sessionSignature(messages), { ...snapshot(messages), compactContext });
+
+    const stored = await getClientSession("session-hosted");
+    expect(stored?.compact_context?.messages).toHaveLength(1);
+    expect(stored?.compact_context?.boundaryMessageId).toBe("m-1");
+  });
+
+  it("keeps the stored compactContext when a later save omits it", async () => {
+    const compactContext = { messages: [{ role: "user" as const, content: "summary" }] };
+    const queue = new SessionSaveQueue(saveClientSession, sessionSignature([]), 0, () => {}, {
+      sleep: () => Promise.resolve()
+    });
+
+    await queue.enqueue(sessionSignature([userMessage("a")]), { ...snapshot([userMessage("a")]), compactContext });
+    await queue.enqueue(sessionSignature([userMessage("a"), userMessage("b")]), snapshot([userMessage("a"), userMessage("b")]));
+
+    expect((await getClientSession("session-hosted"))?.compact_context?.messages).toHaveLength(1);
+  });
+});
