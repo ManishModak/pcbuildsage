@@ -22,9 +22,7 @@ function stuckAssistant(state: string): ChatUIMessage {
 }
 
 function markupFor(message: ChatUIMessage) {
-  return renderToStaticMarkup(
-    <MessageView message={message} currency="INR" versions={[]} />
-  );
+  return renderToStaticMarkup(<MessageView message={message} versions={[]} />);
 }
 
 describe("markInterruptedToolCalls", () => {
