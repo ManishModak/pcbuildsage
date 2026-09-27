@@ -22,45 +22,110 @@ export type IncomingChatMessage = {
   parts?: Array<{ type: string } & Record<string, unknown>>;
 };
 
+/** A finished validate_build call distilled into what a resume needs. */
+type FinishedValidation = { parts: unknown; verdict?: unknown; snapshot?: unknown };
+
 /**
- * Scan for the LAST `tool-*` part whose tool name contains `validate_build` and
- * return its `input.parts` plus a compact verdict distilled from its output.
- * Powers "resume this build" on continue. Pure; returns null when no
- * validate_build call with parts exists.
+ * A tool call the model never finished: still streaming, waiting to run, or
+ * errored. It must never be resumed from - its input is a half-written record
+ * of what the model meant to build, and treating it as authoritative is what
+ * pinned a session to a build that was never validated.
  */
-export function deriveBuildState(uiMessages: UIMessage[]): { parts: unknown; verdict?: unknown; snapshot?: unknown } | null {
-  let found: { parts: unknown; verdict?: unknown; snapshot?: unknown } | null = null;
+function isUnfinishedState(state: unknown): boolean {
+  return state === "input-streaming" || state === "input-available" || state === "output-error";
+}
+
+/** Pull `input.parts` (or the first `input.builds[].parts`) out of a call. */
+function partsOfInput(input: unknown): unknown {
+  if (!input || typeof input !== "object") return undefined;
+  const obj = input as { parts?: unknown; builds?: unknown };
+  if (obj.parts !== undefined) return obj.parts;
+  if (Array.isArray(obj.builds)) {
+    return (obj.builds[0] as { parts?: unknown } | undefined)?.parts;
+  }
+  return undefined;
+}
+
+/** The verdict and snapshot a finished validate_build output produced. */
+function verdictAndSnapshot(output: unknown): { verdict: unknown; snapshot: unknown } {
+  if (!output || typeof output !== "object") return { verdict: undefined, snapshot: undefined };
+  const outObj = output as Record<string, unknown>;
+  if (outObj.builds && typeof outObj.builds === "object") {
+    const firstBuild = Object.values(outObj.builds)[0] as Record<string, unknown> | undefined;
+    return { verdict: compactVerdict(firstBuild), snapshot: firstBuild?.snapshot };
+  }
+  return { verdict: compactVerdict(output), snapshot: outObj.snapshot };
+}
+
+/** An output that looks like a completed validation rather than a stub. */
+function looksCompleted(output: unknown): boolean {
+  if (!output || typeof output !== "object") return false;
+  const out = output as Record<string, unknown>;
+  if (out.builds && typeof out.builds === "object") {
+    return Object.values(out.builds).some(
+      (build) => Boolean(build) && typeof build === "object" && "valid" in (build as object)
+    );
+  }
+  return "valid" in out;
+}
+
+/**
+ * The build to resume from, as the assistant last saw it.
+ *
+ * Prefers what was actually presented, and otherwise the latest validation that
+ * finished: an interrupted `validate_build` used to win simply by being last,
+ * so "continue" resumed a build that was never validated. The return shape is
+ * unchanged - `parts` plus the optional `verdict` and `snapshot` - with
+ * `source` added so a caller can tell a presentation from a validation.
+ */
+export function deriveBuildState(uiMessages: UIMessage[]): {
+  parts: unknown;
+  verdict?: unknown;
+  snapshot?: unknown;
+  source?: "present_build" | "validate_build";
+} | null {
+  let presented: FinishedValidation | null = null;
+  let latestValidation: FinishedValidation | null = null;
+
   for (const message of uiMessages) {
     if (!message.parts) continue;
     for (const part of message.parts) {
       const name = toolNameOf(part);
-      if (!name || !name.includes("validate_build")) continue;
-      const input = (part as { input?: unknown }).input;
-      const inputObj = input && typeof input === "object" ? (input as Record<string, unknown>) : undefined;
-      const parts = inputObj?.parts ?? (Array.isArray(inputObj?.builds) ? (inputObj!.builds[0] as { parts?: unknown })?.parts : undefined);
-      if (parts === undefined) continue;
-      const output = (part as { output?: unknown }).output;
-      let verdict: unknown;
-      let snapshot: unknown;
-      if (output && typeof output === "object") {
-        const outObj = output as Record<string, unknown>;
-        if (outObj.builds && typeof outObj.builds === "object") {
-          const firstBuild = Object.values(outObj.builds)[0] as Record<string, unknown> | undefined;
-          verdict = compactVerdict(firstBuild);
-          snapshot = firstBuild?.snapshot;
-        } else {
-          verdict = compactVerdict(output);
-          snapshot = outObj.snapshot;
-        }
+      if (!name) continue;
+      if (isUnfinishedState((part as { state?: unknown }).state)) continue;
+
+      if (name.includes("present_build")) {
+        const input = (part as { input?: unknown }).input;
+        const builds = input && typeof input === "object" ? (input as { builds?: unknown }).builds : undefined;
+        if (!Array.isArray(builds) || builds.length === 0) continue;
+        const first = builds[0] as { parts?: unknown; product_ids?: unknown } | undefined;
+        const parts = first?.parts ?? first?.product_ids;
+        if (parts === undefined) continue;
+        presented = { parts };
+        continue;
       }
-      found = {
+
+      if (!name.includes("validate_build")) continue;
+      if (!looksCompleted((part as { output?: unknown }).output)) continue;
+      const parts = partsOfInput((part as { input?: unknown }).input);
+      if (parts === undefined) continue;
+      const { verdict, snapshot } = verdictAndSnapshot((part as { output?: unknown }).output);
+      latestValidation = {
         parts,
         ...(verdict !== undefined ? { verdict } : {}),
         ...(snapshot !== undefined ? { snapshot } : {})
       };
     }
   }
-  return found;
+
+  const winner = presented ?? latestValidation;
+  if (!winner) return null;
+  return {
+    parts: winner.parts,
+    ...("verdict" in winner ? { verdict: winner.verdict } : {}),
+    ...("snapshot" in winner ? { snapshot: winner.snapshot } : {}),
+    source: presented ? "present_build" : "validate_build"
+  };
 }
 
 /**

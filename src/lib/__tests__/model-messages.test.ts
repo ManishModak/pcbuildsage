@@ -122,6 +122,119 @@ describe("deriveBuildState", () => {
     expect(state?.verdict).toEqual({ valid: true, blocking: 0, issues: 0 });
   });
 
+  it("resumes the presented build, not just the last validation", () => {
+    const messages: UIMessage[] = [
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-validate_build",
+            toolCallId: "v1",
+            state: "output-available",
+            input: { parts: { gpu: "rtx-4090" } },
+            output: { valid: true, issues: [] }
+          },
+          {
+            type: "tool-present_build",
+            toolCallId: "p1",
+            state: "output-available",
+            input: { builds: [{ label: "Shown Build", product_ids: ["gpu-1", "cpu-1"] }] }
+          }
+        ]
+      }
+    ] as unknown as UIMessage[];
+
+    const state = deriveBuildState(messages);
+    expect(state?.source).toBe("present_build");
+    expect(state?.parts).toEqual(["gpu-1", "cpu-1"]);
+  });
+
+  it("never resumes a validate_build that never finished", () => {
+    // The shape of the real stuck session: a finished validation, then a call
+    // saved forever in input-streaming with half a payload.
+    const messages: UIMessage[] = [
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-validate_build",
+            toolCallId: "v1",
+            state: "output-available",
+            input: { label: "Finished", parts: { gpu: "rtx-4090" } },
+            output: { valid: true, issues: [] }
+          },
+          {
+            type: "tool-validate_build",
+            toolCallId: "v2",
+            state: "input-streaming",
+            input: { parts: { case: "nzxt-h5" } }
+          }
+        ]
+      }
+    ] as unknown as UIMessage[];
+
+    const state = deriveBuildState(messages);
+    expect(state?.source).toBe("validate_build");
+    expect(state?.parts).toEqual({ gpu: "rtx-4090" });
+    expect(state?.verdict).toEqual({ valid: true, blocking: 0, issues: 0 });
+  });
+
+  it("returns null when every build call was interrupted", () => {
+    const messages: UIMessage[] = [
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-validate_build",
+            toolCallId: "v1",
+            state: "input-streaming",
+            input: { parts: { gpu: "rtx-4090" } }
+          },
+          {
+            type: "tool-present_build",
+            toolCallId: "p1",
+            state: "input-available",
+            input: { builds: [{ label: "Half written", product_ids: ["gpu-1"] }] }
+          }
+        ]
+      }
+    ] as unknown as UIMessage[];
+
+    expect(deriveBuildState(messages)).toBeNull();
+  });
+
+  it("falls back to the validation when the presentation was interrupted", () => {
+    const messages: UIMessage[] = [
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-validate_build",
+            toolCallId: "v1",
+            state: "output-available",
+            input: { label: "Validated", parts: { gpu: "rtx-4090" } },
+            output: { valid: false, issues: [{ severity: "blocking" }] }
+          },
+          {
+            type: "tool-present_build",
+            toolCallId: "p1",
+            state: "input-streaming",
+            input: { builds: [{ label: "Half written", product_ids: ["gpu-1"] }] }
+          }
+        ]
+      }
+    ] as unknown as UIMessage[];
+
+    const state = deriveBuildState(messages);
+    expect(state?.source).toBe("validate_build");
+    expect(state?.parts).toEqual({ gpu: "rtx-4090" });
+    expect(state?.verdict).toEqual({ valid: false, blocking: 1, issues: 1 });
+  });
+
   it("returns null when no validate_build part exists", () => {
     const messages: UIMessage[] = [
       { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
