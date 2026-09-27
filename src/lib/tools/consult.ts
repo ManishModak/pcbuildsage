@@ -136,7 +136,7 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
       prompt: [
         `Extract factual registry specs for this ${input.category}: ${input.name}.`,
         "Return only JSON with shape {\"specs\":{...},\"sources\":[...]}",
-        "The specs object must include brand, model, aliases, and any category-relevant fields present in sources such as socket, ddr, tdp_w, wattage, length_mm, vram_gb, segment, form_factor, m2_slots, sata_ports, height_mm, sockets, tdp_rating_w, interface, capacity_gb.",
+        "The specs object must include brand, model, aliases, and any category-relevant fields present in sources such as socket, ddr, tdp_w, wattage, length_mm, vram_gb, segment, form_factor, m2_slots, sata_ports, height_mm, sockets, tdp_rating_w, interface, capacity_gb, cooler_type, radiator_size_mm, supported_radiators, supported_psu_form_factors, max_psu_length_mm, supported_memory, modules, m2_sata_supported.",
         "Do not include compatibility verdicts.",
         groundingBlock(grounded)
       ].join("\n\n"),
