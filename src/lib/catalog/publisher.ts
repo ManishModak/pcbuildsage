@@ -2,12 +2,13 @@
  * src/lib/catalog/publisher.ts
  *
  * Atomic Fail-Closed Turso Catalog Publisher Engine.
- * Validates candidate SQLite catalog snapshots using 5 acceptance gates,
- * applies schema DDL if needed, and batch-upserts data to remote Turso database
- * with audit run tracking.
+ * Validates candidate SQLite catalog snapshots using acceptance gates with baseline comparison,
+ * sweeps stale listings for active retailers (marking in_stock = 0), preserves listings for
+ * failed retailer scrapes (with warnings), and commits upserts + audit run atomically in a single
+ * write transaction with rollback on failure.
  */
 
-import { createClient, type Client, type InStatement } from "@libsql/client";
+import { createClient, type Client, type InStatement, type Transaction } from "@libsql/client";
 import Database from "better-sqlite3";
 import { randomUUID, createHash } from "node:crypto";
 import fs from "node:fs";
@@ -25,6 +26,7 @@ export interface PublishOptions {
   dryRun?: boolean;
   force?: boolean;
   batchSize?: number;
+  expectedRetailers?: string[];
   validatorOptions?: SnapshotValidationOptions;
   client?: Client;
   throwOnError?: boolean;
@@ -36,6 +38,8 @@ export interface PublishResult {
   runId?: string;
   dryRun?: boolean;
   errors?: string[];
+  warnings?: string[];
+  staleCount?: number;
   stats?: unknown;
 }
 
@@ -55,24 +59,31 @@ export function computeDatabaseHash(filePath: string): string | null {
 }
 
 /**
+ * Retrieves the product count from the last successful catalog run in Turso.
+ */
+export async function getLastSuccessfulProductCount(client: Client): Promise<number | undefined> {
+  try {
+    const res = await client.execute(
+      "SELECT product_count FROM catalog_runs WHERE status = 'success' ORDER BY published_at DESC LIMIT 1"
+    );
+    if (res.rows.length > 0 && typeof res.rows[0].product_count === "number") {
+      return res.rows[0].product_count;
+    }
+  } catch {
+    // Table may not exist yet or catalog is empty
+  }
+  return undefined;
+}
+
+/**
  * Publishes a candidate SQLite database snapshot to Turso cloud.
- *
- * Workflow:
- * 1. Validates candidate SQLite snapshot using validateCandidateSnapshot.
- *    If invalid, aborts immediately without touching Turso (fail-closed guarantee).
- * 2. If dryRun is true, returns early with stats without performing remote writes.
- * 3. Resolves Turso credentials from options or environment variables.
- * 4. Ensures the target Turso schema exists (products, catalog_runs, indexes).
- * 5. Reads rows from the candidate database in chunks and batch-upserts to Turso.
- * 6. Records an audit entry in catalog_runs with status: 'success'.
- * 7. If any write failure occurs, ensures fail-closed behavior (no successful run recorded).
  */
 export async function publishCatalogSnapshot(
   options: PublishOptions
 ): Promise<PublishResult> {
   const startTime = Date.now();
 
-  // a. Validate candidate SQLite snapshot
+  // a. Validate candidate SQLite snapshot against acceptance gates before touching remote client
   const validation: SnapshotValidationResult = await validateCandidateSnapshot(
     options.dbPath,
     options.validatorOptions
@@ -83,16 +94,18 @@ export async function publishCatalogSnapshot(
       success: false,
       publishedCount: 0,
       errors: validation.errors,
+      warnings: validation.warnings,
       stats: validation.stats
     };
   }
 
-  // b. Dry run mode short-circuit
+  // b. Dry run mode short-circuit (before performing any remote writes or schema updates)
   if (options.dryRun) {
     return {
       success: true,
       publishedCount: 0,
       dryRun: true,
+      warnings: validation.warnings,
       stats: validation.stats
     };
   }
@@ -102,8 +115,7 @@ export async function publishCatalogSnapshot(
   let shouldCloseClient = false;
 
   if (!client) {
-    const tursoUrl =
-      options.tursoUrl ?? process.env.TURSO_DATABASE_URL;
+    const tursoUrl = options.tursoUrl ?? process.env.TURSO_DATABASE_URL;
     const tursoToken =
       options.tursoToken ??
       process.env.TURSO_INGEST_TOKEN ??
@@ -142,13 +154,47 @@ export async function publishCatalogSnapshot(
     }
   }
 
+  // d. Ensure Turso schema exists
+  try {
+    await ensureTursoSchema(client);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (options.throwOnError) throw err;
+    return {
+      success: false,
+      publishedCount: 0,
+      errors: [`Failed to ensure Turso schema: ${msg}`]
+    };
+  }
+
+  // e. Evaluate drop-threshold gate against last successful run in catalog_runs if baseline wasn't passed explicitly
+  if (options.validatorOptions?.baselineProductCount === undefined && !options.force) {
+    const lastProductCount = await getLastSuccessfulProductCount(client);
+    if (lastProductCount !== undefined && lastProductCount > 0) {
+      const maxDropRatio = options.validatorOptions?.maxDropRatio ?? 0.3;
+      if (validation.stats.totalProducts < lastProductCount) {
+        const dropRatio = (lastProductCount - validation.stats.totalProducts) / lastProductCount;
+        if (dropRatio > maxDropRatio) {
+          const dropError = `Product count dropped by ${(dropRatio * 100).toFixed(1)}% (${validation.stats.totalProducts} vs baseline ${lastProductCount}), exceeding max allowed drop of ${(maxDropRatio * 100).toFixed(1)}%.`;
+          if (options.throwOnError) {
+            throw new Error(dropError);
+          }
+          return {
+            success: false,
+            publishedCount: 0,
+            errors: [dropError],
+            warnings: validation.warnings,
+            stats: validation.stats
+          };
+        }
+      }
+    }
+  }
+
   let sqliteDb: Database.Database | null = null;
 
   try {
-    // d & e. Ensure Turso schema exists
-    await ensureTursoSchema(client);
-
-    // f. Read candidate SQLite database rows and batch-upsert to Turso
+    // e. Read candidate SQLite database rows
     sqliteDb = new Database(options.dbPath, {
       readonly: true,
       fileMustExist: true
@@ -158,79 +204,176 @@ export async function publishCatalogSnapshot(
       .prepare("SELECT * FROM products")
       .all() as Array<Record<string, unknown>>;
 
-    const batchSize = Math.max(1, options.batchSize ?? 100);
-    let publishedCount = 0;
+    const candidateRetailerCounts = new Map<string, number>();
+    const candidateScopes = new Map<string, { countryCode: string; retailer: string }>();
+    const candidateIds = new Set<string>();
+    for (const r of rows) {
+      candidateIds.add(String(r.id));
+      const ret = String(r.retailer ?? "").trim();
+      const country = String(r.country_code ?? "US").trim();
+      if (ret) {
+        candidateRetailerCounts.set(ret, (candidateRetailerCounts.get(ret) ?? 0) + 1);
+        const scopeKey = `${country}:::${ret}`;
+        if (!candidateScopes.has(scopeKey)) {
+          candidateScopes.set(scopeKey, { countryCode: country, retailer: ret });
+        }
+      }
+    }
 
-    const upsertSql = `INSERT OR REPLACE INTO products (
-      id, name, normalized_name, registry_key, price, currency,
-      country_code, retailer, url, image_url, in_stock, category,
-      subcategory, specs, first_seen, last_scraped
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    // f. Check for retailers in remote database (or expected retailers) that have 0 rows in candidate DB
+    let existingRetailers: string[] = [];
+    try {
+      const retRes = await client.execute(
+        "SELECT DISTINCT retailer FROM products WHERE retailer IS NOT NULL AND retailer != ''"
+      );
+      existingRetailers = retRes.rows.map((r) => String(r.retailer));
+    } catch {
+      // Table may be empty
+    }
 
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const chunk = rows.slice(i, i + batchSize);
-      const statements: InStatement[] = chunk.map((r) => ({
-        sql: upsertSql,
-        args: [
-          String(r.id),
-          String(r.name ?? ""),
-          r.normalized_name != null ? String(r.normalized_name) : null,
-          r.registry_key != null ? String(r.registry_key) : null,
-          r.price != null ? Number(r.price) : null,
-          String(r.currency ?? "USD"),
-          String(r.country_code ?? "US"),
-          String(r.retailer ?? ""),
-          String(r.url ?? ""),
-          r.image_url != null ? String(r.image_url) : null,
-          Number(r.in_stock ?? 1) ? 1 : 0,
-          String(r.category ?? ""),
-          r.subcategory != null ? String(r.subcategory) : null,
-          typeof r.specs === "object" && r.specs !== null
-            ? JSON.stringify(r.specs)
-            : r.specs != null
-            ? String(r.specs)
-            : null,
-          String(r.first_seen ?? new Date().toISOString()),
-          String(r.last_scraped ?? new Date().toISOString())
-        ]
-      }));
+    const allKnownRetailers = new Set([...existingRetailers, ...(options.expectedRetailers ?? [])]);
+    const warnings: string[] = [...(validation.warnings ?? [])];
 
-      if (typeof client.batch === "function") {
-        await client.batch(statements);
-      } else {
-        for (const stmt of statements) {
-          await client.execute(stmt);
+    for (const retailer of allKnownRetailers) {
+      if (!candidateRetailerCounts.has(retailer) || (candidateRetailerCounts.get(retailer) ?? 0) === 0) {
+        const warnMsg = `Retailer "${retailer}" has 0 rows in candidate snapshot; treating as failed scrape and preserving existing listings.`;
+        warnings.push(warnMsg);
+        console.warn(`[publish-catalog] ${warnMsg}`);
+      }
+    }
+
+    // g. Identify stale listings in Turso belonging to active scopes (country_code, retailer) in candidate snapshot
+    const activeScopes = Array.from(candidateScopes.values());
+    const staleIds: string[] = [];
+    if (activeScopes.length > 0) {
+      const scopeChunkSize = 25;
+      for (let s = 0; s < activeScopes.length; s += scopeChunkSize) {
+        const chunk = activeScopes.slice(s, s + scopeChunkSize);
+        const placeholders = chunk.map(() => "(country_code = ? AND retailer = ?)").join(" OR ");
+        const args = chunk.flatMap((scope) => [scope.countryCode, scope.retailer]);
+        const existingProds = await client.execute({
+          sql: `SELECT id, country_code, retailer FROM products WHERE (${placeholders}) AND in_stock = 1`,
+          args
+        });
+        for (const row of existingProds.rows) {
+          const id = String(row.id);
+          if (!candidateIds.has(id)) {
+            staleIds.push(id);
+          }
+        }
+      }
+    }
+
+    // h. Execute atomic publish in a single write transaction (fail closed)
+    if (typeof client.transaction !== "function") {
+      throw new Error(
+        "Turso client does not support transactions (client.transaction is not a function). Atomic publish aborted."
+      );
+    }
+
+    const tx: Transaction = await client.transaction("write");
+
+    try {
+      // 1. Mark stale listings out of stock (in_stock = 0, NOT delete)
+      if (staleIds.length > 0) {
+        const staleChunkSize = 100;
+        for (let i = 0; i < staleIds.length; i += staleChunkSize) {
+          const chunk = staleIds.slice(i, i + staleChunkSize);
+          const placeholders = chunk.map(() => "?").join(", ");
+          await tx.execute({
+            sql: `UPDATE products SET in_stock = 0 WHERE id IN (${placeholders})`,
+            args: chunk
+          });
         }
       }
 
-      publishedCount += chunk.length;
+      // 2. Batch upsert candidate products
+      const batchSize = Math.max(1, options.batchSize ?? 100);
+      let publishedCount = 0;
+
+      const upsertSql = `INSERT OR REPLACE INTO products (
+        id, name, normalized_name, registry_key, price, currency,
+        country_code, retailer, url, image_url, in_stock, category,
+        subcategory, specs, first_seen, last_scraped
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const chunk = rows.slice(i, i + batchSize);
+        const statements: InStatement[] = chunk.map((r) => ({
+          sql: upsertSql,
+          args: [
+            String(r.id),
+            String(r.name ?? ""),
+            r.normalized_name != null ? String(r.normalized_name) : null,
+            r.registry_key != null ? String(r.registry_key) : null,
+            r.price != null ? Number(r.price) : null,
+            String(r.currency ?? "USD"),
+            String(r.country_code ?? "US"),
+            String(r.retailer ?? ""),
+            String(r.url ?? ""),
+            r.image_url != null ? String(r.image_url) : null,
+            Number(r.in_stock ?? 1) ? 1 : 0,
+            String(r.category ?? ""),
+            r.subcategory != null ? String(r.subcategory) : null,
+            typeof r.specs === "object" && r.specs !== null
+              ? JSON.stringify(r.specs)
+              : r.specs != null
+              ? String(r.specs)
+              : null,
+            String(r.first_seen ?? new Date().toISOString()),
+            String(r.last_scraped ?? new Date().toISOString())
+          ]
+        }));
+
+        if (typeof tx.batch === "function") {
+          await tx.batch(statements);
+        } else {
+          for (const stmt of statements) {
+            await tx.execute(stmt);
+          }
+        }
+
+        publishedCount += chunk.length;
+      }
+
+      // 3. Write audit record to catalog_runs
+      const runId = `run_${Date.now()}_${randomUUID().slice(0, 8)}`;
+      const publishedAt = new Date().toISOString();
+      const sourceDbHash = computeDatabaseHash(options.dbPath);
+
+      const metadata = JSON.stringify({
+        batchSize,
+        durationMs: Date.now() - startTime,
+        stats: validation.stats,
+        warnings,
+        staleCount: staleIds.length
+      });
+
+      await tx.execute({
+        sql: `INSERT INTO catalog_runs (id, published_at, product_count, source_db_hash, status, metadata) VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [runId, publishedAt, publishedCount, sourceDbHash, "success", metadata]
+      });
+
+      // 4. Commit write transaction
+      await tx.commit();
+
+      return {
+        success: true,
+        publishedCount,
+        runId,
+        warnings,
+        staleCount: staleIds.length,
+        stats: validation.stats
+      };
+    } catch (txErr: unknown) {
+      try {
+        await tx.rollback();
+      } catch {
+        // ignore rollback failure
+      }
+      throw txErr;
     }
-
-    // g. Write audit record to catalog_runs
-    const runId = `run_${Date.now()}_${randomUUID().slice(0, 8)}`;
-    const publishedAt = new Date().toISOString();
-    const sourceDbHash = computeDatabaseHash(options.dbPath);
-
-    const metadata = JSON.stringify({
-      batchSize,
-      durationMs: Date.now() - startTime,
-      stats: validation.stats,
-      warnings: validation.warnings
-    });
-
-    await client.execute({
-      sql: `INSERT INTO catalog_runs (id, published_at, product_count, source_db_hash, status, metadata) VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [runId, publishedAt, publishedCount, sourceDbHash, "success", metadata]
-    });
-
-    return {
-      success: true,
-      publishedCount,
-      runId,
-      stats: validation.stats
-    };
   } catch (err: unknown) {
-    // h. Fail-closed: do not record a successful run in catalog_runs, propagate the error
     const msg = err instanceof Error ? err.message : String(err);
 
     if (options.throwOnError) {
@@ -255,4 +398,3 @@ export async function publishCatalogSnapshot(
     }
   }
 }
-

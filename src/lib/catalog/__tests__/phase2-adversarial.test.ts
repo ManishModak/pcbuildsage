@@ -30,7 +30,7 @@ import os from "node:os";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import type { Client, InStatement, ResultSet } from "@libsql/client";
+import type { Client, InStatement, ResultSet, Transaction } from "@libsql/client";
 import {
   publishCatalogSnapshot,
   computeDatabaseHash
@@ -158,7 +158,34 @@ function createControllableTursoClient(): MockTursoController {
       return [];
     },
     async transaction() {
-      throw new Error("transaction not implemented in mock");
+      if (client.isClosed) throw new Error("Client is closed");
+      let txClosed = false;
+      const tx = {
+        execute: async (stmt: InStatement) => {
+          if (client.isClosed || txClosed) throw new Error("Transaction is closed");
+          return await client.execute(stmt);
+        },
+        batch: async (statements: InStatement[]) => {
+          if (client.isClosed || txClosed) throw new Error("Transaction is closed");
+          return await client.batch(statements);
+        },
+        commit: async () => {
+          if (client.isClosed || txClosed) throw new Error("Transaction is closed");
+          txClosed = true;
+        },
+        rollback: async () => {
+          if (client.isClosed || txClosed) throw new Error("Transaction is closed");
+          txClosed = true;
+        },
+        close: () => {
+          txClosed = true;
+        },
+        get closed() {
+          return txClosed;
+        },
+        executeMultiple: async () => {}
+      };
+      return tx as unknown as Transaction;
     },
     async executeMultiple() {
       return undefined;
