@@ -323,7 +323,7 @@ describe("createBuildSnapshot", () => {
       parts: { cpu: { product_id: "cpu-1" } },
       validation: {
         valid: false,
-        issues: [{ category: "cooler", message: "CPU cooler required", severity: "error" }],
+        issues: [{ rule: "cooler", detail: "CPU cooler required", severity: "blocking", components: ["cpu-1"] }],
         resolved: {},
         skipped_checks: [],
         checks: [],
@@ -367,4 +367,33 @@ describe("createBuildSnapshot", () => {
     expect(formatted).toContain("Compatibility: PASSED (1 check(s) verified)");
     expect(formatted).toContain("Ryzen 5 7600");
   });
+
+  it("resolves catalog product and price when parts use exact catalog ID in string form", () => {
+    const products = new Map<string, SearchProductItem>([
+      [
+        "cpu-1",
+        createProduct({
+          id: "cpu-1",
+          name: "Ryzen 5 7600",
+          category: "cpu",
+          price: 190.0,
+          currency: "USD"
+        })
+      ]
+    ]);
+
+    const snapshot = createBuildSnapshot({
+      label: "String Part Build",
+      parts: { cpu: "cpu-1" },
+      validation: mockValidation,
+      productsById: products,
+      scope: mockScope
+    });
+
+    expect(snapshot.components[0].product_id).toBe("cpu-1");
+    expect(snapshot.components[0].price).toBe(190.0);
+    expect(snapshot.total).toBe(190.0);
+    expect(snapshot.is_complete).toBe(true);
+  });
 });
+

@@ -58,7 +58,7 @@ for (const target of targets) {
     continue;
   }
 
-  const validate = ajv.compile(schema.value);
+  const validate = ajv.compile(stripNonSchemaKeywords(schema.value));
   const files = listJsonFiles(target.dataDir, target.recursive).sort();
 
   for (const filePath of files) {
@@ -118,6 +118,62 @@ for (const target of targets) {
       }
     }
 
+    if (target.name === "registry") {
+      const category = path.basename(filePath, ".json");
+      const entries = data.value as Record<string, Record<string, unknown>>;
+      // Per-category allowed fields are owned by the schema (x-category-fields):
+      // the common $defs/component shape cannot express them. wattage_w is
+      // intentionally absent - curated JSON stores wattage only; the runtime
+      // still normalizes legacy wattage_w from external research data.
+      const categoryFields = (schema.value as { "x-category-fields"?: Record<string, string[]> })["x-category-fields"];
+
+      const allowed = categoryFields?.[category];
+      let registryHasErrors = false;
+
+      if (!allowed) {
+        hasErrors = true;
+        console.error(`${filePath}: no x-category-fields metadata for category "${category}" in registry schema.`);
+        continue;
+      }
+
+      for (const [key, spec] of Object.entries(entries)) {
+        if (key === "$schema" || typeof spec !== "object" || !spec) continue;
+
+        // Check for wrong-category fields
+        for (const field of Object.keys(spec)) {
+          if (!allowed.includes(field)) {
+            registryHasErrors = true;
+            hasErrors = true;
+            console.error(`${filePath}: entry "${key}" contains wrong-category field "${field}" for category "${category}".`);
+          }
+        }
+
+        // Semantic checks for contradictions
+        if (category === "ram") {
+          if (typeof spec.capacity === "string" && typeof spec.capacity_gb === "number") {
+            const match = spec.capacity.match(/^(\d+)\s*GB$/i);
+            if (match && parseInt(match[1], 10) !== spec.capacity_gb) {
+              registryHasErrors = true;
+              hasErrors = true;
+              console.error(`${filePath}: entry "${key}" has conflicting capacity (${spec.capacity}) and capacity_gb (${spec.capacity_gb}).`);
+            }
+          }
+        }
+
+        if (category === "coolers") {
+          if (spec.cooler_type === "air" && spec.radiator_size_mm !== undefined) {
+            registryHasErrors = true;
+            hasErrors = true;
+            console.error(`${filePath}: entry "${key}" is classified as air cooler but defines radiator_size_mm.`);
+          }
+        }
+      }
+
+      if (registryHasErrors) {
+        continue;
+      }
+    }
+
     console.log(`${filePath} valid`);
   }
 }
@@ -150,8 +206,19 @@ function listJsonFiles(dir: string, recursive = false): string[] {
   return files;
 }
 
-function readJson<T = unknown>(filePath: string): { ok: true; value: T } | { ok: false } {
-  try {
+/**
+ * Removes script-consumed metadata (x-* keywords) before handing the schema to
+ * AJV, which rejects unknown keywords in strict mode. The schema file remains
+ * the single owner of that metadata.
+ */
+function stripNonSchemaKeywords(schema: AnySchema): AnySchema {
+  if (typeof schema !== "object" || schema === null) return schema;
+  const rest = { ...(schema as Record<string, unknown>) };
+  delete rest["x-category-fields"];
+  return rest as AnySchema;
+}
+
+function readJson<T = unknown>(filePath: string): { ok: true; value: T } | { ok: false } {  try {
     return { ok: true, value: JSON.parse(readFileSync(path.resolve(filePath), "utf8")) as T };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

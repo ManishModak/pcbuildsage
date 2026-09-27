@@ -4,8 +4,18 @@ import { getDb } from "@/lib/db";
 import { generateTextWithFallback } from "@/lib/llm/client";
 import { appendChatLog } from "@/lib/logger";
 import { slugifyComponent } from "@/lib/normalizer";
-import { createSearchClient, crawlPage, type CrawlRunner, type SearchClient, type SearchResponse, type SearchResult } from "@/lib/web-search";
+import {
+  createSearchClient,
+  crawlPage,
+  checkCrawlerReadiness,
+  type CrawlerReadiness,
+  type CrawlRunner,
+  type SearchClient,
+  type SearchResponse,
+  type SearchResult
+} from "@/lib/web-search";
 import { runPythonModule } from "@/lib/server/python-process";
+import { crawlUnavailableMessage } from "@/lib/server/process-errors";
 import type { AppConfig, AuditCacheEntry, RegistryResearchEntry } from "@/types";
 
 const partMapSchema = z.record(z.string().describe("Component category."), z.string().describe("Registry key or component name."));
@@ -37,12 +47,15 @@ const freeformSchema = z.object({
   sources: z.array(z.string().url()).default([])
 });
 
-type ConsultDeps = {
+export type ConsultDeps = {
   searchClient?: SearchClient;
   generateText?: typeof generateTextWithFallback;
+  checkCrawlerReadiness?: () => Promise<CrawlerReadiness>;
+  crawlRunner?: CrawlRunner;
   logPath?: string;
   now?: () => Date;
 };
+
 
 export function createConsultInputSchema(freeformEnabled: boolean) {
   const modes = freeformEnabled
@@ -99,7 +112,11 @@ export function createConsultTool(config: AppConfig) {
 }
 
 export async function consult(input: ConsultInput, config: AppConfig, deps: ConsultDeps = {}) {
-  const search = deps.searchClient ?? createSearchClient(config.search);
+  const crawlEnabled = Boolean(config.search.crawlEnabled);
+  const search = deps.searchClient ?? createSearchClient(config.search, {
+    checkCrawlerReadiness: deps.checkCrawlerReadiness,
+    runPythonModule: deps.crawlRunner
+  });
   const db = getDb(config.dbPath);
   const now = deps.now ?? (() => new Date());
   if (input.mode === "component_specs") {
@@ -110,7 +127,7 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
       await logConsult(input, result, { provider: "cache", model: "registry_research", logPath: deps.logPath });
       return result;
     }
-    const grounded = await safeSearch(search, `${input.name} ${input.category} official specifications`, config.search.crawlEnabled);
+    const grounded = await safeSearch(search, `${input.name} ${input.category} official specifications`, crawlEnabled);
     const llm = await runStructuredSubagent({
       input,
       config,
@@ -122,7 +139,8 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
         "The specs object must include brand, model, aliases, and any category-relevant fields present in sources such as socket, ddr, tdp_w, wattage, length_mm, vram_gb, segment, form_factor, m2_slots, sata_ports, height_mm, sockets, tdp_rating_w, interface, capacity_gb.",
         "Do not include compatibility verdicts.",
         groundingBlock(grounded)
-      ].join("\n\n")
+      ].join("\n\n"),
+      crawlRunner: deps.crawlRunner
     });
     if (!llm.ok) {
       await logConsult(input, llm.result, { provider: llm.provider, model: llm.model, logPath: deps.logPath });
@@ -145,8 +163,13 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
       return [{ pair, ...JSON.parse(row.verdict), cached: true }];
     });
     const fresh = pairs.filter((pair) => !cached.some((item) => item.pair === pair));
+    if (fresh.length === 0) {
+      const result = { mode: input.mode, verdicts: cached.map((item) => sanitizeAuditFinding(item, item.pair)), authority: "advisory_only" };
+      await logConsult(input, result, { provider: "cache", model: "audit_cache", logPath: deps.logPath });
+      return result;
+    }
     const freshResults = await Promise.all(fresh.map(async (pair) => {
-      const grounded = await safeSearch(search, `${pair} PC compatibility BIOS QVL connector known issues`, config.search.crawlEnabled);
+      const grounded = await safeSearch(search, `${pair} PC compatibility BIOS QVL connector known issues`, crawlEnabled);
       const llm = await runStructuredSubagent({
         input,
         config,
@@ -158,7 +181,8 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
           "You cannot approve compatibility, clear Tier 1 failures, or emit blocking/pass verdicts.",
           "Focus on BIOS/VRM, QVL, PSU connector, PCIe generation, and known edge-case concerns.",
           groundingBlock(grounded)
-        ].join("\n\n")
+        ].join("\n\n"),
+        crawlRunner: deps.crawlRunner
       });
       let verdict;
       if (llm.ok) {
@@ -180,7 +204,7 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
     return result;
   }
   if (!config.freeformConsultEnabled) return { error: "freeform consult is disabled", hint: "enable PCBUILDSAGE_CONSULT_FREEFORM or use component_specs/build_audit" };
-  const grounded = await safeSearch(search, input.question, config.search.crawlEnabled);
+  const grounded = await safeSearch(search, input.question, crawlEnabled);
   const llm = await runStructuredSubagent({
     input,
     config,
@@ -192,7 +216,8 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
       "Return only JSON with shape {\"answer\":\"...\",\"sources\":[...]}",
       "Do not assert compatibility authority or clear deterministic rule failures.",
       groundingBlock(grounded)
-    ].filter(Boolean).join("\n\n")
+    ].filter(Boolean).join("\n\n"),
+    crawlRunner: deps.crawlRunner
   });
   const result = llm.ok
     ? { mode: input.mode, severity: "needs_verification", answer: llm.data.answer, note: "Uncached advisory answer; not fed to deterministic rules.", sources: grounded.results, source_urls: llm.data.sources, label: "unverified" }
@@ -211,10 +236,14 @@ function buildAuditPairs(parts: Record<string, string>) {
 
 async function safeSearch(search: SearchClient, query: string, crawlEnabled?: boolean): Promise<SearchResponse> {
   try {
-    return await search.search(query, { limit: 5, crawlEnabled });
+    const res = await search.search(query, { limit: 5, crawlEnabled });
+    if (res.error) {
+      res.error = sanitizeConsultText(res.error);
+    }
+    return res;
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    return { provider: "none", grounded: false, results: [], error: errorMsg };
+    return { provider: "none", grounded: false, results: [], error: sanitizeConsultText(errorMsg) };
   }
 }
 
@@ -241,7 +270,9 @@ export type SubagentAction = {
 function createSubagentTools(
   search: SearchClient,
   crawlRunner?: CrawlRunner,
-  onAction?: (action: SubagentAction) => void
+  onAction?: (action: SubagentAction) => void,
+  crawlerChecker?: () => Promise<CrawlerReadiness>,
+  crawlEnabled = false
 ): ToolSet {
   return {
     search_web: tool({
@@ -252,10 +283,11 @@ function createSubagentTools(
       execute: async ({ query }) => {
         try {
           const res = await safeSearch(search, query, false);
+          // safeSearch already redacts; do not sanitize twice.
           onAction?.({ tool: "search_web", query, resultCount: res.results.length, error: res.error });
           return { results: res.results, error: res.error };
         } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : String(err);
+          const errorMsg = sanitizeConsultText(err instanceof Error ? err.message : String(err));
           onAction?.({ tool: "search_web", query, error: errorMsg });
           return { results: [], error: errorMsg };
         }
@@ -267,13 +299,26 @@ function createSubagentTools(
         url: z.string().url().describe("Exact webpage URL to crawl")
       }),
       execute: async ({ url }) => {
+        if (!crawlEnabled) {
+          const errorMsg = "Page crawling is disabled. Web search is available.";
+          onAction?.({ tool: "crawl_page", url, error: errorMsg });
+          return { error: errorMsg };
+        }
+        const checker = crawlerChecker ?? checkCrawlerReadiness;
+        const readiness = await checker();
+        if (!readiness.ready) {
+          const errorMsg = crawlUnavailableMessage(readiness.reason);
+          onAction?.({ tool: "crawl_page", url, error: errorMsg });
+          return { error: errorMsg };
+        }
         try {
           const runner = crawlRunner ?? runPythonModule;
           const content = await crawlPage(url, runner);
           onAction?.({ tool: "crawl_page", url });
           return { content: content.slice(0, 30000) };
         } catch (err) {
-          const errorMsg = err instanceof Error ? err.message : String(err);
+          const rawMsg = err instanceof Error ? err.message : String(err);
+          const errorMsg = sanitizeConsultText(rawMsg);
           onAction?.({ tool: "crawl_page", url, error: errorMsg });
           return { error: errorMsg };
         }
@@ -282,7 +327,23 @@ function createSubagentTools(
   };
 }
 
-function extractSubagentError(error: unknown): { message: string; isTerminal: boolean } {
+export function sanitizeConsultText(text: string): string {
+  return text
+    .replace(/\bAIza[0-9A-Za-z-_]{20,}\b/g, "[REDACTED]")
+    .replace(/\bsk-(?:or-v1-)?[0-9A-Za-z-_]{15,}\b/g, "[REDACTED]")
+    .replace(/\b(?:tvly|brave|exa)-[0-9A-Za-z-_]{10,}\b/g, "[REDACTED]")
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+/gi, "Bearer [REDACTED]")
+    .replace(/([?&](?:api[_-]?key|key)=)[^&\s]+/gi, "$1[REDACTED]");
+}
+
+export type ClassifiedConsultError = {
+  type: "rejected_credentials" | "timeout" | "missing_setup" | "quota_exceeded" | "service_failure" | "unknown";
+  message: string;
+  detail?: string;
+  isTerminal: boolean;
+};
+
+export function classifyConsultError(error: unknown): ClassifiedConsultError {
   let rawMsg = "";
   if (error && typeof error === "object" && "errors" in error && Array.isArray((error as { errors: unknown[] }).errors)) {
     const childErrors = (error as { errors: unknown[] }).errors.map((e) => (e instanceof Error ? e.message : String(e)));
@@ -293,21 +354,104 @@ function extractSubagentError(error: unknown): { message: string; isTerminal: bo
     rawMsg = String(error ?? "Unknown error");
   }
 
-  const lower = rawMsg.toLowerCase();
-  const isTerminal =
-    lower.includes("429") ||
-    lower.includes("quota") ||
-    lower.includes("rate limit") ||
-    lower.includes("rate_limit") ||
+  const sanitized = sanitizeConsultText(rawMsg);
+  const lower = sanitized.toLowerCase();
+
+  // 1. Timeout
+  if (
+    (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) ||
+    lower.includes("timeout") ||
+    lower.includes("timed out") ||
+    lower.includes("deadline exceeded") ||
+    lower.includes("aborted") ||
+    lower.includes("signal is aborted")
+  ) {
+    return {
+      type: "timeout",
+      message: "Research timed out. Specifications remain unverified.",
+      detail: sanitized,
+      isTerminal: true
+    };
+  }
+
+  // 2. Rejected credentials
+  if (
     lower.includes("unauthorized") ||
     lower.includes("401") ||
     lower.includes("403") ||
     lower.includes("forbidden") ||
     lower.includes("invalid api key") ||
     lower.includes("api key not valid") ||
-    lower.includes("free-models-per-day");
+    lower.includes("authentication failed") ||
+    lower.includes("unauthenticated")
+  ) {
+    return {
+      type: "rejected_credentials",
+      message: "Research provider rejected the API key. Update it in Settings.",
+      detail: sanitized,
+      isTerminal: true
+    };
+  }
 
-  return { message: rawMsg, isTerminal };
+  // 3. Quota exceeded
+  if (
+    lower.includes("429") ||
+    lower.includes("quota") ||
+    lower.includes("rate limit") ||
+    lower.includes("rate_limit") ||
+    lower.includes("free-models-per-day") ||
+    lower.includes("resource has been exhausted")
+  ) {
+    const codeHint = lower.includes("429") ? " (429)" : "";
+    return {
+      type: "quota_exceeded",
+      message: `Research quota exceeded${codeHint}. Specifications remain unverified.`,
+      detail: sanitized,
+      isTerminal: true
+    };
+  }
+
+  // 4. Missing setup
+  if (
+    lower.includes("not configured") ||
+    lower.includes("api key is required") ||
+    lower.includes("missing api key")
+  ) {
+    return {
+      type: "missing_setup",
+      message: "Research provider is not configured. Update it in Settings.",
+      detail: sanitized,
+      isTerminal: true
+    };
+  }
+
+  // 5. Service / network failure
+  if (
+    lower.includes("500") ||
+    lower.includes("502") ||
+    lower.includes("503") ||
+    lower.includes("504") ||
+    lower.includes("econnrefused") ||
+    lower.includes("enotfound") ||
+    lower.includes("fetch failed") ||
+    lower.includes("network error") ||
+    lower.includes("service unavailable") ||
+    lower.includes("overloaded")
+  ) {
+    return {
+      type: "service_failure",
+      message: "Research service unavailable. Specifications remain unverified.",
+      detail: sanitized,
+      isTerminal: false
+    };
+  }
+
+  return {
+    type: "unknown",
+    message: sanitized,
+    detail: sanitized,
+    isTerminal: false
+  };
 }
 
 async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
@@ -319,15 +463,25 @@ async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
   crawlRunner?: CrawlRunner;
 }): Promise<
   | { ok: true; data: z.infer<T>; provider: string; model: string; actions: SubagentAction[] }
-  | { ok: false; result: { mode: ConsultInput["mode"]; error: string; retryable: false; label: "unverified"; actions?: SubagentAction[] }; provider: string; model: string }
+  | { ok: false; result: { mode: ConsultInput["mode"]; error: string; detail?: string; retryable: false; label: "unverified"; actions?: SubagentAction[] }; provider: string; model: string }
 > {
   const generate = args.deps.generateText ?? generateTextWithFallback;
-  const search = args.deps.searchClient ?? createSearchClient(args.config.search);
+  const search = args.deps.searchClient ?? createSearchClient(args.config.search, {
+    checkCrawlerReadiness: args.deps.checkCrawlerReadiness,
+    runPythonModule: args.crawlRunner
+  });
   const actions: SubagentAction[] = [];
-  const tools = createSubagentTools(search, args.crawlRunner, (act) => actions.push(act));
+  const tools = createSubagentTools(
+    search,
+    args.crawlRunner,
+    (act) => actions.push(act),
+    args.deps.checkCrawlerReadiness,
+    Boolean(args.config.search.crawlEnabled)
+  );
   let provider = "unknown";
   let model = "unknown";
   let lastError = "Model did not return valid JSON.";
+  let lastDetail: string | undefined;
   let lastGeneratedText: string | undefined;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -369,15 +523,16 @@ async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
         lastError = validated.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
       }
     } catch (error) {
-      const { message, isTerminal } = extractSubagentError(error);
-      lastError = message;
-      if (isTerminal) {
-        // Stop immediately on terminal credentials or quota errors - do not retry
+      const classified = classifyConsultError(error);
+      lastError = classified.message;
+      lastDetail = classified.detail;
+      if (classified.isTerminal) {
+        // Stop immediately on terminal credentials, quota, or timeout errors - do not retry
         break;
       }
     }
   }
-  return { ok: false, provider, model, result: { mode: args.input.mode, error: lastError, retryable: false, label: "unverified", actions } };
+  return { ok: false, provider, model, result: { mode: args.input.mode, error: lastError, detail: lastDetail, retryable: false, label: "unverified", actions } };
 }
 
 function parseJsonObject(text: string): unknown {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRamSpecs, parseCpuPackage, parseGpuSpecs, parseSpecsFromTitle, parseStorageSpecs } from "../spec-parsers";
+import { parseRamSpecs, parseCpuPackage, parseGpuSpecs, parsePsuSpecs, parseSpecsFromTitle, parseStorageSpecs } from "../spec-parsers";
 
 describe("parseStorageSpecs", () => {
   it("reads capacity, interface, form factor and PCIe generation from an NVMe title", () => {
@@ -38,6 +38,25 @@ describe("parseStorageSpecs", () => {
 
   it("classifies a bare SATA SSD as 2.5in", () => {
     expect(parseStorageSpecs("WD Green 250GB SATA SSD")).toMatchObject({ interface: "sata", form_factor: "2.5in", capacity_gb: 250 });
+  });
+
+  it("classifies external portable USB drives without calling them internal 3.5in SATA", () => {
+    const spec = parseStorageSpecs("WD My Passport 2TB Portable External Hard Drive");
+    expect(spec).toBeDefined();
+    expect(spec?.capacity_gb).toBe(2000);
+    expect(spec?.interface).toBe("usb");
+    expect(spec?.form_factor).toBeUndefined();
+  });
+
+  it("rejects accessory shells without drive evidence", () => {
+    expect(parseStorageSpecs("USB Cable")).toBeUndefined();
+    expect(parseStorageSpecs("USB 3.0 Extension Cable")).toBeUndefined();
+  });
+
+  it("requires capacity plus a drive indication for external titles", () => {
+    expect(parseStorageSpecs("Seagate 2TB External Hard Drive")?.interface).toBe("usb");
+    // Capacity alone with no drive word is not credible drive evidence.
+    expect(parseStorageSpecs("SanDisk 128GB USB")).toBeUndefined();
   });
 
   it("tolerates the NNMe typo present in live catalog titles", () => {
@@ -158,5 +177,49 @@ describe("explicit RAM module configurations", () => {
   });
   it("does not invent stick count from total capacity", () => {
     expect(parseRamSpecs("Corsair 32GB DDR5")).not.toHaveProperty("modules");
+  });
+});
+
+describe("Item 7: Explicit PSU wattage parsing", () => {
+  it("parses explicit 1050 Watt, 1500 Watts, and equivalent W forms consistently", () => {
+    expect(parsePsuSpecs("Cooler Master MWE 1050 V2 ATX 3.1 1050 Watt 80 Plus Gold Fully Modular")?.wattage).toBe(1050);
+    expect(parsePsuSpecs("Corsair HX1500i ATX 3.1 1500 Watts 80 Plus Platinum Fully Modular Power Supply")?.wattage).toBe(1500);
+    expect(parsePsuSpecs("Ant Esports RX750 750W 80 Plus Bronze Power Supply")?.wattage).toBe(750);
+    expect(parsePsuSpecs("Corsair RM850 850 W Power Supply")?.wattage).toBe(850);
+    expect(parsePsuSpecs("Thermaltake Toughpower 1050Watt Gold Fully Modular")?.wattage).toBe(1050);
+  });
+
+  it("does not treat a bare model number without W/Watt/Watts as measured wattage", () => {
+    expect(parsePsuSpecs("Cooler Master Elite Gold 850 Power Supply (Black)")).toBeUndefined();
+    expect(parsePsuSpecs("Cooler Master MWE Bronze 550 V3 ATX 3.1 80 Plus Bronze Power Supply")).toBeUndefined();
+    expect(parsePsuSpecs("Generic PSU 750")).toBeUndefined();
+  });
+
+  it("leaves conflicting explicit values unresolved", () => {
+    expect(parsePsuSpecs("Generic PSU 750W 850W Power Supply")).toBeUndefined();
+    expect(parsePsuSpecs("Generic PSU 750 Watt / 850 Watts")).toBeUndefined();
+    expect(parsePsuSpecs("PSU 650W 1000W")).toBeUndefined();
+  });
+
+  it("resolves cleanly when identical explicit wattage mentions agree", () => {
+    const parsed = parsePsuSpecs("Ant Esports FG750 V2 750W 750 Watt Gold Modular");
+    expect(parsed?.wattage).toBe(750);
+    expect(parsed?.wattage_w).toBe(750);
+  });
+
+  it("enforces upper and lower wattage bounds", () => {
+    expect(parsePsuSpecs("SuperServer 3000W Power Supply")).toBeUndefined();
+    expect(parsePsuSpecs("Mini Device 150W Power Supply")).toBeUndefined();
+    expect(parsePsuSpecs("High Power 2000W Power Supply")?.wattage).toBe(2000);
+  });
+
+  it("detects SFX form factor", () => {
+    expect(parsePsuSpecs("Corsair SF750 750W Platinum SFX Power Supply")?.form_factor).toBe("SFX");
+    expect(parsePsuSpecs("Corsair RM750e 750W ATX Power Supply")?.form_factor).toBe("ATX");
+  });
+
+  it("keeps SFX-L distinct from SFX", () => {
+    expect(parsePsuSpecs("SilverStone SX1000 1000W SFX-L Power Supply")?.form_factor).toBe("SFX-L");
+    expect(parsePsuSpecs("Corsair SF750 750W SFX Power Supply")?.form_factor).toBe("SFX");
   });
 });

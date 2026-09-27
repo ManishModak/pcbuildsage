@@ -2,7 +2,12 @@ import path from "node:path";
 import { z } from "zod";
 import type { SearchProvider } from "@/types";
 import { loadJsonPresets } from "@/lib/llm/presets";
-import { runPythonModule, type CapturedProcessResult } from "@/lib/server/python-process";
+import {
+  runPythonModule,
+  checkCrawlerEnvironment,
+  type CapturedProcessResult
+} from "@/lib/server/python-process";
+import { crawlUnavailableMessage, isMissingBrowserError } from "@/lib/server/process-errors";
 
 export type SearchResult = { title: string; url: string; snippet: string };
 export type CrawlDiagnostic =
@@ -16,6 +21,18 @@ export type SearchResponse = {
   crawl?: CrawlDiagnostic;
   error?: string;
 };
+export type CrawlerReadiness = { ready: boolean; reason?: string };
+
+export async function checkCrawlerReadiness(options: {
+  force?: boolean;
+  checkFn?: () => Promise<CrawlerReadiness>;
+} = {}): Promise<CrawlerReadiness> {
+  if (options.checkFn) {
+    return options.checkFn();
+  }
+  return checkCrawlerEnvironment({ force: options.force });
+}
+
 export type SearchClient = { search(query: string, options?: { limit?: number; crawlEnabled?: boolean }): Promise<SearchResponse> };
 export type CrawlRunner = (module: string, args: string[], options: {
   timeoutMs: number;
@@ -38,7 +55,11 @@ export async function crawlPage(url: string, runner: CrawlRunner): Promise<strin
     maxOutputBytes: 500_000
   });
   if (result.code !== 0) {
-    throw new Error(result.stderr.trim() || `Crawler exited with code ${result.code ?? "null"}.`);
+    const err = result.stderr.trim();
+    if (isMissingBrowserError(err)) {
+      throw new Error(crawlUnavailableMessage());
+    }
+    throw new Error(err || `Crawler exited with code ${result.code ?? "null"}.`);
   }
   const content = result.stdout.trim();
   if (!content) throw new Error("Crawler returned no page content.");
@@ -47,9 +68,15 @@ export async function crawlPage(url: string, runner: CrawlRunner): Promise<strin
 
 export function createSearchClient(
   config: { provider: SearchProvider; apiKey?: string; baseUrl?: string },
-  dependencies: { runPythonModule?: CrawlRunner } = {}
+  dependencies: {
+    runPythonModule?: CrawlRunner;
+    checkCrawlerReadiness?: () => Promise<CrawlerReadiness>;
+  } = {}
 ): SearchClient {
   const crawlRunner = dependencies.runPythonModule ?? runPythonModule;
+  // An injected runner never implies readiness: callers that fake the runner
+  // must explicitly supply fake readiness via checkCrawlerReadiness.
+  const checkReadiness = dependencies.checkCrawlerReadiness ?? checkCrawlerReadiness;
   return {
     async search(query, options = {}) {
       if (config.provider === "none" || config.provider === "gemini-native") {
@@ -69,12 +96,20 @@ export function createSearchClient(
       }
 
       if (options.crawlEnabled && response.results.length > 0) {
-        const topResult = response.results[0];
-        try {
-          topResult.snippet = await crawlPage(topResult.url, crawlRunner);
-          response.crawl = { status: "succeeded" };
-        } catch (error) {
-          response.crawl = { status: "failed", error: error instanceof Error ? error.message : String(error) };
+        const readiness = await checkReadiness();
+        if (!readiness.ready) {
+          response.crawl = {
+            status: "failed",
+            error: crawlUnavailableMessage(readiness.reason)
+          };
+        } else {
+          const topResult = response.results[0];
+          try {
+            topResult.snippet = await crawlPage(topResult.url, crawlRunner);
+            response.crawl = { status: "succeeded" };
+          } catch (error) {
+            response.crawl = { status: "failed", error: error instanceof Error ? error.message : String(error) };
+          }
         }
       } else if (options.crawlEnabled) {
         response.crawl = { status: "skipped", reason: "no_results" };

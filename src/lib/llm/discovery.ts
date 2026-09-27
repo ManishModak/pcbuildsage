@@ -25,7 +25,7 @@ export async function discoverModels(entry: LLMChainEntry, fetchImpl: typeof fet
       ? "https://openrouter.ai/api/v1"
       : entry.provider === "groq"
         ? "https://api.groq.com/openai/v1"
-        : "http://localhost:8000/v1";
+        : process.env.OPENAI_COMPATIBLE_BASE_URL ?? "http://localhost:8000/v1";
   const base = normalizeBaseUrl(entry.baseUrl ?? defaultUrl);
   const json = await getJson<{
     data?: Array<{

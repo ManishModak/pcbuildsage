@@ -2,6 +2,7 @@ import { spawn, type ChildProcess, type ChildProcessWithoutNullStreams } from "n
 import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ScrapeRunConfig, TestProfileConfig } from "@/contracts/scrape";
+import { isMissingBrowserError } from "./process-errors";
 
 export type PythonCandidate = {
   command: string;
@@ -294,3 +295,127 @@ function appendCsv(args: string[], flag: string, value: string[] | undefined): v
 function appendNumber(args: string[], flag: string, value: number | undefined): void {
   if (value !== undefined) args.push(flag, String(value));
 }
+
+export function isTransientCrawlerError(reason?: string): boolean {
+  if (!reason) return false;
+  const lower = reason.toLowerCase();
+  return (
+    lower.includes("timeout") ||
+    lower.includes("timed out") ||
+    lower.includes("deadline") ||
+    lower.includes("abort") ||
+    lower.includes("cancel") ||
+    lower.includes("econnreset") ||
+    lower.includes("etimedout") ||
+    lower.includes("ebusy")
+  );
+}
+
+let crawlerReadinessGeneration = 0;
+let inFlightCrawlerReadiness: Promise<{ ready: boolean; reason?: string }> | undefined;
+let cachedCrawlerReadiness: { ready: boolean; reason?: string } | undefined;
+
+export function resetCrawlerEnvironmentCache(): void {
+  // Same invalidation contract as a forced probe: in-flight completions are
+  // fenced off by the generation bump, so they can neither overwrite fresh
+  // cache nor clear a newer in-flight request.
+  crawlerReadinessGeneration += 1;
+  cachedCrawlerReadiness = undefined;
+  inFlightCrawlerReadiness = undefined;
+}
+
+export async function checkCrawlerEnvironment(options: {
+  force?: boolean;
+  probeFn?: () => Promise<{ ready: boolean; reason?: string }>;
+} = {}): Promise<{ ready: boolean; reason?: string }> {
+  if (options.force) {
+    // A forced probe must produce fresh readiness: invalidate the cache and
+    // fence off any older in-flight completion via the generation bump, so it
+    // can neither overwrite the fresh result nor clear the new request.
+    crawlerReadinessGeneration += 1;
+    cachedCrawlerReadiness = undefined;
+    inFlightCrawlerReadiness = undefined;
+  }
+  if (cachedCrawlerReadiness) {
+    return cachedCrawlerReadiness;
+  }
+  if (inFlightCrawlerReadiness) {
+    return inFlightCrawlerReadiness;
+  }
+
+  const generation = crawlerReadinessGeneration;
+  const probe = options.probeFn ?? checkCrawlerEnvironmentUncached;
+  const flight: { pending?: Promise<{ ready: boolean; reason?: string }> } = {};
+  flight.pending = (async () => {
+    try {
+      const result = await probe();
+      if (generation === crawlerReadinessGeneration && !isTransientCrawlerError(result.reason)) {
+        cachedCrawlerReadiness = result;
+      }
+      return result;
+    } finally {
+      if (inFlightCrawlerReadiness === flight.pending) inFlightCrawlerReadiness = undefined;
+    }
+  })();
+  inFlightCrawlerReadiness = flight.pending;
+
+  return flight.pending;
+}
+
+async function checkCrawlerEnvironmentUncached(): Promise<{ ready: boolean; reason?: string }> {
+  const resolution = await resolvePython();
+  if (!resolution.ok || !resolution.command) {
+    return { ready: false, reason: "Python interpreter is unavailable" };
+  }
+
+  const probeScript = `
+import sys, json, asyncio
+async def check():
+    try:
+        import bs4
+        import crawl4ai
+        from playwright.async_api import async_playwright
+    except ImportError as e:
+        return {"ready": False, "reason": "Missing crawler dependency: " + str(e)}
+
+    try:
+        from playwright.async_api import async_playwright
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            await browser.close()
+        return {"ready": True}
+    except Exception as e:
+        msg = str(e)
+        if "Executable doesn" in msg or "playwright install" in msg or "chromium" in msg.lower():
+            return {"ready": False, "reason": "Chromium is missing"}
+        return {"ready": False, "reason": msg.splitlines()[0]}
+
+try:
+    res = asyncio.run(check())
+    print(json.dumps(res))
+except Exception as e:
+    print(json.dumps({"ready": False, "reason": str(e)}))
+`;
+
+  try {
+    const result = await runPythonCaptured(resolution, ["-c", probeScript], {
+      timeoutMs: 8000,
+      maxOutputBytes: 20_000
+    });
+    const output = result.stdout.trim();
+    if (!output) {
+      const err = result.stderr.trim();
+      if (isMissingBrowserError(err)) {
+        return { ready: false, reason: "Chromium is missing" };
+      }
+      return { ready: false, reason: err.split("\n")[0] || "Crawler probe failed" };
+    }
+    const lastLine = output.split("\n").filter(Boolean).pop() || "";
+    const parsed = JSON.parse(lastLine) as { ready: boolean; reason?: string };
+    return { ready: Boolean(parsed.ready), reason: parsed.reason };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { ready: false, reason: msg };
+  }
+}
+

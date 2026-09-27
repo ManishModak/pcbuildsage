@@ -220,5 +220,50 @@ Here is your component list:
     const builds = parseBuildsFromMarkdown(plainText, "INR");
     expect(builds).toHaveLength(0);
   });
+
+  it("derives multiple builds presented together with tradeoff labels", () => {
+    const parts: ToolPart[] = [
+      {
+        type: "tool-present_build",
+        state: "output-available",
+        input: {
+          builds: [
+            {
+              label: "Within budget",
+              parts: [
+                { category: "cpu", name: "Ryzen 5 5600", price: 11500 },
+                { category: "gpu", name: "RX 6600", price: 20000 }
+              ]
+            },
+            {
+              label: "Small upgrade",
+              parts: [
+                { category: "cpu", name: "Ryzen 5 5600X", price: 13000 },
+                { category: "gpu", name: "RTX 4060", price: 28000 }
+              ]
+            }
+          ]
+        },
+        output: { presented: true, buildCount: 2 }
+      }
+    ];
+
+    const derived = deriveBuilds(parts, "INR");
+    expect(derived).toHaveLength(2);
+    expect(derived[0].label).toBe("Within budget");
+    expect(derived[0].components).toHaveLength(2);
+    expect(derived[0].components[0].name).toBe("RX 6600");
+    expect(derived[0].components[0].price).toBe(20000);
+    expect(derived[0].components[1].name).toBe("Ryzen 5 5600");
+    expect(derived[0].components[1].price).toBe(11500);
+
+    expect(derived[1].label).toBe("Small upgrade");
+    expect(derived[1].components).toHaveLength(2);
+    expect(derived[1].components[0].name).toBe("RTX 4060");
+    expect(derived[1].components[0].price).toBe(28000);
+    expect(derived[1].components[1].name).toBe("Ryzen 5 5600X");
+    expect(derived[1].components[1].price).toBe(13000);
+  });
 });
+
 

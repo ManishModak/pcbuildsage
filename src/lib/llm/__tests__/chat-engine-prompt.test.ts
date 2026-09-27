@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { buildSystemPrompt } from "../chat-engine";
 import type { AppConfig } from "@/types";
 
+// These tests pin the presence of guidance concepts, not exact prose: rewording
+// a paragraph must not break them, and passing them proves nothing about model
+// behavior — only that the instruction is still in the prompt.
 describe("chat-engine system prompt guidance (Issues 05, 03, 08)", () => {
   const dummyConfig: AppConfig = {
     dbPath: ":memory:",
@@ -25,25 +28,29 @@ describe("chat-engine system prompt guidance (Issues 05, 03, 08)", () => {
     }
   };
 
-  it("includes recommendation claims instruction without claiming fastest/strongest without data", () => {
-    const prompt = buildSystemPrompt(dummyConfig);
-    expect(prompt).toContain(
-      "Explain recommendations using available evidence. Don’t claim 'fastest', 'strongest', or 'best-performing' without supporting performance data. When benchmarks are available, limit comparisons to the models and workload covered."
+  /** Asserts one prompt line carries every marker word (case-insensitive). */
+  function expectGuidance(prompt: string, ...markers: string[]) {
+    const lines = prompt.split("\n");
+    const found = lines.some((line) =>
+      markers.every((marker) => line.toLowerCase().includes(marker.toLowerCase()))
     );
+    expect(found, `expected guidance covering: ${markers.join(" + ")}`).toBe(true);
+  }
+
+  it("grounds recommendation claims in evidence, not superlatives", () => {
+    const prompt = buildSystemPrompt(dummyConfig);
+    expectGuidance(prompt, "'fastest'", "performance data");
+    expectGuidance(prompt, "limit comparisons");
   });
 
   it("allows direct recommendations stating 'my recommended choice'", () => {
     const prompt = buildSystemPrompt(dummyConfig);
-    expect(prompt).toContain(
-      "Recommendations can directly state 'my recommended choice' and explain the budget, requirements, and documented specifications behind it (e.g. 'I chose this GPU because it fits the budget and leaves room for the other parts')."
-    );
+    expectGuidance(prompt, "my recommended choice");
   });
 
   it("includes updated search workflow guidance", () => {
     const prompt = buildSystemPrompt(dummyConfig);
-    expect(prompt).toContain(
-      "For broad build requests: get_catalog → list_models → search_products. Shortlist a few suitable models before looking through their offers. For an exact product or a straightforward filtered purchase request, skip model discovery when direct search is sufficient."
-    );
+    expectGuidance(prompt, "get_catalog", "list_models", "search_products");
   });
 
   it("does not instruct highest-price-first (order: 'desc') searching", () => {
@@ -53,23 +60,34 @@ describe("chat-engine system prompt guidance (Issues 05, 03, 08)", () => {
 
   it("includes case clearance guidance using min_gpu_clearance_mm and min_cooler_clearance_mm", () => {
     const prompt = buildSystemPrompt(dummyConfig);
-    expect(prompt).toContain(
-      "When searching for cases for a selected GPU and cooler, use `min_gpu_clearance_mm` and `min_cooler_clearance_mm`."
-    );
+    expectGuidance(prompt, "min_gpu_clearance_mm", "min_cooler_clearance_mm");
   });
 
   it("includes CPU cooler guidance for stock cooler vs unknown cooler", () => {
     const prompt = buildSystemPrompt(dummyConfig);
-    expect(prompt).toContain(
-      "When a CPU package includes a stock cooler, show it as included with the CPU at no additional cost (₹0). When cooler inclusion is unknown, keep a separate cooler in the build and explain: 'Check whether this CPU package includes a stock cooler. If included and suitable for your use, you can skip the [price] cooler.'"
-    );
+    expectGuidance(prompt, "stock cooler", "no additional cost");
+    expectGuidance(prompt, "skip the [price] cooler");
   });
 
-  it("includes build presentation guidance with compatibility checks before present_build and revised versions", () => {
+  it("requires validation before presentation and presents alternatives together", () => {
     const prompt = buildSystemPrompt(dummyConfig);
-    expect(prompt).toContain(
-      "Finalize component choices and run compatibility checks before calling present_build. Include all intended alternatives together. If a later correction is needed, present a revised version and explain what changed."
-    );
+    expectGuidance(prompt, "compatibility checks", "present_build");
+    expectGuidance(prompt, "alternatives together");
+  });
+
+  it("guides 2-3 meaningful build options without forcing specific briefs into a single build", () => {
+    const prompt = buildSystemPrompt(dummyConfig);
+    expectGuidance(prompt, "2-3 meaningful build options");
+    expectGuidance(prompt, "rather than forcing a single build");
+    expect(prompt).not.toContain("If the user's brief is specific, propose 1 complete build.");
+  });
+
+  it("guides modest overruns with disclosure even for strict budgets while retaining a viable within-cap build", () => {
+    const prompt = buildSystemPrompt(dummyConfig);
+    expectGuidance(prompt, "strict cap", "within the stated cap");
+    expectGuidance(prompt, "modest overrun");
+    expectGuidance(prompt, "never describe an over-budget option as within budget");
+    expectGuidance(prompt, "'Within budget'", "'Small upgrade'");
   });
 
   it("uses active currency symbol ($0) and avoids hardcoded INR when currency is USD", () => {
@@ -79,9 +97,8 @@ describe("chat-engine system prompt guidance (Issues 05, 03, 08)", () => {
       currency: "USD"
     };
     const prompt = buildSystemPrompt(usdConfig);
-    expect(prompt).toContain(
-      "When a CPU package includes a stock cooler, show it as included with the CPU at no additional cost ($0)."
-    );
+    expectGuidance(prompt, "no additional cost ($0)");
+    expectGuidance(prompt, "'Within budget'", "'Small upgrade'");
     expect(prompt).not.toContain("₹");
   });
 });
