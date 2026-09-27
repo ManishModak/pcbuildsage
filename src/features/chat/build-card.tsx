@@ -99,7 +99,7 @@ export function BuildCard({
               {active.label}
             </span>
           ) : null}
-          <p className="mt-3 text-sm text-text-secondary">
+          <p role="alert" className="mt-3 text-sm text-text-secondary">
             {"Build details unavailable \u2014 ask the assistant to present it again"}
           </p>
         </div>

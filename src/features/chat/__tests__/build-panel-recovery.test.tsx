@@ -537,6 +537,9 @@ describe("matching a presented build to the validation that produced it", () => 
     expect(decodeEntities(markup)).toContain(
       "Build details unavailable — ask the assistant to present it again"
     );
+    // Announced like the error boundary's fallback, for the same reason: the
+    // build is missing and the user has to hear it before the panel looks broken.
+    expect(markup).toContain('role="alert"');
     expect(markup).not.toContain("ffffffffffffffffffffffffffffffffffffffff");
     expect(markup).not.toContain("₹0.00");
   });
