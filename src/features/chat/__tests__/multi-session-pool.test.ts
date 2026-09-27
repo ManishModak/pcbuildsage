@@ -3,7 +3,10 @@ import type { ChatUIMessage } from "../message";
 import {
   applySessionSelection,
   chooseEvictionIndex,
+  decideOpenAction,
+  invalidateSessionSelection,
   MAX_ACTIVE_SESSIONS,
+  shouldRefetchOnOpen,
   type PoolEntry
 } from "../session-selection";
 import { SessionSaveQueue, sessionSignature } from "../session-save-queue";
@@ -213,5 +216,100 @@ describe("Option A - Multi-Session Background Tab Pool", () => {
     expect(next[0].isStreaming).toBe(true);
     expect(next[0].isLoading).toBe(false);
     expect(currentId).toBe("session-a");
+  });
+});
+
+describe("re-opening a chat whose load was cancelled", () => {
+  it("re-fetches instead of showing the fake new-chat screen", () => {
+    const failed = entry("session-a", 100, { isLoading: false });
+    expect(shouldRefetchOnOpen(failed)).toBe(true);
+    expect(decideOpenAction(failed)).toBe("fetch");
+  });
+
+  it("keeps the shortcut for a chat that is still loading", () => {
+    expect(shouldRefetchOnOpen(entry("session-a", 100, { isLoading: true }))).toBe(false);
+  });
+
+  it("keeps the shortcut for a chat with messages, which is what preserves its stream", () => {
+    const open = entry("session-a", 100, { messages: [userMessage("real content")] });
+    expect(shouldRefetchOnOpen(open)).toBe(false);
+    expect(decideOpenAction(open)).toBe("switch");
+  });
+
+  it("keeps the shortcut for a streaming chat with no messages yet", () => {
+    const streaming = entry("session-a", 100, { isStreaming: true });
+    expect(shouldRefetchOnOpen(streaming)).toBe(false);
+  });
+
+  it("fetches a chat that is not in the pool at all", () => {
+    expect(decideOpenAction(undefined)).toBe("fetch");
+  });
+
+  it("marks a re-fetched empty entry as loading, not as an empty chat", () => {
+    const failed = [entry("session-a", 100, { isLoading: false })];
+    const { pool: refetching } = applySessionSelection({
+      pool: failed,
+      currentSessionId: "session-b",
+      id: "session-a",
+      loaded: false,
+      messages: [],
+      pendingLoad: true,
+      newEntry: { id: "session-a", queue: makeQueue(), isStreaming: false, lastActiveAt: 0 }
+    });
+
+    expect(refetching[0].isLoading).toBe(true);
+  });
+
+  it("the whole click-away-then-back sequence ends with a second fetch", async () => {
+    // Reproduces the reported sequence: click A, switch to B mid-fetch, click A again.
+    const guard = { generation: 0 };
+    let pool: PoolEntry<SessionSaveQueue>[] = [
+      entry("session-b", 100, { messages: [userMessage("chat B")], isStreaming: false })
+    ];
+    let currentId = "session-b";
+    const fetches: string[] = [];
+
+    async function click(id: string) {
+      const existing = pool.find((e) => e.id === id);
+      if (decideOpenAction(existing) === "switch") {
+        invalidateSessionSelection(guard);
+        currentId = id;
+        return { fetched: false, refetching: false };
+      }
+      const refetching = existing !== undefined;
+      fetches.push(id);
+      pool = applySessionSelection({
+        pool,
+        currentSessionId: currentId,
+        id,
+        loaded: false,
+        messages: [],
+        pendingLoad: refetching,
+        newEntry: { id, queue: makeQueue(), isStreaming: false, lastActiveAt: 0 }
+      }).pool;
+      currentId = id;
+      return { fetched: true, refetching };
+    }
+
+    // 1. Click A, which is not open: a fetch starts and is still in flight.
+    const firstClick = await click("session-a");
+    expect(firstClick.fetched).toBe(true);
+    expect(fetches).toEqual(["session-a"]);
+    expect(pool.find((e) => e.id === "session-a")?.isLoading).toBe(true);
+
+    // 2. Click B, which is open. This cancels A's fetch, so A's load path fails and
+    //    clears the spinner - leaving an empty, idle entry.
+    invalidateSessionSelection(guard);
+    pool = pool.map((e) => (e.id === "session-a" ? { ...e, isLoading: false } : e));
+    currentId = "session-b";
+    expect(pool.find((e) => e.id === "session-a")).toMatchObject({ isLoading: false, messages: [] });
+
+    // 3. Click A again. It is in the pool, but empty and idle, so it must be re-fetched.
+    const secondClick = await click("session-a");
+    expect(secondClick.fetched).toBe(true);
+    expect(secondClick.refetching).toBe(true);
+    expect(fetches).toEqual(["session-a", "session-a"]);
+    // And the user sees a loading state, not the new-chat screen.
+    expect(pool.find((e) => e.id === "session-a")?.isLoading).toBe(true);
   });
 });

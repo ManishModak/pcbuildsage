@@ -105,6 +105,12 @@ export function applySessionSelection<TQueue>(options: {
   messages: ChatUIMessage[];
   /** The entry to add when the chat is not already open, minus messages/loading. */
   newEntry: Omit<PoolEntry<TQueue>, "messages" | "isLoading">;
+  /**
+   * True when this call is the *start* of a fetch for a chat that is already in the
+   * pool (see {@link shouldRefetchOnOpen}). The entry is then marked loading again
+   * rather than being shown empty, so a re-fetch never displays the new-chat screen.
+   */
+  pendingLoad?: boolean;
   now?: number;
 }): SessionSelection<TQueue> {
   const { pool, currentSessionId, id, loaded, messages, newEntry } = options;
@@ -121,7 +127,7 @@ export function applySessionSelection<TQueue>(options: {
       // re-activation, must never blank a chat that is streaming.
       messages: loaded && existing.messages.length === 0 ? messages : existing.messages,
       lastActiveAt: now,
-      isLoading: false
+      isLoading: options.pendingLoad === true && !loaded
     };
     return { pool: next, currentId: id };
   }
@@ -139,4 +145,30 @@ export function applySessionSelection<TQueue>(options: {
     isLoading: !loaded
   };
   return { pool: [...next, entry], currentId: id };
+}
+
+/**
+ * Whether clicking a chat that is already in the pool should fetch it again rather
+ * than simply switch to it.
+ *
+ * A finished, empty, idle entry is a chat whose load *failed* - typically because
+ * the user clicked another chat while the fetch was in flight, which cancels it and
+ * clears the spinner. Showing such an entry as-is is the new-chat screen for a chat
+ * that is not new, and with no way to tell the two apart the user's only escape is
+ * evicting the entry or starting over.
+ *
+ * Everything else takes the shortcut untouched, and that is the point: an entry with
+ * messages must never be re-fetched, because doing so is what would kill a live
+ * stream in a background tab.
+ */
+export function shouldRefetchOnOpen(entry: PoolEntry<unknown>): boolean {
+  if (entry.isLoading) return false;
+  if (entry.isStreaming) return false;
+  return entry.messages.length === 0;
+}
+
+/** What a sidebar click should do: reuse the open tab, or fetch the chat. */
+export function decideOpenAction(entry: PoolEntry<unknown> | undefined): "switch" | "fetch" {
+  if (!entry) return "fetch";
+  return shouldRefetchOnOpen(entry) ? "fetch" : "switch";
 }

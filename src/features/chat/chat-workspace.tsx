@@ -10,6 +10,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/animate-ui/components/radix/sidebar";
 import {
   applySessionSelection,
+  decideOpenAction,
   invalidateSessionSelection,
   selectLatestSession,
   type PoolEntry
@@ -114,7 +115,7 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
   }, []);
 
   const activateSessionInPool = useCallback(
-    (id: string, messages: ChatUIMessage[], revision = 0, loaded = true) => {
+    (id: string, messages: ChatUIMessage[], revision = 0, loaded = true, pendingLoad = false) => {
       let queue = saveQueuesRef.current.get(id);
       if (!queue) {
         queue = createSaveQueue(id, messages, revision, refresh);
@@ -130,6 +131,7 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
           id,
           loaded,
           messages,
+          pendingLoad,
           newEntry: { id, queue, isStreaming: false, lastActiveAt: Date.now() }
         }).pool
       );
@@ -167,23 +169,26 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
       }
 
       const existing = activeSessionsRef.current.find((s) => s.id === id);
-      if (existing) {
+      if (decideOpenAction(existing) === "switch") {
         // Already open in another tab: switch to it as it is, keeping its messages
         // and any stream in progress. A loading entry here is one whose fetch has
-        // not landed yet, so the flag is cleared.
+        // not landed yet.
         invalidateSessionSelection(selectionGuardRef.current);
         setActiveSessions((prev) =>
-          prev.map((s) => (s.id === id ? { ...s, lastActiveAt: Date.now(), isLoading: false } : s))
+          prev.map((s) => (s.id === id ? { ...s, lastActiveAt: Date.now() } : s))
         );
         setCurrentSessionId(id);
         return;
       }
 
-      const queue = createSaveQueue(id, [], 0, refresh);
-      saveQueuesRef.current.set(id, queue);
-      // Show the loading state immediately, with none of the previous chat's
-      // messages, instead of a new-chat screen that looks like an empty history.
-      activateSessionInPool(id, [], 0, false);
+      // Either the chat is not open, or it is open but its load failed (the user was
+      // switched away mid-fetch). Both need a real fetch, and both must show the
+      // loading state rather than the new-chat screen.
+      const refetching = existing !== undefined;
+      if (!refetching) {
+        saveQueuesRef.current.set(id, createSaveQueue(id, [], 0, refresh));
+      }
+      activateSessionInPool(id, [], 0, false, refetching);
 
       const loaded = await selectLatestSession(selectionGuardRef.current, id, fetchSession, (session) => {
         activateSessionInPool(session.id, session.messages, session.revision, true);
@@ -191,7 +196,8 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
       if (loaded) return;
 
       // The fetch failed or there is no such chat: stop pretending to load and
-      // leave this tab genuinely empty.
+      // leave this tab genuinely empty. Clicking it again re-fetches, because an
+      // empty, idle entry is exactly what decideOpenAction treats as a failure.
       setActiveSessions((prev) => prev.map((s) => (s.id === id ? { ...s, isLoading: false } : s)));
     },
     [activateSessionInPool, refresh]
