@@ -18,6 +18,7 @@ import { Composer } from "./composer";
 import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
 import { BuildCard } from "./build-card";
+import { BuildErrorBoundary } from "./build-error-boundary";
 import { extractBuildsFromMessage, findAllBuildVersions, followNewestVersion, resolveBuildTotal, resolveSelectedVersion, type DerivedBuild, type BuildVersion } from "./build-derive";
 import { getFollowups } from "@/lib/followups";
 import { isToolPart } from "@/lib/message-parts";
@@ -853,20 +854,22 @@ export function ChatView({
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
-              <BuildCard
-                builds={displayBuilds ?? undefined}
-                versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
-                selectedVersionId={safeSelectedVersionId}
-                onVersionChange={(versionId) => {
-                  setSelectedVersionId(versionId);
-                  setSelectedAlternativeIndex(0);
-                  const matched = allBuildVersions.find((v) => v.id === versionId);
-                  if (matched) setActiveBuilds(matched.builds);
-                }}
-                selectedAlternativeIndex={safeAlternativeIndex}
-                onAlternativeChange={setSelectedAlternativeIndex}
-                inSidePanel
-              />
+              <BuildErrorBoundary resetKeys={[safeSelectedVersionId, safeAlternativeIndex]}>
+                <BuildCard
+                  builds={displayBuilds ?? undefined}
+                  versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
+                  selectedVersionId={safeSelectedVersionId}
+                  onVersionChange={(versionId) => {
+                    setSelectedVersionId(versionId);
+                    setSelectedAlternativeIndex(0);
+                    const matched = allBuildVersions.find((v) => v.id === versionId);
+                    if (matched) setActiveBuilds(matched.builds);
+                  }}
+                  selectedAlternativeIndex={safeAlternativeIndex}
+                  onAlternativeChange={setSelectedAlternativeIndex}
+                  inSidePanel
+                />
+              </BuildErrorBoundary>
             </div>
           </aside>
         </>
@@ -898,20 +901,22 @@ export function ChatView({
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-4">
             {displayBuilds && (
-              <BuildCard
-                builds={displayBuilds}
-                versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
-                selectedVersionId={safeSelectedVersionId}
-                onVersionChange={(versionId) => {
-                  setSelectedVersionId(versionId);
-                  setSelectedAlternativeIndex(0);
-                  const matched = allBuildVersions.find((v) => v.id === versionId);
-                  if (matched) setActiveBuilds(matched.builds);
-                }}
-                selectedAlternativeIndex={safeAlternativeIndex}
-                onAlternativeChange={setSelectedAlternativeIndex}
-                inSidePanel
-              />
+              <BuildErrorBoundary resetKeys={[safeSelectedVersionId, safeAlternativeIndex]}>
+                <BuildCard
+                  builds={displayBuilds}
+                  versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
+                  selectedVersionId={safeSelectedVersionId}
+                  onVersionChange={(versionId) => {
+                    setSelectedVersionId(versionId);
+                    setSelectedAlternativeIndex(0);
+                    const matched = allBuildVersions.find((v) => v.id === versionId);
+                    if (matched) setActiveBuilds(matched.builds);
+                  }}
+                  selectedAlternativeIndex={safeAlternativeIndex}
+                  onAlternativeChange={setSelectedAlternativeIndex}
+                  inSidePanel
+                />
+              </BuildErrorBoundary>
             )}
           </div>
         </SheetContent>

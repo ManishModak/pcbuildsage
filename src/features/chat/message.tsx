@@ -9,6 +9,7 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/components/ui/cn";
 import { Button } from "@/components/ui/button";
 import { extractBuildsFromMessage, resolveBuildTotal, type BuildVersion } from "./build-derive";
+import { BuildErrorBoundary } from "./build-error-boundary";
 import { FailoverPill } from "./failover-pill";
 import { Markdown } from "./markdown";
 import { ToolChip } from "./tool-chip";
@@ -226,18 +227,63 @@ export function MessageView({
         return null;
       })}
 
-      {hasVersions ? (
-        <div className="my-3 flex flex-col gap-2">
-          {versions!.map((v) => {
-            const primaryBuild = v.builds[0];
-            if (!primaryBuild) return null;
-            return (
+      {(hasVersions || fallbackBuilds.length) ? (
+        <BuildErrorBoundary resetKeys={versions?.map((v) => v.id)}>
+          {hasVersions ? (
+            <div className="my-3 flex flex-col gap-2">
+              {versions!.map((v) => {
+                const primaryBuild = v.builds[0];
+                if (!primaryBuild) return null;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => onViewBuild?.(v.id)}
+                    className="group flex w-full items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-left shadow-xs transition-all duration-150 hover:border-accent hover:bg-surface-raised cursor-pointer"
+                    aria-label={`View proposed build: ${primaryBuild.label ?? v.label}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn bg-accent/10 text-accent group-hover:bg-accent group-hover:text-on-accent transition-colors duration-150">
+                        <Icon icon={Package} size={18} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-baseline gap-2 truncate">
+                          <span className="text-caption font-semibold uppercase tracking-wider text-text-secondary">
+                            {v.label}
+                          </span>
+                          {v.builds.length > 1 ? (
+                            <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-muted">
+                              {v.builds.length} variants
+                            </span>
+                          ) : null}
+                        </div>
+                        <span className="truncate text-sm font-medium text-text">
+                          {primaryBuild.label ? `${primaryBuild.label} · ` : ""}
+                          <span className="font-mono font-semibold text-accent">
+                            {formatPrice(resolveBuildTotal(primaryBuild), primaryBuild.currency)}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 text-caption font-medium text-text-secondary group-hover:text-accent transition-colors">
+                      <span className="hidden sm:inline">View Details</span>
+                      <Icon
+                        icon={ArrowRight}
+                        size={16}
+                        className="transition-transform duration-150 group-hover:translate-x-1"
+                      />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : fallbackBuilds.length ? (
+            <div className="my-3">
               <button
-                key={v.id}
                 type="button"
-                onClick={() => onViewBuild?.(v.id)}
+                onClick={() => onViewBuild?.(fallbackVersionId)}
                 className="group flex w-full items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-left shadow-xs transition-all duration-150 hover:border-accent hover:bg-surface-raised cursor-pointer"
-                aria-label={`View proposed build: ${primaryBuild.label ?? v.label}`}
+                aria-label={`View proposed build: ${fallbackBuilds[0].label ?? "Proposed Build"}`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn bg-accent/10 text-accent group-hover:bg-accent group-hover:text-on-accent transition-colors duration-150">
@@ -246,18 +292,18 @@ export function MessageView({
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-baseline gap-2 truncate">
                       <span className="text-caption font-semibold uppercase tracking-wider text-text-secondary">
-                        {v.label}
+                        Proposed Build
                       </span>
-                      {v.builds.length > 1 ? (
-                        <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-muted">
-                          {v.builds.length} variants
+                      {fallbackBuilds.length > 1 ? (
+                        <span className="rounded-pill bg-surface-raised px-2.5 py-0.5 text-[11px] font-medium text-text-muted">
+                          {fallbackBuilds.length} variants
                         </span>
                       ) : null}
                     </div>
                     <span className="truncate text-sm font-medium text-text">
-                      {primaryBuild.label ? `${primaryBuild.label} · ` : ""}
+                      {fallbackBuilds[0].label ? `${fallbackBuilds[0].label} · ` : ""}
                       <span className="font-mono font-semibold text-accent">
-                        {formatPrice(resolveBuildTotal(primaryBuild), primaryBuild.currency)}
+                        {formatPrice(resolveBuildTotal(fallbackBuilds[0]), fallbackBuilds[0].currency)}
                       </span>
                     </span>
                   </div>
@@ -271,50 +317,9 @@ export function MessageView({
                   />
                 </div>
               </button>
-            );
-          })}
-        </div>
-      ) : fallbackBuilds.length ? (
-        <div className="my-3">
-          <button
-            type="button"
-            onClick={() => onViewBuild?.(fallbackVersionId)}
-            className="group flex w-full items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-left shadow-xs transition-all duration-150 hover:border-accent hover:bg-surface-raised cursor-pointer"
-            aria-label={`View proposed build: ${fallbackBuilds[0].label ?? "Proposed Build"}`}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn bg-accent/10 text-accent group-hover:bg-accent group-hover:text-on-accent transition-colors duration-150">
-                <Icon icon={Package} size={18} />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-baseline gap-2 truncate">
-                  <span className="text-caption font-semibold uppercase tracking-wider text-text-secondary">
-                    Proposed Build
-                  </span>
-                  {fallbackBuilds.length > 1 ? (
-                    <span className="rounded-pill bg-surface-raised px-2.5 py-0.5 text-[11px] font-medium text-text-muted">
-                      {fallbackBuilds.length} variants
-                    </span>
-                  ) : null}
-                </div>
-                <span className="truncate text-sm font-medium text-text">
-                  {fallbackBuilds[0].label ? `${fallbackBuilds[0].label} · ` : ""}
-                  <span className="font-mono font-semibold text-accent">
-                    {formatPrice(resolveBuildTotal(fallbackBuilds[0]), fallbackBuilds[0].currency)}
-                  </span>
-                </span>
-              </div>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0 text-caption font-medium text-text-secondary group-hover:text-accent transition-colors">
-              <span className="hidden sm:inline">View Details</span>
-              <Icon
-                icon={ArrowRight}
-                size={16}
-                className="transition-transform duration-150 group-hover:translate-x-1"
-              />
-            </div>
-          </button>
-        </div>
+          ) : null}
+        </BuildErrorBoundary>
       ) : null}
 
       {followups.length > 0 && onFollowup ? (

@@ -1044,9 +1044,11 @@ function componentSetsMatch(
 ): boolean {
   const bMap = new Map<string, PartIdentity[]>();
   for (const p of buildParts) {
-    // Old or malformed saved data can carry a null category; never call
-    // string methods on whatever came out of storage.
-    const normCat = normalizeCategory(String(p?.category ?? "")) ?? String(p?.category ?? "").toLowerCase();
+    // Old or malformed saved data can carry a null part or a null category;
+    // never call string methods on whatever came out of storage.
+    if (!p || typeof p !== "object") continue;
+    const rawCategory = String(p.category ?? "");
+    const normCat = normalizeCategory(rawCategory) ?? rawCategory.toLowerCase();
     const list = bMap.get(normCat) ?? [];
     list.push(p as PartIdentity);
     bMap.set(normCat, list);

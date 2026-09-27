@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import type { ReactNode } from "react";
+import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   findAllBuildVersions,
@@ -7,7 +8,9 @@ import {
   VALIDATED_VERSION_LABEL
 } from "../build-versions";
 import { BuildCard } from "../build-card";
+import { BuildErrorBoundary } from "../build-error-boundary";
 import { MessageView, type ChatUIMessage } from "../message";
+import type { DerivedBuild } from "../build-derive";
 
 // Ids and shapes copied from the real interrupted session in data/sessions.db
 // (id 371612d7-294e-4a53-9fc3-2de07ecf2340): four finished validate_build
@@ -527,5 +530,148 @@ describe("version selection follows the newest build, by stable id", () => {
     // naming anything: the panel falls back to a real build rather than nothing.
     expect(resolveSelectedVersion(before, after[1].id)).toBe(before[0]);
     expect(resolveSelectedVersion([], after[1].id)).toBeUndefined();
+  });
+});
+
+describe("a malformed saved build cannot take the chat down", () => {
+  /**
+   * React's server renderer rethrows instead of handing an error to a boundary,
+   * and this repo has no DOM environment to mount into, so drive the boundary's
+   * own contract: render the children, and if they throw, apply the state that
+   * getDerivedStateFromError produced and render the boundary's error branch.
+   */
+  /** SSR escapes an apostrophe as &#x27;; assertions read better without it. */
+  function decodeEntities(markup: string): string {
+    return markup.replace(/&#x27;/g, "'").replace(/&quot;/g, '"');
+  }
+
+  function renderThroughBoundary(children: ReactNode, resetKeys: unknown[] = []): string {
+    const instance = new BuildErrorBoundary({ children, resetKeys });
+    try {
+      return renderToStaticMarkup(<>{children}</>);
+    } catch (error) {
+      const state = BuildErrorBoundary.getDerivedStateFromError(error as Error);
+      (instance as unknown as { state: typeof state }).state = state;
+      return renderToStaticMarkup(instance.render());
+    }
+  }
+
+  it("renders the boundary message instead of crashing on an unrenderable part", () => {
+    // A retailer that came back as an object rather than a string: nothing in
+    // the derive step can turn that back into a label.
+    const malformed: DerivedBuild = {
+      label: "Corrupt Build",
+      currency: "INR",
+      validation: null,
+      isLegacy: false,
+      components: [
+        {
+          category: "gpu",
+          categoryLabel: "GPU",
+          name: "RTX 4060",
+          price: 28500,
+          currency: "INR",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the shape is the point
+          retailer: { nested: "not a string" } as any,
+          unverified: false,
+          status: "ok"
+        }
+      ]
+    };
+
+    // Unguarded, the card throws while drawing that field.
+    expect(() => renderToStaticMarkup(<BuildCard builds={[malformed]} inSidePanel />)).toThrow();
+
+    const markup = renderThroughBoundary(<BuildCard builds={[malformed]} inSidePanel />);
+    expect(decodeEntities(markup)).toContain("Couldn't display this build");
+    expect(markup).toContain('role="alert"');
+  });
+
+  it("renders a build whose saved fields are the wrong shape", () => {
+    const messages: ChatUIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-validate_build",
+            toolCallId: "v1",
+            state: "output-available",
+            input: { label: "Odd Build", parts: { ram: RAM_ID } },
+            output: {
+              valid: false,
+              // An issue saved without its components list at all.
+              issues: [{ severity: "blocking", rule: "ddr", detail: "DDR5 required" }],
+              resolved: {},
+              summary: { passed: 0, failed: 1, unverified: 0, text: "1 check failed" },
+              snapshot: {
+                label: "Odd Build",
+                components: [
+                  // Null category, and the product id reused as the name.
+                  { category: null, product_id: RAM_ID, name: RAM_ID, price: null, currency: "INR" }
+                ],
+                total: null,
+                subtotal: 0,
+                currency: "INR",
+                is_complete: false,
+                component_count: 1,
+                unpriced_count: 1,
+                missing_prices: [],
+                currencies: [],
+                parts: {},
+                valid: false,
+                created_at: "2026-01-01T00:00:00.000Z"
+              }
+            }
+          } as unknown as ChatUIMessage["parts"][number],
+          {
+            type: "tool-present_build",
+            toolCallId: "call-1",
+            state: "output-available",
+            input: { builds: [{ label: "Odd Build", product_ids: [RAM_ID] }] }
+          } as unknown as ChatUIMessage["parts"][number]
+        ]
+      }
+    ];
+
+    const versions = findAllBuildVersions(messages, "INR");
+    expect(versions).toHaveLength(1);
+
+    const build = versions[0].builds[0];
+    // The null category does not throw, and the raw id is not the name.
+    expect(build.components[0].name).not.toBe(RAM_ID);
+    expect(build.total).toBeNull();
+
+    const markup = renderThroughBoundary(<BuildCard versions={versions} inSidePanel />);
+    expect(markup).toContain("Odd Build");
+    expect(markup).not.toContain("Couldn't display this build");
+    expect(markup).not.toContain("₹0.00");
+  });
+
+  it("recovers once the reset keys change, and leaves a healthy build alone", () => {
+    const healthy = renderToStaticMarkup(
+      <BuildErrorBoundary>
+        <p>healthy build</p>
+      </BuildErrorBoundary>
+    );
+    expect(healthy).toContain("healthy build");
+    expect(decodeEntities(healthy)).not.toContain("Couldn't display this build");
+
+    const props = { children: <p>build</p>, resetKeys: ["1:present:call-1"] };
+    const instance = new BuildErrorBoundary(props);
+    (instance as unknown as { state: { error: Error | null } }).state = {
+      error: new Error("boom")
+    };
+    const setState = vi.fn();
+    (instance as unknown as { setState: unknown }).setState = setState;
+
+    // Same build: stay broken rather than thrashing on every render.
+    instance.componentDidUpdate(props);
+    expect(setState).not.toHaveBeenCalled();
+
+    // A different build was selected: try again.
+    instance.componentDidUpdate({ ...props, resetKeys: ["3:present:call-2"] });
+    expect(setState).toHaveBeenCalledWith({ error: null });
   });
 });
