@@ -415,10 +415,17 @@ export async function fetchSession(id: string): Promise<SessionDetail | null> {
 }
 
 /**
- * MDN: "The body size for `keepalive` requests is limited to 64 kibibytes."
- * A longer transcript simply cannot be flushed through an unload handler; the
- * caller gets a thrown error rather than a silent no-op so the snapshot stays
- * unacknowledged and the next ordinary save can still write it.
+ * The keepalive body ceiling, from MDN's RequestInit#keepalive: "The body size for
+ * `keepalive` requests is limited to 64 kibibytes." A longer transcript cannot be
+ * flushed through an unload handler at all, so this is a real and frequently-hit
+ * limit for a long conversation - not a theoretical one.
+ *
+ * For comparison, `navigator.sendBeacon` carries a 64 KiB cap of its own, but that
+ * figure is spec-derived (the Beacon API) rather than quoted from MDN's
+ * sendBeacon page, and MDN itself points at `keepalive` for our case anyway: "For
+ * use cases that need ... access to the server response, instead use the `fetch()`
+ * method with `keepalive` set to true." A beacon cannot read the 409
+ * `stale_revision` / `session_deleted` bodies this save path depends on.
  */
 export const KEEPALIVE_BODY_LIMIT_BYTES = 64 * 1024;
 

@@ -354,6 +354,14 @@ async function idbGet(id: string): Promise<StoredClientSession | null> {
  * transaction, which aborts the transaction", so `onabort`/`onerror` mean the
  * write was rolled back. Resolving on `onsuccess` (as this file used to) can
  * therefore report a save as durable moments before it is discarded.
+ *
+ * What `oncomplete` does *not* promise, per the same MDN page: since Firefox 40
+ * "the `complete` event is fired after the OS has been told to write the data but
+ * potentially before that data has actually been flushed to disk", so "there
+ * exists a small chance that the entire transaction will be lost if the OS crashes
+ * or there is a loss of system power before the data is flushed to disk". Settling
+ * on `oncomplete` is the strongest signal IndexedDB offers and is the right choice
+ * here; it is not a power-loss guarantee, and nothing in this file claims it is.
  */
 function awaitTransactionCommit(tx: IDBTransaction, request: IDBRequest, label: string): Promise<void> {
   return new Promise((resolve, reject) => {

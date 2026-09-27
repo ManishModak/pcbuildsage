@@ -320,18 +320,29 @@ export type PageLifecycleEvents = {
  * Wire the best-effort flush into the two events that actually fire when a page
  * is being closed or backgrounded.
  *
- * `visibilitychange` -> hidden is MDN's recommendation ("The best event to use to
- * signal the end of a user's session is the visibilitychange event"), with
- * `pagehide` as the fallback. `beforeunload`/`unload` are deliberately not used:
- * MDN calls them "extremely unreliable" ("the browser will not fire the unload,
- * beforeunload, or pagehide events" when the user switches apps and later kills
- * the browser), and a `beforeunload` handler makes Firefox drop the page from the
- * back/forward cache.
+ * `visibilitychange` -> hidden is MDN's recommendation. MDN, on `pagehide`: "The
+ * best event to use to signal the end of a user's session is the
+ * `visibilitychange` event. In browsers that don't support `visibilitychange` the
+ * `pagehide` event is the next-best alternative." So `visibilitychange` is primary
+ * and `pagehide` is the fallback, exactly as MDN orders them. The same page is
+ * candid about the fallback's limits: "Like the `unload` and `beforeunload`
+ * events, this event is not reliably fired by browsers, especially on mobile. For
+ * example, the `pagehide` event is not fired at all" in the app-switcher-then-kill-
+ * the-browser scenario.
+ *
+ * `beforeunload` and `unload` are deliberately not used. MDN, on `sendBeacon`:
+ * "However, this is extremely unreliable. In many situations, especially on mobile,
+ * the browser will not fire the `unload`, `beforeunload`, or `pagehide` events" -
+ * and in the same app-switcher scenario, "these events will not fire". A
+ * `beforeunload` handler also costs the back/forward cache - MDN, again on
+ * `sendBeacon`: "Firefox will also exclude pages from the bfcache if they contain
+ * `beforeunload` handlers."
  *
  * Guarantee, deliberately modest: a flush started from one of these events uses
- * `keepalive: true` so the request is not aborted by the unload, but nothing here
- * can promise the write lands if the process is killed outright. The throttled
- * mid-stream saves are what make durability real; this is the last few seconds.
+ * `keepalive: true` so the unload does not abort the request, but nothing here can
+ * promise the write lands if the process is killed outright, and MDN's `pagehide`
+ * caveat above means the event may not even fire. The throttled mid-stream saves
+ * are what make durability real; this is the last few seconds.
  */
 export function registerPageCloseFlush(events: PageLifecycleEvents, flush: () => void): () => void {
   const onVisibilityChange = () => {

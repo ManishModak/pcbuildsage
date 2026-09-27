@@ -710,10 +710,11 @@ export function ChatView({
    *   only fires when there is something the last save does not already have:
    *   a live stream, or messages that have changed since it.
    *
-   * The browser can also skip the event entirely - MDN notes that for
-   * `pagehide` "this event is not fired at all" if the user kills the browser from
-   * the OS app switcher - and a request already in flight cannot be jumped ahead
-   * of. None of that changes what the throttle guarantees.
+   * The browser can also skip the event entirely. MDN, on `pagehide`: "the
+   * `pagehide` event is not fired at all" when the user switches to another app and
+   * later closes the browser from the app manager. A request already in flight
+   * cannot be jumped ahead of either. None of that changes what the throttle
+   * guarantees.
    */
   useEffect(() => {
     if (typeof document === "undefined") return;
