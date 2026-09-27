@@ -211,9 +211,9 @@ async function interruptedTurn(options: { presentInterrupted: boolean }): Promis
   }
 
   state.catalog = createFakeCatalog();
-  state.model = createScriptedModel(steps as never);
-
   const controller = new AbortController();
+  state.model = createScriptedModel(steps as never, { signal: controller.signal });
+
   const result = await streamChat(
     testConfig(),
     [
@@ -230,6 +230,9 @@ async function interruptedTurn(options: { presentInterrupted: boolean }): Promis
   const collected: UIMessage[] = [];
   const stream = result.toUIMessageStream({ originalMessages: [] as never });
   try {
+    // Drain to completion rather than breaking out: the mock's hung stream closes on
+    // abort, so the loop ends on its own. Breaking would cancel the reader and make
+    // the SDK's teardown close an already-closed controller.
     for await (const message of readUIMessageStream({ stream })) {
       collected.push(message);
       const parts = (message.parts ?? []) as Array<{ type: string; state?: string }>;
@@ -241,12 +244,7 @@ async function interruptedTurn(options: { presentInterrupted: boolean }): Promis
       const validated = parts.some(
         (part) => part.type === "tool-validate_build" && part.state === "output-available"
       );
-      if (options.presentInterrupted ? presentInFlight : validated) {
-        // Stop consuming first: the scripted stream is deliberately left open, so an
-        // abort alone does not promptly end the iteration.
-        controller.abort();
-        break;
-      }
+      if (options.presentInterrupted ? presentInFlight : validated) controller.abort();
     }
   } catch {
     // Interrupting the stream is the condition under test.
@@ -346,24 +344,27 @@ describe("interrupted stream -> reload -> build panel", () => {
   it("keeps a completed total when every part is priced", async () => {
     const priced: FixtureCategory[] = ["gpu", "cpu", "motherboard", "ram", "storage", "psu"];
     state.catalog = createFakeCatalog();
-    state.model = createScriptedModel([
+    const pricedController = new AbortController();
+    state.model = createScriptedModel(
       [
-        {
-          kind: "tool",
-          toolCallId: "val-1",
-          toolName: "validate_build",
-          input: fixtureValidateInput(priced, "Fully priced")
-        }
-      ],
-      [{ kind: "hang" }]
-    ] as never);
+        [
+          {
+            kind: "tool",
+            toolCallId: "val-1",
+            toolName: "validate_build",
+            input: fixtureValidateInput(priced, "Fully priced")
+          }
+        ],
+        [{ kind: "hang" }]
+      ] as never,
+      { signal: pricedController.signal }
+    );
 
-    const controller = new AbortController();
     const result = await streamChat(
       testConfig(),
       [{ role: "user", content: "build", parts: [{ type: "text", text: "build" }] }] as never,
       undefined,
-      controller.signal
+      pricedController.signal
     );
     const collected: UIMessage[] = [];
     try {
@@ -372,8 +373,7 @@ describe("interrupted stream -> reload -> build panel", () => {
         collected.push(message);
         const parts = (message.parts ?? []) as Array<{ type: string; state?: string }>;
         if (parts.some((p) => p.type === "tool-validate_build" && p.state === "output-available")) {
-          controller.abort();
-          break;
+          pricedController.abort();
         }
       }
     } catch {

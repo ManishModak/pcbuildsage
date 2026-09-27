@@ -161,8 +161,17 @@ export function createFakeCatalog(): CatalogRepository {
 /**
  * A model that replays one script per call, so a multi-step tool-calling turn is
  * driven step by step: call 1 validates, call 2 presents.
+ *
+ * Pass the caller's `AbortSignal` when any script hangs. The hung stream then closes
+ * itself on abort, so the consumer's loop ends *naturally*. That matters: breaking out
+ * of a `for await` cancels the reader, which closes the UI output stream's controller,
+ * and the AI SDK's own `toUIMessageStream` teardown then closes it a second time — an
+ * unhandled rejection that fails CI while every test still passes.
  */
-export function createScriptedModel(scripts: ScriptedStep[][]): MockLanguageModelV4 {
+export function createScriptedModel(
+  scripts: ScriptedStep[][],
+  options: { signal?: AbortSignal } = {}
+): MockLanguageModelV4 {
   let call = 0;
   return new MockLanguageModelV4({
     doStream: async () => {
@@ -199,11 +208,28 @@ export function createScriptedModel(scripts: ScriptedStep[][]): MockLanguageMode
         }
       }
       if (hangs) {
-        // Never close and never emit `finish`: the caller aborts this stream.
+        // Stay open until the caller aborts, then close cleanly so the consumer's
+        // loop can finish without being cancelled.
+        const { signal } = options;
         return {
           stream: new ReadableStream({
             start(controller) {
               for (const part of parts) controller.enqueue(part);
+              if (signal?.aborted) {
+                controller.close();
+                return;
+              }
+              signal?.addEventListener(
+                "abort",
+                () => {
+                  try {
+                    controller.close();
+                  } catch {
+                    // Already closed by teardown; nothing to do.
+                  }
+                },
+                { once: true }
+              );
             }
           })
         } as never;
