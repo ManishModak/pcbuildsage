@@ -110,7 +110,9 @@ export function injectRequestCredentials(config: AppConfig, headers: Headers): A
   const searchApiKey =
     config.search.provider === "none"
       ? undefined
-      : config.search.apiKey ?? headerApiKey(headers, searchHeaderProvider(config.search.provider));
+      : mode === "hosted-demo"
+        ? headerApiKey(headers, searchHeaderProvider(config.search.provider))
+        : (config.search.apiKey ?? headerApiKey(headers, searchHeaderProvider(config.search.provider)));
   return {
     ...config,
     llm: {
@@ -124,7 +126,26 @@ export function injectRequestCredentials(config: AppConfig, headers: Headers): A
   };
 }
 
-export function getCredentialAvailability(env: NodeJS.ProcessEnv = process.env) {
+export function getCredentialAvailability(env: NodeJS.ProcessEnv = process.env, mode: DeploymentMode = getDeploymentMode(env)) {
+  if (mode === "hosted-demo") {
+    return {
+      llm: {
+        gemini: false,
+        groq: false,
+        openrouter: false,
+        ollama: false,
+        "openai-compatible": false
+      },
+      search: {
+        brave: false,
+        exa: false,
+        tavily: false,
+        searxng: false,
+        duckduckgo: false,
+        "gemini-native": false
+      }
+    };
+  }
   return {
     llm: {
       gemini: Boolean(env.GEMINI_API_KEY),
@@ -147,7 +168,7 @@ export function getCredentialAvailability(env: NodeJS.ProcessEnv = process.env) 
 function hydrateEntryCredential(entry: LLMChainEntry, headers: Headers, mode: DeploymentMode = getDeploymentMode()): LLMChainEntry {
   if (entry.keySource === "none") return { ...entry, apiKey: undefined };
   // In hosted-demo mode, ephemeral BYOK keys must strictly originate from request headers
-  if (mode === "hosted-demo" && entry.keySource === "ui") {
+  if (mode === "hosted-demo") {
     const apiKey = headerApiKey(headers, entry.provider);
     return { ...entry, apiKey };
   }

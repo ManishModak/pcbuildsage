@@ -3,6 +3,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { z } from "zod";
 import type { LLMChainEntry, LLMProvider, LLMRole } from "@/types";
+import { isHostedDemo } from "../config/deployment";
 
 export type ServedText<T = unknown> = T & {
   provider: LLMProvider;
@@ -24,7 +25,10 @@ export function normalizeBaseUrl(input: string, provider: "ollama" | "openai-com
 
 export function createLanguageModel(entry: LLMChainEntry): LanguageModel {
   if (entry.provider === "gemini") {
-    return createGoogleGenerativeAI({ apiKey: resolveApiKey(entry, "GEMINI_API_KEY") })(entry.model);
+    const apiKey = resolveApiKey(entry, "GEMINI_API_KEY");
+    return createGoogleGenerativeAI({
+      apiKey: apiKey ?? (isHostedDemo() ? "" : undefined)
+    })(entry.model);
   }
 
   const baseURL = normalizeBaseUrl(entry.baseUrl ?? defaultBaseUrl(entry.provider), entry.provider === "ollama" ? "ollama" : "openai-compatible");
@@ -200,6 +204,7 @@ function statusFromError(error: unknown): number | undefined {
 
 export function resolveApiKey(entry: LLMChainEntry, envKey: string): string | undefined {
   if (entry.keySource === "none") return undefined;
+  if (isHostedDemo()) return entry.apiKey;
   return entry.apiKey ?? process.env[envKey];
 }
 
