@@ -143,6 +143,10 @@ function checkAioFit(
       `Radiator clearance fit couldn’t be verified due to low-confidence or untrusted specs for ${lowNames([cooler, pcCase])}.`
     );
   } else if (radiatorSize !== undefined && supportedRadiators !== undefined) {
+    const maxSupportedRadiator = supportedRadiators.length > 0
+      ? Math.max(...supportedRadiators)
+      : 0;
+
     if (supportedRadiators.includes(radiatorSize)) {
       recordCheck(
         "clearance",
@@ -151,9 +155,12 @@ function checkAioFit(
         `Radiator mount fits: ${radiatorSize}mm radiator is supported by case (${supportedRadiators.join(", ")}mm). Note: physical thickness and component clearances not verified.`
       );
       confidenceGate("clearance", [cooler, pcCase], issues, `Radiator clearance pass uses low-confidence researched specs for ${lowNames([cooler, pcCase])}.`);
-    } else {
-      const msg = `Radiator size ${radiatorSize}mm is not supported by case (supported sizes: ${supportedRadiators.length ? supportedRadiators.join(", ") + "mm" : "none"}).`;
+    } else if (supportedRadiators.length === 0 || radiatorSize > maxSupportedRadiator) {
+      const msg = `Radiator size ${radiatorSize}mm is not supported by case (exceeds max supported size${maxSupportedRadiator > 0 ? ` of ${maxSupportedRadiator}mm` : ""}; supported sizes: ${supportedRadiators.length ? supportedRadiators.join(", ") + "mm" : "none"}).`;
       recordCheck("clearance", "failed", [cooler.key, pcCase.key], msg);
+    } else {
+      const msg = `Radiator size ${radiatorSize}mm fit couldn’t be verified against case (supported sizes: ${supportedRadiators.join(", ")}mm). Please check manufacturer mounting specs before buying.`;
+      recordCheck("clearance", "unverified", [cooler.key, pcCase.key], msg);
     }
   } else {
     const reason = radiatorSize === undefined
