@@ -40,6 +40,7 @@ import {
   type ServerSessionCopy,
   type SessionSaveQueue
 } from "./session-save-queue";
+import { CONFLICT_ADOPTED_NOTICE, describeSaveFailure, SaveAlert } from "./save-failure-notice";
 import { TranscriptMenu } from "./transcript-menu";
 import { ChatRecovery, isIncompleteChatFinish, prepareChatRecovery, isContextLimitError } from "./chat-recovery";
 import { getModelContextLimit, estimateTokens, shouldTriggerCompaction, TOOL_DEFINITIONS_TOKEN_OVERHEAD } from "@/lib/llm/context-budget";
@@ -305,10 +306,11 @@ export function ChatView({
   // adopting the winner of a revision conflict instead of overwriting it.
   useEffect(() => {
     saveQueue.setHandlers({
-      onPersistError: () => {
-        setSaveFailureNotice(
-          "Couldn't save this chat on this device. This browser has no storage available, so the conversation will be lost when you close or reload the tab."
-        );
+      onPersistError: (error) => {
+        // Each failure means something different, and only some of them are worth
+        // interrupting the user for - a flush that could not fit through keepalive
+        // describes no user-facing problem at all.
+        setSaveFailureNotice(describeSaveFailure(error));
       },
       onConflictAdopted: (copy: ServerSessionCopy) => {
         saveQueue.observeRevision(copy.revision);
@@ -318,9 +320,7 @@ export function ChatView({
         // is revision+1 and therefore accepted - persist a summary that no longer
         // describes the conversation.
         compactContextRef.current = (copy.compactContext as StoredCompactContext | null | undefined) ?? null;
-        setConflictNotice(
-          "This chat was updated in another tab, so that newer version was loaded here. Your unsaved changes were not sent."
-        );
+        setConflictNotice(CONFLICT_ADOPTED_NOTICE);
       }
     });
   }, [saveQueue]);
@@ -851,20 +851,7 @@ export function ChatView({
               </p>
             ) : null}
             {saveFailureNotice || conflictNotice ? (
-              <div
-                className="mt-4 flex items-start gap-2 rounded-card border px-4 py-3 text-sm"
-                style={{
-                  color: "var(--warn)",
-                  borderColor: "color-mix(in srgb, var(--warn) 45%, transparent)",
-                  backgroundColor: "color-mix(in srgb, var(--warn) 8%, transparent)"
-                }}
-                role="alert"
-              >
-                <Icon icon={TriangleAlert} size={16} className="mt-0.5 shrink-0" />
-                <span className="flex-1 whitespace-pre-wrap leading-relaxed">
-                  {saveFailureNotice ?? conflictNotice}
-                </span>
-              </div>
+              <SaveAlert message={saveFailureNotice ?? conflictNotice ?? ""} />
             ) : null}
             {contextExceededNotice ? (
               <div
