@@ -33,7 +33,10 @@ const saveSchema = z.object({
   messages: z.array(messageSchema),
   title: z.string().optional().nullable(),
   countryCode: z.string().optional().nullable(),
-  currency: z.string().optional().nullable()
+  currency: z.string().optional().nullable(),
+  // Validated by `parseCompactContext` in `lib/sessions`, not here: an absent or
+  // malformed context must not fail the save of the transcript itself.
+  compactContext: z.unknown().optional().nullable()
 });
 
 export async function GET(request: Request): Promise<Response>;
