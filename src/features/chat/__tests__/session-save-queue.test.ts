@@ -92,6 +92,23 @@ describe("SessionSaveQueue", () => {
     expect(persist).toHaveBeenCalledTimes(5);
   });
 
+  it("claims a newer revision on every retry, so a retry cannot be rejected as stale", async () => {
+    const attempts: number[] = [];
+    const persist = vi.fn(async (request: SaveSessionRequest) => {
+      attempts.push(request.revision);
+      if (attempts.length === 1) throw new Error("connection reset after the write");
+    });
+    const onPersisted = vi.fn();
+    const queue = new SessionSaveQueue(persist, "initial", 0, onPersisted, { sleep: noSleep });
+
+    await queue.enqueue("same", snapshot("same"));
+
+    // Reusing revision 1 would be refused by the store's own monotonic rule if the
+    // first attempt actually landed, so each attempt has to claim a new one.
+    expect(attempts).toEqual([1, 2]);
+    expect(onPersisted).toHaveBeenCalledTimes(1);
+  });
+
   it("prefers a newer queued snapshot over retrying stale data", async () => {
     let releaseFirst!: () => void;
     const first = new Promise<void>((resolve) => { releaseFirst = resolve; });

@@ -127,6 +127,11 @@ export class SessionSaveQueue {
     // An urgent flush is the last attempt before the page unloads: waiting out a
     // backoff would mean the write never leaves, so try it once and give up.
     const maxAttempts = current.urgent ? 1 : delays.length + 1;
+    // Each attempt claims a fresh revision. A retry that reused the previous
+    // revision would be rejected as stale by the very rule that protects against
+    // clobbering another writer, if the earlier attempt actually landed and only
+    // its response was lost. Bumping keeps retries monotonic, so they always land.
+    let request = current.request;
 
     let lastError: unknown;
     for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex++) {
@@ -136,10 +141,11 @@ export class SessionSaveQueue {
         // stale retry instead of burning the queue's time on old data.
         if (fresh && fresh.signature !== current.signature) return false;
         await sleep(delays[attemptIndex - 1] ?? delays[delays.length - 1] ?? 0);
+        request = { ...request, revision: ++this.nextRevision };
       }
 
       try {
-        await this.persist(current.request, { urgent: current.urgent });
+        await this.persist(request, { urgent: current.urgent });
         return true;
       } catch (error) {
         lastError = error;
@@ -153,7 +159,7 @@ export class SessionSaveQueue {
 
         const staleRevision = getStaleRevision(error);
         if (staleRevision !== null) {
-          const resolved = await this.resolveConflict(staleRevision, current);
+          const resolved = await this.resolveConflict(staleRevision, request);
           // Either the newer copy was adopted, or the host could not load one and
           // the conflict is left for a later edit/load to observe.
           return resolved;
@@ -175,8 +181,11 @@ export class SessionSaveQueue {
    * their copy; if it is newer, adopt it into the view instead of resending our
    * stale messages with a bumped revision, which would silently discard their
    * work.
+   *
+   * This never writes: the adopted copy is handed back to the view, and anything
+   * the user does next is re-enqueued through the normal queue path.
    */
-  private async resolveConflict(serverRevision: number, current: PendingSave): Promise<boolean> {
+  private async resolveConflict(serverRevision: number, attempt: SaveSessionRequest): Promise<boolean> {
     const load = this.options.loadServerCopy;
     if (!load) return false;
 
@@ -188,7 +197,7 @@ export class SessionSaveQueue {
       // later enqueue retries with an updated revision.
       return false;
     }
-    if (!copy || copy.revision <= current.request.revision) return false;
+    if (!copy || copy.revision <= attempt.revision) return false;
 
     this.nextRevision = Math.max(this.nextRevision, copy.revision);
     this.options.onConflictAdopted?.(copy);
