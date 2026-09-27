@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Globe, CheckCircle } from "lucide-react";
 import { fetchMarkets } from "@/lib/api-client";
-import { STANDARD_MARKETS, type MarketMetadata } from "@/lib/config/deployment";
+import type { MarketMetadata } from "@/lib/config/deployment";
 import {
   getMarketPreference,
   setMarketPreference,
@@ -17,19 +17,25 @@ import { Icon } from "@/components/ui/icon";
 
 export function MarketPreferenceSection({
   onChange,
-  className
+  className,
+  initialMarkets
 }: {
   onChange?: (pref: MarketPreference) => void;
   className?: string;
+  initialMarkets?: readonly MarketMetadata[];
 }) {
   const [pref, setPref] = useState<MarketPreference>(() => getMarketPreference());
-  const [markets, setMarkets] = useState<MarketMetadata[]>(() => {
-    const defaultMarkets = STANDARD_MARKETS.filter((m) => m.code === "IN");
-    return defaultMarkets.length > 0 ? defaultMarkets : [...STANDARD_MARKETS];
-  });
+  const [markets, setMarkets] = useState<MarketMetadata[]>(() =>
+    initialMarkets ? [...initialMarkets] : []
+  );
 
   const app = useOptionalApp();
   const updateAppConfig = app?.updateConfig ?? null;
+
+  const callbacksRef = useRef({ onChange, updateAppConfig });
+  useEffect(() => {
+    callbacksRef.current = { onChange, updateAppConfig };
+  });
 
   useEffect(() => {
     fetchMarkets()
@@ -45,19 +51,22 @@ export function MarketPreferenceSection({
               locale: first.locale
             });
             setPref(updated);
-            if (updateAppConfig) {
-              updateAppConfig({ countryCode: updated.countryCode, currency: updated.currencyCode });
+            if (callbacksRef.current.updateAppConfig) {
+              callbacksRef.current.updateAppConfig({
+                countryCode: updated.countryCode,
+                currency: updated.currencyCode
+              });
             }
-            onChange?.(updated);
+            callbacksRef.current.onChange?.(updated);
           }
+        } else {
+          setMarkets([]);
         }
       })
       .catch(() => {
-        // Fall back gracefully to available market
-        const defaultMarkets = STANDARD_MARKETS.filter((m) => m.code === "IN");
-        setMarkets(defaultMarkets.length > 0 ? defaultMarkets : [...STANDARD_MARKETS]);
+        setMarkets([]);
       });
-  }, [onChange, updateAppConfig]);
+  }, []);
 
   useEffect(() => {
     return subscribeMarketPreference((next) => {
@@ -67,12 +76,10 @@ export function MarketPreferenceSection({
 
   const activeMarket =
     markets.find((m) => m.code === pref.countryCode) ??
-    STANDARD_MARKETS.find((m) => m.code === pref.countryCode) ??
-    markets[0] ??
-    STANDARD_MARKETS[0];
+    markets[0];
 
   const handleCountryChange = (countryCode: string) => {
-    const market = markets.find((m) => m.code === countryCode) ?? STANDARD_MARKETS.find((m) => m.code === countryCode);
+    const market = markets.find((m) => m.code === countryCode);
     if (!market) return;
 
     const currentCurrency = pref.currencyCode;
@@ -88,19 +95,22 @@ export function MarketPreferenceSection({
     });
 
     setPref(updated);
-    if (updateAppConfig) {
-      updateAppConfig({ countryCode: updated.countryCode, currency: updated.currencyCode });
+    if (callbacksRef.current.updateAppConfig) {
+      callbacksRef.current.updateAppConfig({
+        countryCode: updated.countryCode,
+        currency: updated.currencyCode
+      });
     }
-    onChange?.(updated);
+    callbacksRef.current.onChange?.(updated);
   };
 
   const handleCurrencyChange = (currencyCode: string) => {
     const updated = setMarketPreference({ currencyCode });
     setPref(updated);
-    if (updateAppConfig) {
-      updateAppConfig({ currency: updated.currencyCode });
+    if (callbacksRef.current.updateAppConfig) {
+      callbacksRef.current.updateAppConfig({ currency: updated.currencyCode });
     }
-    onChange?.(updated);
+    callbacksRef.current.onChange?.(updated);
   };
 
   const countryOptions = markets.map((m) => ({
@@ -124,6 +134,16 @@ export function MarketPreferenceSection({
       </div>
 
       <Card className="flex flex-col gap-4 p-4">
+        {markets.length === 0 && (
+          <div
+            className="flex items-center gap-2 rounded-btn border border-border bg-surface-raised px-3.5 py-2.5 text-caption text-text-muted"
+            data-testid="catalog-unavailable"
+          >
+            <Icon icon={Globe} size={15} className="text-text-muted" />
+            <span>Catalog unavailable (no markets available)</span>
+          </div>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Country / Region">
             {(controlProps) => (
@@ -131,9 +151,14 @@ export function MarketPreferenceSection({
                 {...controlProps}
                 data-testid="country-select"
                 aria-label="Country or region"
-                value={activeMarket ? activeMarket.code : pref.countryCode}
+                disabled={markets.length === 0}
+                value={activeMarket ? activeMarket.code : ""}
                 onChange={(e) => handleCountryChange(e.target.value)}
-                options={countryOptions}
+                options={
+                  markets.length === 0
+                    ? [{ value: "", label: "Catalog unavailable" }]
+                    : countryOptions
+                }
               />
             )}
           </Field>
@@ -144,6 +169,7 @@ export function MarketPreferenceSection({
                 {...controlProps}
                 data-testid="currency-select"
                 aria-label="Currency"
+                disabled={markets.length === 0}
                 value={pref.currencyCode}
                 onChange={(e) => handleCurrencyChange(e.target.value)}
                 options={currencyOptions}
@@ -156,8 +182,17 @@ export function MarketPreferenceSection({
           <div className="flex items-center gap-2 text-text">
             <Icon icon={Globe} size={15} className="text-accent" />
             <span>
-              Active Region: <strong className="font-semibold">{activeMarket?.name ?? pref.countryCode}</strong> (
-              {pref.countryCode}) · Currency: <strong className="font-semibold">{pref.currencyCode}</strong>
+              {markets.length === 0 ? (
+                <>
+                  Active Region: <strong className="font-semibold">Catalog unavailable</strong> · Currency:{" "}
+                  <strong className="font-semibold">{pref.currencyCode}</strong>
+                </>
+              ) : (
+                <>
+                  Active Region: <strong className="font-semibold">{activeMarket?.name ?? pref.countryCode}</strong> (
+                  {pref.countryCode}) · Currency: <strong className="font-semibold">{pref.currencyCode}</strong>
+                </>
+              )}
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-text-muted">

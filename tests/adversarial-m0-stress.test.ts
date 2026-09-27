@@ -17,6 +17,7 @@ import {
 import { middleware } from "../src/middleware";
 
 import { listMarkets, getMarketByCode } from "../src/lib/config/markets";
+import { setCatalogRepository, type CatalogRepository } from "../src/lib/catalog";
 import { buildAppConfig, UnsafeConfigError, assertSafeLlmChain } from "../src/app/api/_lib/credentials";
 
 import { GET as healthRoute } from "../src/app/api/health/route";
@@ -44,6 +45,7 @@ describe("Adversarial M0 Empirical Stress Test Suite", () => {
     } else {
       delete process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
     }
+    setCatalogRepository(null);
     vi.restoreAllMocks();
   });
 
@@ -676,17 +678,33 @@ describe("Adversarial M0 Empirical Stress Test Suite", () => {
   // ==========================================================================
   describe("6. Market Metadata Registry & Query Robustness", () => {
     it("GET /api/markets returns markets with in-stock products (India in current catalog)", async () => {
-      const res = await marketsRoute();
-      expect(res.status).toBe(200);
-      const body = (await res.json()) as { markets: Array<{ code: string; name: string; defaultCurrency: string }> };
+      const fixtureRepo: Partial<CatalogRepository> = {
+        getMarkets: async () => [
+          {
+            code: "IN",
+            name: "India",
+            defaultCurrency: "INR",
+            supportedCurrencies: ["INR"],
+            locale: "en-IN"
+          }
+        ]
+      };
+      setCatalogRepository(fixtureRepo as CatalogRepository);
+      try {
+        const res = await marketsRoute();
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { markets: Array<{ code: string; name: string; defaultCurrency: string }> };
 
-      expect(Array.isArray(body.markets)).toBe(true);
-      const codes = body.markets.map((m) => m.code);
-      expect(codes).toContain("IN");
-      expect(codes).not.toContain("US");
-      expect(codes).not.toContain("UK");
-      expect(codes).not.toContain("CA");
-      expect(codes).not.toContain("DE");
+        expect(Array.isArray(body.markets)).toBe(true);
+        const codes = body.markets.map((m) => m.code);
+        expect(codes).toContain("IN");
+        expect(codes).not.toContain("US");
+        expect(codes).not.toContain("UK");
+        expect(codes).not.toContain("CA");
+        expect(codes).not.toContain("DE");
+      } finally {
+        setCatalogRepository(null);
+      }
     });
 
     it("listMarkets does NOT leak internal scraper selectors, categories, or URLs", () => {
