@@ -17,7 +17,7 @@
     "coolers": ["brand", "model", "aliases", "height_mm", "sockets", "tdp_rating_w", "cooler_type", "radiator_size_mm", "sources", "confidence", "researched_at"],
     "cpus": ["brand", "model", "aliases", "socket", "ddr", "supported_memory", "tdp_w", "igpu", "boost_clock_ghz", "cores", "cooler_included", "cooler_name", "sources", "confidence", "researched_at"],
     "gpus": ["brand", "model", "aliases", "tdp_w", "recommended_psu_w", "length_mm", "vram_gb", "slot_width", "segment", "sources", "confidence", "researched_at"],
-    "motherboards": ["brand", "model", "aliases", "socket", "ddr", "chipset", "form_factor", "m2_slots", "sata_ports", "pcie_gen", "sources", "confidence", "researched_at"],
+    "motherboards": ["brand", "model", "aliases", "socket", "ddr", "chipset", "form_factor", "m2_slots", "sata_ports", "pcie_gen", "m2_sata_supported", "sources", "confidence", "researched_at"],
     "psus": ["brand", "model", "aliases", "wattage", "efficiency", "form_factor", "sources", "confidence", "researched_at"],
     "ram": ["brand", "model", "aliases", "ddr", "speed", "capacity", "capacity_gb", "modules", "sources", "confidence", "researched_at"],
     "storage": ["brand", "model", "aliases", "interface", "form_factor", "capacity_gb", "pcie_gen", "sources", "confidence", "researched_at"]
@@ -49,6 +49,7 @@
         "form_factors": { "type": "array", "minItems": 1, "items": { "type": "string" } },
         "m2_slots": { "type": "integer", "minimum": 0 },
         "sata_ports": { "type": "integer", "minimum": 0 },
+        "m2_sata_supported": { "type": "boolean" },
         "max_gpu_length_mm": { "type": "number", "minimum": 0 },
         "max_cooler_height_mm": { "type": "number", "minimum": 0 },
         "supported_radiators": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 120 } },
