@@ -631,7 +631,6 @@ describe("Build Versions and UI Accessibility (Issue 08)", () => {
       <MessageView
         message={singleMessageMultiPresent[1]}
         versions={versions}
-        currency="INR"
       />
     );
 

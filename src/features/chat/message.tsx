@@ -8,7 +8,7 @@ import type { ChatMetadata } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/components/ui/cn";
 import { Button } from "@/components/ui/button";
-import { extractBuildsFromMessage, resolveBuildTotal, type BuildVersion } from "./build-derive";
+import { resolveBuildTotal, type BuildVersion } from "./build-derive";
 import { BuildErrorBoundary } from "./build-error-boundary";
 import { FailoverPill } from "./failover-pill";
 import { Markdown } from "./markdown";
@@ -66,7 +66,6 @@ function ThinkingTrace({ text, live }: { text: string; live: boolean }) {
 
 export function MessageView({
   message,
-  currency,
   versions,
   onEdit,
   followups = [],
@@ -74,7 +73,6 @@ export function MessageView({
   onViewBuild
 }: {
   message: ChatUIMessage;
-  currency: string;
   versions?: BuildVersion[];
   onEdit?: (newText: string) => void;
   followups?: string[];
@@ -106,11 +104,11 @@ export function MessageView({
       ? [{ type: "text" as const, text: rawContent }]
       : [];
 
-  const hasVersions = Boolean(versions && versions.length > 0);
-  const fallbackBuilds = isUser || hasVersions ? [] : extractBuildsFromMessage(message, currency);
-  // Only used when the caller passed no versions for this message, so there is
-  // no real id to hand over; naming it after the message keeps it stable.
-  const fallbackVersionId = `${message.id ?? "message"}:fallback`;
+  // Builds are only ever opened through a version the caller computed for this
+  // message, so the button below always has a real id to hand over. There is no
+  // fallback: findAllBuildVersions sees at least the tool parts this message has
+  // of its own, so any build the panel knows about is already a version.
+  const hasVersions = !isUser && Boolean(versions && versions.length > 0);
 
   const textContent =
     parts
@@ -242,98 +240,55 @@ export function MessageView({
         return null;
       })}
 
-      {(hasVersions || fallbackBuilds.length) ? (
-        <BuildErrorBoundary resetKeys={versions?.map((v) => v.id)}>
-          {hasVersions ? (
-            <div className="my-3 flex flex-col gap-2">
-              {versions!.map((v) => {
-                const primaryBuild = v.builds[0];
-                if (!primaryBuild) return null;
-                return (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => onViewBuild?.(v.id)}
-                    className="group flex w-full items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-left shadow-xs transition-all duration-150 hover:border-accent hover:bg-surface-raised cursor-pointer"
-                    aria-label={`View proposed build: ${primaryBuild.label ?? v.label}`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn bg-accent/10 text-accent group-hover:bg-accent group-hover:text-on-accent transition-colors duration-150">
-                        <Icon icon={Package} size={18} />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <div className="flex items-baseline gap-2 truncate">
-                          <span className="text-caption font-semibold uppercase tracking-wider text-text-secondary">
-                            {v.label}
-                          </span>
-                          {v.builds.length > 1 ? (
-                            <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-muted">
-                              {v.builds.length} variants
-                            </span>
-                          ) : null}
-                        </div>
-                        <span className="truncate text-sm font-medium text-text">
-                          {primaryBuild.label ? `${primaryBuild.label} · ` : ""}
-                          <span className="font-mono font-semibold text-accent">
-                            {formatPrice(resolveBuildTotal(primaryBuild), primaryBuild.currency)}
-                          </span>
+      {hasVersions ? (
+        <BuildErrorBoundary resetKeys={versions!.map((v) => v.id)}>
+          <div className="my-3 flex flex-col gap-2">
+            {versions!.map((v) => {
+              const primaryBuild = v.builds[0];
+              if (!primaryBuild) return null;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => onViewBuild?.(v.id)}
+                  className="group flex w-full items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-left shadow-xs transition-all duration-150 hover:border-accent hover:bg-surface-raised cursor-pointer"
+                  aria-label={`View proposed build: ${primaryBuild.label ?? v.label}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn bg-accent/10 text-accent group-hover:bg-accent group-hover:text-on-accent transition-colors duration-150">
+                      <Icon icon={Package} size={18} />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-baseline gap-2 truncate">
+                        <span className="text-caption font-semibold uppercase tracking-wider text-text-secondary">
+                          {v.label}
                         </span>
+                        {v.builds.length > 1 ? (
+                          <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-muted">
+                            {v.builds.length} variants
+                          </span>
+                        ) : null}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0 text-caption font-medium text-text-secondary group-hover:text-accent transition-colors">
-                      <span className="hidden sm:inline">View Details</span>
-                      <Icon
-                        icon={ArrowRight}
-                        size={16}
-                        className="transition-transform duration-150 group-hover:translate-x-1"
-                      />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : fallbackBuilds.length ? (
-            <div className="my-3">
-              <button
-                type="button"
-                onClick={() => onViewBuild?.(fallbackVersionId)}
-                className="group flex w-full items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-left shadow-xs transition-all duration-150 hover:border-accent hover:bg-surface-raised cursor-pointer"
-                aria-label={`View proposed build: ${fallbackBuilds[0].label ?? "Proposed Build"}`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn bg-accent/10 text-accent group-hover:bg-accent group-hover:text-on-accent transition-colors duration-150">
-                    <Icon icon={Package} size={18} />
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <div className="flex items-baseline gap-2 truncate">
-                      <span className="text-caption font-semibold uppercase tracking-wider text-text-secondary">
-                        Proposed Build
-                      </span>
-                      {fallbackBuilds.length > 1 ? (
-                        <span className="rounded-pill bg-surface-raised px-2.5 py-0.5 text-[11px] font-medium text-text-muted">
-                          {fallbackBuilds.length} variants
+                      <span className="truncate text-sm font-medium text-text">
+                        {primaryBuild.label ? `${primaryBuild.label} · ` : ""}
+                        <span className="font-mono font-semibold text-accent">
+                          {formatPrice(resolveBuildTotal(primaryBuild), primaryBuild.currency)}
                         </span>
-                      ) : null}
-                    </div>
-                    <span className="truncate text-sm font-medium text-text">
-                      {fallbackBuilds[0].label ? `${fallbackBuilds[0].label} · ` : ""}
-                      <span className="font-mono font-semibold text-accent">
-                        {formatPrice(resolveBuildTotal(fallbackBuilds[0]), fallbackBuilds[0].currency)}
                       </span>
-                    </span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0 text-caption font-medium text-text-secondary group-hover:text-accent transition-colors">
-                  <span className="hidden sm:inline">View Details</span>
-                  <Icon
-                    icon={ArrowRight}
-                    size={16}
-                    className="transition-transform duration-150 group-hover:translate-x-1"
-                  />
-                </div>
-              </button>
-            </div>
-          ) : null}
+                  <div className="flex items-center gap-1.5 shrink-0 text-caption font-medium text-text-secondary group-hover:text-accent transition-colors">
+                    <span className="hidden sm:inline">View Details</span>
+                    <Icon
+                      icon={ArrowRight}
+                      size={16}
+                      className="transition-transform duration-150 group-hover:translate-x-1"
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </BuildErrorBoundary>
       ) : null}
 

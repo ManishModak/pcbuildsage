@@ -198,7 +198,6 @@ describe("build panel recovery: an interrupted chat still has a build", () => {
       <MessageView
         message={stuckSession[3]}
         versions={versions.filter((v) => v.messageIndex === 3)}
-        currency="INR"
       />
     );
 
@@ -1095,7 +1094,7 @@ describe("R-A3: the thinking trace stops pulsing once the message is done", () =
   it.each(["reasoning", "reasoning-streaming", "streaming"])(
     "animates a %s reasoning part",
     (state) => {
-      const live = renderToStaticMarkup(<MessageView message={reasoningMessage(state)} currency="INR" />);
+      const live = renderToStaticMarkup(<MessageView message={reasoningMessage(state)} />);
       expect(live).toContain("animate-pulse");
       expect(live).toContain("Sage thinking process...");
       expect(live).toContain('aria-busy="true"');
@@ -1106,7 +1105,7 @@ describe("R-A3: the thinking trace stops pulsing once the message is done", () =
     "does not animate a %s reasoning part",
     (state) => {
       const done = renderToStaticMarkup(
-        <MessageView message={reasoningMessage(state as string | undefined)} currency="INR" />
+        <MessageView message={reasoningMessage(state as string | undefined)} />
       );
       expect(done).not.toContain("animate-pulse");
       // The trace and its name are still there - it just is not busy any more.

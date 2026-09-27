@@ -709,7 +709,6 @@ export function ChatView({
                       key={message.id || `msg-${index}`}
                       message={message}
                       versions={msgVersions}
-                      currency={config.currency}
                       followups={index === messages.length - 1 ? getFollowups(message, status) : []}
                       onFollowup={send}
                       onViewBuild={(versionId) => {
