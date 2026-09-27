@@ -54,7 +54,16 @@ function createSaveQueue(
   return new SessionSaveQueue(saveSession, sessionSignature(messages), revision, onPersisted, {
     loadServerCopy: async () => {
       const session = await fetchSession(id);
-      return session ? { revision: session.revision, messages: session.messages } : null;
+      return session
+        ? {
+            revision: session.revision,
+            messages: session.messages,
+            // Carried with the transcript: a compacted context summarises specific
+            // messages, so adopting the transcript alone would leave this tab saving
+            // a summary of the wrong conversation.
+            compactContext: session.compact_context ?? null
+          }
+        : null;
     }
   });
 }

@@ -5,7 +5,8 @@ import {
   saveClientSession,
   _setStorageDriverForTesting
 } from "@/lib/sessions/client-store";
-import { SessionSaveQueue, sessionSignature } from "@/features/chat/session-save-queue";
+import { SessionSaveQueue, sessionSignature, type ServerSessionCopy } from "@/features/chat/session-save-queue";
+import { SessionConflictError } from "@/lib/sessions/client-store";
 import type { ChatUIMessage } from "@/features/chat/message";
 
 /**
@@ -175,5 +176,53 @@ describe("compacted context rides along on queue-driven saves", () => {
     await queue.enqueue(sessionSignature([userMessage("a"), userMessage("b")]), snapshot([userMessage("a"), userMessage("b")]));
 
     expect((await getClientSession("session-hosted"))?.compact_context?.messages).toHaveLength(1);
+  });
+
+  it("adopting another tab's copy adopts its compactContext, not ours", async () => {
+    const ours = { messages: [{ role: "user" as const, content: "OUR summary" }] };
+    const theirs = { messages: [{ role: "user" as const, content: "THEIR summary" }] };
+    const theirMessages = [userMessage("their turn")];
+
+    await saveClientSession({ id: "session-hosted", revision: 5, messages: [], compactContext: ours });
+
+    // The other tab has saved since; the queue must fetch its copy and adopt it.
+    const persist = vi
+      .fn()
+      .mockRejectedValue(new SessionConflictError("stale_revision", 7, "stale"));
+    const queue = new SessionSaveQueue(persist, sessionSignature([]), 5, () => {}, {
+      sleep: () => Promise.resolve(),
+      loadServerCopy: async () => {
+        // What chat-workspace builds: revision, messages and compact_context.
+        const stored = await getClientSession("session-hosted");
+        return {
+          revision: 7,
+          messages: theirMessages,
+          compactContext: stored?.compact_context ?? null
+        };
+      }
+    });
+
+    // Seed the "other tab" state that the load above reports.
+    await saveClientSession({
+      id: "session-hosted",
+      revision: 7,
+      messages: theirMessages,
+      compactContext: theirs
+    });
+
+    const adopted: ServerSessionCopy[] = [];
+    queue.setHandlers({
+      onConflictAdopted: (copy) => {
+        adopted.push(copy);
+      }
+    });
+
+    await queue.enqueue(sessionSignature([userMessage("our turn")]), snapshot([userMessage("our turn")]));
+
+    expect(adopted).toHaveLength(1);
+    expect(adopted[0].revision).toBe(7);
+    // The copy the view adopts carries the context that describes *its* messages.
+    const context = adopted[0].compactContext as { messages: { content: string }[] } | null;
+    expect(context?.messages[0].content).toBe("THEIR summary");
   });
 });

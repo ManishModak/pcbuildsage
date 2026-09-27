@@ -313,6 +313,11 @@ export function ChatView({
       onConflictAdopted: (copy: ServerSessionCopy) => {
         saveQueue.observeRevision(copy.revision);
         setMessagesRef.current(copy.messages);
+        // The compacted context summarises the transcript we just adopted, so it has
+        // to be replaced with theirs. Keeping ours would make the next save - which
+        // is revision+1 and therefore accepted - persist a summary that no longer
+        // describes the conversation.
+        compactContextRef.current = (copy.compactContext as StoredCompactContext | null | undefined) ?? null;
         setConflictNotice(
           "This chat was updated in another tab, so that newer version was loaded here. Your unsaved changes were not sent."
         );

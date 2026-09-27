@@ -16,6 +16,13 @@ export type Persist = (request: SaveSessionRequest, options?: PersistOptions) =>
 export type ServerSessionCopy = {
   revision: number;
   messages: ChatUIMessage[];
+  /**
+   * The session's compacted context, if it has one. It describes a summary of
+   * *those* messages, so adopting the transcript without it would leave this tab
+   * holding a compacted context for a different conversation - and the next save,
+   * which is revision+1 and therefore accepted, would make that mismatch durable.
+   */
+  compactContext?: unknown | null;
 };
 
 export type SessionSaveQueueOptions = {
