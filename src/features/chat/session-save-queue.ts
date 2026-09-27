@@ -140,6 +140,18 @@ export class SessionSaveQueue {
         // A newer snapshot is queued: it already contains this one, so drop the
         // stale retry instead of burning the queue's time on old data.
         if (fresh && fresh.signature !== current.signature) return false;
+
+        // Find out what the server actually holds before re-sending anything. A
+        // bumped revision is by construction newer than whatever a competing tab
+        // wrote, so rebasing blind is exactly how a retry destroys the other tab's
+        // work - the thing the conflict rule exists to prevent.
+        const verdict = await this.reconcileBeforeRebase(current, request);
+        if (verdict !== "rebase") {
+          // "acknowledged": our earlier attempt did land after all. The rest mean
+          // the snapshot was not written, so it stays unacknowledged.
+          return verdict === "acknowledged";
+        }
+
         await sleep(delays[attemptIndex - 1] ?? delays[delays.length - 1] ?? 0);
         request = { ...request, revision: ++this.nextRevision };
       }
@@ -157,12 +169,10 @@ export class SessionSaveQueue {
           return false;
         }
 
-        const staleRevision = getStaleRevision(error);
-        if (staleRevision !== null) {
-          const resolved = await this.resolveConflict(staleRevision, request);
+        if (isStaleRevision(error)) {
           // Either the newer copy was adopted, or the host could not load one and
           // the conflict is left for a later edit/load to observe.
-          return resolved;
+          return await this.resolveConflict(request);
         }
 
         if (!isTransient(error)) {
@@ -177,31 +187,66 @@ export class SessionSaveQueue {
   }
 
   /**
-   * A `stale_revision` means someone else saved this session after us. Fetch
-   * their copy; if it is newer, adopt it into the view instead of resending our
-   * stale messages with a bumped revision, which would silently discard their
-   * work.
+   * What to do with a snapshot that is about to be retried.
+   *
+   * - `acknowledged`: the server already holds exactly this transcript, so the
+   *   earlier attempt landed and only its response was lost. Nothing to write.
+   * - `adopted`: another tab has since saved this session, and its copy wins.
+   * - `unresolved`: the server's state is unknown, so writing would be a guess.
+   * - `rebase`: the server is still behind this attempt, so re-sending with a
+   *   newer revision cannot destroy anyone's work.
+   */
+  private async reconcileBeforeRebase(
+    current: PendingSave,
+    attempt: SaveSessionRequest
+  ): Promise<"acknowledged" | "adopted" | "unresolved" | "rebase"> {
+    const copy = await this.readServerCopy();
+    if (copy === undefined) return "unresolved";
+    if (copy === null) return this.options.loadServerCopy ? "unresolved" : "rebase";
+    if (sessionSignature(copy.messages) === current.signature) return "acknowledged";
+    if (copy.revision < attempt.revision) return "rebase";
+    this.adoptServerCopy(copy);
+    return "adopted";
+  }
+
+  /**
+   * A `stale_revision` means someone else saved this session after us. Adopt
+   * their copy instead of resending our stale messages with a bumped revision,
+   * which would silently discard their work.
    *
    * This never writes: the adopted copy is handed back to the view, and anything
    * the user does next is re-enqueued through the normal queue path.
    */
-  private async resolveConflict(serverRevision: number, attempt: SaveSessionRequest): Promise<boolean> {
-    const load = this.options.loadServerCopy;
-    if (!load) return false;
-
-    let copy: ServerSessionCopy | null = null;
-    try {
-      copy = await load();
-    } catch {
-      // Could not read the other copy; leave the conflict unacknowledged so a
-      // later enqueue retries with an updated revision.
-      return false;
-    }
+  private async resolveConflict(attempt: SaveSessionRequest): Promise<boolean> {
+    const copy = await this.readServerCopy();
     if (!copy || copy.revision <= attempt.revision) return false;
+    this.adoptServerCopy(copy);
+    // Our snapshot was not written, so it must not be acknowledged: the same
+    // content enqueued later is still ours to save.
+    return false;
+  }
 
+  /**
+   * The authoritative copy, or `null` when there is none. `undefined` means the
+   * host could not be asked, which is different from "the server has no copy".
+   */
+  private async readServerCopy(): Promise<ServerSessionCopy | null | undefined> {
+    const load = this.options.loadServerCopy;
+    if (!load) return null;
+    try {
+      return await load();
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Hand the other tab's copy to the view and take its revision as the new high
+   * water mark, so a later save lands above it instead of colliding with it.
+   */
+  private adoptServerCopy(copy: ServerSessionCopy): void {
     this.nextRevision = Math.max(this.nextRevision, copy.revision);
     this.options.onConflictAdopted?.(copy);
-    return false;
   }
 }
 
@@ -285,15 +330,20 @@ export function registerPageCloseFlush(events: PageLifecycleEvents, flush: () =>
 // Error inspection
 // ---------------------------------------------------------------------------
 
-/** The server's 409 `stale_revision`, or the browser store's twin of it. */
-function getStaleRevision(error: unknown): number | null {
-  if (isRecordConflict(error, "stale_revision")) {
-    return Number.isInteger(error.revision) ? Number(error.revision) : null;
-  }
-  if (!(error instanceof HttpError) || error.status !== 409 || !isRecord(error.body)) return null;
-  return error.body.error === "stale_revision" && Number.isInteger(error.body.revision)
-    ? Number(error.body.revision)
-    : null;
+/**
+ * The server's 409 `stale_revision`, or the browser store's twin of it. The
+ * revision the server reports is deliberately not used to rebase: the queue asks
+ * for the authoritative copy and compares that instead, so a stale write can
+ * never be "fixed" by simply claiming a higher number.
+ */
+function isStaleRevision(error: unknown): boolean {
+  if (isRecordConflict(error, "stale_revision")) return true;
+  return (
+    error instanceof HttpError &&
+    error.status === 409 &&
+    isRecord(error.body) &&
+    error.body.error === "stale_revision"
+  );
 }
 
 function getSessionDeleted(error: unknown): boolean {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { HttpError, type SaveSessionRequest } from "@/lib/api-client";
-import { SessionSaveQueue } from "../session-save-queue";
+import { SessionSaveQueue, sessionSignature } from "../session-save-queue";
 
 function snapshot(messageId: string) {
   return {
@@ -14,6 +14,10 @@ const noSleep = () => Promise.resolve();
 
 function staleRevision(revision: number) {
   return new HttpError("stale", 409, { error: "stale_revision", revision });
+}
+
+function userMessage(text: string) {
+  return { id: `m-${text}`, role: "user" as const, parts: [{ type: "text" as const, text }] };
 }
 
 describe("SessionSaveQueue", () => {
@@ -107,6 +111,138 @@ describe("SessionSaveQueue", () => {
     // first attempt actually landed, so each attempt has to claim a new one.
     expect(attempts).toEqual([1, 2]);
     expect(onPersisted).toHaveBeenCalledTimes(1);
+  });
+
+  it("two tabs: a retried write adopts the other tab's copy instead of rebasing over it", async () => {
+    // The server enforces a monotonic revision, exactly like the real route.
+    // Both tabs share it, and both were loaded at revision 5.
+    const server = {
+      revision: 5,
+      text: "",
+      writes: [] as { revision: number; text: string }[],
+      write(revision: number, text: string) {
+        if (revision <= this.revision) {
+          throw new HttpError("stale", 409, { error: "stale_revision", revision: this.revision });
+        }
+        this.revision = revision;
+        this.text = text;
+        this.writes.push({ revision, text });
+      },
+      read() {
+        return { revision: this.revision, text: this.text };
+      }
+    };
+
+    let releaseTabA!: () => void;
+    const tabAInFlight = new Promise<void>((resolve) => {
+      releaseTabA = resolve;
+    });
+
+    const adopted: { revision: number; text: string }[] = [];
+
+    function tab(text: string, firstAttempt?: (request: SaveSessionRequest) => Promise<void>) {
+      let attempts = 0;
+      return new SessionSaveQueue(
+        async (request) => {
+          attempts += 1;
+          if (attempts === 1 && firstAttempt) return firstAttempt(request);
+          server.write(request.revision, text);
+        },
+        "initial",
+        5,
+        () => {},
+        {
+          sleep: noSleep,
+          loadServerCopy: async () => {
+            const copy = server.read();
+            return { revision: copy.revision, messages: [userMessage(copy.text)] };
+          },
+          onConflictAdopted: (copy) => {
+            const [part] = copy.messages[0].parts as { type: "text"; text: string }[];
+            adopted.push({ revision: copy.revision, text: part.text });
+          }
+        }
+      );
+    }
+
+    // Tab A's POST is in flight and comes back 504: the client cannot tell whether
+    // the server ever applied it. That ambiguity is the whole problem.
+    const tabA = tab("A-tab", async () => {
+      await tabAInFlight;
+      throw new HttpError("gateway timeout", 504, null);
+    });
+    // Tab B's first attempt simply lands.
+    const tabB = tab("B-tab");
+
+    // 1. Tab A enqueues at revision 6; its write hangs.
+    const tabARun = tabA.enqueue(sessionSignature([userMessage("A-tab")]), {
+      id: "shared",
+      messages: [userMessage("A-tab")]
+    });
+    await Promise.resolve();
+
+    // 2. Tab B, also at revision 6, saves first and the server accepts it.
+    await tabB.enqueue(sessionSignature([userMessage("B-tab")]), {
+      id: "shared",
+      messages: [userMessage("B-tab")]
+    });
+    expect(server.text).toBe("B-tab");
+
+    // 3. Tab A's write now fails transiently. Rebasing to revision 7 would be
+    // accepted and would silently destroy tab B's chat.
+    releaseTabA();
+    await tabARun;
+
+    expect(server.text).toBe("B-tab");
+    expect(server.writes.map((write) => write.text)).toEqual(["B-tab"]);
+    expect(adopted).toEqual([{ revision: 6, text: "B-tab" }]);
+  });
+
+  it("a retry does not re-upload when the earlier attempt actually landed", async () => {
+    const writes: number[] = [];
+    const persist = vi.fn(async (request: SaveSessionRequest) => {
+      writes.push(request.revision);
+      if (writes.length === 1) throw new Error("connection reset after the write");
+    });
+    const onPersisted = vi.fn();
+    const onConflictAdopted = vi.fn();
+    const messages = [userMessage("landed anyway")];
+    const queue = new SessionSaveQueue(persist, sessionSignature([]), 0, onPersisted, {
+      sleep: noSleep,
+      loadServerCopy: async () => ({ revision: 1, messages }),
+      onConflictAdopted
+    });
+
+    await queue.enqueue(sessionSignature(messages), { id: "shared", messages });
+
+    // Discovered by the probe rather than guessed: acknowledged, not re-sent, and
+    // certainly not reported as someone else's copy.
+    expect(writes).toEqual([1]);
+    expect(onPersisted).toHaveBeenCalledTimes(1);
+    expect(onConflictAdopted).not.toHaveBeenCalled();
+  });
+
+  it("does not rebase when the server's state cannot be determined", async () => {
+    const writes: number[] = [];
+    const persist = vi.fn(async (request: SaveSessionRequest) => {
+      writes.push(request.revision);
+      throw new Error("offline");
+    });
+    const onPersistError = vi.fn();
+    const queue = new SessionSaveQueue(persist, sessionSignature([]), 0, () => {}, {
+      sleep: noSleep,
+      loadServerCopy: async () => {
+        throw new Error("cannot reach the server");
+      },
+      onPersistError
+    });
+
+    await queue.enqueue("mine", snapshot("mine"));
+
+    // Writing blind could destroy another tab's work, so the queue gives up and
+    // leaves the snapshot unacknowledged instead.
+    expect(writes).toEqual([1]);
+    expect(onPersistError).not.toHaveBeenCalled();
   });
 
   it("prefers a newer queued snapshot over retrying stale data", async () => {
