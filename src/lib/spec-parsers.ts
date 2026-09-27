@@ -132,7 +132,7 @@ export function parseMotherboardSpecs(name: string): RegistrySpec | undefined {
 }
 
 export function parsePsuSpecs(name: string): RegistrySpec | undefined {
-  const matches = Array.from(name.matchAll(/\b(\d{3,4})\s*(?:watts?|w)\b/gi));
+  const matches = Array.from(name.matchAll(/(?<!\d)(\d{3,4})\s*(?:watts?|w)\b/gi));
   const candidateWattages = matches.map((m) => parseInt(m[1], 10));
   const uniqueWattages = Array.from(new Set(candidateWattages));
 

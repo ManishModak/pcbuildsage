@@ -186,6 +186,8 @@ describe("Item 7: Explicit PSU wattage parsing", () => {
     expect(parsePsuSpecs("Corsair HX1500i ATX 3.1 1500 Watts 80 Plus Platinum Fully Modular Power Supply")?.wattage).toBe(1500);
     expect(parsePsuSpecs("Ant Esports RX750 750W 80 Plus Bronze Power Supply")?.wattage).toBe(750);
     expect(parsePsuSpecs("Corsair RM850 850 W Power Supply")?.wattage).toBe(850);
+    expect(parsePsuSpecs("Corsair RM850W Power Supply")?.wattage).toBe(850);
+    expect(parsePsuSpecs("Antec CSK650W Power Supply")?.wattage).toBe(650);
     expect(parsePsuSpecs("Thermaltake Toughpower 1050Watt Gold Fully Modular")?.wattage).toBe(1050);
   });
 
