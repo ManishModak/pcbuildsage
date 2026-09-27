@@ -10,6 +10,7 @@ import type { RegistrySpec } from "@/lib/registry";
 import { slugifyComponent } from "@/lib/normalizer";
 import { toCompactFunctionalSpecs } from "./compact";
 import type { ComponentModelItem, ListModelsInput } from "./repository";
+import { matchesSocket, matchesFormFactor, matchesDdr } from "./spec-filters";
 
 /**
  * Extracts or builds the canonical base key for a product.
@@ -209,23 +210,9 @@ export function aggregateModels(
     }
 
     // In-memory spec filtering for listModels criteria
-    const canon = (v: unknown): string => (typeof v === "string" ? v.trim().toLowerCase() : "");
-    if (input.socket) {
-      const sockets = [
-        spec?.socket,
-        ...(Array.isArray(spec?.sockets) ? spec.sockets : [])
-      ].filter(Boolean).map(canon);
-      if (!sockets.includes(canon(input.socket))) continue;
-    }
-    if (input.ddr && canon(spec?.ddr) !== canon(input.ddr)) continue;
-    if (input.form_factor) {
-      const targetForm = canon(input.form_factor);
-      const forms = [
-        spec?.form_factor,
-        ...(Array.isArray(spec?.form_factors) ? spec.form_factors : [])
-      ].map(canon);
-      if (!forms.includes(targetForm)) continue;
-    }
+    if (input.socket && !matchesSocket(spec, input.socket)) continue;
+    if (input.ddr && !matchesDdr(spec, input.ddr)) continue;
+    if (input.form_factor && !matchesFormFactor(spec, input.form_factor)) continue;
     if (input.min_vram_gb !== undefined && Number(spec?.vram_gb ?? -1) < input.min_vram_gb) {
       continue;
     }

@@ -5,7 +5,7 @@ export const presentBuildInputSchema = z.object({
   builds: z
     .array(
       z.object({
-        label: z.string().describe("Tradeoff or persona label, e.g. 'Max Performance', 'Value Gaming', 'Quiet & Compact'"),
+        label: z.string().describe("Tradeoff or persona label, e.g. 'Within budget', 'Small upgrade', 'Max Performance', 'Value Gaming', 'Quiet & Compact'"),
         parts: z
           .array(
             z.object({
@@ -32,7 +32,7 @@ export type PresentBuildInput = z.infer<typeof presentBuildInputSchema>;
 export function createPresentBuildTool() {
   return tool({
     description:
-      "Present one or more complete, finalized PC builds to the user as an interactive visual card with toggle tabs, retailer buy links, and total price calculation. Call this when you want to present the final build(s). Do NOT repeat a markdown table of parts/prices in your text response when calling this tool.",
+      "Present one or more complete, finalized PC builds to the user as an interactive visual card with toggle tabs, retailer buy links, and total price calculation. Call this when you want to present the final build(s). Present intended options together in one call with short labels (e.g. 'Within budget', 'Small upgrade'). Do NOT repeat a markdown table of parts/prices in your text response when calling this tool.",
     inputSchema: presentBuildInputSchema,
     execute: async (input) => {
       return {

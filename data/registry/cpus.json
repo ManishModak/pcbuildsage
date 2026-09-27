@@ -20,7 +20,11 @@
       "https://www.techpowerup.com/cpu-specs/core-i9-14900k.c3260"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "researched_at": "2026-08-16T10:05:00Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i9-14900kf": {
     "brand": "Intel",
@@ -40,7 +44,11 @@
       "https://www.techpowerup.com"
     ],
     "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "researched_at": "2026-07-11T17:47:57Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i9-14900": {
     "brand": "Intel",
@@ -60,7 +68,11 @@
       "https://www.techpowerup.com"
     ],
     "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "researched_at": "2026-07-11T17:47:57Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i7-14700k": {
     "brand": "Intel",
@@ -82,7 +94,11 @@
       "https://www.techpowerup.com/cpu-specs/core-i7-14700k.c3262"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "researched_at": "2026-08-16T10:05:00Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i7-14700kf": {
     "brand": "Intel",
@@ -102,7 +118,11 @@
       "https://www.techpowerup.com"
     ],
     "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "researched_at": "2026-07-11T17:47:57Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i7-14700": {
     "brand": "Intel",
@@ -122,7 +142,11 @@
       "https://www.techpowerup.com"
     ],
     "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "researched_at": "2026-07-11T17:47:57Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-14600k": {
     "brand": "Intel",
@@ -144,7 +168,11 @@
       "https://www.techpowerup.com/cpu-specs/core-i5-14600k.c3264"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "researched_at": "2026-08-16T10:05:00Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-14600kf": {
     "brand": "Intel",
@@ -164,7 +192,11 @@
       "https://www.techpowerup.com"
     ],
     "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "researched_at": "2026-07-11T17:47:57Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-14600": {
     "brand": "Intel",
@@ -184,7 +216,11 @@
       "https://www.techpowerup.com"
     ],
     "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "researched_at": "2026-07-11T17:47:57Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-14500": {
     "brand": "Intel",
@@ -204,7 +240,11 @@
       "https://www.techpowerup.com"
     ],
     "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "researched_at": "2026-07-11T17:47:57Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-14400": {
     "brand": "Intel",
@@ -224,7 +264,11 @@
       "https://www.techpowerup.com"
     ],
     "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "researched_at": "2026-07-11T17:47:57Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-14400f": {
     "brand": "Intel",
@@ -246,7 +290,11 @@
       "https://www.techpowerup.com/cpu-specs/core-i5-14400f.c3422"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "researched_at": "2026-08-16T10:05:00Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i3-14100": {
     "brand": "Intel",
@@ -266,7 +314,11 @@
       "https://www.techpowerup.com"
     ],
     "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "researched_at": "2026-07-11T17:47:57Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i3-14100f": {
     "brand": "Intel",
@@ -288,7 +340,11 @@
       "https://www.techpowerup.com/cpu-specs/core-i3-14100f.c3426"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "researched_at": "2026-08-16T10:05:00Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i9-13900k": {
     "brand": "Intel",
@@ -310,7 +366,11 @@
       "https://www.techpowerup.com/cpu-specs/core-i9-13900k.c2843"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "researched_at": "2026-08-16T10:05:00Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i9-13900kf": {
     "brand": "Intel",
@@ -330,7 +390,11 @@
       "https://www.techpowerup.com"
     ],
     "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "researched_at": "2026-07-11T17:47:57Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i9-13900": {
     "brand": "Intel",
@@ -350,7 +414,11 @@
       "https://www.techpowerup.com"
     ],
     "confidence": "medium",
-    "researched_at": "2026-07-11T17:47:57Z"
+    "researched_at": "2026-07-11T17:47:57Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i7-13700k": {
     "brand": "Intel",
@@ -372,7 +440,11 @@
       "https://www.techpowerup.com/cpu-specs/core-i7-13700k.c2844"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "researched_at": "2026-08-16T10:05:00Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i7-13700kf": {
     "brand": "Intel",
@@ -391,7 +463,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/230502/intel-core-i713700kf-processor-30m-cache-up-to-5-40-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i7-13700kf.c2847"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i7-13700": {
     "brand": "Intel",
@@ -410,7 +486,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/230575/intel-core-i713700-processor-30m-cache-up-to-5-20-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i7-13700.c2846"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-13600k": {
     "brand": "Intel",
@@ -432,7 +512,11 @@
       "https://www.techpowerup.com/cpu-specs/core-i5-13600k.c2845"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "researched_at": "2026-08-16T10:05:00Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-13600kf": {
     "brand": "Intel",
@@ -451,7 +535,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/230494/intel-core-i513600kf-processor-24m-cache-up-to-5-10-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i5-13600kf.c2848"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-13600": {
     "brand": "Intel",
@@ -470,7 +558,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/230574/intel-core-i513600-processor-24m-cache-up-to-5-00-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i5-13600.c3008"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-13500": {
     "brand": "Intel",
@@ -489,7 +581,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/230580/intel-core-i513500-processor-24m-cache-up-to-4-80-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i5-13500.c3009"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-13400": {
     "brand": "Intel",
@@ -508,7 +604,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/230489/intel-core-i513400-processor-20m-cache-up-to-4-60-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i5-13400.c3010"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-13400f": {
     "brand": "Intel",
@@ -530,7 +630,11 @@
       "https://www.techpowerup.com/cpu-specs/core-i5-13400f.c3011"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "researched_at": "2026-08-16T10:05:00Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i3-13100": {
     "brand": "Intel",
@@ -549,7 +653,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/230577/intel-core-i313100-processor-12m-cache-up-to-4-50-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i3-13100.c3012"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i3-13100f": {
     "brand": "Intel",
@@ -568,7 +676,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/230500/intel-core-i313100f-processor-12m-cache-up-to-4-50-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i3-13100f.c3013"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i9-12900k": {
     "brand": "Intel",
@@ -587,7 +699,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/134599/intel-core-i912900k-processor-30m-cache-up-to-5-20-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i9-12900k.c2471"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i9-12900kf": {
     "brand": "Intel",
@@ -606,7 +722,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/134600/intel-core-i912900kf-processor-30m-cache-up-to-5-20-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i9-12900kf.c2472"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i9-12900": {
     "brand": "Intel",
@@ -625,7 +745,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/134597/intel-core-i912900-processor-30m-cache-up-to-5-10-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i9-12900.c2602"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i7-12700k": {
     "brand": "Intel",
@@ -644,7 +768,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/134590/intel-core-i712700k-processor-25m-cache-up-to-5-00-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i7-12700k.c2473"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i7-12700kf": {
     "brand": "Intel",
@@ -663,7 +791,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/134595/intel-core-i712700kf-processor-25m-cache-up-to-5-00-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i7-12700kf.c2474"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i7-12700": {
     "brand": "Intel",
@@ -682,7 +814,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/134591/intel-core-i712700-processor-25m-cache-up-to-4-90-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i7-12700.c2603"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-12600k": {
     "brand": "Intel",
@@ -704,7 +840,11 @@
       "https://www.techpowerup.com/cpu-specs/core-i5-12600k.c2475"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "researched_at": "2026-08-16T10:05:00Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-12600kf": {
     "brand": "Intel",
@@ -723,7 +863,11 @@
       "https://www.intel.com/content/www/us/en/products/sku/134594/intel-core-i512600kf-processor-20m-cache-up-to-4-90-ghz/specifications.html",
       "https://www.techpowerup.com/cpu-specs/core-i5-12600kf.c2476"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-12600": {
     "brand": "Intel",
@@ -741,7 +885,11 @@
     "sources": [
       "https://www.intel.com/content/www/us/en/products/sku/96147/intel-core-i512600-processor-18m-cache-up-to-4-80-ghz/specifications.html"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-12500": {
     "brand": "Intel",
@@ -759,7 +907,11 @@
     "sources": [
       "https://www.intel.com/content/www/us/en/products/sku/196587/intel-core-i512500-processor-18m-cache-up-to-4-60-ghz/specifications.html"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-12400": {
     "brand": "Intel",
@@ -777,7 +929,11 @@
     "sources": [
       "https://www.intel.com/content/www/us/en/products/sku/96144/intel-core-i512400-processor-18m-cache-up-to-440-ghz/specifications.html"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i5-12400f": {
     "brand": "Intel",
@@ -799,7 +955,11 @@
       "https://www.techpowerup.com/cpu-specs/core-i5-12400f.c2605"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "researched_at": "2026-08-16T10:05:00Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i3-12100": {
     "brand": "Intel",
@@ -817,7 +977,11 @@
     "sources": [
       "https://www.intel.com/content/www/us/en/products/sku/197305/intel-core-i312100-processor-12m-cache-up-to-4-30-ghz/specifications.html"
     ],
-    "confidence": "high"
+    "confidence": "high",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "intel-core-i3-12100f": {
     "brand": "Intel",
@@ -839,7 +1003,11 @@
       "https://www.techpowerup.com/cpu-specs/core-i3-12100f.c2609"
     ],
     "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "researched_at": "2026-08-16T10:05:00Z",
+    "supported_memory": [
+      "DDR4",
+      "DDR5"
+    ]
   },
   "amd-ryzen-9-9900x": {
     "brand": "AMD",
