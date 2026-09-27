@@ -12,6 +12,8 @@ import {
 } from "./validation-strip";
 import {
   findAllBuildVersions,
+  followNewestVersion,
+  resolveSelectedVersion,
   type BuildVersion
 } from "./build-versions";
 
@@ -23,6 +25,8 @@ export {
 };
 export {
   findAllBuildVersions,
+  followNewestVersion,
+  resolveSelectedVersion,
   type BuildVersion
 };
 

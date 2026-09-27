@@ -18,7 +18,7 @@ import { Composer } from "./composer";
 import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
 import { BuildCard } from "./build-card";
-import { extractBuildsFromMessage, findAllBuildVersions, resolveBuildTotal, type DerivedBuild, type BuildVersion } from "./build-derive";
+import { extractBuildsFromMessage, findAllBuildVersions, followNewestVersion, resolveBuildTotal, resolveSelectedVersion, type DerivedBuild, type BuildVersion } from "./build-derive";
 import { getFollowups } from "@/lib/followups";
 import { isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
@@ -400,27 +400,17 @@ export function ChatView({
     [messages, config.currency]
   );
 
-  const [selectedVersion, setSelectedVersion] = useState<number | undefined>(undefined);
+  // Selected by stable id, not by version number: an edit or a truncation
+  // renumbers the versions, and a number can then point at another build.
+  const [selectedVersionId, setSelectedVersionId] = useState<string | undefined>(undefined);
   const [selectedAlternativeIndex, setSelectedAlternativeIndex] = useState(0);
 
-  const latestVersion = allBuildVersions.length > 0
-    ? allBuildVersions[allBuildVersions.length - 1].version
-    : undefined;
-
-  const activeVersion = useMemo(() => {
-    if (allBuildVersions.length === 0) return undefined;
-    const targetVer = selectedVersion ?? latestVersion;
-    if (targetVer === undefined) return undefined;
-    const matched = allBuildVersions.find((v) => v.version === targetVer);
-    return matched ? matched.version : latestVersion;
-  }, [allBuildVersions, selectedVersion, latestVersion]);
-
   const activeVersionObj = useMemo(
-    () => allBuildVersions.find((v) => v.version === activeVersion),
-    [allBuildVersions, activeVersion]
+    () => resolveSelectedVersion(allBuildVersions, selectedVersionId),
+    [allBuildVersions, selectedVersionId]
   );
 
-  const safeSelectedVersion = activeVersion;
+  const safeSelectedVersionId = activeVersionObj?.id;
 
   const latestBuilds = useMemo(() => {
     if (allBuildVersions.length > 0) {
@@ -434,6 +424,17 @@ export function ChatView({
 
   const lastSigRef = useRef<string>("");
   const hasInitializedOpenRef = useRef(false);
+  const lastVersionIdRef = useRef<string | undefined>(undefined);
+
+  // A build version that just arrived supersedes whatever was selected, so the
+  // panel follows the new build instead of staying pinned to an older one.
+  useEffect(() => {
+    const newestId = allBuildVersions[allBuildVersions.length - 1]?.id;
+    const nextId = followNewestVersion(selectedVersionId, lastVersionIdRef.current, allBuildVersions);
+    lastVersionIdRef.current = newestId;
+    if (nextId === selectedVersionId) return;
+    setSelectedVersionId(nextId);
+  }, [allBuildVersions, selectedVersionId]);
 
   useEffect(() => {
     const currentSig = buildsSignature(latestBuilds);
@@ -665,27 +666,15 @@ export function ChatView({
                       currency={config.currency}
                       followups={index === messages.length - 1 ? getFollowups(message, status) : []}
                       onFollowup={send}
-                      onViewBuild={(builds, versionOrId) => {
-                        let matched: BuildVersion | undefined;
-                        if (typeof versionOrId === "number") {
-                          matched = allBuildVersions.find((v) => v.version === versionOrId);
-                        } else if (typeof versionOrId === "string") {
-                          matched = allBuildVersions.find((v) => v.presentationId === versionOrId);
-                        }
-                        if (!matched) {
-                          matched = allBuildVersions.find((v) => v.builds === builds);
-                        }
-                        if (!matched) {
-                          matched = allBuildVersions.find((v) => v.messageIndex === index);
-                        }
+                      onViewBuild={(versionId) => {
+                        // Resolve within this message's own versions by stable
+                        // id, so the clicked message always opens its own
+                        // build and the panel never holds an ad-hoc list.
+                        const matched: BuildVersion | undefined = msgVersions.find((v) => v.id === versionId);
+                        if (!matched) return;
 
-                        if (matched) {
-                          setSelectedVersion(matched.version);
-                          setActiveBuilds(matched.builds);
-                        } else {
-                          setSelectedVersion(undefined);
-                          setActiveBuilds(builds);
-                        }
+                        setSelectedVersionId(matched.id);
+                        setActiveBuilds(matched.builds);
                         setSelectedAlternativeIndex(0);
                         setSidePanelOpen(true);
                       }}
@@ -824,7 +813,7 @@ export function ChatView({
                 <h2 className="text-sm font-semibold text-text truncate">Proposed Build</h2>
                 {allBuildVersions.length > 1 ? (
                   <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
-                    v{safeSelectedVersion ?? allBuildVersions[allBuildVersions.length - 1].version} of {allBuildVersions.length}
+                    v{safeSelectedVersionId ? allBuildVersions.find((v) => v.id === safeSelectedVersionId)?.version ?? 1 : 1} of {allBuildVersions.length}
                   </span>
                 ) : displayBuilds && displayBuilds.length > 1 ? (
                   <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
@@ -867,11 +856,11 @@ export function ChatView({
               <BuildCard
                 builds={displayBuilds ?? undefined}
                 versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
-                selectedVersion={safeSelectedVersion}
-                onVersionChange={(ver) => {
-                  setSelectedVersion(ver);
+                selectedVersionId={safeSelectedVersionId}
+                onVersionChange={(versionId) => {
+                  setSelectedVersionId(versionId);
                   setSelectedAlternativeIndex(0);
-                  const matched = allBuildVersions.find((v) => v.version === ver);
+                  const matched = allBuildVersions.find((v) => v.id === versionId);
                   if (matched) setActiveBuilds(matched.builds);
                 }}
                 selectedAlternativeIndex={safeAlternativeIndex}
@@ -895,7 +884,7 @@ export function ChatView({
               <SheetTitle className="text-sm font-semibold text-text truncate">Proposed Build</SheetTitle>
               {allBuildVersions.length > 1 ? (
                 <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
-                  v{safeSelectedVersion ?? allBuildVersions[allBuildVersions.length - 1].version} of {allBuildVersions.length}
+                  v{safeSelectedVersionId ? allBuildVersions.find((v) => v.id === safeSelectedVersionId)?.version ?? 1 : 1} of {allBuildVersions.length}
                 </span>
               ) : displayBuilds && displayBuilds.length > 1 ? (
                 <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
@@ -912,11 +901,11 @@ export function ChatView({
               <BuildCard
                 builds={displayBuilds}
                 versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
-                selectedVersion={safeSelectedVersion}
-                onVersionChange={(ver) => {
-                  setSelectedVersion(ver);
+                selectedVersionId={safeSelectedVersionId}
+                onVersionChange={(versionId) => {
+                  setSelectedVersionId(versionId);
                   setSelectedAlternativeIndex(0);
-                  const matched = allBuildVersions.find((v) => v.version === ver);
+                  const matched = allBuildVersions.find((v) => v.id === versionId);
                   if (matched) setActiveBuilds(matched.builds);
                 }}
                 selectedAlternativeIndex={safeAlternativeIndex}

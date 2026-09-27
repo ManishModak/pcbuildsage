@@ -13,8 +13,13 @@ import { resolveBuildTotal, validationStrip } from "./build-derive";
 export interface BuildCardProps {
   builds?: DerivedBuild[];
   versions?: BuildVersion[];
-  selectedVersion?: number;
-  onVersionChange?: (version: number) => void;
+  /**
+   * Selected version, by stable id rather than by number: an edit or a
+   * truncation renumbers the versions, and a number can then point at a
+   * different build than the one the user picked.
+   */
+  selectedVersionId?: string;
+  onVersionChange?: (versionId: string) => void;
   selectedAlternativeIndex?: number;
   onAlternativeChange?: (index: number) => void;
   inSidePanel?: boolean;
@@ -26,7 +31,7 @@ export interface BuildCardProps {
 export function BuildCard({
   builds,
   versions,
-  selectedVersion,
+  selectedVersionId,
   onVersionChange,
   selectedAlternativeIndex,
   onAlternativeChange,
@@ -35,27 +40,25 @@ export function BuildCard({
   const selectId = useId();
 
   const availableVersions = versions ?? [];
-  const latestVersion = availableVersions.length > 0 ? availableVersions[availableVersions.length - 1].version : 1;
-  const minVersion = availableVersions.length > 0 ? availableVersions[0].version : 1;
-  const maxVersion = availableVersions.length > 0 ? availableVersions[availableVersions.length - 1].version : 1;
+  const latestVersion = availableVersions.length > 0 ? availableVersions[availableVersions.length - 1] : undefined;
 
-  const [internalVersion, setInternalVersion] = useState<number>(latestVersion);
-  const requestedVersion = selectedVersion ?? internalVersion;
-  const clampedVersion = availableVersions.length > 0
-    ? Math.max(minVersion, Math.min(requestedVersion, maxVersion))
-    : requestedVersion;
-
-  const currentVersionObj = availableVersions.find((v) => v.version === clampedVersion) ??
-    (availableVersions.length > 0 ? availableVersions[availableVersions.length - 1] : undefined);
-  const activeVersionNum = currentVersionObj?.version ?? clampedVersion;
+  const [internalVersionId, setInternalVersionId] = useState<string | undefined>(undefined);
+  const requestedId = selectedVersionId ?? internalVersionId;
+  // A selection can outlive the version it named (the transcript was edited or
+  // truncated), so fall back to the latest instead of rendering nothing.
+  const currentVersionObj =
+    (requestedId ? availableVersions.find((v) => v.id === requestedId) : undefined) ??
+    latestVersion ??
+    undefined;
+  const activeVersionNum = currentVersionObj?.version ?? 1;
   const activeBuilds = currentVersionObj?.builds ?? builds ?? [];
 
-  const [prevVersionNum, setPrevVersionNum] = useState(activeVersionNum);
+  const [prevVersionId, setPrevVersionId] = useState(currentVersionObj?.id);
   const [internalIndex, setInternalIndex] = useState(0);
 
   // Clean state adjustment on version change during render (standard React pattern)
-  if (prevVersionNum !== activeVersionNum) {
-    setPrevVersionNum(activeVersionNum);
+  if (prevVersionId !== currentVersionObj?.id) {
+    setPrevVersionId(currentVersionObj?.id);
     setInternalIndex(0);
   }
 
@@ -127,18 +130,18 @@ export function BuildCard({
             <select
               id={selectId}
               aria-label="Previous versions"
-              value={activeVersionNum}
+              value={currentVersionObj?.id ?? ""}
               onChange={(e) => {
-                const nextVer = Number(e.target.value);
-                setInternalVersion(nextVer);
+                const nextId = e.target.value;
+                setInternalVersionId(nextId);
                 setIndex(0);
-                onVersionChange?.(nextVer);
+                onVersionChange?.(nextId);
               }}
               className="rounded-btn border border-border bg-surface px-2.5 py-1 text-caption font-medium text-text hover:border-accent focus:border-accent focus:outline-none cursor-pointer"
             >
               {availableVersions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.version === latestVersion ? `${v.label} (Latest)` : v.label}
+                <option key={v.id} value={v.id}>
+                  {v === latestVersion ? `${v.label} (Latest)` : v.label}
                 </option>
               ))}
             </select>

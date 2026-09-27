@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { findAllBuildVersions, VALIDATED_VERSION_LABEL } from "../build-versions";
+import {
+  findAllBuildVersions,
+  followNewestVersion,
+  resolveSelectedVersion,
+  VALIDATED_VERSION_LABEL
+} from "../build-versions";
 import { BuildCard } from "../build-card";
 import { MessageView, type ChatUIMessage } from "../message";
 
@@ -428,5 +433,99 @@ describe("matching a presented build to the validation that produced it", () => 
     // The first label match would have been the 4060 Ti; the parts rule it out.
     expect(build.components[0].name).toBe("Sapphire RX 7700 XT");
     expect(build.total).toBe(42000);
+  });
+});
+
+describe("version selection follows the newest build, by stable id", () => {
+  const firstTurn: ChatUIMessage[] = [
+    { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build" }] },
+    {
+      id: "a1",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-present_build",
+          toolCallId: "call-1",
+          state: "output-available",
+          input: {
+            builds: [
+              {
+                label: "First Build",
+                parts: [
+                  { category: "gpu", name: "RTX 4060", price: 28500, currency: "INR" },
+                  { category: "cpu", name: "Ryzen 5 5600", price: 11200, currency: "INR" }
+                ]
+              }
+            ]
+          }
+        } as unknown as ChatUIMessage["parts"][number]
+      ]
+    }
+  ];
+
+  const secondTurn: ChatUIMessage[] = [
+    ...firstTurn,
+    { id: "u2", role: "user", parts: [{ type: "text", text: "Now with AM5" }] },
+    {
+      id: "a2",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-present_build",
+          toolCallId: "call-2",
+          state: "output-available",
+          input: {
+            builds: [
+              {
+                label: "Second Build",
+                parts: [
+                  { category: "gpu", name: "RTX 4070", price: 54000, currency: "INR" },
+                  { category: "cpu", name: "Ryzen 5 7600", price: 18500, currency: "INR" }
+                ]
+              }
+            ]
+          }
+        } as unknown as ChatUIMessage["parts"][number]
+      ]
+    }
+  ];
+
+  it("moves the selection to the new version instead of staying on the old one", () => {
+    const before = findAllBuildVersions(firstTurn, "INR");
+    expect(before).toHaveLength(1);
+    const oldSelection = before[0].id;
+
+    const after = findAllBuildVersions(secondTurn, "INR");
+    expect(after).toHaveLength(2);
+
+    // A new version arrived: the selection moves to it, by its stable id.
+    const nextSelection = followNewestVersion(oldSelection, before[0].id, after);
+    expect(nextSelection).toBe(after[1].id);
+    expect(nextSelection).not.toBe(oldSelection);
+    expect(resolveSelectedVersion(after, nextSelection)?.builds[0].label).toBe("Second Build");
+
+    // Nothing new arrived: the selection is left exactly where it was.
+    expect(followNewestVersion(oldSelection, after[1].id, after)).toBe(oldSelection);
+
+    // And the card renders the newly selected build.
+    const markup = renderToStaticMarkup(
+      <BuildCard versions={after} selectedVersionId={nextSelection} inSidePanel />
+    );
+    expect(markup).toContain("Second Build");
+    expect(markup).toContain("₹72,500");
+    expect(markup).not.toContain("First Build");
+  });
+
+  it("falls back to the newest version when the selected one is gone", () => {
+    const before = findAllBuildVersions(firstTurn, "INR");
+    const after = findAllBuildVersions(secondTurn, "INR");
+
+    // Nothing selected means the newest version.
+    expect(resolveSelectedVersion(after, undefined)).toBe(after[1]);
+
+    // Editing a message truncates the transcript, so the selected id can stop
+    // naming anything: the panel falls back to a real build rather than nothing.
+    expect(resolveSelectedVersion(before, after[1].id)).toBe(before[0]);
+    expect(resolveSelectedVersion([], after[1].id)).toBeUndefined();
   });
 });

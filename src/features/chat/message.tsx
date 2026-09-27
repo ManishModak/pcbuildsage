@@ -8,10 +8,10 @@ import type { ChatMetadata } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/components/ui/cn";
 import { Button } from "@/components/ui/button";
-import { extractBuildsFromMessage, resolveBuildTotal, type DerivedBuild, type BuildVersion } from "./build-derive";
+import { extractBuildsFromMessage, resolveBuildTotal, type BuildVersion } from "./build-derive";
 import { FailoverPill } from "./failover-pill";
 import { Markdown } from "./markdown";
-import { ToolChip, type ToolPart } from "./tool-chip";
+import { ToolChip } from "./tool-chip";
 import { isFollowupsPart } from "@/lib/followups";
 import { isTextPart, isReasoningPart, isToolPart } from "@/lib/message-parts";
 
@@ -69,7 +69,12 @@ export function MessageView({
   onEdit?: (newText: string) => void;
   followups?: string[];
   onFollowup?: (prompt: string) => void;
-  onViewBuild?: (builds: DerivedBuild[], versionOrId?: number | string) => void;
+  /**
+   * Open a build version by its stable id. The panel resolves it against the
+   * versions it already knows about, so a click can never install an ad-hoc
+   * build list that no version in the picker refers to.
+   */
+  onViewBuild?: (versionId: string) => void;
 }) {
   const [hasMounted, setHasMounted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -93,6 +98,9 @@ export function MessageView({
 
   const hasVersions = Boolean(versions && versions.length > 0);
   const fallbackBuilds = isUser || hasVersions ? [] : extractBuildsFromMessage(message, currency);
+  // Only used when the caller passed no versions for this message, so there is
+  // no real id to hand over; naming it after the message keeps it stable.
+  const fallbackVersionId = `${message.id ?? "message"}:fallback`;
 
   const textContent =
     parts
@@ -225,9 +233,9 @@ export function MessageView({
             if (!primaryBuild) return null;
             return (
               <button
-                key={v.version}
+                key={v.id}
                 type="button"
-                onClick={() => onViewBuild?.(v.builds, v.presentationId ?? v.version)}
+                onClick={() => onViewBuild?.(v.id)}
                 className="group flex w-full items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-left shadow-xs transition-all duration-150 hover:border-accent hover:bg-surface-raised cursor-pointer"
                 aria-label={`View proposed build: ${primaryBuild.label ?? v.label}`}
               >
@@ -270,15 +278,7 @@ export function MessageView({
         <div className="my-3">
           <button
             type="button"
-            onClick={() => {
-              const presentPart = parts.find(
-                (p) =>
-                  (p.type === "tool-present_build" ||
-                    (p as ToolPart).toolName === "present_build") &&
-                  (p as ToolPart).toolCallId
-              ) as ToolPart | undefined;
-              onViewBuild?.(fallbackBuilds, presentPart?.toolCallId);
-            }}
+            onClick={() => onViewBuild?.(fallbackVersionId)}
             className="group flex w-full items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-left shadow-xs transition-all duration-150 hover:border-accent hover:bg-surface-raised cursor-pointer"
             aria-label={`View proposed build: ${fallbackBuilds[0].label ?? "Proposed Build"}`}
           >

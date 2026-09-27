@@ -186,6 +186,42 @@ export function findAllBuildVersions(
   return versions;
 }
 
+/**
+ * Which version the panel should show.
+ *
+ * Nothing selected means the newest version, and so does a selection whose id
+ * no longer exists - an edit or a truncation can renumber or drop the version
+ * the user was looking at, and the panel must still show a real build instead
+ * of an empty card.
+ */
+export function resolveSelectedVersion(
+  versions: BuildVersion[],
+  selectedVersionId?: string
+): BuildVersion | undefined {
+  if (versions.length === 0) return undefined;
+  const selected = selectedVersionId ? versions.find((v) => v.id === selectedVersionId) : undefined;
+  return selected ?? versions[versions.length - 1];
+}
+
+/**
+ * The selection to move to when the version list changed.
+ *
+ * A version that just arrived supersedes whatever was selected, so the panel
+ * follows the new build rather than staying pinned to an older one. Returns
+ * the current selection unchanged when the newest version is still the same
+ * one, which is what keeps this from re-selecting on every render.
+ */
+export function followNewestVersion(
+  selectedVersionId: string | undefined,
+  previousLatestId: string | undefined,
+  versions: BuildVersion[]
+): string | undefined {
+  const newestId = versions.length > 0 ? versions[versions.length - 1].id : undefined;
+  if (!newestId) return selectedVersionId;
+  if (previousLatestId === newestId) return selectedVersionId;
+  return newestId;
+}
+
 export function findVersionByPresentationId(
   versions: BuildVersion[],
   presentationId: string
