@@ -172,6 +172,31 @@ function createMockTursoClient(): Client & { executed: string[] } {
         lastInsertRowid: undefined,
         toJSON: () => []
       }));
+    },
+    transaction: async () => {
+      let txClosed = false;
+      return {
+        execute: async (stmt: InStatement) => {
+          if (txClosed) throw new Error("Transaction closed");
+          return await client.execute(stmt);
+        },
+        batch: async (statements: InStatement[]) => {
+          if (txClosed) throw new Error("Transaction closed");
+          return await client.batch(statements);
+        },
+        commit: async () => {
+          txClosed = true;
+        },
+        rollback: async () => {
+          txClosed = true;
+        },
+        close: () => {
+          txClosed = true;
+        },
+        get closed() {
+          return txClosed;
+        }
+      };
     }
   } as unknown as Client & { executed: string[] };
 

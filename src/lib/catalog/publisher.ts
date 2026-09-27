@@ -205,12 +205,18 @@ export async function publishCatalogSnapshot(
       .all() as Array<Record<string, unknown>>;
 
     const candidateRetailerCounts = new Map<string, number>();
+    const candidateScopes = new Map<string, { countryCode: string; retailer: string }>();
     const candidateIds = new Set<string>();
     for (const r of rows) {
       candidateIds.add(String(r.id));
       const ret = String(r.retailer ?? "").trim();
+      const country = String(r.country_code ?? "US").trim();
       if (ret) {
         candidateRetailerCounts.set(ret, (candidateRetailerCounts.get(ret) ?? 0) + 1);
+        const scopeKey = `${country}:::${ret}`;
+        if (!candidateScopes.has(scopeKey)) {
+          candidateScopes.set(scopeKey, { countryCode: country, retailer: ret });
+        }
       }
     }
 
@@ -236,17 +242,18 @@ export async function publishCatalogSnapshot(
       }
     }
 
-    // g. Identify stale listings in Turso belonging to active retailers in candidate snapshot
-    const activeRetailers = Array.from(candidateRetailerCounts.keys());
+    // g. Identify stale listings in Turso belonging to active scopes (country_code, retailer) in candidate snapshot
+    const activeScopes = Array.from(candidateScopes.values());
     const staleIds: string[] = [];
-    if (activeRetailers.length > 0) {
-      const retChunkSize = 50;
-      for (let r = 0; r < activeRetailers.length; r += retChunkSize) {
-        const retChunk = activeRetailers.slice(r, r + retChunkSize);
-        const placeholders = retChunk.map(() => "?").join(", ");
+    if (activeScopes.length > 0) {
+      const scopeChunkSize = 25;
+      for (let s = 0; s < activeScopes.length; s += scopeChunkSize) {
+        const chunk = activeScopes.slice(s, s + scopeChunkSize);
+        const placeholders = chunk.map(() => "(country_code = ? AND retailer = ?)").join(" OR ");
+        const args = chunk.flatMap((scope) => [scope.countryCode, scope.retailer]);
         const existingProds = await client.execute({
-          sql: `SELECT id, retailer FROM products WHERE retailer IN (${placeholders}) AND in_stock = 1`,
-          args: retChunk
+          sql: `SELECT id, country_code, retailer FROM products WHERE (${placeholders}) AND in_stock = 1`,
+          args
         });
         for (const row of existingProds.rows) {
           const id = String(row.id);
@@ -257,16 +264,14 @@ export async function publishCatalogSnapshot(
       }
     }
 
-    // h. Execute atomic publish in a single write transaction
-    let tx: Transaction | null = null;
-    if (typeof client.transaction === "function") {
-      try {
-        tx = await client.transaction("write");
-      } catch {
-        tx = null;
-      }
+    // h. Execute atomic publish in a single write transaction (fail closed)
+    if (typeof client.transaction !== "function") {
+      throw new Error(
+        "Turso client does not support transactions (client.transaction is not a function). Atomic publish aborted."
+      );
     }
-    const writeTarget = tx ?? client;
+
+    const tx: Transaction = await client.transaction("write");
 
     try {
       // 1. Mark stale listings out of stock (in_stock = 0, NOT delete)
@@ -275,7 +280,7 @@ export async function publishCatalogSnapshot(
         for (let i = 0; i < staleIds.length; i += staleChunkSize) {
           const chunk = staleIds.slice(i, i + staleChunkSize);
           const placeholders = chunk.map(() => "?").join(", ");
-          await writeTarget.execute({
+          await tx.execute({
             sql: `UPDATE products SET in_stock = 0 WHERE id IN (${placeholders})`,
             args: chunk
           });
@@ -320,11 +325,11 @@ export async function publishCatalogSnapshot(
           ]
         }));
 
-        if (typeof writeTarget.batch === "function") {
-          await writeTarget.batch(statements);
+        if (typeof tx.batch === "function") {
+          await tx.batch(statements);
         } else {
           for (const stmt of statements) {
-            await writeTarget.execute(stmt);
+            await tx.execute(stmt);
           }
         }
 
@@ -344,15 +349,13 @@ export async function publishCatalogSnapshot(
         staleCount: staleIds.length
       });
 
-      await writeTarget.execute({
+      await tx.execute({
         sql: `INSERT INTO catalog_runs (id, published_at, product_count, source_db_hash, status, metadata) VALUES (?, ?, ?, ?, ?, ?)`,
         args: [runId, publishedAt, publishedCount, sourceDbHash, "success", metadata]
       });
 
       // 4. Commit write transaction
-      if (tx) {
-        await tx.commit();
-      }
+      await tx.commit();
 
       return {
         success: true,
@@ -363,12 +366,10 @@ export async function publishCatalogSnapshot(
         stats: validation.stats
       };
     } catch (txErr: unknown) {
-      if (tx) {
-        try {
-          await tx.rollback();
-        } catch {
-          // ignore rollback failure
-        }
+      try {
+        await tx.rollback();
+      } catch {
+        // ignore rollback failure
       }
       throw txErr;
     }

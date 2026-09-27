@@ -749,5 +749,123 @@ describe("Publisher Engine & Turso Schema", () => {
 
       cleanup();
     });
+
+    it("fails closed and publishes nothing when transaction is unavailable or throws", async () => {
+      // 1. Transaction unavailable (not a function / missing)
+      const { dbPath: dbPath1, cleanup: cleanup1 } = createCandidateDatabase([
+        { id: "p-no-tx", name: "No Transaction Product", retailer: "RetailerA" }
+      ]);
+      const mockClientNoTx = createMockClient();
+      // @ts-expect-error simulating client without transaction support
+      delete mockClientNoTx.transaction;
+
+      const resultNoTx = await publishCatalogSnapshot({
+        dbPath: dbPath1,
+        client: mockClientNoTx,
+        validatorOptions: { minProducts: 1 }
+      });
+
+      expect(resultNoTx.success).toBe(false);
+      expect(resultNoTx.publishedCount).toBe(0);
+      expect(resultNoTx.errors).toBeDefined();
+      expect(resultNoTx.errors![0]).toContain("transactions");
+      expect(mockClientNoTx.batches.length).toBe(0);
+      expect(mockClientNoTx.catalogRuns.length).toBe(0);
+      cleanup1();
+
+      // 2. Transaction rejected / throws
+      const { dbPath: dbPath2, cleanup: cleanup2 } = createCandidateDatabase([
+        { id: "p-tx-throws", name: "Tx Throws Product", retailer: "RetailerA" }
+      ]);
+      const mockClientTxThrows = createMockClient();
+      vi.spyOn(mockClientTxThrows, "transaction").mockRejectedValue(
+        new Error("Turso transaction lock timeout")
+      );
+
+      const resultTxThrows = await publishCatalogSnapshot({
+        dbPath: dbPath2,
+        client: mockClientTxThrows,
+        validatorOptions: { minProducts: 1 }
+      });
+
+      expect(resultTxThrows.success).toBe(false);
+      expect(resultTxThrows.publishedCount).toBe(0);
+      expect(resultTxThrows.errors).toBeDefined();
+      expect(resultTxThrows.errors![0]).toContain("Turso transaction lock timeout");
+      expect(mockClientTxThrows.batches.length).toBe(0);
+      expect(mockClientTxThrows.catalogRuns.length).toBe(0);
+
+      // Verify throwOnError also propagates the rejection
+      await expect(
+        publishCatalogSnapshot({
+          dbPath: dbPath2,
+          client: mockClientTxThrows,
+          throwOnError: true,
+          validatorOptions: { minProducts: 1 }
+        })
+      ).rejects.toThrow("Turso transaction lock timeout");
+
+      cleanup2();
+    });
+
+    it("scopes stale sweep by (country_code, retailer) so sweeping retailer in country Y does not sweep in country Z", async () => {
+      const client = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(client);
+
+      const now = new Date().toISOString();
+      // Seed Turso with Amazon products across two countries:
+      // Amazon US: 2 products (in_stock = 1)
+      // Amazon IN: 2 products (in_stock = 1)
+      await client.execute({
+        sql: `INSERT INTO products (id, name, currency, country_code, retailer, url, in_stock, category, first_seen, last_scraped)
+              VALUES ('amz-us-1', 'Amazon US Laptop', 'USD', 'US', 'Amazon', 'https://amazon.com/us1', 1, 'cpu', ?, ?),
+                     ('amz-us-2', 'Amazon US GPU', 'USD', 'US', 'Amazon', 'https://amazon.com/us2', 1, 'gpu', ?, ?),
+                     ('amz-in-keep', 'Amazon IN CPU', 'INR', 'IN', 'Amazon', 'https://amazon.in/cpu', 1, 'cpu', ?, ?),
+                     ('amz-in-stale', 'Amazon IN Stale Item', 'INR', 'IN', 'Amazon', 'https://amazon.in/stale', 1, 'cpu', ?, ?)`,
+        args: [now, now, now, now, now, now, now, now]
+      });
+
+      // Candidate DB is an IN snapshot:
+      // - amz-in-keep is present
+      // - amz-in-new is a newly added item
+      // - amz-in-stale is omitted (should be swept)
+      // - amz-us-1 and amz-us-2 are not in this candidate DB at all
+      const { dbPath, cleanup } = createCandidateDatabase([
+        { id: "amz-in-keep", name: "Amazon IN CPU", currency: "INR", country_code: "IN", retailer: "Amazon" },
+        { id: "amz-in-new", name: "Amazon IN New RAM", currency: "INR", country_code: "IN", retailer: "Amazon" }
+      ]);
+
+      const result = await publishCatalogSnapshot({
+        dbPath,
+        client,
+        validatorOptions: { minProducts: 1 }
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.publishedCount).toBe(2);
+      expect(result.staleCount).toBe(1);
+
+      // Verify Turso state:
+      const allRows = (
+        await client.execute("SELECT id, country_code, retailer, in_stock FROM products ORDER BY id")
+      ).rows;
+
+      const us1 = allRows.find((r) => r.id === "amz-us-1");
+      const us2 = allRows.find((r) => r.id === "amz-us-2");
+      const inKeep = allRows.find((r) => r.id === "amz-in-keep");
+      const inNew = allRows.find((r) => r.id === "amz-in-new");
+      const inStale = allRows.find((r) => r.id === "amz-in-stale");
+
+      // IN sweep correctly swept the omitted IN product
+      expect(inStale?.in_stock).toBe(0);
+      expect(inKeep?.in_stock).toBe(1);
+      expect(inNew?.in_stock).toBe(1);
+
+      // CRITICAL: US Amazon products MUST NOT be swept! They must remain in_stock = 1
+      expect(us1?.in_stock).toBe(1);
+      expect(us2?.in_stock).toBe(1);
+
+      cleanup();
+    });
   });
 });
