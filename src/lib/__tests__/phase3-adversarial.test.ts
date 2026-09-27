@@ -161,45 +161,70 @@ function createMockIndexedDB(options?: {
             const storeMap = stores.get(storeName) ?? new Map();
             if (!stores.has(storeName)) stores.set(storeName, storeMap);
 
-            return {
-              onerror: null as (() => void) | null,
-              objectStore() {
-                return {
-                  get(key: string) {
-                    const req = new MockIDBRequest();
-                    req.succeed(storeMap.get(key));
-                    return req;
-                  },
-                  getAll() {
-                    const req = new MockIDBRequest();
-                    req.succeed(Array.from(storeMap.values()));
-                    return req;
-                  },
-                  put(val: { id: string }) {
-                    const req = new MockIDBRequest();
-                    if (options?.failPut) {
-                      req.fail(options.putError ?? new DOMException("IDB transaction put failed", "QuotaExceededError"));
-                    } else {
-                      storeMap.set(val.id, JSON.parse(JSON.stringify(val)));
-                      req.succeed(undefined);
-                    }
-                    return req;
-                  },
-                  delete(key: string) {
-                    const req = new MockIDBRequest();
-                    storeMap.delete(key);
-                    req.succeed(undefined);
-                    return req;
-                  },
-                  clear() {
-                    const req = new MockIDBRequest();
-                    storeMap.clear();
-                    req.succeed(undefined);
-                    return req;
-                  }
-                };
-              }
+            // Real IndexedDB settles a write on the *transaction*: the request's
+            // `success` fires first, then the transaction commits (`oncomplete`).
+            // A failed request bubbles up to the transaction and aborts it.
+            const tx: {
+              oncomplete: (() => void) | null;
+              onabort: (() => void) | null;
+              onerror: (() => void) | null;
+              objectStore: () => unknown;
+            } = { oncomplete: null, onabort: null, onerror: null, objectStore: () => undefined };
+
+            const commit = (apply: () => void) => {
+              queueMicrotask(() => {
+                apply();
+                if (options?.failPut) {
+                  tx.onerror?.();
+                  tx.onabort?.();
+                } else {
+                  tx.oncomplete?.();
+                }
+              });
             };
+
+            tx.objectStore = () => ({
+              get(key: string) {
+                const req = new MockIDBRequest();
+                req.succeed(storeMap.get(key));
+                return req;
+              },
+              getAll() {
+                const req = new MockIDBRequest();
+                req.succeed(Array.from(storeMap.values()));
+                return req;
+              },
+              put(val: { id: string }) {
+                const req = new MockIDBRequest();
+                if (options?.failPut) {
+                  commit(() => req.fail(options.putError ?? new DOMException("IDB transaction put failed", "QuotaExceededError")));
+                } else {
+                  commit(() => {
+                    storeMap.set(val.id, JSON.parse(JSON.stringify(val)));
+                    req.succeed(undefined);
+                  });
+                }
+                return req;
+              },
+              delete(key: string) {
+                const req = new MockIDBRequest();
+                commit(() => {
+                  storeMap.delete(key);
+                  req.succeed(undefined);
+                });
+                return req;
+              },
+              clear() {
+                const req = new MockIDBRequest();
+                commit(() => {
+                  storeMap.clear();
+                  req.succeed(undefined);
+                });
+                return req;
+              }
+            });
+
+            return tx;
           },
           close() {},
           onversionchange: null,
@@ -1043,33 +1068,28 @@ describe("Phase 3 Adversarial & Stress Testing", () => {
       expect(retrieved?.title).toBe("Mid-Flight IDB Error Recovery");
     });
 
-    it("falls back to in-memory store when both IndexedDB and localStorage are blocked", async () => {
+    it("reports a save as failed when both IndexedDB and localStorage are blocked", async () => {
       vi.stubGlobal("indexedDB", undefined);
       vi.stubGlobal("localStorage", undefined);
 
       expect(await getEffectiveStorageType()).toBe("memory");
 
-      await saveClientSession({
-        id: "sess-pure-mem-1",
-        revision: 1,
-        title: "Pure In-Memory Session",
-        messages: [makeMessage("m1", "Ephemeral only")]
-      });
+      // No durable layer exists, so the save must not report success: an
+      // in-memory copy dies with the tab.
+      await expect(
+        saveClientSession({
+          id: "sess-pure-mem-1",
+          revision: 1,
+          title: "Pure In-Memory Session",
+          messages: [makeMessage("m1", "Ephemeral only")]
+        })
+      ).rejects.toMatchObject({ reason: "no_durable_storage" });
 
-      const retrieved = await getClientSession("sess-pure-mem-1");
-      expect(retrieved).not.toBeNull();
-      expect(retrieved?.title).toBe("Pure In-Memory Session");
-
-      const list = await listClientSessions();
-      expect(list.length).toBe(1);
-      expect(list[0].id).toBe("sess-pure-mem-1");
-
-      await deleteClientSession("sess-pure-mem-1");
       expect(await getClientSession("sess-pure-mem-1")).toBeNull();
       expect(await listClientSessions()).toEqual([]);
     });
 
-    it("handles localStorage QuotaExceededError by pruning oldest session or falling back to memory", async () => {
+    it("reports a full localStorage instead of pruning the oldest chat", async () => {
       vi.stubGlobal("indexedDB", undefined);
       const mockLs = new MockStorage();
 
@@ -1096,25 +1116,23 @@ describe("Phase 3 Adversarial & Stress Testing", () => {
       // Trip the quota error
       quotaTripped = true;
 
-      // Saving another session should NOT throw an unhandled error to the caller
-      await expect(
-        saveClientSession({
-          id: "sess-new-during-quota",
-          revision: 1,
-          title: "Session Saved During Quota Error",
-          messages: [makeMessage("m2", "New")]
-        })
-      ).resolves.toBeUndefined();
+      const failure = await saveClientSession({
+        id: "sess-new-during-quota",
+        revision: 1,
+        title: "Session Saved During Quota Error",
+        messages: [makeMessage("m2", "New")]
+      }).catch((error: unknown) => error);
 
-      // The new session is safely accessible via memory fallback
-      const retrievedNew = await getClientSession("sess-new-during-quota");
-      expect(retrievedNew).not.toBeNull();
-      expect(retrievedNew?.id).toBe("sess-new-during-quota");
-      expect(retrievedNew?.title).toBe("Session Saved During Quota Error");
+      expect(failure).toMatchObject({ reason: "quota_exceeded" });
 
-      // Both the existing local session and in-memory session are listed
+      // The older chat is still there: deciding what to delete is the user's call.
+      const older = await getClientSession("sess-old");
+      expect(older?.title).toBe("Old Session");
+
+      // The new chat was not saved, and nothing pretends it was.
+      expect(await getClientSession("sess-new-during-quota")).toBeNull();
       const combinedList = await listClientSessions();
-      expect(combinedList.some((s) => s.id === "sess-new-during-quota")).toBe(true);
+      expect(combinedList.some((s) => s.id === "sess-new-during-quota")).toBe(false);
     });
 
     it("resiliently handles corrupted or malformed entries in storage without crashing", async () => {

@@ -1,8 +1,50 @@
 import type { ChatUIMessage } from "@/features/chat/message";
 import type { SessionSummary } from "@/types/client";
 import { deriveBuildState } from "@/lib/llm/messages";
+import { markInterruptedToolCalls } from "@/lib/sessions/interrupted-tools";
 import { parseCompactContext, type StoredCompactContext } from "./compact-context";
 import type { UIMessage } from "ai";
+
+export type SessionConflictReason = "stale_revision" | "session_deleted";
+
+/**
+ * The browser-store twin of the server's 409 responses (`stale_revision` /
+ * `session_deleted`, see `src/lib/sessions.ts`). `SessionSaveQueue` handles
+ * local and hosted conflicts through one code path, so it detects this class
+ * with the structural `isSessionConflict` marker instead of importing it —
+ * that would create a cycle through `api-client`.
+ */
+export class SessionConflictError extends Error {
+  readonly isSessionConflict = true;
+  constructor(
+    readonly reason: SessionConflictReason,
+    readonly revision: number | null,
+    message: string
+  ) {
+    super(message);
+    this.name = "SessionConflictError";
+  }
+}
+
+/** Why a browser-side save could not be made durable. */
+export type SessionPersistenceFailure = "no_durable_storage" | "quota_exceeded";
+
+/**
+ * Thrown when a chat could not be written to any durable store in this
+ * browser. The save is **not** silently accepted: nothing was persisted, so
+ * the queue leaves the snapshot unacknowledged and the UI warns the user.
+ */
+export class SessionPersistenceError extends Error {
+  readonly isSessionPersistenceError = true;
+  constructor(
+    readonly reason: SessionPersistenceFailure,
+    message: string,
+    options?: { cause?: unknown }
+  ) {
+    super(message, options);
+    this.name = "SessionPersistenceError";
+  }
+}
 
 export type SessionDetail = {
   id: string;
@@ -149,8 +191,12 @@ function toSessionDetail(record: StoredClientSession): SessionDetail {
     updated_at: parseDateSafe(record.updated_at),
     country_code: record.country_code,
     currency: record.currency,
+    // Interrupted tool calls are repaired in memory on read; the stored
+    // transcript keeps whatever state the stream was in when it stopped.
     messages: Array.isArray(record.messages)
-      ? record.messages.map((m, idx) => normalizeUIMessage(m, idx))
+      ? (markInterruptedToolCalls(record.messages) as ChatUIMessage[]).map((m, idx) =>
+          normalizeUIMessage(m, idx)
+        )
       : [],
     build_state: record.build_state ?? null,
     compact_context: record.compact_context ?? null
@@ -298,6 +344,44 @@ async function idbGet(id: string): Promise<StoredClientSession | null> {
   });
 }
 
+/**
+ * Settle a write on the *transaction* outcome, not on the request's.
+ *
+ * MDN (IDBTransaction) is explicit that a successful request does not mean the
+ * data is stored: "report on the success of the request (this does not mean
+ * the item has been stored successfully in the DB - for that you need
+ * transaction.oncomplete)". A request error "can bubble up to an error on the
+ * transaction, which aborts the transaction", so `onabort`/`onerror` mean the
+ * write was rolled back. Resolving on `onsuccess` (as this file used to) can
+ * therefore report a save as durable moments before it is discarded.
+ *
+ * What `oncomplete` does *not* promise, per the same MDN page: since Firefox 40
+ * "the `complete` event is fired after the OS has been told to write the data but
+ * potentially before that data has actually been flushed to disk", so "there
+ * exists a small chance that the entire transaction will be lost if the OS crashes
+ * or there is a loss of system power before the data is flushed to disk". Settling
+ * on `oncomplete` is the strongest signal IndexedDB offers and is the right choice
+ * here; it is not a power-loss guarantee, and nothing in this file claims it is.
+ */
+function awaitTransactionCommit(tx: IDBTransaction, request: IDBRequest, label: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (finish: () => void) => {
+      if (settled) return;
+      settled = true;
+      finish();
+    };
+    tx.oncomplete = () => settle(resolve);
+    tx.onabort = () =>
+      settle(() => reject(request.error ?? tx.error ?? new Error(`IndexedDB write aborted for ${label}`)));
+    tx.onerror = () =>
+      settle(() => reject(tx.error ?? request.error ?? new Error(`IndexedDB transaction failed for ${label}`)));
+    // Covers a request-level error in implementations that surface it without
+    // bubbling to the transaction.
+    request.onerror = () => settle(() => reject(request.error ?? new Error(`IndexedDB request failed for ${label}`)));
+  });
+}
+
 async function idbSave(record: StoredClientSession): Promise<void> {
   const db = await openIndexedDb();
   return new Promise((resolve, reject) => {
@@ -305,9 +389,7 @@ async function idbSave(record: StoredClientSession): Promise<void> {
       const tx = db.transaction(STORE_NAME, "readwrite");
       const store = tx.objectStore(STORE_NAME);
       const req = store.put(record);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error || new Error(`IndexedDB put(${record.id}) failed`));
-      tx.onerror = () => reject(tx.error || new Error(`IndexedDB transaction failed for ${record.id}`));
+      void awaitTransactionCommit(tx, req, `put(${record.id})`).then(resolve, reject);
     } catch (err) {
       reject(err);
     }
@@ -321,9 +403,7 @@ async function idbDelete(id: string): Promise<void> {
       const tx = db.transaction(STORE_NAME, "readwrite");
       const store = tx.objectStore(STORE_NAME);
       const req = store.delete(id);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error || new Error(`IndexedDB delete(${id}) failed`));
-      tx.onerror = () => reject(tx.error || new Error(`IndexedDB delete transaction failed for ${id}`));
+      void awaitTransactionCommit(tx, req, `delete(${id})`).then(resolve, reject);
     } catch (err) {
       reject(err);
     }
@@ -337,9 +417,7 @@ async function idbClear(): Promise<void> {
       const tx = db.transaction(STORE_NAME, "readwrite");
       const store = tx.objectStore(STORE_NAME);
       const req = store.clear();
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error || new Error("IndexedDB clear failed"));
-      tx.onerror = () => reject(tx.error || new Error("IndexedDB clear transaction failed"));
+      void awaitTransactionCommit(tx, req, "clear()").then(resolve, reject);
     } catch (err) {
       reject(err);
     }
@@ -351,7 +429,14 @@ async function idbClear(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 const LS_PREFIX = "pcbuildsage:session:";
+/** Deliberately outside `LS_PREFIX` so the tombstone list is not read as a session. */
+const TOMBSTONE_KEY = "pcbuildsage:session_tombstones";
 
+/**
+ * Whether localStorage accepts writes. A full store fails this probe, so it is
+ * only used to pick a *write* target — never to decide whether a layer is
+ * readable, or a quota problem would make every saved chat unreadable.
+ */
 function isLocalStorageAvailable(): boolean {
   try {
     if (typeof localStorage === "undefined" || localStorage === null) return false;
@@ -365,7 +450,7 @@ function isLocalStorageAvailable(): boolean {
 }
 
 function lsList(): StoredClientSession[] {
-  if (!isLocalStorageAvailable()) return [];
+  if (typeof localStorage === "undefined" || localStorage === null) return [];
   const results: StoredClientSession[] = [];
   try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -389,7 +474,7 @@ function lsList(): StoredClientSession[] {
 }
 
 function lsGet(id: string): StoredClientSession | null {
-  if (!isLocalStorageAvailable()) return null;
+  if (typeof localStorage === "undefined" || localStorage === null) return null;
   try {
     const raw = localStorage.getItem(LS_PREFIX + id);
     if (!raw) return null;
@@ -399,38 +484,75 @@ function lsGet(id: string): StoredClientSession | null {
   }
 }
 
-function pruneOldestLocalStorageSession(excludeId: string): boolean {
+// ---------------------------------------------------------------------------
+// Tombstones: ids the user deleted, so a late save cannot resurrect the chat.
+// Mirrors the server's `session_tombstones` table. Backed by localStorage so it
+// survives a reload in hosted mode, with an in-memory cache to avoid re-parsing
+// on every read.
+// ---------------------------------------------------------------------------
+
+let cachedTombstones: Set<string> | null = null;
+
+function readTombstones(): Set<string> {
+  if (cachedTombstones) return cachedTombstones;
+  let ids: string[] = [];
+  if (isLocalStorageAvailable()) {
+    try {
+      const raw = localStorage.getItem(TOMBSTONE_KEY);
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) {
+        ids = parsed.filter((value): value is string => typeof value === "string" && value.length > 0);
+      }
+    } catch {
+      // A corrupt tombstone list must not block saves; start over empty.
+    }
+  }
+  cachedTombstones = new Set(ids);
+  return cachedTombstones;
+}
+
+function writeTombstones(ids: Set<string>): void {
+  cachedTombstones = new Set(ids);
+  if (!isLocalStorageAvailable()) return;
   try {
-    const all = lsList().filter((s) => s.id !== excludeId);
-    if (all.length === 0) return false;
-    all.sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
-    localStorage.removeItem(LS_PREFIX + all[0].id);
-    return true;
+    localStorage.setItem(TOMBSTONE_KEY, JSON.stringify([...ids]));
   } catch {
-    return false;
+    // Keep the in-memory copy; a full storage layer will fail the save loudly.
   }
 }
 
+function isTombstoned(id: string): boolean {
+  return readTombstones().has(id);
+}
+
+function addTombstone(id: string): void {
+  const ids = readTombstones();
+  if (ids.has(id)) return;
+  ids.add(id);
+  writeTombstones(ids);
+}
+
 function lsSave(record: StoredClientSession): void {
-  if (!isLocalStorageAvailable()) {
-    throw new Error("localStorage is not available");
-  }
   const key = LS_PREFIX + record.id;
   const serialized = JSON.stringify(record);
   try {
     localStorage.setItem(key, serialized);
   } catch (err) {
+    // Never evict an older chat to make room. Silently destroying a real
+    // conversation to save a newer one is not a trade the user agreed to, so
+    // report the failure and let the user decide what to delete.
     if (isQuotaExceededError(err)) {
-      if (pruneOldestLocalStorageSession(record.id)) {
-        try {
-          localStorage.setItem(key, serialized);
-          return;
-        } catch {
-          // Still failed
-        }
-      }
+      throw new SessionPersistenceError(
+        "quota_exceeded",
+        "Browser storage is full, so this chat was not saved. Delete an older chat and try again.",
+        { cause: err }
+      );
     }
-    throw err;
+    throw new SessionPersistenceError(
+      "no_durable_storage",
+      "This browser blocked localStorage, so the chat could not be saved on this device.",
+      { cause: err }
+    );
   }
 }
 
@@ -462,38 +584,12 @@ function lsClear(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Layer 3: In-Memory Fallback
-// ---------------------------------------------------------------------------
-
-const memoryStore = new Map<string, StoredClientSession>();
-
-function memList(): StoredClientSession[] {
-  return Array.from(memoryStore.values()).map((v) => JSON.parse(JSON.stringify(v)));
-}
-
-function memGet(id: string): StoredClientSession | null {
-  const item = memoryStore.get(id);
-  return item ? JSON.parse(JSON.stringify(item)) : null;
-}
-
-function memSave(record: StoredClientSession): void {
-  memoryStore.set(record.id, JSON.parse(JSON.stringify(record)));
-}
-
-function memDelete(id: string): void {
-  memoryStore.delete(id);
-}
-
-function memClear(): void {
-  memoryStore.clear();
-}
-
-// ---------------------------------------------------------------------------
 // Storage Driver Detection & Management
 // ---------------------------------------------------------------------------
 
 let forcedDriver: StorageType | null = null;
 
+/** Forces the layer a save is written to. Reads always consider every layer. */
 export function _setStorageDriverForTesting(driver: StorageType | null): void {
   forcedDriver = driver;
 }
@@ -501,7 +597,7 @@ export function _setStorageDriverForTesting(driver: StorageType | null): void {
 export function resetClientStoreState(): void {
   resetCachedDb();
   forcedDriver = null;
-  memClear();
+  cachedTombstones = null;
 }
 
 export async function getEffectiveStorageType(): Promise<StorageType> {
@@ -524,53 +620,86 @@ export async function getEffectiveStorageType(): Promise<StorageType> {
 }
 
 // ---------------------------------------------------------------------------
+// Newest-wins merge
+// ---------------------------------------------------------------------------
+
+/**
+ * Which of two stored copies of the same session is authoritative. A later
+ * `updated_at` wins; when two layers were written in the same millisecond the
+ * higher `revision` breaks the tie, so the sidebar list and the session that
+ * opens can never disagree about which copy is newer.
+ */
+function isNewerRecord(candidate: StoredClientSession, current: StoredClientSession): boolean {
+  const candidateAt = parseDateSafe(candidate.updated_at).getTime();
+  const currentAt = parseDateSafe(current.updated_at).getTime();
+  if (candidateAt !== currentAt) return candidateAt > currentAt;
+  return candidate.revision > current.revision;
+}
+
+/**
+ * The single newest-wins implementation behind both `listClientSessions` and
+ * `getClientSession`. Feeding the layers in priority order makes the first
+ * record of the returned list the winner, so callers can merge by id or look up
+ * a single id with the same code.
+ */
+function mergeNewestById(layers: readonly (readonly StoredClientSession[])[]): StoredClientSession[] {
+  const byId = new Map<string, StoredClientSession>();
+  for (const layer of layers) {
+    for (const record of layer) {
+      const existing = byId.get(record.id);
+      if (!existing || isNewerRecord(record, existing)) byId.set(record.id, record);
+    }
+  }
+  return [...byId.values()];
+}
+
+/** Every durable layer this browser can read right now, most authoritative first. */
+async function readableLayers(): Promise<StoredClientSession[][]> {
+  const layers: StoredClientSession[][] = [];
+  if (isIdbAvailable()) {
+    try {
+      layers.push(await idbList());
+    } catch {
+      // IndexedDB unreadable right now; localStorage below is what we have.
+    }
+  }
+  layers.push(lsList());
+  return layers;
+}
+
+/** One session read from every readable layer, for the newest-wins merge. */
+async function readableSessionCopies(id: string): Promise<StoredClientSession[]> {
+  const copies: StoredClientSession[] = [];
+  if (isIdbAvailable()) {
+    try {
+      const record = await idbGet(id);
+      if (record) copies.push(record);
+    } catch {
+      // IndexedDB unreadable right now; localStorage below is what we have.
+    }
+  }
+  const fallback = lsGet(id);
+  if (fallback) copies.push(fallback);
+  return copies;
+}
+
+// ---------------------------------------------------------------------------
 // Client Store Operations
 // ---------------------------------------------------------------------------
 
 /**
  * Lists all client sessions, sorted newest-first by updated_at.
- * Resilient against corrupted entries and quota errors.
+ * Every readable layer is merged with the same newest-wins rule `getClientSession`
+ * uses, so the sidebar never advertises a copy that opening the chat would not show.
+ * Resilient against corrupted entries.
  */
 export async function listClientSessions(): Promise<SessionSummary[]> {
-  const type = await getEffectiveStorageType();
-  let primaryRecords: StoredClientSession[] = [];
-
-  if (type === "indexeddb") {
-    try {
-      primaryRecords = await idbList();
-    } catch {
-      primaryRecords = lsList();
-    }
-  } else if (type === "localstorage") {
-    primaryRecords = lsList();
-  } else {
-    primaryRecords = memList();
-  }
-
-  // Also include localStorage and in-memory records (in case any saved via fallback)
-  const lsRecords = lsList();
-  const memRecords = memList();
-  const byId = new Map<string, StoredClientSession>();
-
-  for (const record of primaryRecords) {
-    byId.set(record.id, record);
-  }
-
-  for (const lsRecord of lsRecords) {
-    const existing = byId.get(lsRecord.id);
-    if (!existing || parseDateSafe(lsRecord.updated_at).getTime() >= parseDateSafe(existing.updated_at).getTime()) {
-      byId.set(lsRecord.id, lsRecord);
-    }
-  }
-
-  for (const memRecord of memRecords) {
-    const existing = byId.get(memRecord.id);
-    if (!existing || parseDateSafe(memRecord.updated_at).getTime() >= parseDateSafe(existing.updated_at).getTime()) {
-      byId.set(memRecord.id, memRecord);
-    }
-  }
-
-  const summaries: SessionSummary[] = Array.from(byId.values()).map(toSessionSummary);
+  // Tombstoned ids are filtered here as well as on read: a delete whose IndexedDB
+  // write failed leaves the row behind, and listing it would advertise a chat that
+  // opens as an empty screen because `getClientSession` honours the tombstone.
+  const tombstones = readTombstones();
+  const merged = mergeNewestById(await readableLayers()).filter((record) => !tombstones.has(record.id));
+  const summaries: SessionSummary[] = merged.map(toSessionSummary);
 
   // Sort newest-first by updated_at
   summaries.sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
@@ -579,41 +708,43 @@ export async function listClientSessions(): Promise<SessionSummary[]> {
 }
 
 /**
- * Retrieves a client session by ID.
- * Returns null if not found or if the stored session is corrupted.
+ * Retrieves a client session by ID, taking the newest copy across all readable
+ * layers. Returns null if not found, if the stored session is corrupted, or if
+ * the session was deleted (see the tombstone set).
  */
 export async function getClientSession(id: string): Promise<SessionDetail | null> {
-  const type = await getEffectiveStorageType();
-  let record: StoredClientSession | null = null;
-
-  if (type === "indexeddb") {
-    try {
-      record = await idbGet(id);
-    } catch {
-      record = lsGet(id);
-    }
-  } else if (type === "localstorage") {
-    record = lsGet(id);
-  }
-
-  if (!record) {
-    record = lsGet(id);
-  }
-
-  if (!record) {
-    record = memGet(id);
-  }
-
+  if (isTombstoned(id)) return null;
+  const record = mergeNewestById([await readableSessionCopies(id)])[0];
   if (!record) return null;
   return toSessionDetail(record);
 }
 
 /**
  * Saves a client session to storage.
- * Cascades from IndexedDB -> localStorage -> in-memory on error or quota limit.
+ * Cascades IndexedDB -> localStorage, then **fails loudly**: a save that could
+ * not be made durable throws (see `SessionPersistenceError`) instead of
+ * pretending to have worked. Conflicts are refused rather than overwriting a
+ * newer copy: an older revision and a deleted (tombstoned) id both throw
+ * `SessionConflictError`, mirroring `src/lib/sessions.ts`.
  */
 export async function saveClientSession(req: SaveSessionRequest): Promise<void> {
+  if (isTombstoned(req.id)) {
+    throw new SessionConflictError(
+      "session_deleted",
+      null,
+      `Session ${req.id} was deleted, so this save cannot recreate it.`
+    );
+  }
+
   const existing = await getClientSession(req.id);
+  if (existing && req.revision <= existing.revision) {
+    throw new SessionConflictError(
+      "stale_revision",
+      existing.revision,
+      `Session ${req.id} already has revision ${existing.revision}.`
+    );
+  }
+
   const now = new Date().toISOString();
 
   let buildState: unknown = null;
@@ -646,36 +777,26 @@ export async function saveClientSession(req: SaveSessionRequest): Promise<void> 
   if (type === "indexeddb") {
     try {
       await idbSave(record);
+      // The IndexedDB copy is now authoritative, so drop the fallback copies for
+      // this id. Leaving them behind is how the layers drift apart and the
+      // sidebar ends up listing a copy that opening the chat would not show.
+      lsDelete(req.id);
       return;
     } catch {
-      // IndexedDB save failed, fall back to localStorage
-      try {
-        lsSave(record);
-        return;
-      } catch {
-        // localStorage failed, fall back to memory
-        memSave(record);
-        return;
-      }
+      // IndexedDB write failed (aborted, blocked, over quota). Try localStorage.
     }
   }
 
-  if (type === "localstorage") {
-    try {
-      lsSave(record);
-      return;
-    } catch {
-      // localStorage failed, fall back to memory
-      memSave(record);
-      return;
-    }
-  }
-
-  memSave(record);
+  // No durable layer accepted the write. `lsSave` throws a typed error the save
+  // queue retries and the chat view surfaces; there is deliberately no in-memory
+  // fallback, because an in-memory copy is lost the moment the tab closes.
+  lsSave(record);
 }
 
 /**
- * Deletes a client session by ID across all storage layers.
+ * Deletes a client session by ID across all storage layers, and tombstones the
+ * id so a late save (e.g. one already in flight when the user hit delete) cannot
+ * resurrect the chat.
  */
 export async function deleteClientSession(id: string): Promise<void> {
   if (isIdbAvailable()) {
@@ -686,11 +807,13 @@ export async function deleteClientSession(id: string): Promise<void> {
     }
   }
   lsDelete(id);
-  memDelete(id);
+  addTombstone(id);
 }
 
 /**
- * Clears all client sessions across all storage layers.
+ * Clears all client sessions across all storage layers. Tombstones are kept:
+ * they only guard against resurrecting deleted chats, and new chats always get
+ * fresh ids.
  */
 export async function clearClientSessions(): Promise<void> {
   if (isIdbAvailable()) {
@@ -701,5 +824,4 @@ export async function clearClientSessions(): Promise<void> {
     }
   }
   lsClear();
-  memClear();
 }

@@ -33,7 +33,15 @@ import {
   SheetTitle,
   SheetDescription
 } from "@/components/animate-ui/components/radix/sheet";
-import { sessionSignature, type SessionSaveQueue } from "./session-save-queue";
+import {
+  decideStreamPersist,
+  registerPageCloseFlush,
+  sessionSignature,
+  shouldFlushOnPageHide,
+  type ServerSessionCopy,
+  type SessionSaveQueue
+} from "./session-save-queue";
+import { CONFLICT_ADOPTED_NOTICE, describeSaveFailure, SaveAlert } from "./save-failure-notice";
 import { TranscriptMenu } from "./transcript-menu";
 import { ChatRecovery, isIncompleteChatFinish, prepareChatRecovery, isContextLimitError } from "./chat-recovery";
 import { getModelContextLimit, estimateTokens, shouldTriggerCompaction, TOOL_DEFINITIONS_TOKEN_OVERHEAD } from "@/lib/llm/context-budget";
@@ -120,7 +128,9 @@ export function ChatView({
   initialMessages,
   saveQueue,
   onPersisted,
-  isActive = true
+  isActive = true,
+  onStreamingChange,
+  isLoading = false
 }: {
   config: ClientConfig;
   sessionId: string;
@@ -128,6 +138,15 @@ export function ChatView({
   saveQueue: SessionSaveQueue;
   onPersisted?: () => void;
   isActive?: boolean;
+  /** Report streaming state so the workspace can refuse to evict this chat. */
+  onStreamingChange?: (sessionId: string, streaming: boolean) => void;
+  /**
+   * True while this chat's messages are still being fetched. Renders a loading
+   * state instead of the new-chat screen, and suppresses the composer and build
+   * panel so a half-loaded chat cannot be written into. Optional: callers that
+   * omit it behave exactly as before.
+   */
+  isLoading?: boolean;
 }) {
   const { setHeaderSuffix, updateConfig } = useApp();
   const configRef = useRef(config);
@@ -212,12 +231,18 @@ export function ChatView({
   const [incompleteNotice, setIncompleteNotice] = useState<{ sessionId: string } | null>(null);
   const [isCompacting, setIsCompacting] = useState(false);
   const [contextExceededNotice, setContextExceededNotice] = useState<string | null>(null);
+  /** Set when a save could not be made durable anywhere on this device. */
+  const [saveFailureNotice, setSaveFailureNotice] = useState<string | null>(null);
+  /** Set when another tab's newer copy of this chat replaced the local one. */
+  const [conflictNotice, setConflictNotice] = useState<string | null>(null);
 
   const [prevSessionId, setPrevSessionId] = useState(sessionId);
   if (sessionId !== prevSessionId) {
     setPrevSessionId(sessionId);
     setIsCompacting(false);
     setContextExceededNotice(null);
+    setSaveFailureNotice(null);
+    setConflictNotice(null);
   }
 
   useEffect(() => {
@@ -264,6 +289,30 @@ export function ChatView({
   useEffect(() => {
     setMessagesRef.current = setMessages;
   });
+
+  // The save queue lives in the workspace, so the view late-binds the callbacks
+  // that need its own state: surfacing a save that could not be made durable, and
+  // adopting the winner of a revision conflict instead of overwriting it.
+  useEffect(() => {
+    saveQueue.setHandlers({
+      onPersistError: (error) => {
+        // Each failure means something different, and only some of them are worth
+        // interrupting the user for - a flush that could not fit through keepalive
+        // describes no user-facing problem at all.
+        setSaveFailureNotice(describeSaveFailure(error));
+      },
+      onConflictAdopted: (copy: ServerSessionCopy) => {
+        saveQueue.observeRevision(copy.revision);
+        setMessagesRef.current(copy.messages);
+        // The compacted context summarises the transcript we just adopted, so it has
+        // to be replaced with theirs. Keeping ours would make the next save - which
+        // is revision+1 and therefore accepted - persist a summary that no longer
+        // describes the conversation.
+        compactContextRef.current = (copy.compactContext as StoredCompactContext | null | undefined) ?? null;
+        setConflictNotice(CONFLICT_ADOPTED_NOTICE);
+      }
+    });
+  }, [saveQueue]);
 
   const messagesRef = useRef(messages);
   useEffect(() => {
@@ -476,6 +525,28 @@ export function ChatView({
   }, [latestBuilds, isActive, setActiveBuilds]);
 
   const streaming = status === "streaming" || status === "submitted";
+
+  // Read by the page-close flush, which is registered once and must not need
+  // re-registering every time the status flips.
+  const streamingRef = useRef(streaming);
+  useEffect(() => {
+    streamingRef.current = streaming;
+  }, [streaming]);
+
+  // Tell the workspace whether this chat may be evicted. Unmounting a streaming
+  // view kills its stream, so the pool must be allowed over its cap instead.
+  useEffect(() => {
+    onStreamingChange?.(sessionId, streaming);
+  }, [onStreamingChange, sessionId, streaming]);
+
+  // Unmount only. A stream that dies with its view would otherwise leave the entry
+  // flagged streaming forever, which makes it permanently unevictable. Split from
+  // the effect above so the reset does not also fire on every status change.
+  useEffect(
+    () => () => onStreamingChange?.(sessionId, false),
+    [onStreamingChange, sessionId]
+  );
+
   const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
   const activeModel = useMemo(
     () => resolveActiveModel(config, lastAssistantMessage?.metadata?.model),
@@ -604,25 +675,32 @@ export function ChatView({
   }, [messages, streaming, isActive]);
 
   const persistSnapshot = useCallback(
-    (currentMessages: ChatUIMessage[]) => {
+    (currentMessages: ChatUIMessage[], options?: { urgent?: boolean }) => {
       if (currentMessages.length === 0) return;
       const signature = sessionSignature(currentMessages);
       const marketPref = getMarketPreference();
 
+      // Compaction may have run during this turn; carry the compacted context into
+      // every save, including the throttled mid-stream ones and the page-close
+      // flush, so a reopened chat resumes against the same compacted history.
       const lastAssistant = [...currentMessages].reverse().find((m) => m.role === "assistant");
       const meta = lastAssistant?.metadata as { compactContext?: StoredCompactContext } | undefined;
       if (meta?.compactContext) {
         compactContextRef.current = meta.compactContext;
       }
 
-      void saveQueue.enqueue(signature, {
-        id: sessionIdRef.current,
-        messages: currentMessages,
-        title: deriveTitle(currentMessages),
-        countryCode: marketPref.countryCode || configRef.current.countryCode,
-        currency: marketPref.currencyCode || configRef.current.currency,
-        compactContext: compactContextRef.current
-      });
+      void saveQueue.enqueue(
+        signature,
+        {
+          id: sessionIdRef.current,
+          messages: currentMessages,
+          title: deriveTitle(currentMessages),
+          countryCode: marketPref.countryCode || configRef.current.countryCode,
+          currency: marketPref.currencyCode || configRef.current.currency,
+          compactContext: compactContextRef.current
+        },
+        options
+      );
     },
     [saveQueue]
   );
@@ -633,23 +711,87 @@ export function ChatView({
     persistSnapshot(messages);
   }, [status, messages, persistSnapshot]);
 
+  // Persist *while* streaming, throttled. Without this, closing or reloading the
+  // page mid-reply throws the whole partial answer away: the effect above only
+  // ever runs once a turn reaches "ready" or "error".
+  const streamSaveRef = useRef<{ signature: string | null; at: number | null }>({ signature: null, at: null });
+  useEffect(() => {
+    // The guard comes first on purpose: sessionSignature is a full JSON.stringify
+    // of the transcript, and this effect runs on every render of every mounted pool
+    // entry. Deciding "skip" first keeps an idle background tab from paying for a
+    // signature nobody reads.
+    if (!streaming || messages.length === 0) return;
+    const signature = sessionSignature(messages);
+    const now = Date.now();
+    const decision = decideStreamPersist({
+      streaming,
+      signature,
+      lastSavedSignature: streamSaveRef.current.signature,
+      lastSavedAt: streamSaveRef.current.at,
+      now
+    });
+    if (decision !== "save") return;
+    streamSaveRef.current = { signature, at: now };
+    persistSnapshot(messages);
+  }, [messages, streaming, persistSnapshot]);
+
+  /**
+   * Best-effort flush when the page is being hidden or closed. Local mode sends
+   * this with `fetch(..., { keepalive: true })`, which MDN documents as not being
+   * aborted by the unload: "the browser will not abort the associated request if
+   * the page that initiated it is unloaded before the request is complete".
+   *
+   * Two honest limits, both of which make this a tail-risk reducer rather than
+   * the durability mechanism:
+   *
+   * - It cannot work above 64 KiB of body. MDN: "The body size for `keepalive`
+   *   requests is limited to 64 kibibytes." A real long chat is far larger, so the
+   *   flush refuses and throws rather than letting the browser silently drop it.
+   *   The 5-second throttle above is what actually protects a long conversation.
+   * - `visibilitychange` (hidden) also fires on an ordinary tab switch, and an
+   *   urgent write deliberately bypasses the queue's dedupe. Re-uploading an
+   *   unchanged transcript on every tab switch would be pure waste, so the flush
+   *   only fires when there is something the last save does not already have:
+   *   a live stream, or messages that have changed since it.
+   *
+   * The browser can also skip the event entirely. MDN, on `pagehide`: "the
+   * `pagehide` event is not fired at all" when the user switches to another app and
+   * later closes the browser from the app manager. A request already in flight
+   * cannot be jumped ahead of either. None of that changes what the throttle
+   * guarantees.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const lifecycle = {
+      get visibilityState() {
+        return document.visibilityState;
+      },
+      addEventListener: (type: string, listener: () => void) => document.addEventListener(type, listener),
+      removeEventListener: (type: string, listener: () => void) => document.removeEventListener(type, listener)
+    };
+    return registerPageCloseFlush(lifecycle, () => {
+      const messages = messagesRef.current;
+      const shouldFlush = shouldFlushOnPageHide({
+        messageCount: messages.length,
+        streaming: streamingRef.current,
+        signature: sessionSignature(messages),
+        isAcknowledged: (signature) => saveQueue.isAcknowledged(signature)
+      });
+      if (!shouldFlush) return;
+      persistSnapshot(messages, { urgent: true });
+    });
+  }, [persistSnapshot, saveQueue]);
+
+  // The view is going away (pool eviction, app teardown), so this is the last
+  // chance to write: same urgent path as the page-close flush, and the same
+  // compactContext carry-over, because it goes through `persistSnapshot`.
   useEffect(() => {
     return () => {
       if (messagesRef.current.length > 0) {
-        const msgs = messagesRef.current;
-        const signature = sessionSignature(msgs);
-        const marketPref = getMarketPreference();
-        void saveQueue.enqueue(signature, {
-          id: sessionIdRef.current,
-          messages: msgs,
-          title: deriveTitle(msgs),
-          countryCode: marketPref.countryCode || configRef.current.countryCode,
-          currency: marketPref.currencyCode || configRef.current.currency,
-          compactContext: compactContextRef.current
-        });
+        persistSnapshot(messagesRef.current, { urgent: true });
       }
     };
-  }, [saveQueue]);
+  }, [persistSnapshot]);
 
   const checkShouldCompact = (currentMsgs: ChatUIMessage[], newText: string) => {
     const entry = configRef.current.chatChain?.[0];
@@ -659,7 +801,7 @@ export function ChatView({
   };
 
   const send = (text: string) => {
-    if (!text.trim() || streaming) return;
+    if (!text.trim() || streaming || isLoading) return;
     recovery.reset();
     setIncompleteNotice(null);
     if (checkShouldCompact(messages, text)) {
@@ -675,7 +817,7 @@ export function ChatView({
   };
 
   const handleEditMessage = (index: number, newText: string) => {
-    if (streaming) return;
+    if (streaming || isLoading) return;
     recovery.reset();
     setIncompleteNotice(null);
     const truncated = messages.slice(0, index);
@@ -698,7 +840,15 @@ export function ChatView({
       <div className="flex flex-1 flex-col min-w-0 h-full">
         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[760px] px-4 pb-6">
-            {messages.length === 0 ? (
+            {isLoading ? (
+              // An existing chat whose messages are still being fetched. Showing
+              // the new-chat screen here would look like an empty history and
+              // invite the user to type into a thread that is about to change.
+              <div className="flex items-center gap-2 pt-8 text-sm text-text-muted" role="status">
+                <span className="h-2 w-2 rounded-full bg-text-muted animate-pulse shrink-0" />
+                <span>Loading chat…</span>
+              </div>
+            ) : messages.length === 0 ? (
               <ChatEmptyState onPick={send} currency={config.currency} />
             ) : (
               <div className="flex flex-col gap-6 pt-6">
@@ -743,6 +893,9 @@ export function ChatView({
               <p className="mt-4 rounded-card border border-border bg-surface px-4 py-3 text-sm text-text-secondary" role="alert">
                 Response ended before completion. You can send “continue” to try again.
               </p>
+            ) : null}
+            {saveFailureNotice || conflictNotice ? (
+              <SaveAlert message={saveFailureNotice ?? conflictNotice ?? ""} />
             ) : null}
             {contextExceededNotice ? (
               <div
@@ -804,6 +957,9 @@ export function ChatView({
                 setIsCompacting(false);
                 void stop();
               }}
+              // A half-loaded chat must not be messaged into: the transcript it
+              // would be appended to is not the one the user is looking at.
+              disabled={isLoading}
               streaming={streaming || activeIsCompacting}
             />
             <p className="mt-2 text-center text-caption text-text-muted">
@@ -827,7 +983,7 @@ export function ChatView({
       </div>
 
       {/* Desktop Right Side Panel Splitter & Aside */}
-      {sidePanelOpen && displayBuilds && displayBuilds.length > 0 ? (
+      {!isLoading && sidePanelOpen && displayBuilds && displayBuilds.length > 0 ? (
         <>
           {/* Clean Draggable Splitter Area (no visible handle artifact) */}
           <div
@@ -920,7 +1076,10 @@ export function ChatView({
       ) : null}
 
       {/* Mobile/Tablet Slide-over Drawer / Sheet */}
-      <Sheet open={sidePanelOpen && !isDesktop && Boolean(displayBuilds?.length)} onOpenChange={setSidePanelOpen}>
+      <Sheet
+        open={!isLoading && sidePanelOpen && !isDesktop && Boolean(displayBuilds?.length)}
+        onOpenChange={setSidePanelOpen}
+      >
         <SheetContent
           side="right"
           className="w-full sm:max-w-md bg-surface p-0 flex flex-col h-full border-l border-border"
