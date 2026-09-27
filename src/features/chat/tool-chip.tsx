@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -28,31 +28,13 @@ export type ToolPart = {
   toolName?: string;
 };
 
-const SUBAGENT_SPECS_PHASES = [
-  "web search",
-  "crawl datasheet",
-  "synthesizing specs"
-];
-
-const SUBAGENT_AUDIT_PHASES = [
-  "audit pairings",
-  "verify BIOS & VRM",
-  "check clearances"
-];
-
-const SUBAGENT_FREEFORM_PHASES = [
-  "web search",
-  "crawl sources",
-  "reasoning"
-];
-
 function toolName(part: ToolPart): string {
   if (part.toolName) return part.toolName;
   return part.type.startsWith("tool-") ? part.type.slice("tool-".length) : part.type;
 }
 
 // Summarize a tool result into the chip's right-hand phrase.
-function summarize(name: string, part: ToolPart, runningPhaseIndex = 0): string {
+function summarize(name: string, part: ToolPart): string {
   if (part.state === "output-error") return part.errorText ? "error" : "error";
   const isRunning = part.state && part.state !== "output-available";
   const input = part.input as Record<string, unknown> | undefined;
@@ -60,21 +42,7 @@ function summarize(name: string, part: ToolPart, runningPhaseIndex = 0): string 
 
   if (name === "consult") {
     const mode = input?.mode;
-    if (isRunning) {
-      if (mode === "component_specs" && typeof input?.name === "string") {
-        const phase = SUBAGENT_SPECS_PHASES[runningPhaseIndex % SUBAGENT_SPECS_PHASES.length];
-        return `${phase} (${input.name})…`;
-      }
-      if (mode === "build_audit") {
-        const phase = SUBAGENT_AUDIT_PHASES[runningPhaseIndex % SUBAGENT_AUDIT_PHASES.length];
-        return `${phase}…`;
-      }
-      if (mode === "freeform") {
-        const phase = SUBAGENT_FREEFORM_PHASES[runningPhaseIndex % SUBAGENT_FREEFORM_PHASES.length];
-        return `${phase}…`;
-      }
-      return "researching…";
-    }
+    if (isRunning) return "research in progress…";
     if (!output) return "researched";
     if (output.error || output.label === "unverified") {
       const errStr = typeof output.error === "string" ? output.error : "research failed";
@@ -115,7 +83,6 @@ function summarize(name: string, part: ToolPart, runningPhaseIndex = 0): string 
 
 export function ToolChip({ part }: { part: ToolPart }) {
   const [open, setOpen] = useState(false);
-  const [runningPhaseIndex, setRunningPhaseIndex] = useState(0);
   const rawName = toolName(part);
   const isConsult = rawName === "consult";
   const displayName = isConsult ? "subagent" : rawName;
@@ -126,14 +93,6 @@ export function ToolChip({ part }: { part: ToolPart }) {
   const output = part.output as Record<string, unknown> | undefined;
   const hasOutputError = Boolean(output?.error);
   const isError = part.state === "output-error" || (isConsult && hasOutputError);
-
-  useEffect(() => {
-    if (!running || !isConsult) return;
-    const interval = setInterval(() => {
-      setRunningPhaseIndex((prev) => (prev + 1) % 3);
-    }, 1800);
-    return () => clearInterval(interval);
-  }, [running, isConsult]);
 
   return (
     <div className="my-2">
@@ -160,14 +119,14 @@ export function ToolChip({ part }: { part: ToolPart }) {
         <span aria-hidden className="text-text-muted font-bold">
           {separator}
         </span>
-        <span className="truncate">{summarize(rawName, part, runningPhaseIndex)}</span>
+        <span className="truncate">{summarize(rawName, part)}</span>
         <Icon icon={open ? ChevronDown : ChevronRight} size={13} />
       </button>
 
       {open ? (
         <div className="mt-1.5 space-y-3 rounded-card border border-border bg-surface p-3.5 shadow-sm">
           {isConsult && running ? (
-            <ConsultRunningCard input={input} activeStageIndex={runningPhaseIndex} />
+            <ConsultRunningCard input={input} />
           ) : isConsult && output && !isError ? (
             <ConsultResultCard input={input} output={output} />
           ) : isConsult && isError ? (
@@ -206,65 +165,12 @@ export function ToolChip({ part }: { part: ToolPart }) {
   );
 }
 
-function ConsultRunningCard({ input, activeStageIndex = 0 }: { input?: Record<string, unknown>; activeStageIndex?: number }) {
+function ConsultRunningCard({ input }: { input?: Record<string, unknown> }) {
   const name = typeof input?.name === "string" ? input.name : undefined;
-  const category = typeof input?.category === "string" ? input.category : undefined;
-
-  const stages = [
-    { title: "web search", label: "Web Search", desc: "Querying technical datasheets & component databases", icon: Search },
-    { title: "crawl datasheet", label: "Page Crawler", desc: "Crawling manufacturer physical dimensions & TDP", icon: Globe },
-    { title: "synthesizing specs", label: "Spec Synthesis", desc: "Validating schema & physical clearances", icon: Sparkles }
-  ];
-
   return (
-    <div className="space-y-3 rounded-card border border-accent/20 bg-surface-raised/60 p-3.5">
-      <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent" />
-          </span>
-          <span className="font-mono text-caption font-semibold uppercase tracking-wider text-accent">
-            Tier 2 Research Subagent Active
-          </span>
-        </div>
-        {category ? (
-          <span className="rounded bg-surface px-2 py-0.5 font-mono text-xs uppercase text-text-muted">{category}</span>
-        ) : null}
-      </div>
-
-      {name ? (
-        <p className="text-sm text-text">
-          Target: <span className="font-semibold text-accent">{name}</span>
-        </p>
-      ) : null}
-
-      <div className="space-y-2 pt-1">
-        {stages.map((stage, idx) => {
-          const isCurrent = idx === activeStageIndex;
-          const isPast = idx < activeStageIndex;
-          return (
-            <div
-              key={stage.label}
-              className={cn(
-                "flex items-center gap-2.5 rounded-chip px-2.5 py-1.5 font-mono text-caption transition-all duration-300",
-                isCurrent
-                  ? "border border-accent/40 bg-accent/10 font-semibold text-accent"
-                  : isPast
-                    ? "border border-ok/20 bg-ok/5 text-ok"
-                    : "border border-border/40 bg-surface/40 opacity-60 text-text-muted"
-              )}
-            >
-              <span className="shrink-0 font-bold">
-                {isPast ? "✓" : isCurrent ? "▶" : "○"}
-              </span>
-              <Icon icon={stage.icon} size={13} className="shrink-0" />
-              <span className="shrink-0 font-semibold">{stage.label}:</span>
-              <span className="truncate text-xs font-normal">{stage.desc}</span>
-            </div>
-          );
-        })}
-      </div>
+    <div className="space-y-2 rounded-card border border-accent/20 bg-surface-raised/60 p-3.5">
+      <p className="text-sm text-text">Research in progress.</p>
+      {name ? <p className="text-caption text-text-secondary">Target: {name}</p> : null}
     </div>
   );
 }
