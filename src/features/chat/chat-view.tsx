@@ -32,7 +32,13 @@ import {
   SheetTitle,
   SheetDescription
 } from "@/components/animate-ui/components/radix/sheet";
-import { sessionSignature, type SessionSaveQueue } from "./session-save-queue";
+import {
+  decideStreamPersist,
+  registerPageCloseFlush,
+  sessionSignature,
+  type ServerSessionCopy,
+  type SessionSaveQueue
+} from "./session-save-queue";
 import { TranscriptMenu } from "./transcript-menu";
 import { ChatRecovery, isIncompleteChatFinish, prepareChatRecovery, isContextLimitError } from "./chat-recovery";
 import { getModelContextLimit, estimateTokens, shouldTriggerCompaction, TOOL_DEFINITIONS_TOKEN_OVERHEAD } from "@/lib/llm/context-budget";
@@ -131,7 +137,8 @@ export function ChatView({
   initialMessages,
   saveQueue,
   onPersisted,
-  isActive = true
+  isActive = true,
+  onStreamingChange
 }: {
   config: ClientConfig;
   sessionId: string;
@@ -139,6 +146,8 @@ export function ChatView({
   saveQueue: SessionSaveQueue;
   onPersisted?: () => void;
   isActive?: boolean;
+  /** Report streaming state so the workspace can refuse to evict this chat. */
+  onStreamingChange?: (sessionId: string, streaming: boolean) => void;
 }) {
   const { setHeaderSuffix, updateConfig } = useApp();
   const configRef = useRef(config);
@@ -223,12 +232,18 @@ export function ChatView({
   const [incompleteNotice, setIncompleteNotice] = useState<{ sessionId: string } | null>(null);
   const [isCompacting, setIsCompacting] = useState(false);
   const [contextExceededNotice, setContextExceededNotice] = useState<string | null>(null);
+  /** Set when a save could not be made durable anywhere on this device. */
+  const [saveFailureNotice, setSaveFailureNotice] = useState<string | null>(null);
+  /** Set when another tab's newer copy of this chat replaced the local one. */
+  const [conflictNotice, setConflictNotice] = useState<string | null>(null);
 
   const [prevSessionId, setPrevSessionId] = useState(sessionId);
   if (sessionId !== prevSessionId) {
     setPrevSessionId(sessionId);
     setIsCompacting(false);
     setContextExceededNotice(null);
+    setSaveFailureNotice(null);
+    setConflictNotice(null);
   }
 
   useEffect(() => {
@@ -275,6 +290,26 @@ export function ChatView({
   useEffect(() => {
     setMessagesRef.current = setMessages;
   });
+
+  // The save queue lives in the workspace, so the view late-binds the callbacks
+  // that need its own state: surfacing a save that could not be made durable, and
+  // adopting the winner of a revision conflict instead of overwriting it.
+  useEffect(() => {
+    saveQueue.setHandlers({
+      onPersistError: () => {
+        setSaveFailureNotice(
+          "Couldn't save this chat on this device. This browser has no storage available, so the conversation will be lost when you close or reload the tab."
+        );
+      },
+      onConflictAdopted: (copy: ServerSessionCopy) => {
+        saveQueue.observeRevision(copy.revision);
+        setMessagesRef.current(copy.messages);
+        setConflictNotice(
+          "This chat was updated in another tab, so that newer version was loaded here. Your unsaved changes were not sent."
+        );
+      }
+    });
+  }, [saveQueue]);
 
   const messagesRef = useRef(messages);
   useEffect(() => {
@@ -457,6 +492,13 @@ export function ChatView({
   }, [latestBuilds, isActive]);
 
   const streaming = status === "streaming" || status === "submitted";
+
+  // Tell the workspace whether this chat may be evicted. Unmounting a streaming
+  // view kills its stream, so the pool must be allowed over its cap instead.
+  useEffect(() => {
+    onStreamingChange?.(sessionId, streaming);
+  }, [onStreamingChange, sessionId, streaming]);
+
   const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
   const activeModel = useMemo(
     () => resolveActiveModel(config, lastAssistantMessage?.metadata?.model),
@@ -560,25 +602,33 @@ export function ChatView({
   }, [messages, streaming, isActive]);
 
   const persistSnapshot = useCallback(
-    (currentMessages: ChatUIMessage[]) => {
+    (currentMessages: ChatUIMessage[], options?: { urgent?: boolean }) => {
       if (currentMessages.length === 0) return;
       const signature = sessionSignature(currentMessages);
       const marketPref = getMarketPreference();
 
+      // Compaction may have run during this turn; carry the compacted context into
+      // every save, including the throttled mid-stream ones and the page-close
+      // flush, so a reopened chat resumes against the same compacted history.
       const lastAssistant = [...currentMessages].reverse().find((m) => m.role === "assistant");
       const meta = lastAssistant?.metadata as { compactContext?: StoredCompactContext } | undefined;
       if (meta?.compactContext) {
         compactContextRef.current = meta.compactContext;
       }
 
-      void saveQueue.enqueue(signature, {
-        id: sessionIdRef.current,
-        messages: currentMessages,
-        title: deriveTitle(currentMessages),
-        countryCode: marketPref.countryCode || configRef.current.countryCode,
-        currency: marketPref.currencyCode || configRef.current.currency,
-        compactContext: compactContextRef.current
-      });
+      void saveQueue.enqueue(
+        signature,
+        {
+          id: sessionIdRef.current,
+          messages: currentMessages,
+          title: deriveTitle(currentMessages),
+          countryCode: marketPref.countryCode || configRef.current.countryCode,
+          currency: marketPref.currencyCode || configRef.current.currency,
+          compactContext: compactContextRef.current
+        },
+        options
+      );
+>>>>>>> b918c83 (fix(chat): save mid-stream and on page close instead of only when a turn ends)
     },
     [saveQueue]
   );
@@ -589,23 +639,61 @@ export function ChatView({
     persistSnapshot(messages);
   }, [status, messages, persistSnapshot]);
 
+  // Persist *while* streaming, throttled. Without this, closing or reloading the
+  // page mid-reply throws the whole partial answer away: the effect above only
+  // ever runs once a turn reaches "ready" or "error".
+  const streamSaveRef = useRef<{ signature: string | null; at: number | null }>({ signature: null, at: null });
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const signature = sessionSignature(messages);
+    const now = Date.now();
+    const decision = decideStreamPersist({
+      streaming,
+      signature,
+      lastSavedSignature: streamSaveRef.current.signature,
+      lastSavedAt: streamSaveRef.current.at,
+      now
+    });
+    if (decision !== "save") return;
+    streamSaveRef.current = { signature, at: now };
+    persistSnapshot(messages);
+  }, [messages, streaming, persistSnapshot]);
+
+  /**
+   * Best-effort flush when the page is being hidden or closed. Local mode sends
+   * this with `fetch(..., { keepalive: true })`, which MDN documents as not
+   * being aborted when the initiating page unloads. It is a last-chance write, not
+   * a guarantee: the browser can also skip the event entirely (no `visibilitychange`
+   * fires if the user kills the app from the OS task switcher), the body is capped
+   * at 64 KiB, and a request already in flight cannot be jumped ahead of. The
+   * throttled mid-stream saves above are what make durability real; this only
+   * recovers the last few seconds.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const lifecycle = {
+      get visibilityState() {
+        return document.visibilityState;
+      },
+      addEventListener: (type: string, listener: () => void) => document.addEventListener(type, listener),
+      removeEventListener: (type: string, listener: () => void) => document.removeEventListener(type, listener)
+    };
+    return registerPageCloseFlush(lifecycle, () => {
+      if (messagesRef.current.length === 0) return;
+      persistSnapshot(messagesRef.current, { urgent: true });
+    });
+  }, [persistSnapshot]);
+
+  // The view is going away (pool eviction, app teardown), so this is the last
+  // chance to write: same urgent path as the page-close flush, and the same
+  // compactContext carry-over, because it goes through `persistSnapshot`.
   useEffect(() => {
     return () => {
       if (messagesRef.current.length > 0) {
-        const msgs = messagesRef.current;
-        const signature = sessionSignature(msgs);
-        const marketPref = getMarketPreference();
-        void saveQueue.enqueue(signature, {
-          id: sessionIdRef.current,
-          messages: msgs,
-          title: deriveTitle(msgs),
-          countryCode: marketPref.countryCode || configRef.current.countryCode,
-          currency: marketPref.currencyCode || configRef.current.currency,
-          compactContext: compactContextRef.current
-        });
+        persistSnapshot(messagesRef.current, { urgent: true });
       }
     };
-  }, [saveQueue]);
+  }, [persistSnapshot]);
 
   const checkShouldCompact = (currentMsgs: ChatUIMessage[], newText: string) => {
     const entry = configRef.current.chatChain?.[0];
@@ -712,6 +800,22 @@ export function ChatView({
               <p className="mt-4 rounded-card border border-border bg-surface px-4 py-3 text-sm text-text-secondary" role="alert">
                 Response ended before completion. You can send “continue” to try again.
               </p>
+            ) : null}
+            {saveFailureNotice || conflictNotice ? (
+              <div
+                className="mt-4 flex items-start gap-2 rounded-card border px-4 py-3 text-sm"
+                style={{
+                  color: "var(--warn)",
+                  borderColor: "color-mix(in srgb, var(--warn) 45%, transparent)",
+                  backgroundColor: "color-mix(in srgb, var(--warn) 8%, transparent)"
+                }}
+                role="alert"
+              >
+                <Icon icon={TriangleAlert} size={16} className="mt-0.5 shrink-0" />
+                <span className="flex-1 whitespace-pre-wrap leading-relaxed">
+                  {saveFailureNotice ?? conflictNotice}
+                </span>
+              </div>
             ) : null}
             {contextExceededNotice ? (
               <div

@@ -8,7 +8,7 @@ import type { ChatUIMessage } from "./message";
 import { ChatSidebar } from "./chat-sidebar";
 import { AppShell } from "@/components/app/app-shell";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/animate-ui/components/radix/sidebar";
-import { invalidateSessionSelection, selectLatestSession } from "./session-selection";
+import { chooseEvictionIndex, invalidateSessionSelection, selectLatestSession } from "./session-selection";
 import { SessionSaveQueue, sessionSignature } from "./session-save-queue";
 
 // Neutral hover for the header menu trigger (base shadcn ghost Button):
@@ -32,9 +32,33 @@ interface ActiveSessionEntry {
   messages: ChatUIMessage[];
   queue: SessionSaveQueue;
   lastActiveAt: number;
+  /**
+   * Reported by `ChatView`. A streaming entry is never evicted from the pool:
+   * dropping it would unmount the view and kill the reply mid-flight.
+   */
+  isStreaming: boolean;
 }
 
 const MAX_ACTIVE_SESSIONS = 8;
+
+/**
+ * Build the save queue for a session. Every queue can resolve a revision
+ * conflict by asking for the authoritative copy, so a second tab never gets its
+ * work clobbered by a blind rebase.
+ */
+function createSaveQueue(
+  id: string,
+  messages: ChatUIMessage[],
+  revision: number,
+  onPersisted: () => void
+): SessionSaveQueue {
+  return new SessionSaveQueue(saveSession, sessionSignature(messages), revision, onPersisted, {
+    loadServerCopy: async () => {
+      const session = await fetchSession(id);
+      return session ? { revision: session.revision, messages: session.messages } : null;
+    }
+  });
+}
 
 /**
  * Owns chat-session state with Option A background multi-session streaming:
@@ -50,7 +74,8 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
       id,
       messages,
       queue: new SessionSaveQueue(saveSession, sessionSignature(messages)),
-      lastActiveAt: Date.now()
+      lastActiveAt: Date.now(),
+      isStreaming: false
     };
   });
 
@@ -71,50 +96,6 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
   const selectionGuardRef = useRef({ generation: 0 });
   const saveQueuesRef = useRef(new Map<string, SessionSaveQueue>([[initialEntry.id, initialEntry.queue]]));
 
-  const activateSessionInPool = useCallback((id: string, messages: ChatUIMessage[], revision = 0) => {
-    let queue = saveQueuesRef.current.get(id);
-    if (!queue) {
-      queue = new SessionSaveQueue(saveSession, sessionSignature(messages), revision);
-      saveQueuesRef.current.set(id, queue);
-    } else {
-      queue.observeRevision(revision);
-    }
-
-    const now = Date.now();
-    setActiveSessions((prev) => {
-      const existingIndex = prev.findIndex((s) => s.id === id);
-      if (existingIndex !== -1) {
-        const updated = [...prev];
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          lastActiveAt: now
-        };
-        return updated;
-      }
-
-      let nextList = prev;
-      if (nextList.length >= MAX_ACTIVE_SESSIONS) {
-        const currentActive = currentSessionIdRef.current;
-        let oldestIndex = -1;
-        let oldestTime = Infinity;
-        for (let i = 0; i < nextList.length; i++) {
-          const item = nextList[i];
-          if (item.id !== currentActive && item.lastActiveAt < oldestTime) {
-            oldestTime = item.lastActiveAt;
-            oldestIndex = i;
-          }
-        }
-        if (oldestIndex !== -1) {
-          nextList = nextList.filter((_, i) => i !== oldestIndex);
-        }
-      }
-
-      return [...nextList, { id, messages, queue, lastActiveAt: now }];
-    });
-
-    setCurrentSessionId(id);
-  }, []);
-
   const refresh = useCallback(() => {
     fetchSessions()
       .then(setSessions)
@@ -123,9 +104,59 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
       });
   }, []);
 
+  const activateSessionInPool = useCallback(
+    (id: string, messages: ChatUIMessage[], revision = 0) => {
+      let queue = saveQueuesRef.current.get(id);
+      if (!queue) {
+        queue = createSaveQueue(id, messages, revision, refresh);
+        saveQueuesRef.current.set(id, queue);
+      } else {
+        queue.observeRevision(revision);
+      }
+
+      const now = Date.now();
+      setActiveSessions((prev) => {
+        const existingIndex = prev.findIndex((s) => s.id === id);
+        if (existingIndex !== -1) {
+          const updated = [...prev];
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            lastActiveAt: now
+          };
+          return updated;
+        }
+
+        let nextList = prev;
+        if (nextList.length >= MAX_ACTIVE_SESSIONS) {
+          // Never cut off a reply: only an idle, non-current tab is evictable, and
+          // if every other tab is streaming we simply go over the cap.
+          const oldestIndex = chooseEvictionIndex(prev, currentSessionIdRef.current);
+          if (oldestIndex !== -1) {
+            nextList = prev.filter((_, i) => i !== oldestIndex);
+          }
+        }
+
+        return [...nextList, { id, messages, queue, lastActiveAt: now, isStreaming: false }];
+      });
+
+      setCurrentSessionId(id);
+    },
+    [refresh]
+  );
+
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const handleStreamingChange = useCallback((id: string, isStreaming: boolean) => {
+    setActiveSessions((prev) => {
+      const index = prev.findIndex((s) => s.id === id);
+      if (index === -1 || prev[index].isStreaming === isStreaming) return prev;
+      const updated = [...prev];
+      updated[index] = { ...updated[index], isStreaming };
+      return updated;
+    });
+  }, []);
 
   const handleNew = useCallback(() => {
     invalidateSessionSelection(selectionGuardRef.current);
@@ -179,7 +210,8 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
             id: newId,
             messages,
             queue: newQueue,
-            lastActiveAt: Date.now()
+            lastActiveAt: Date.now(),
+            isStreaming: false
           };
           setCurrentSessionId(newId);
           return [newEntry];
@@ -229,6 +261,7 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
                 saveQueue={session.queue}
                 onPersisted={refresh}
                 isActive={session.id === currentSessionId}
+                onStreamingChange={handleStreamingChange}
               />
             </div>
           ))}
