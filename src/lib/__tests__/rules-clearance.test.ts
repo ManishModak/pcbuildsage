@@ -140,6 +140,72 @@ describe("rule: clearance", () => {
         expect(clearanceCheck?.message).toContain("240mm radiator is supported by case");
         expect(clearanceCheck?.message).toContain("physical thickness and component clearances not verified");
       });
+      it("fails clearance when an AIO radiator exceeds the largest supported radiator size", () => {
+        const cooler = makeResolved("aio-420", "cooler", {
+          brand: "Arctic",
+          model: "Liquid Freezer 420",
+          cooler_type: "aio",
+          radiator_size_mm: 420,
+          height_mm: 65,
+          sockets: ["AM5"],
+          tdp_rating_w: 300,
+          aliases: ["Liquid Freezer 420"]
+        });
+        const pcCase = makeResolved("case-360-max", "case", {
+          brand: "TestBrand",
+          model: "Mid Tower 360",
+          max_cooler_height_mm: 170,
+          max_gpu_length_mm: 380,
+          supported_radiators: [120, 240, 360],
+          form_factors: ["ATX"],
+          aliases: ["Mid Tower 360"]
+        });
+
+        const result = validateBuild(
+          { cooler: cooler.key, case: pcCase.key },
+          { resolve: (part) => (part === cooler.key ? cooler : part === pcCase.key ? pcCase : undefined) }
+        );
+
+        const clearanceCheck = result.checks.find(
+          (c) => c.rule === "clearance" && c.components.includes(cooler.key) && c.components.includes(pcCase.key)
+        );
+        expect(clearanceCheck?.status).toBe("failed");
+        expect(clearanceCheck?.message).toContain("Radiator size 420mm is not supported by case (exceeds max supported size of 360mm; supported sizes: 120, 240, 360mm)");
+        expect(result.valid).toBe(false);
+      });
+      it("marks clearance unverified when an AIO radiator size is not listed but smaller than max supported size", () => {
+        const cooler = makeResolved("aio-140", "cooler", {
+          brand: "Kraken",
+          model: "Kraken 140",
+          cooler_type: "aio",
+          radiator_size_mm: 140,
+          height_mm: 65,
+          sockets: ["AM5"],
+          tdp_rating_w: 180,
+          aliases: ["Kraken 140"]
+        });
+        const pcCase = makeResolved("case-360-max", "case", {
+          brand: "TestBrand",
+          model: "Mid Tower 360",
+          max_cooler_height_mm: 170,
+          max_gpu_length_mm: 380,
+          supported_radiators: [120, 240, 360],
+          form_factors: ["ATX"],
+          aliases: ["Mid Tower 360"]
+        });
+
+        const result = validateBuild(
+          { cooler: cooler.key, case: pcCase.key },
+          { resolve: (part) => (part === cooler.key ? cooler : part === pcCase.key ? pcCase : undefined) }
+        );
+
+        const clearanceCheck = result.checks.find(
+          (c) => c.rule === "clearance" && c.components.includes(cooler.key) && c.components.includes(pcCase.key)
+        );
+        expect(clearanceCheck?.status).toBe("unverified");
+        expect(clearanceCheck?.message).toContain("Radiator size 140mm fit couldn’t be verified against case (supported sizes: 120, 240, 360mm)");
+        expect(result.valid).toBe(true);
+      });
       it("reports unverified when case radiator mounting data is unknown for an AIO", () => {
         const cooler = makeResolved("arctic-liquid-freezer-iii-pro-420", "cooler", {
           brand: "Arctic",
