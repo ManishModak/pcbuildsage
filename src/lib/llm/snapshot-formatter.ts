@@ -1,6 +1,6 @@
 import type { BuildSnapshot } from "../catalog/build-snapshot";
 
-export function formatSnapshotForContext(snapshot: BuildSnapshot): string {
+export function formatSingleSnapshot(snapshot: BuildSnapshot): string {
   const partsList = snapshot.components
     .map((c) => {
       const priceStr = c.price !== null ? `${c.currency} ${c.price}` : "Price unknown / unlisted";
@@ -45,4 +45,17 @@ export function formatSnapshotForContext(snapshot: BuildSnapshot): string {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+export function formatSnapshotsForContext(snapshots: BuildSnapshot[]): string {
+  if (snapshots.length === 0) return "";
+  if (snapshots.length === 1) return formatSingleSnapshot(snapshots[0]);
+  return snapshots.map(formatSingleSnapshot).join("\n\n---\n\n");
+}
+
+export function formatSnapshotForContext(snapshot: BuildSnapshot | BuildSnapshot[]): string {
+  if (Array.isArray(snapshot)) {
+    return formatSnapshotsForContext(snapshot);
+  }
+  return formatSingleSnapshot(snapshot);
 }
