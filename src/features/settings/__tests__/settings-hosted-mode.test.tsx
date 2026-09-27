@@ -176,6 +176,14 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
       expect(updated.countryCode).toBe("UK");
       expect(updated.currencyCode).toBe("EUR");
     });
+
+    it("offers only in-stock catalog markets (India only) in the market picker", () => {
+      const html = renderToStaticMarkup(<MarketPreferenceSection />);
+      expect(html).toContain("India (IN)");
+      expect(html).not.toContain("United States (US)");
+      expect(html).not.toContain("Germany (DE)");
+      expect(html).not.toContain("Canada (CA)");
+    });
   });
 
   describe("4. Bring Your Own Key (BYOK) Section", () => {

@@ -453,15 +453,17 @@ describe("TursoCatalogRepository", () => {
   });
 
   describe("Market metadata (getMarkets)", () => {
-    it("returns supported standard markets metadata", async () => {
-      const mockClient = createMockClient();
+    it("returns markets with in-stock products from database", async () => {
+      const mockClient = createMockClient([
+        { country_code: "IN", currency: "INR" }
+      ]);
       const repo = new TursoCatalogRepository({ client: mockClient });
 
       const markets = await repo.getMarkets();
       expect(Array.isArray(markets)).toBe(true);
-      expect(markets.length).toBeGreaterThanOrEqual(3);
-      expect(markets.some((m) => m.code === "US")).toBe(true);
-      expect(markets.some((m) => m.code === "IN")).toBe(true);
+      expect(markets).toHaveLength(1);
+      expect(markets[0].code).toBe("IN");
+      expect(markets[0].name).toBe("India");
     });
   });
 

@@ -23,7 +23,10 @@ export function MarketPreferenceSection({
   className?: string;
 }) {
   const [pref, setPref] = useState<MarketPreference>(() => getMarketPreference());
-  const [markets, setMarkets] = useState<MarketMetadata[]>([...STANDARD_MARKETS]);
+  const [markets, setMarkets] = useState<MarketMetadata[]>(() => {
+    const defaultMarkets = STANDARD_MARKETS.filter((m) => m.code === "IN");
+    return defaultMarkets.length > 0 ? defaultMarkets : [...STANDARD_MARKETS];
+  });
 
   const app = useOptionalApp();
   const updateAppConfig = app?.updateConfig ?? null;
@@ -33,13 +36,28 @@ export function MarketPreferenceSection({
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
           setMarkets(data);
+          const currentPref = getMarketPreference();
+          if (!data.some((m) => m.code === currentPref.countryCode)) {
+            const first = data[0];
+            const updated = setMarketPreference({
+              countryCode: first.code,
+              currencyCode: first.defaultCurrency,
+              locale: first.locale
+            });
+            setPref(updated);
+            if (updateAppConfig) {
+              updateAppConfig({ countryCode: updated.countryCode, currency: updated.currencyCode });
+            }
+            onChange?.(updated);
+          }
         }
       })
       .catch(() => {
-        // Fall back gracefully to standard markets
-        setMarkets([...STANDARD_MARKETS]);
+        // Fall back gracefully to available market
+        const defaultMarkets = STANDARD_MARKETS.filter((m) => m.code === "IN");
+        setMarkets(defaultMarkets.length > 0 ? defaultMarkets : [...STANDARD_MARKETS]);
       });
-  }, []);
+  }, [onChange, updateAppConfig]);
 
   useEffect(() => {
     return subscribeMarketPreference((next) => {
@@ -113,7 +131,7 @@ export function MarketPreferenceSection({
                 {...controlProps}
                 data-testid="country-select"
                 aria-label="Country or region"
-                value={pref.countryCode}
+                value={activeMarket ? activeMarket.code : pref.countryCode}
                 onChange={(e) => handleCountryChange(e.target.value)}
                 options={countryOptions}
               />

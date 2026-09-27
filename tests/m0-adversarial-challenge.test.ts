@@ -559,7 +559,8 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
       const body = await response.json();
       expect(body).toHaveProperty("markets");
       expect(Array.isArray(body.markets)).toBe(true);
-      expect(body.markets.length).toBeGreaterThanOrEqual(5);
+      expect(body.markets.length).toBeGreaterThanOrEqual(1);
+      expect(body.markets.some((m: { code: string }) => m.code === "IN")).toBe(true);
 
       const stringified = JSON.stringify(body);
 

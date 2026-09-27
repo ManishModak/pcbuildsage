@@ -675,18 +675,18 @@ describe("Adversarial M0 Empirical Stress Test Suite", () => {
   // Section 6: Market Metadata Registry & Query Robustness
   // ==========================================================================
   describe("6. Market Metadata Registry & Query Robustness", () => {
-    it("GET /api/markets returns all 5 standard markets (US, UK, IN, CA, DE)", async () => {
+    it("GET /api/markets returns markets with in-stock products (India in current catalog)", async () => {
       const res = await marketsRoute();
       expect(res.status).toBe(200);
       const body = (await res.json()) as { markets: Array<{ code: string; name: string; defaultCurrency: string }> };
 
       expect(Array.isArray(body.markets)).toBe(true);
       const codes = body.markets.map((m) => m.code);
-      expect(codes).toContain("US");
-      expect(codes).toContain("UK");
       expect(codes).toContain("IN");
-      expect(codes).toContain("CA");
-      expect(codes).toContain("DE");
+      expect(codes).not.toContain("US");
+      expect(codes).not.toContain("UK");
+      expect(codes).not.toContain("CA");
+      expect(codes).not.toContain("DE");
     });
 
     it("listMarkets does NOT leak internal scraper selectors, categories, or URLs", () => {
