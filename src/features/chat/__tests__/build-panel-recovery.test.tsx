@@ -25,6 +25,7 @@ const MOTHERBOARD_ID = "d1d2044f9a831b22b749eeb825e4a54766f76ec1";
 const STORAGE_ID = "654105021be32bb123e9d04c1563f2392880fce2";
 const PSU_ID = "58450455bb4ee5fb80c47738327689caaf21449d";
 const CASE_ID = "54a947a6a0532789d59101f1e417b1c72588f82e";
+const COOLER_ID = "133c1a8f540e34af40904a2300259497fb5616db";
 
 /** A finished validate_build whose snapshot has two unpriced parts. */
 function finishedValidation(
@@ -403,6 +404,60 @@ describe("matching a presented build to the validation that produced it", () => 
     expect(build.validation?.valid).toBe(true);
     expect(build.components.map((c) => c.name)).toContain("ASRock A520M-HVS M-ATX Motherboard");
     expect(build.total).toBeNull();
+  });
+
+  it("never names a legacy-presented part after its product id either", () => {
+    // The legacy presentation shape (builds[].parts) with a matching validation
+    // whose snapshot reused the product id as the name - the shape the real
+    // stuck session produced. Pre-existing on master, and the third copy site.
+    const messages: ChatUIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "Propose a build" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          finishedValidation("v1", "Legacy Draft"),
+          {
+            type: "tool-present_build",
+            toolCallId: "call-1",
+            state: "output-available",
+            input: {
+              builds: [
+                {
+                  label: "Legacy Draft",
+                  // The model passed ids where names belong: once with a
+                  // product_id (resolves to a snapshot component), once without.
+                  parts: [
+                    { category: "ram", product_id: RAM_ID, name: RAM_ID, price: 13500, currency: "INR" },
+                    { category: "cooler", name: COOLER_ID, price: 1800, currency: "INR" },
+                    { category: "gpu", name: "RTX 4060", price: 28500, currency: "INR" }
+                  ]
+                }
+              ]
+            }
+          } as unknown as ChatUIMessage["parts"][number]
+        ]
+      }
+    ];
+
+    const versions = findAllBuildVersions(messages, "INR");
+    expect(versions).toHaveLength(1);
+
+    const build = versions[0].builds[0];
+    // Resolved against a snapshot component whose name is the raw id.
+    const ram = build.components.find((c) => c.category === "ram");
+    expect(ram?.name).toBe("Memory");
+    // The id is not lost, only kept out of the name slot.
+    expect(ram?.productId).toBe(RAM_ID);
+    // No snapshot match, and the model put the id in the name slot itself.
+    const cooler = build.components.find((c) => c.category === "cooler");
+    expect(cooler?.name).toBe("Cooler");
+    // A readable name still comes through untouched.
+    expect(build.components.find((c) => c.category === "gpu")?.name).toBe("RTX 4060");
+
+    const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
+    expect(markup).not.toContain(`text-text">${RAM_ID}`);
+    expect(markup).not.toContain(`text-text">${COOLER_ID}`);
   });
 
   it("says the details are unavailable instead of naming raw product ids", () => {

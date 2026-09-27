@@ -1423,11 +1423,16 @@ export function deriveBuildsFromToolParts(
 
             if (matchedSnapshot) {
               const snapComp = part.product_id ? snapshotMap.get(part.product_id.trim()) : undefined;
+              const categoryLabel = CATEGORY_LABELS[part.category] ?? part.category;
               if (snapComp) {
                 return {
                   category: part.category,
-                  categoryLabel: CATEGORY_LABELS[part.category] ?? part.category,
-                  name: snapComp.name,
+                  categoryLabel,
+                  // Same guard as the new-format path: a snapshot reuses the
+                  // raw product id as the name when the catalog lookup missed.
+                  name: isOpaqueProductId(snapComp.name, snapComp.product_id)
+                    ? categoryLabel
+                    : snapComp.name,
                   productId: snapComp.product_id,
                   price: snapComp.price,
                   currency: snapComp.currency || currency,
@@ -1439,8 +1444,8 @@ export function deriveBuildsFromToolParts(
               }
               return {
                 category: part.category,
-                categoryLabel: CATEGORY_LABELS[part.category] ?? part.category,
-                name: part.name,
+                categoryLabel,
+                name: isOpaqueProductId(part.name, part.product_id) ? categoryLabel : part.name,
                 productId: undefined,
                 price: null,
                 currency,
@@ -1451,10 +1456,13 @@ export function deriveBuildsFromToolParts(
               };
             }
 
+            // No snapshot at all: the model may still have passed a product id
+            // where a name belongs, so the same guard applies.
+            const categoryLabel = CATEGORY_LABELS[part.category] ?? part.category;
             return {
               category: part.category,
-              categoryLabel: CATEGORY_LABELS[part.category] ?? part.category,
-              name: part.name,
+              categoryLabel,
+              name: isOpaqueProductId(part.name, part.product_id) ? categoryLabel : part.name,
               productId: part.product_id,
               price: typeof part.price === "number" ? part.price : null,
               currency: part.currency ?? currency,
