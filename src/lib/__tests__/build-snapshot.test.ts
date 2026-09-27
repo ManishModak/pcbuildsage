@@ -368,7 +368,7 @@ describe("createBuildSnapshot", () => {
     expect(formatted).toContain("Ryzen 5 7600");
   });
 
-  it("resolves catalog product and price when parts use exact catalog ID in string form", () => {
+  it("leaves string parts as unpriced without product_id (promotion is owned by validate_build)", () => {
     const products = new Map<string, SearchProductItem>([
       [
         "cpu-1",
@@ -390,10 +390,10 @@ describe("createBuildSnapshot", () => {
       scope: mockScope
     });
 
-    expect(snapshot.components[0].product_id).toBe("cpu-1");
-    expect(snapshot.components[0].price).toBe(190.0);
-    expect(snapshot.total).toBe(190.0);
-    expect(snapshot.is_complete).toBe(true);
+    expect(snapshot.components[0].product_id).toBeUndefined();
+    expect(snapshot.components[0].name).toBe("cpu-1");
+    expect(snapshot.components[0].price).toBeNull();
+    expect(snapshot.is_complete).toBe(false);
   });
 });
 

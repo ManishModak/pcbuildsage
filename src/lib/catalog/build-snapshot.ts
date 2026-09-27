@@ -119,9 +119,7 @@ export function createBuildSnapshot({
       const productId =
         typeof item === "object" && item && item.product_id
           ? item.product_id.trim()
-          : typeof item === "string" && productsById.has(item.trim())
-            ? item.trim()
-            : undefined;
+          : undefined;
       const catalogProduct = productId ? productsById.get(productId) : undefined;
 
       // Check for included cooler
