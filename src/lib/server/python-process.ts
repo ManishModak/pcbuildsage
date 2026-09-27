@@ -386,7 +386,7 @@ async def check():
         return {"ready": True}
     except Exception as e:
         msg = str(e)
-        if "Executable doesn" in msg or "playwright install" in msg or "chromium" in msg.lower():
+        if "Executable doesn" in msg or "playwright install" in msg:
             return {"ready": False, "reason": "Chromium is missing"}
         return {"ready": False, "reason": msg.splitlines()[0]}
 
