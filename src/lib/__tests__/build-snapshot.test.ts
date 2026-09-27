@@ -323,7 +323,7 @@ describe("createBuildSnapshot", () => {
       parts: { cpu: { product_id: "cpu-1" } },
       validation: {
         valid: false,
-        issues: [{ category: "cooler", message: "CPU cooler required", severity: "error" }],
+        issues: [{ rule: "cooler", components: ["cooler"], detail: "CPU cooler required", severity: "blocking" }],
         resolved: {},
         skipped_checks: [],
         checks: [],
