@@ -106,6 +106,27 @@ export const STANDARD_MARKETS: readonly MarketMetadata[] = [
   }
 ] as const;
 
+let hasWarnedUnsetMode = false;
+
+export function resetDeploymentModeWarningForTesting() {
+  hasWarnedUnsetMode = false;
+}
+
+export function warnIfProductionModeUnset(
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env
+): boolean {
+  if (env.NODE_ENV === "production" && !env.PCBUILDSAGE_DEPLOYMENT_MODE) {
+    if (!hasWarnedUnsetMode) {
+      hasWarnedUnsetMode = true;
+      console.warn(
+        "Warning: PCBUILDSAGE_DEPLOYMENT_MODE is unset while NODE_ENV=production. Defaulting to 'local' mode."
+      );
+    }
+    return true;
+  }
+  return false;
+}
+
 /**
  * Resolves the active deployment mode from environment.
  * Defaults safely to "local" if unset, empty, or unrecognized.
@@ -114,12 +135,17 @@ export function getDeploymentMode(
   envOrString?: NodeJS.ProcessEnv | Record<string, string | undefined> | string
 ): DeploymentMode {
   let raw: string | undefined;
+  const envObj = typeof envOrString === "object" && envOrString !== null ? envOrString : process.env;
   if (typeof envOrString === "string") {
     raw = envOrString;
   } else if (envOrString && typeof envOrString === "object") {
     raw = envOrString.PCBUILDSAGE_DEPLOYMENT_MODE;
   } else {
     raw = process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
+  }
+
+  if (envObj.NODE_ENV === "production" && !raw) {
+    warnIfProductionModeUnset(envObj);
   }
 
   if (!raw) return "local";
