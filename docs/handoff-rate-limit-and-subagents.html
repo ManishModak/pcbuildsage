@@ -463,8 +463,8 @@
             </tr>
             <tr>
               <td><strong>Tool Step Limit</strong></td>
-              <td><span class="badge badge-warning">25 Steps (Excessive)</span></td>
-              <td>Reduce step limit to <strong>12–14 steps</strong>. Build generation should converge in 8–10 steps.</td>
+              <td><span class="badge badge-warning">25 Steps (Open Decision)</span></td>
+              <td>Proposal to reduce step limit from 25 to <strong>12–14 steps</strong> remains an <em>open decision</em> (not applied; useful multi-build exploration must remain possible).</td>
             </tr>
           </tbody>
         </table>
@@ -670,9 +670,9 @@
             <br>• <em>"If a candidate part lacks catalog specs (e.g. missing PSU wattage), immediately choose an alternative in-stock listing with complete specs rather than attempting research."</em>
           </p>
 
-          <h3 style="color: var(--accent); font-size: 1rem; margin-bottom: 0.5rem;">Action 4: Tighten Stop Step Count</h3>
+          <h3 style="color: var(--accent); font-size: 1rem; margin-bottom: 0.5rem;">Action 4: Tighten Stop Step Count (Open Decision — Do Not Apply)</h3>
           <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">
-            Lower <code>stopWhen: isStepCount(25)</code> to <code>isStepCount(14)</code> in <code>chat-engine.ts</code>. A full 8-part build needs at most 1 catalog call, 5–6 searches, 1–2 validations, and 1 presentation. 14 steps provides generous safety while enforcing convergence before daily limits trip.
+            Proposal to lower <code>stopWhen: isStepCount(25)</code> to <code>isStepCount(14)</code> in <code>chat-engine.ts</code>. Per <code>docs/build-reliability-implementation-plan.html</code>, no lower step cap is prescribed so useful multi-build and exploratory conversations remain possible. This remains an <strong>open decision</strong> for future evaluation.
           </p>
         </div>
       </div>
@@ -703,7 +703,7 @@
 
       <div class="card">
         <div class="card-header">
-          <div class="card-title">2. Gating Tier 2 & Step Count Cap</div>
+          <div class="card-title">2. Gating Tier 2 & Step Count Cap (Open Decision — Not Applied)</div>
           <button class="copy-btn" onclick="copyText('diff-2')">Copy Diff</button>
         </div>
         <div class="code-block" id="diff-2">

@@ -2,10 +2,10 @@
 
 **The open-source AI PC part picker & compatibility checker that works in any country.**
 
-Compare live PC component prices from *your local retailers*, chat with an AI build consultant that never hallucinates specs, and get builds that are guaranteed compatible — all running 100% on your own machine.
+Compare live PC component prices from *your local retailers*, chat with an AI build consultant that never hallucinates specs, and get builds that are guaranteed compatible — run 100% locally on your machine or explore the stateless hosted demo.
 
 <!-- badges -->
-![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen) ![GitHub Stars](https://img.shields.io/github/stars/ManishModak/pcbuildsage?style=social) ![Local First](https://img.shields.io/badge/100%25-local--first-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen) ![GitHub Stars](https://img.shields.io/github/stars/ManishModak/pcbuildsage?style=social) ![Privacy First](https://img.shields.io/badge/privacy--first-blue)
 
 🌐 **Live Demo:** [https://pcbuildsage.onrender.com](https://pcbuildsage.onrender.com)
 
@@ -24,10 +24,21 @@ PCBuildSage fixes all three:
 | | |
 | :-- | :-- |
 | 🌍 **Works anywhere** | Retailers are defined in simple JSON profiles — adding your country is a PR away, **no code required**. |
-| 🤖 **AI consultant, real data** | Chat with the LLM of your choice (Gemini, Ollama, OpenRouter, any OpenAI-compatible API). It queries your **local SQLite database** of freshly scraped prices — never its imagination. |
+| 🤖 **AI consultant, real data** | Chat with the LLM of your choice (Gemini, Ollama, OpenRouter, any OpenAI-compatible API). It queries freshly scraped prices from catalog repositories — never its imagination. |
 | ✅ **Compatibility you can trust** | A deterministic rules engine checks sockets, DDR generation, PSU wattage, and physical clearances. The AI **cannot override it**. |
-| 🔒 **100% local & private** | Your data, your API keys, your machine. No cloud, no accounts, no telemetry. |
+| 🔒 **Private & Stateless** | 100% local by default, or run via the hosted demo. In both modes: zero accounts, no tracking, and your API keys never touch server disk. |
 | 💻 **Web app *and* terminal** | A friendly web wizard, or an interactive CLI with scriptable subcommands. |
+
+---
+
+## Hosted Demo
+
+A public live demonstration is available at [https://pcbuildsage.onrender.com](https://pcbuildsage.onrender.com). The hosted demo runs in a dedicated stateless mode with strict privacy boundaries:
+
+- **Bring-Your-Own-Key (BYOK)**: Visitors provide their own API key (e.g. Gemini, OpenRouter, Groq). In hosted mode, the backend strictly ignores server environment keys, ensuring visitor requests execute exclusively against visitor-provided keys ([`src/app/api/_lib/credentials.ts`](src/app/api/_lib/credentials.ts#L147-L170), [`src/lib/config/deployment.ts`](src/lib/config/deployment.ts#L8-L32)).
+- **Keys Stored in Browser Only**: API keys are saved in browser `sessionStorage` (scoped to tab lifetime) and forwarded per-request via HTTP headers. Keys are never logged, stored in databases, or persisted to server disk ([`src/lib/llm/client-byok-store.ts`](src/lib/llm/client-byok-store.ts#L1-L25)).
+- **Stateless Sessions**: Chat sessions and build recommendations live entirely in the browser using client-side IndexedDB and `localStorage`. The server operates on an ephemeral read-only filesystem with zero server session database or disk persistence ([`src/lib/sessions/client-store.ts`](src/lib/sessions/client-store.ts#L29-L40), [`tests/container/dockerfile.test.ts`](tests/container/dockerfile.test.ts)).
+- **India-Only Catalog**: The hosted catalog currently ingests and serves in-stock hardware pricing exclusively for the Indian market (`IN`). Market selection dynamically presents only markets with verified in-stock catalog records ([`src/lib/catalog/sql-repository.ts`](src/lib/catalog/sql-repository.ts#L258-L270), [`src/app/api/markets/route.ts`](src/app/api/markets/route.ts#L18-L35)).
 
 ---
 
@@ -120,7 +131,7 @@ npm run validate:data
 
 **Does it work offline?** Scraped data, search, and compatibility checks are fully offline. Chat needs whatever your LLM needs (local Ollama = fully offline).
 
-**Is my data private?** Everything stays on your machine. Keys are sent only to the LLM provider you configure.
+**Is my data private?** Yes. When running locally, all data, databases, and keys stay 100% on your machine. On the hosted demo, your sessions remain in your browser's local storage and your BYOK API keys are kept in ephemeral browser memory (`sessionStorage`), sent directly to your chosen provider via request headers without server-side persistence.
 
 ---
 
