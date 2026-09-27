@@ -118,12 +118,21 @@ export function deriveBuildState(uiMessages: UIMessage[]): {
     }
   }
 
+  // Merge, do not replace. A presentation says which build the user was last
+  // shown; a validation is where the verdict and the catalog snapshot live, and
+  // compaction seeds itself from that snapshot. Preferring the presentation must
+  // not drop them, or the commonest session shape - validated, then presented -
+  // would hand compaction nothing to work from.
   const winner = presented ?? latestValidation;
   if (!winner) return null;
   return {
     parts: winner.parts,
-    ...("verdict" in winner ? { verdict: winner.verdict } : {}),
-    ...("snapshot" in winner ? { snapshot: winner.snapshot } : {}),
+    ...(latestValidation && "verdict" in latestValidation
+      ? { verdict: latestValidation.verdict }
+      : {}),
+    ...(latestValidation && "snapshot" in latestValidation
+      ? { snapshot: latestValidation.snapshot }
+      : {}),
     source: presented ? "present_build" : "validate_build"
   };
 }
