@@ -422,6 +422,40 @@ export async function fetchSession(id: string): Promise<SessionDetail | null> {
  */
 export const KEEPALIVE_BODY_LIMIT_BYTES = 64 * 1024;
 
+/**
+ * Why a page-close flush could not be attempted. Distinct from a failed save:
+ * nothing is wrong with storage, the request simply cannot be made from an
+ * unloading page at this size. The chat is still being saved on the ordinary
+ * throttle, so this must never be shown to the user as a save failure.
+ */
+export const KEEPALIVE_OVERSIZE = "keepalive_oversize" as const;
+
+export class KeepaliveTooLargeError extends Error {
+  readonly isKeepaliveTooLarge = true;
+  readonly reason = KEEPALIVE_OVERSIZE;
+  constructor(
+    readonly sessionId: string,
+    readonly bodyBytes: number
+  ) {
+    super(
+      `Page-close flush skipped for session ${sessionId}: ${bodyBytes} bytes of request body exceeds the ${KEEPALIVE_BODY_LIMIT_BYTES} byte keepalive limit.`
+    );
+    this.name = "KeepaliveTooLargeError";
+  }
+}
+
+/**
+ * Size of a serialized body *as it goes on the wire*. The browser limit applies
+ * to bytes, and `String.length` counts UTF-16 code units, so checking `.length`
+ * under-counts every non-ASCII character. Rupee signs and Devanagari are the
+ * norm in this product's transcripts, which is enough to turn a 40k-character
+ * body into 120k UTF-8 bytes - one that passes a naive check and is then dropped
+ * by the browser.
+ */
+export function requestBodyByteLength(body: string): number {
+  return new TextEncoder().encode(body).length;
+}
+
 export type SaveSessionOptions = {
   /**
    * Best-effort flush for a page that is being hidden or closed. Sent with
@@ -438,10 +472,15 @@ export async function saveSession(input: SaveSessionRequest, options?: SaveSessi
   return withSessionFallback(
     async () => {
       const body = JSON.stringify(input);
-      if (keepalive && body.length > KEEPALIVE_BODY_LIMIT_BYTES) {
-        throw new Error(
-          `Skipped the page-close flush for session ${input.id}: ${body.length} bytes exceeds the 64 KiB keepalive limit.`
-        );
+      if (keepalive) {
+        const bodyBytes = requestBodyByteLength(body);
+        if (bodyBytes > KEEPALIVE_BODY_LIMIT_BYTES) {
+          // Refuse rather than let the browser silently drop an oversize body:
+          // this throws a typed, non-transient error so the queue keeps the
+          // snapshot unacknowledged and does not warn the user about a save that
+          // the ordinary throttle is already making.
+          throw new KeepaliveTooLargeError(input.id, bodyBytes);
+        }
       }
       await requestJson(
         "/api/sessions",
