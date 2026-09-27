@@ -9,8 +9,37 @@ type ValidateBuildOutput = ValidationResult & { snapshot: BuildSnapshot };
 
 describe("validate_build input schema", () => {
   it("rejects empty part objects", () => {
-    expect(validateBuildInputSchema.safeParse({ parts: { cpu: {} } }).success).toBe(false);
-    expect(validateBuildInputSchema.safeParse({ parts: { cpu: { key: "amd-ryzen-7-9700x" } } }).success).toBe(true);
+    expect(validateBuildInputSchema.safeParse({ builds: [{ label: "Test", parts: { cpu: {} } }] }).success).toBe(false);
+    expect(validateBuildInputSchema.safeParse({ builds: [{ label: "Test", parts: { cpu: { key: "amd-ryzen-7-9700x" } } }] }).success).toBe(true);
+  });
+
+  it("validates 1 to 5 builds in one call", () => {
+    const threeBuilds = {
+      builds: [
+        { label: "Build 1", parts: { cpu: { key: "amd-ryzen-5-5600" } } },
+        { label: "Build 2", parts: { cpu: { key: "amd-ryzen-5-7600" } } },
+        { label: "Build 3", parts: { cpu: { key: "amd-ryzen-7-7800x3d" } } }
+      ]
+    };
+    expect(validateBuildInputSchema.safeParse(threeBuilds).success).toBe(true);
+    expect(validateBuildInputSchema.safeParse({ builds: [] }).success).toBe(false);
+  });
+
+  it("rejects duplicate labels, since results are keyed by label", () => {
+    const duplicate = {
+      builds: [
+        { label: "Best Value", parts: { cpu: { key: "amd-ryzen-5-5600" } } },
+        { label: "best value ", parts: { cpu: { key: "amd-ryzen-5-7600" } } }
+      ]
+    };
+    expect(validateBuildInputSchema.safeParse(duplicate).success).toBe(false);
+  });
+
+  it("ships a description example that is valid input", () => {
+    const rawDescription = createValidateBuildTool().description;
+    const description = typeof rawDescription === "string" ? rawDescription : "";
+    const example = description.slice(description.indexOf("{"), description.lastIndexOf("}") + 1);
+    expect(validateBuildInputSchema.safeParse(JSON.parse(example)).success).toBe(true);
   });
 });
 
@@ -161,6 +190,33 @@ describe("validate_build catalog ID resolution and normalization", () => {
     expect(result.snapshot.components[0].name).toBe("amd-ryzen-5-5600x");
     expect(result.snapshot.components[0].price).toBeNull();
     expect(result.snapshot.total).toBeNull();
+  });
+
+  it("validates three builds in one validate_build call and returns snapshots keyed by label", async () => {
+    const tool = createValidateBuildTool(scope, mockRepo);
+    type ContextType = Parameters<NonNullable<typeof tool.execute>>[1];
+    const mockContext = { toolCallId: "6", messages: [] } as unknown as ContextType;
+
+    const result = (await tool.execute!(
+      {
+        builds: [
+          { label: "Option 1", parts: { cpu: "in-cpu-5600x" } },
+          { label: "Option 2", parts: { cpu: "in-cpu-unregistered" } },
+          { label: "Option 3", parts: { cpu: "amd-ryzen-5-5600x" } }
+        ]
+      },
+      mockContext
+    )) as { builds: Record<string, ValidateBuildOutput> };
+
+    expect(result.builds).toBeDefined();
+    expect(Object.keys(result.builds)).toHaveLength(3);
+    expect(result.builds["Option 1"]).toBeDefined();
+    expect(result.builds["Option 1"].snapshot.components[0].price).toBe(13500);
+    expect(result.builds["Option 2"]).toBeDefined();
+    expect(result.builds["Option 2"].snapshot.components[0].price).toBe(9999);
+    expect(result.builds["Option 3"]).toBeDefined();
+    expect(result.builds["Option 3"].resolved.cpu).toBeDefined();
+    expect((result.builds["Option 3"].resolved.cpu as ResolvedSpec).spec.model).toBe("AMD Ryzen 5 5600X");
   });
 });
 

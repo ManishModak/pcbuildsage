@@ -179,6 +179,11 @@ describe("Compact Search Module", () => {
     expect(compact.valid_filters).toEqual(["category", "price_max"]);
   });
 
+  it("accepts any casing for category but rejects unknown categories", () => {
+    expect(searchProductsInputSchema.parse({ category: " GPU " }).category).toBe("gpu");
+    expect(searchProductsInputSchema.safeParse({ category: "graphics card" }).success).toBe(false);
+  });
+
   it("enforces schema limit validation (default 12, allows > 12 without Zod rejection)", () => {
     expect(searchProductsInputSchema.parse({}).limit).toBe(12);
     expect(searchProductsInputSchema.safeParse({ limit: 8 }).success).toBe(true);
@@ -199,7 +204,7 @@ describe("Compact Search Module", () => {
       getCatalog: async () => ({ categories: [], scope: { country_code: "IN", currency: "INR" } })
     };
 
-    const originalInput = { category: "gpu", limit: 30 };
+    const originalInput = { category: "gpu" as const, limit: 30 };
     const res = await searchProducts(originalInput, { countryCode: "IN", currency: "INR" }, mockRepo as unknown as Parameters<typeof searchProducts>[2]);
 
     // Original input object was NOT mutated

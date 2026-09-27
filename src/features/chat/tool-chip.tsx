@@ -64,6 +64,18 @@ function summarize(name: string, part: ToolPart): string {
   if (!output) return "done";
 
   if (name === "validate_build") {
+    const outObj = output as Record<string, unknown>;
+    if (outObj.builds && typeof outObj.builds === "object") {
+      const buildEntries = Object.entries(outObj.builds) as Array<[string, { issues?: Array<{ severity?: string }>; valid?: boolean }]>;
+      const totalBlocking = buildEntries.reduce(
+        (sum, [, b]) => sum + (Array.isArray(b.issues) ? b.issues.filter((i) => i.severity === "blocking").length : 0),
+        0
+      );
+      if (totalBlocking > 0) return `${totalBlocking} blocking issue${totalBlocking === 1 ? "" : "s"}`;
+      const allValid = buildEntries.every(([, b]) => b.valid);
+      const totalIssues = buildEntries.reduce((sum, [, b]) => sum + (Array.isArray(b.issues) ? b.issues.length : 0), 0);
+      return allValid ? `${buildEntries.length} compatible` : `${totalIssues} issue${totalIssues === 1 ? "" : "s"}`;
+    }
     const issues = Array.isArray(output.issues) ? (output.issues as Array<{ severity?: string }>) : [];
     const blocking = issues.filter((issue) => issue.severity === "blocking").length;
     if (blocking > 0) return `${blocking} blocking issue${blocking === 1 ? "" : "s"}`;

@@ -8,15 +8,13 @@ import {
 import type { ToolPart } from "@/features/chat/tool-chip";
 
 describe("present_build tool", () => {
-  it("validates structured input with builds and parts", () => {
+  it("validates structured input with builds and product_ids references", () => {
     const valid = presentBuildInputSchema.safeParse({
       builds: [
         {
           label: "Max Performance",
-          parts: [
-            { category: "gpu", name: "RTX 5060", price: 35900, retailer: "Kryptronix", url: "https://kryptronix.in/rtx5060" },
-            { category: "cpu", name: "Ryzen 5 5600X", price: 13950 }
-          ]
+          product_ids: ["in-gpu-5060-01", "in-cpu-5600x-01"],
+          notes: "Focuses on raw GPU horsepower."
         }
       ]
     });
@@ -29,11 +27,11 @@ describe("present_build tool", () => {
       builds: [
         {
           label: "Max Performance",
-          parts: [{ category: "gpu" as const, name: "RTX 5060", price: 35900 }]
+          product_ids: ["in-gpu-5060-01"]
         },
         {
           label: "Value Gaming",
-          parts: [{ category: "gpu" as const, name: "RTX 5050", price: 24900 }]
+          product_ids: ["in-gpu-5050-01"]
         }
       ]
     };
@@ -263,6 +261,280 @@ Here is your component list:
     expect(derived[1].components[0].price).toBe(28000);
     expect(derived[1].components[1].name).toBe("Ryzen 5 5600X");
     expect(derived[1].components[1].price).toBe(13000);
+  });
+
+  it("shows snapshot price when model present_build attempts to specify a differing price", () => {
+    const parts: ToolPart[] = [
+      {
+        type: "tool-validate_build",
+        state: "output-available",
+        input: {
+          builds: [
+            {
+              label: "Challenger Build",
+              parts: { gpu: { product_id: "in-gpu-4060" } }
+            }
+          ]
+        },
+        output: {
+          builds: {
+            "Challenger Build": {
+              valid: true,
+              resolved: {},
+              issues: [],
+              checks: [],
+              snapshot: {
+                label: "Challenger Build",
+                components: [
+                  {
+                    category: "gpu",
+                    product_id: "in-gpu-4060",
+                    name: "GeForce RTX 4060",
+                    price: 28000,
+                    currency: "INR",
+                    retailer: "Kryptronix",
+                    url: "https://kryptronix.in/rtx4060"
+                  }
+                ],
+                total: 28000,
+                subtotal: 28000,
+                currency: "INR",
+                is_complete: true,
+                component_count: 1,
+                unpriced_count: 0,
+                missing_prices: [],
+                currencies: ["INR"],
+                parts: {},
+                valid: true,
+                created_at: new Date().toISOString()
+              }
+            }
+          }
+        }
+      },
+      {
+        type: "tool-present_build",
+        state: "output-available",
+        input: {
+          builds: [
+            {
+              label: "Challenger Build",
+              parts: [
+                {
+                  category: "gpu",
+                  product_id: "in-gpu-4060",
+                  name: "RTX 4060",
+                  price: 99999, // Model hallucinated/attempted higher price
+                  url: "https://hallucinated-scam.com/gpu"
+                }
+              ]
+            }
+          ]
+        },
+        output: { presented: true, buildCount: 1 }
+      }
+    ];
+
+    const derived = deriveBuilds(parts, "INR");
+    expect(derived).toHaveLength(1);
+    expect(derived[0].components[0].price).toBe(28000); // Snapshot price wins
+    expect(derived[0].components[0].url).toBe("https://kryptronix.in/rtx4060"); // Snapshot URL wins
+  });
+
+  it("never displays a made-up URL for parts without catalog ID", () => {
+    const parts: ToolPart[] = [
+      {
+        type: "tool-validate_build",
+        state: "output-available",
+        input: {
+          builds: [
+            {
+              label: "Custom Build",
+              parts: { cooler: "Deepcool AG400" }
+            }
+          ]
+        },
+        output: {
+          builds: {
+            "Custom Build": {
+              valid: true,
+              resolved: {},
+              issues: [],
+              checks: [],
+              snapshot: {
+                label: "Custom Build",
+                components: [
+                  {
+                    category: "cooler",
+                    product_id: undefined,
+                    name: "Deepcool AG400",
+                    price: null,
+                    currency: "INR"
+                  }
+                ],
+                total: null,
+                subtotal: 0,
+                currency: "INR",
+                is_complete: false,
+                component_count: 1,
+                unpriced_count: 1,
+                missing_prices: ["cooler: Deepcool AG400"],
+                currencies: ["INR"],
+                parts: {},
+                valid: true,
+                created_at: new Date().toISOString()
+              }
+            }
+          }
+        }
+      },
+      {
+        type: "tool-present_build",
+        state: "output-available",
+        input: {
+          builds: [
+            {
+              label: "Custom Build",
+              parts: [
+                {
+                  category: "cooler",
+                  name: "Deepcool AG400",
+                  price: 1800,
+                  url: "https://made-up-store.com/ag400"
+                }
+              ]
+            }
+          ]
+        },
+        output: { presented: true, buildCount: 1 }
+      }
+    ];
+
+    const derived = deriveBuilds(parts, "INR");
+    expect(derived).toHaveLength(1);
+    expect(derived[0].components[0].url).toBeUndefined(); // A made-up URL can't appear
+    expect(derived[0].components[0].price).toBeNull();
+    expect(derived[0].components[0].notInCatalog).toBe(true);
+  });
+
+  it("renders old session fixture unchanged without validation snapshot", () => {
+    const oldSessionParts: ToolPart[] = [
+      {
+        type: "tool-present_build",
+        state: "output-available",
+        input: {
+          builds: [
+            {
+              label: "Legacy Session Build",
+              parts: [
+                {
+                  category: "gpu",
+                  name: "Legacy RTX 3060",
+                  price: 25000,
+                  currency: "INR",
+                  retailer: "LegacyRetailer",
+                  url: "https://legacy.example.com/3060"
+                }
+              ]
+            }
+          ]
+        },
+        output: { presented: true, buildCount: 1 }
+      }
+    ];
+
+    const derived = deriveBuilds(oldSessionParts, "INR");
+    expect(derived).toHaveLength(1);
+    expect(derived[0].components[0].name).toBe("Legacy RTX 3060");
+    expect(derived[0].components[0].price).toBe(25000);
+    expect(derived[0].components[0].retailer).toBe("LegacyRetailer");
+    expect(derived[0].components[0].url).toBe("https://legacy.example.com/3060");
+  });
+
+  it("derives build components strictly from snapshot when new-format product_ids is used", () => {
+    const parts: ToolPart[] = [
+      {
+        type: "tool-validate_build",
+        state: "output-available",
+        input: {
+          builds: [
+            {
+              label: "Reference Build",
+              parts: {
+                cpu: { product_id: "in-cpu-5600" },
+                cooler: "Deepcool AG400"
+              }
+            }
+          ]
+        },
+        output: {
+          builds: {
+            "Reference Build": {
+              valid: true,
+              resolved: {},
+              issues: [],
+              checks: [],
+              snapshot: {
+                label: "Reference Build",
+                components: [
+                  {
+                    category: "cpu",
+                    product_id: "in-cpu-5600",
+                    name: "AMD Ryzen 5 5600",
+                    price: 11490,
+                    currency: "INR",
+                    retailer: "PrimeABGB",
+                    url: "https://primeabgb.com/5600"
+                  },
+                  {
+                    category: "cooler",
+                    product_id: undefined,
+                    name: "Deepcool AG400",
+                    price: null,
+                    currency: "INR"
+                  }
+                ],
+                total: null,
+                subtotal: 11490,
+                currency: "INR",
+                is_complete: false,
+                component_count: 2,
+                unpriced_count: 1,
+                missing_prices: ["cooler: Deepcool AG400"],
+                currencies: ["INR"],
+                parts: {},
+                valid: true,
+                created_at: new Date().toISOString()
+              }
+            }
+          }
+        }
+      },
+      {
+        type: "tool-present_build",
+        state: "output-available",
+        input: {
+          builds: [
+            {
+              label: "Reference Build",
+              product_ids: ["in-cpu-5600"]
+            }
+          ]
+        },
+        output: { presented: true, buildCount: 1 }
+      }
+    ];
+
+    const derived = deriveBuilds(parts, "INR");
+    expect(derived).toHaveLength(1);
+    expect(derived[0].components).toHaveLength(2);
+    expect(derived[0].components[0].productId).toBe("in-cpu-5600");
+    expect(derived[0].components[0].price).toBe(11490);
+    expect(derived[0].components[0].retailer).toBe("PrimeABGB");
+    expect(derived[0].components[0].url).toBe("https://primeabgb.com/5600");
+    expect(derived[0].components[1].notInCatalog).toBe(true);
+    expect(derived[0].components[1].price).toBeNull();
+    expect(derived[0].components[1].url).toBeUndefined();
   });
 });
 

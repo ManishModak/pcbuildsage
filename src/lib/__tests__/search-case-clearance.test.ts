@@ -177,13 +177,13 @@ describe("Case Clearance Filters, Limit Clamping, and Category Restrictions", ()
       });
 
       // Capitalized 'Case' with category-restricted clearance filter
-      const resCase = await searchProducts({ category: "Case", min_gpu_clearance_mm: 300 }, scope, repo);
+      const resCase = await searchProducts({ category: "Case" as unknown as "case", min_gpu_clearance_mm: 300 }, scope, repo);
       expect(resCase.error).toBeUndefined();
       expect(resCase.results).toHaveLength(1);
       expect(resCase.results[0].id).toBe("case-upper");
 
       // Capitalized 'GPU' with whitespace and category-restricted length filter
-      const resGpu = await searchProducts({ category: " GPU ", max_length_mm: 250 }, scope, repo);
+      const resGpu = await searchProducts({ category: " GPU " as unknown as "gpu", max_length_mm: 250 }, scope, repo);
       expect(resGpu.error).toBeUndefined();
       expect(resGpu.results).toHaveLength(1);
       expect(resGpu.results[0].id).toBe("gpu-upper");

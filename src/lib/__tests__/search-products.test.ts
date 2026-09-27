@@ -393,6 +393,21 @@ describe("searchProducts", () => {
     });
   });
 
+  it("rejects unknown filter keys strictly at the schema level", async () => {
+    const { searchProductsInputSchema } = await import("../tools/search-products");
+    const result = searchProductsInputSchema.safeParse({ category: "gpu", invalid_param: "test" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toMatch(/Unrecognized key/i);
+    }
+  });
+
+  it("validates category against the fixed category enum", async () => {
+    const { searchProductsInputSchema } = await import("../tools/search-products");
+    expect(searchProductsInputSchema.safeParse({ category: "gpu" }).success).toBe(true);
+    expect(searchProductsInputSchema.safeParse({ category: "invalid" }).success).toBe(false);
+  });
+
   it("supports full-text search via term and query filters", async () => {
     const { searchProducts } = await import("../tools/search-products");
     const dbPath = resetDb();
@@ -420,7 +435,7 @@ describe("searchProducts", () => {
   it("does not mutate the incoming input category", async () => {
     const { searchProducts } = await import("../tools/search-products");
     const dbPath = resetDb();
-    const input = { category: " GPU " };
+    const input = { category: " GPU " as unknown as "gpu" };
     await searchProducts(input, { dbPath, countryCode: "IN", currency: "INR" });
     expect(input.category).toBe(" GPU ");
   });

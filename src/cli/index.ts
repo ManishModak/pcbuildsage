@@ -322,8 +322,19 @@ async function collectAssistant(configInput: CliConfig, messages: ChatMessage[])
 
 function formatToolResult(toolName: string, outputValue: unknown, palette: Palette): string {
   if (toolName === "validate_build" && typeof outputValue === "object" && outputValue !== null) {
-    const issues = Array.isArray((outputValue as { issues?: unknown[] }).issues) ? (outputValue as { issues: unknown[] }).issues : [];
-    const blocking = issues.filter((issue) => typeof issue === "object" && issue !== null && (issue as { severity?: string }).severity === "blocking").length;
+    const outObj = outputValue as Record<string, unknown>;
+    let blocking = 0;
+    if (outObj.builds && typeof outObj.builds === "object") {
+      for (const b of Object.values(outObj.builds)) {
+        const issues = (b as { issues?: Array<{ severity?: string }> }).issues;
+        if (Array.isArray(issues)) {
+          blocking += issues.filter((i) => i.severity === "blocking").length;
+        }
+      }
+    } else {
+      const issues = Array.isArray((outputValue as { issues?: unknown[] }).issues) ? (outputValue as { issues: unknown[] }).issues : [];
+      blocking = issues.filter((issue) => typeof issue === "object" && issue !== null && (issue as { severity?: string }).severity === "blocking").length;
+    }
     return palette.muted(`⚒ validate_build → ${blocking} blocking issues`);
   }
   return palette.muted(`⚒ ${toolName} → done`);

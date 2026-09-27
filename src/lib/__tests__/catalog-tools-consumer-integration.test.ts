@@ -6,6 +6,7 @@ import {
   searchProducts,
   createToolRegistry
 } from "@/lib/tools";
+import { searchProductsInputSchema } from "@/lib/tools/search-products";
 import {
   setCatalogRepository,
   resetCatalogRepositoryRegistry,
@@ -135,7 +136,7 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
   });
 
   describe("search_products tool delegation", () => {
-    const input = { category: "gpu", in_stock: true };
+    const input = { category: "gpu" as const, in_stock: true };
     const expectedCompact = toCompactSearchResult(sampleSearchResult);
 
     it("delegates to repository passed directly as argument to searchProducts()", async () => {
@@ -181,17 +182,12 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
       expect(result).toEqual(expectedCompact);
     });
 
-    it("returns error early for invalid filters without calling repository", async () => {
-      const mockRepo = createMockRepo();
-      const result = await searchProducts(
-        { unknown_filter: 123 } as unknown as Parameters<typeof searchProducts>[0],
-        sampleScope,
-        mockRepo
-      );
-
-      expect(mockRepo.searchProducts).not.toHaveBeenCalled();
-      expect(result.error).toContain("Unknown filter(s): unknown_filter");
-      expect(result.results).toEqual([]);
+    it("returns error early for invalid filters via strict schema validation", () => {
+      const parseResult = searchProductsInputSchema.safeParse({ unknown_filter: 123 });
+      expect(parseResult.success).toBe(false);
+      if (!parseResult.success) {
+        expect(parseResult.error.issues[0]?.message).toMatch(/Unrecognized key/i);
+      }
     });
   });
 
@@ -201,9 +197,9 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
       const config = resolveConfig({ countryCode: "US", currency: "USD" });
       const tools = createToolRegistry(config, { repository: mockRepo });
 
-      const getCatalogTool = tools.get_catalog as unknown as TestExecutableTool;
-      await getCatalogTool.execute({}, mockExecOptions);
-      expect(mockRepo.getCatalog).toHaveBeenCalled();
+      const listModelsTool = tools.list_models as unknown as TestExecutableTool;
+      await listModelsTool.execute({ category: "gpu" }, mockExecOptions);
+      expect(mockRepo.listModels).toHaveBeenCalled();
 
       const searchProductsTool = tools.search_products as unknown as TestExecutableTool;
       await searchProductsTool.execute({ category: "gpu" }, mockExecOptions);
