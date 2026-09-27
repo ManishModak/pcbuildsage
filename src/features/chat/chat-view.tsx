@@ -8,7 +8,7 @@ import { fetchStatus, isHostedMode } from "@/lib/api-client";
 import { apiKeyHeaders } from "@/lib/client-config-store";
 import { injectByokHeaders } from "@/lib/llm/client-byok-store";
 import { getMarketPreference } from "@/lib/market/client-market-store";
-import { getClientSession, saveClientSession } from "@/lib/sessions/client-store";
+import { getClientSession } from "@/lib/sessions/client-store";
 import type { StoredCompactContext } from "@/lib/sessions/compact-context";
 import { resolveActiveModel, resolveChatRequestBody } from "./chat-config-resolver";
 import type { ClientConfig, StatusResponse } from "@/types/client";
@@ -247,17 +247,11 @@ export function ChatView({
     },
     onFinish: ({ message, isAbort, isError }) => {
       setIsCompacting(false);
+      // Persisted by the save queue (persistSnapshot) with the rest of the session,
+      // so revision handling stays in one place.
       const meta = message?.metadata as { compactContext?: StoredCompactContext } | undefined;
       if (meta?.compactContext) {
         compactContextRef.current = meta.compactContext;
-        if (sessionIdRef.current) {
-          void saveClientSession({
-            id: sessionIdRef.current,
-            revision: 1,
-            messages: messagesRef.current,
-            compactContext: meta.compactContext
-          });
-        }
       }
       if (isIncompleteChatFinish(message, { isAbort, isError })) {
         const scheduled = recovery.scheduleIncomplete(() => {
@@ -333,15 +327,8 @@ export function ChatView({
                 boundaryMessageId: data.boundaryMessageId
               } : undefined);
               if (compactCtx) {
+                // The resend below carries it; the save queue persists it after that turn.
                 compactContextRef.current = compactCtx;
-                if (sessionIdRef.current) {
-                  await saveClientSession({
-                    id: sessionIdRef.current,
-                    revision: 1,
-                    messages: messagesRef.current,
-                    compactContext: compactCtx
-                  });
-                }
               }
               setIsCompacting(false);
               setMessagesRef.current((current) => prepareChatRecovery(current));

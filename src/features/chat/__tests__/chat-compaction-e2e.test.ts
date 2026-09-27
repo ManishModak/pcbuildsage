@@ -335,6 +335,45 @@ describe("Chat Compaction End-to-End Integration Suite", () => {
     expect(compactSpy).not.toHaveBeenCalled();
   });
 
+  it("Integration 4b: The next stored context keeps this turn's user question, not just the reply", async () => {
+    let capturedOnFinish: ((finish: { text: string; model: { provider: string; modelId: string } }) => Promise<void>) | undefined;
+    vi.mocked(clientModule.streamTextWithFallback).mockImplementation(async (opts: unknown) => {
+      capturedOnFinish = (opts as { onFinish?: typeof capturedOnFinish }).onFinish;
+      return {
+        toUIMessageStreamResponse: () => new Response("ok"),
+        provider: "gemini",
+        model: "gemini-2.0-flash",
+        fallbackIndex: 0,
+        errors: []
+      } as unknown as ReturnType<typeof clientModule.streamTextWithFallback>;
+    });
+
+    const compactContext: sessionsModule.StoredCompactContext = {
+      messages: [
+        { role: "user", content: "Original request" },
+        { role: "assistant", content: "[Progress & Handoff Summary]\nSummary text." }
+      ],
+      boundaryMessageId: "asst-1",
+      snapshot: null
+    };
+    const turn2History: ChatMessage[] = [
+      { id: "user-1", role: "user", content: "Original request", parts: [{ type: "text", text: "Original request" }] },
+      { id: "asst-1", role: "assistant", content: "Summary text.", parts: [{ type: "text", text: "Summary text." }] },
+      { id: "user-2", role: "user", content: "Add 32GB RAM", parts: [{ type: "text", text: "Add 32GB RAM" }] }
+    ];
+
+    process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "hosted-demo";
+    const result = await streamChat(testConfig, turn2History, "sess-turn-2b", undefined, compactContext, "asst-2");
+    await capturedOnFinish!({ text: "Added a 2x16GB kit.", model: { provider: "gemini", modelId: "gemini-2.0-flash" } });
+
+    const stored = result.compactContext!;
+    const text = JSON.stringify(stored.messages);
+    expect(text).toContain("Add 32GB RAM");
+    expect(text).toContain("Added a 2x16GB kit.");
+    expect(stored.messages.at(-1)).toMatchObject({ role: "assistant" });
+    expect(stored.boundaryMessageId).toBe("asst-2");
+  });
+
   it("Integration 5: Proves an old session from browser IndexedDB (without compacted context) still loads and chats normally", async () => {
     // Legacy session representation as stored in IndexedDB before this feature
     const legacyStoredSession = {

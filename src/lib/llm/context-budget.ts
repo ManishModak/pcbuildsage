@@ -211,9 +211,10 @@ export function calculateStepTokens(options: StepTokenCalculationOptions): numbe
         if (lastStep.toolCalls && lastStep.toolCalls.length > 0) {
           newContentTokens += estimateTokens(lastStep.toolCalls);
         }
-      }
-      if (lastStep.toolResults && lastStep.toolResults.length > 0) {
-        newContentTokens += estimateTokens(lastStep.toolResults);
+        // step.content already includes tool results; count them separately only here.
+        if (lastStep.toolResults && lastStep.toolResults.length > 0) {
+          newContentTokens += estimateTokens(lastStep.toolResults);
+        }
       }
     }
     return reportedInputTokens + newContentTokens;

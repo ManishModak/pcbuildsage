@@ -16,10 +16,8 @@ import {
 import { compactConversation } from "./compaction";
 import type { BuildSnapshot } from "../catalog/build-snapshot";
 import { isHostedDemo } from "../config/deployment";
-import { isHostedMode } from "../api-client";
-
 function isHosted(): boolean {
-  return isHostedDemo() || isHostedMode();
+  return isHostedDemo();
 }
 
 export type { ChatMessage };
@@ -223,6 +221,10 @@ export async function streamChat(
     : (session?.compact_context ?? clientCompactContext ?? null);
 
   let latestCompactContext: StoredCompactContext | null = effectiveCompactContext ? { ...effectiveCompactContext } : null;
+  // The conversation the model actually sees when resuming from compacted
+  // context (earlier summary plus this turn's messages, including the user's
+  // question). onFinish stores it with the final reply as the next context.
+  let compactBase: ModelMessage[] | null = null;
 
   let initialModelMessages = rawModelMessages;
   if (effectiveCompactContext && effectiveCompactContext.messages && effectiveCompactContext.messages.length > 0) {
@@ -248,6 +250,7 @@ export async function streamChat(
         } else {
           initialModelMessages = [...effectiveCompactContext.messages];
         }
+        compactBase = initialModelMessages;
       } else {
         initialModelMessages = rawModelMessages;
       }
@@ -256,6 +259,7 @@ export async function streamChat(
       initialModelMessages = lastUserMsg
         ? [...effectiveCompactContext.messages, lastUserMsg]
         : [...effectiveCompactContext.messages];
+      compactBase = initialModelMessages;
     }
   }
 
@@ -283,6 +287,7 @@ export async function streamChat(
       });
       if (initialCompaction.compacted) {
         initialModelMessages = initialCompaction.messages;
+        compactBase = initialCompaction.messages;
         latestCompactContext = {
           messages: initialModelMessages,
           boundaryMessageId: assistantMsgId,
@@ -332,6 +337,7 @@ export async function streamChat(
           });
 
           if (compaction.compacted) {
+            compactBase = compaction.messages;
             latestCompactContext = {
               messages: compaction.messages,
               boundaryMessageId: assistantMsgId,
@@ -366,13 +372,11 @@ export async function streamChat(
       await Promise.all(promises);
     },
     onFinish: async (finish: OnFinishEvent<ToolSet>) => {
-      if (latestCompactContext && finish.text && finish.text.trim().length > 0) {
+      if (compactBase && finish.text && finish.text.trim().length > 0) {
         latestCompactContext = {
-          ...latestCompactContext,
-          messages: [
-            ...latestCompactContext.messages,
-            { role: "assistant", content: finish.text.trim() }
-          ]
+          messages: [...compactBase, { role: "assistant", content: finish.text.trim() }],
+          boundaryMessageId: assistantMsgId,
+          snapshot: latestCompactContext?.snapshot ?? null
         };
         persistSessionCompactContext(
           sessionId,
