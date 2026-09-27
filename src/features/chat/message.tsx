@@ -3,15 +3,16 @@
 import { useEffect, useId, useState } from "react";
 import type { UIMessage } from "@ai-sdk/react";
 import { ArrowRight, Brain, ChevronDown, Package, Pencil, RefreshCw } from "lucide-react";
-import { formatClock, formatPrice, sumPrices } from "@/lib/format";
+import { formatClock, formatPrice } from "@/lib/format";
 import type { ChatMetadata } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/components/ui/cn";
 import { Button } from "@/components/ui/button";
-import { extractBuildsFromMessage, type DerivedBuild, type BuildVersion } from "./build-derive";
+import { resolveBuildTotal, type BuildVersion } from "./build-derive";
+import { BuildErrorBoundary } from "./build-error-boundary";
 import { FailoverPill } from "./failover-pill";
 import { Markdown } from "./markdown";
-import { ToolChip, type ToolPart } from "./tool-chip";
+import { ToolChip } from "./tool-chip";
 import { isFollowupsPart } from "@/lib/followups";
 import { isTextPart, isReasoningPart, isToolPart } from "@/lib/message-parts";
 
@@ -19,7 +20,15 @@ export type ChatUIMessage = UIMessage<ChatMetadata> & {
   createdAt?: Date;
 };
 
-function ThinkingTrace({ text }: { text: string }) {
+/**
+ * The collapsible reasoning trace.
+ *
+ * `live` is the part's own state: a finished message keeps its trace but must
+ * stop looking like work in progress, so the pulse and the busy state both
+ * follow it. The accessible name is the same either way, so a screen reader is
+ * told the trace exists and, through aria-busy, whether it is still running.
+ */
+function ThinkingTrace({ text, live }: { text: string; live: boolean }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const contentId = useId();
 
@@ -31,11 +40,12 @@ function ThinkingTrace({ text }: { text: string }) {
         type="button"
         aria-expanded={isExpanded}
         aria-controls={contentId}
+        aria-busy={live}
         onClick={() => setIsExpanded(!isExpanded)}
         className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-text-muted hover:bg-surface-muted/50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Icon icon={Brain} className="animate-pulse text-primary/70" />
+          <Icon icon={Brain} className={cn("text-primary/70", live && "animate-pulse")} />
           <span className="font-medium text-text-muted">Sage thinking process...</span>
         </div>
         <Icon
@@ -56,20 +66,26 @@ function ThinkingTrace({ text }: { text: string }) {
 
 export function MessageView({
   message,
-  currency,
   versions,
   onEdit,
   followups = [],
   onFollowup,
-  onViewBuild
+  onViewBuild,
+  isStreaming = false
 }: {
   message: ChatUIMessage;
-  currency: string;
   versions?: BuildVersion[];
   onEdit?: (newText: string) => void;
   followups?: string[];
   onFollowup?: (prompt: string) => void;
-  onViewBuild?: (builds: DerivedBuild[], versionOrId?: number | string) => void;
+  /**
+   * Open a build version by its stable id. The panel resolves it against the
+   * versions it already knows about, so a click can never install an ad-hoc
+   * build list that no version in the picker refers to.
+   */
+  onViewBuild?: (versionId: string) => void;
+  /** True only for the assistant message the chat is streaming right now. */
+  isStreaming?: boolean;
 }) {
   const [hasMounted, setHasMounted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -91,8 +107,11 @@ export function MessageView({
       ? [{ type: "text" as const, text: rawContent }]
       : [];
 
-  const hasVersions = Boolean(versions && versions.length > 0);
-  const fallbackBuilds = isUser || hasVersions ? [] : extractBuildsFromMessage(message, currency);
+  // Builds are only ever opened through a version the caller computed for this
+  // message, so the button below always has a real id to hand over. There is no
+  // fallback: findAllBuildVersions sees at least the tool parts this message has
+  // of its own, so any build the panel knows about is already a version.
+  const hasVersions = !isUser && Boolean(versions && versions.length > 0);
 
   const textContent =
     parts
@@ -205,7 +224,14 @@ export function MessageView({
       {parts.map((part, index) => {
         if (isReasoningPart(part)) {
           if (part.text) {
-            return <ThinkingTrace key={index} text={part.text} />;
+            // Only these states mean the model is still thinking, and only while
+            // this message is the one streaming now. A part saved mid-stream keeps
+            // `state: "streaming"` forever, so the state alone is not enough.
+            const state = (part as { state?: string }).state;
+            const live =
+              isStreaming &&
+              (state === "reasoning" || state === "reasoning-streaming" || state === "streaming");
+            return <ThinkingTrace key={index} text={part.text} live={live} />;
           }
         }
         if (isTextPart(part)) {
@@ -219,108 +245,55 @@ export function MessageView({
       })}
 
       {hasVersions ? (
-        <div className="my-3 flex flex-col gap-2">
-          {versions!.map((v) => {
-            const primaryBuild = v.builds[0];
-            if (!primaryBuild) return null;
-            return (
-              <button
-                key={v.version}
-                type="button"
-                onClick={() => onViewBuild?.(v.builds, v.presentationId ?? v.version)}
-                className="group flex w-full items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-left shadow-xs transition-all duration-150 hover:border-accent hover:bg-surface-raised cursor-pointer"
-                aria-label={`View proposed build: ${primaryBuild.label ?? v.label}`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn bg-accent/10 text-accent group-hover:bg-accent group-hover:text-on-accent transition-colors duration-150">
-                    <Icon icon={Package} size={18} />
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <div className="flex items-baseline gap-2 truncate">
-                      <span className="text-caption font-semibold uppercase tracking-wider text-text-secondary">
-                        {v.label}
-                      </span>
-                      {v.builds.length > 1 ? (
-                        <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-muted">
-                          {v.builds.length} variants
-                        </span>
-                      ) : null}
+        <BuildErrorBoundary resetKeys={versions!.map((v) => v.id)}>
+          <div className="my-3 flex flex-col gap-2">
+            {versions!.map((v) => {
+              const primaryBuild = v.builds[0];
+              if (!primaryBuild) return null;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => onViewBuild?.(v.id)}
+                  className="group flex w-full items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-left shadow-xs transition-all duration-150 hover:border-accent hover:bg-surface-raised cursor-pointer"
+                  aria-label={`View proposed build: ${primaryBuild.label ?? v.label}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn bg-accent/10 text-accent group-hover:bg-accent group-hover:text-on-accent transition-colors duration-150">
+                      <Icon icon={Package} size={18} />
                     </div>
-                    <span className="truncate text-sm font-medium text-text">
-                      {primaryBuild.label ? `${primaryBuild.label} · ` : ""}
-                      <span className="font-mono font-semibold text-accent">
-                        {formatPrice(
-                          sumPrices(primaryBuild.components.map((c) => c.price)),
-                          primaryBuild.currency
-                        )}
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-baseline gap-2 truncate">
+                        <span className="text-caption font-semibold uppercase tracking-wider text-text-secondary">
+                          {v.label}
+                        </span>
+                        {v.builds.length > 1 ? (
+                          <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-muted">
+                            {v.builds.length} variants
+                          </span>
+                        ) : null}
+                      </div>
+                      <span className="truncate text-sm font-medium text-text">
+                        {primaryBuild.label ? `${primaryBuild.label} · ` : ""}
+                        <span className="font-mono font-semibold text-accent">
+                          {formatPrice(resolveBuildTotal(primaryBuild), primaryBuild.currency)}
+                        </span>
                       </span>
-                    </span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0 text-caption font-medium text-text-secondary group-hover:text-accent transition-colors">
-                  <span className="hidden sm:inline">View Details</span>
-                  <Icon
-                    icon={ArrowRight}
-                    size={16}
-                    className="transition-transform duration-150 group-hover:translate-x-1"
-                  />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      ) : fallbackBuilds.length ? (
-        <div className="my-3">
-          <button
-            type="button"
-            onClick={() => {
-              const presentPart = parts.find(
-                (p) =>
-                  (p.type === "tool-present_build" ||
-                    (p as ToolPart).toolName === "present_build") &&
-                  (p as ToolPart).toolCallId
-              ) as ToolPart | undefined;
-              onViewBuild?.(fallbackBuilds, presentPart?.toolCallId);
-            }}
-            className="group flex w-full items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-left shadow-xs transition-all duration-150 hover:border-accent hover:bg-surface-raised cursor-pointer"
-            aria-label={`View proposed build: ${fallbackBuilds[0].label ?? "Proposed Build"}`}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn bg-accent/10 text-accent group-hover:bg-accent group-hover:text-on-accent transition-colors duration-150">
-                <Icon icon={Package} size={18} />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-baseline gap-2 truncate">
-                  <span className="text-caption font-semibold uppercase tracking-wider text-text-secondary">
-                    Proposed Build
-                  </span>
-                  {fallbackBuilds.length > 1 ? (
-                    <span className="rounded-pill bg-surface-raised px-2.5 py-0.5 text-[11px] font-medium text-text-muted">
-                      {fallbackBuilds.length} variants
-                    </span>
-                  ) : null}
-                </div>
-                <span className="truncate text-sm font-medium text-text">
-                  {fallbackBuilds[0].label ? `${fallbackBuilds[0].label} · ` : ""}
-                  <span className="font-mono font-semibold text-accent">
-                    {formatPrice(
-                      sumPrices(fallbackBuilds[0].components.map((c) => c.price)),
-                      fallbackBuilds[0].currency
-                    )}
-                  </span>
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0 text-caption font-medium text-text-secondary group-hover:text-accent transition-colors">
-              <span className="hidden sm:inline">View Details</span>
-              <Icon
-                icon={ArrowRight}
-                size={16}
-                className="transition-transform duration-150 group-hover:translate-x-1"
-              />
-            </div>
-          </button>
-        </div>
+                  <div className="flex items-center gap-1.5 shrink-0 text-caption font-medium text-text-secondary group-hover:text-accent transition-colors">
+                    <span className="hidden sm:inline">View Details</span>
+                    <Icon
+                      icon={ArrowRight}
+                      size={16}
+                      className="transition-transform duration-150 group-hover:translate-x-1"
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </BuildErrorBoundary>
       ) : null}
 
       {followups.length > 0 && onFollowup ? (

@@ -18,12 +18,13 @@ import { Composer } from "./composer";
 import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
 import { BuildCard } from "./build-card";
-import { extractBuildsFromMessage, findAllBuildVersions, type DerivedBuild, type BuildVersion } from "./build-derive";
+import { BuildErrorBoundary } from "./build-error-boundary";
+import { buildHeaderSignature, buildsFingerprint, extractBuildsFromMessage, findAllBuildVersions, followNewestVersion, openedBuildsForSession, resolveBuildTotal, resolveSelectedVersion, type DerivedBuild, type BuildVersion } from "./build-derive";
 import { getFollowups } from "@/lib/followups";
 import { isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
 import { useApp } from "@/components/app/app-provider";
-import { getErrorMessage, formatRelativeTime, formatPrice, sumPrices, formatModelName } from "@/lib/format";
+import { getErrorMessage, formatRelativeTime, formatPrice, formatModelName } from "@/lib/format";
 import { useIsDesktop } from "@/hooks/use-mobile";
 import {
   Sheet,
@@ -32,7 +33,15 @@ import {
   SheetTitle,
   SheetDescription
 } from "@/components/animate-ui/components/radix/sheet";
-import { sessionSignature, type SessionSaveQueue } from "./session-save-queue";
+import {
+  decideStreamPersist,
+  registerPageCloseFlush,
+  sessionSignature,
+  shouldFlushOnPageHide,
+  type ServerSessionCopy,
+  type SessionSaveQueue
+} from "./session-save-queue";
+import { CONFLICT_ADOPTED_NOTICE, describeSaveFailure, SaveAlert } from "./save-failure-notice";
 import { TranscriptMenu } from "./transcript-menu";
 import { ChatRecovery, isIncompleteChatFinish, prepareChatRecovery, isContextLimitError } from "./chat-recovery";
 import { getModelContextLimit, estimateTokens, shouldTriggerCompaction, TOOL_DEFINITIONS_TOKEN_OVERHEAD } from "@/lib/llm/context-budget";
@@ -59,6 +68,20 @@ function deriveTitle(messages: ChatUIMessage[]): string {
   return text.length > 60 ? `${text.slice(0, 60)}…` : text;
 }
 
+/**
+ * Build derivation runs during ChatView's own render, outside the build error
+ * boundary, so a malformed part in saved data (e.g. a null component) must not
+ * take down the whole chat: fall back to "no builds" and log it instead.
+ */
+function deriveSafely<T>(derive: () => T, fallback: T): T {
+  try {
+    return derive();
+  } catch (error) {
+    console.warn("Could not derive builds from this chat:", error);
+    return fallback;
+  }
+}
+
 function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedBuild[] | null {
   const allToolParts: ToolPart[] = [];
   for (const m of messages) {
@@ -75,18 +98,6 @@ function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedB
     }
   }
   return null;
-}
-
-function buildsSignature(builds: DerivedBuild[] | null): string {
-  if (!builds || builds.length === 0) return "";
-  return builds
-    .map(
-      (b) =>
-        `${b.label || ""}:${b.currency}:${b.components
-          .map((c) => `${c.category}:${c.name}:${c.price}`)
-          .join(",")}`
-    )
-    .join("|");
 }
 
 function ModelStatus({ modelName, streaming, isCompacting }: { modelName: string; streaming: boolean; isCompacting?: boolean }) {
@@ -131,7 +142,9 @@ export function ChatView({
   initialMessages,
   saveQueue,
   onPersisted,
-  isActive = true
+  isActive = true,
+  onStreamingChange,
+  isLoading = false
 }: {
   config: ClientConfig;
   sessionId: string;
@@ -139,6 +152,15 @@ export function ChatView({
   saveQueue: SessionSaveQueue;
   onPersisted?: () => void;
   isActive?: boolean;
+  /** Report streaming state so the workspace can refuse to evict this chat. */
+  onStreamingChange?: (sessionId: string, streaming: boolean) => void;
+  /**
+   * True while this chat's messages are still being fetched. Renders a loading
+   * state instead of the new-chat screen, and suppresses the composer and build
+   * panel so a half-loaded chat cannot be written into. Optional: callers that
+   * omit it behave exactly as before.
+   */
+  isLoading?: boolean;
 }) {
   const { setHeaderSuffix, updateConfig } = useApp();
   const configRef = useRef(config);
@@ -223,12 +245,18 @@ export function ChatView({
   const [incompleteNotice, setIncompleteNotice] = useState<{ sessionId: string } | null>(null);
   const [isCompacting, setIsCompacting] = useState(false);
   const [contextExceededNotice, setContextExceededNotice] = useState<string | null>(null);
+  /** Set when a save could not be made durable anywhere on this device. */
+  const [saveFailureNotice, setSaveFailureNotice] = useState<string | null>(null);
+  /** Set when another tab's newer copy of this chat replaced the local one. */
+  const [conflictNotice, setConflictNotice] = useState<string | null>(null);
 
   const [prevSessionId, setPrevSessionId] = useState(sessionId);
   if (sessionId !== prevSessionId) {
     setPrevSessionId(sessionId);
     setIsCompacting(false);
     setContextExceededNotice(null);
+    setSaveFailureNotice(null);
+    setConflictNotice(null);
   }
 
   useEffect(() => {
@@ -275,6 +303,30 @@ export function ChatView({
   useEffect(() => {
     setMessagesRef.current = setMessages;
   });
+
+  // The save queue lives in the workspace, so the view late-binds the callbacks
+  // that need its own state: surfacing a save that could not be made durable, and
+  // adopting the winner of a revision conflict instead of overwriting it.
+  useEffect(() => {
+    saveQueue.setHandlers({
+      onPersistError: (error) => {
+        // Each failure means something different, and only some of them are worth
+        // interrupting the user for - a flush that could not fit through keepalive
+        // describes no user-facing problem at all.
+        setSaveFailureNotice(describeSaveFailure(error));
+      },
+      onConflictAdopted: (copy: ServerSessionCopy) => {
+        saveQueue.observeRevision(copy.revision);
+        setMessagesRef.current(copy.messages);
+        // The compacted context summarises the transcript we just adopted, so it has
+        // to be replaced with theirs. Keeping ours would make the next save - which
+        // is revision+1 and therefore accepted - persist a summary that no longer
+        // describes the conversation.
+        compactContextRef.current = (copy.compactContext as StoredCompactContext | null | undefined) ?? null;
+        setConflictNotice(CONFLICT_ADOPTED_NOTICE);
+      }
+    });
+  }, [saveQueue]);
 
   const messagesRef = useRef(messages);
   useEffect(() => {
@@ -363,8 +415,21 @@ export function ChatView({
     };
   });
 
+  // Memoised on the messages identity, so the stringify the header signature
+  // needs costs one pass per message update rather than one per render.
+  const messagesSignature = useMemo(() => sessionSignature(messages), [messages]);
+
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
-  const [activeBuilds, setActiveBuilds] = useState<DerivedBuild[] | null>(null);
+  // Stored with the session it belongs to: ChatView is not remounted on a
+  // switch, so a build from the previous chat must never reach the panel.
+  const [openedBuilds, setOpenedBuilds] = useState<{ sessionId: string; builds: DerivedBuild[] } | null>(null);
+  const activeBuilds = openedBuildsForSession(openedBuilds, sessionId);
+  const setActiveBuilds = useCallback(
+    (builds: DerivedBuild[] | null) => {
+      setOpenedBuilds(builds ? { sessionId, builds } : null);
+    },
+    [sessionId]
+  );
   const [panelWidth, setPanelWidth] = useState(460);
   const [isDragging, setIsDragging] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -395,48 +460,65 @@ export function ChatView({
 
   const isDesktop = useIsDesktop(768);
 
+  // While a reply is streaming, a present_build that has not returned yet is
+  // still the build the user is watching being made. Once the turn is over the
+  // same call is treated as interrupted, and a finished or loaded transcript
+  // never counts one.
+  const streamingMessageId = useMemo(() => {
+    if (status !== "streaming" && status !== "submitted") return undefined;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return messages[i].id;
+    }
+    return undefined;
+  }, [status, messages]);
+
   const allBuildVersions = useMemo(
-    () => findAllBuildVersions(messages, config.currency),
-    [messages, config.currency]
+    () => deriveSafely(() => findAllBuildVersions(messages, config.currency, { streamingMessageId }), []),
+    [messages, config.currency, streamingMessageId]
   );
 
-  const [selectedVersion, setSelectedVersion] = useState<number | undefined>(undefined);
+  // Selected by stable id, not by version number: an edit or a truncation
+  // renumbers the versions, and a number can then point at another build.
+  const [selectedVersionId, setSelectedVersionId] = useState<string | undefined>(undefined);
   const [selectedAlternativeIndex, setSelectedAlternativeIndex] = useState(0);
 
-  const latestVersion = allBuildVersions.length > 0
-    ? allBuildVersions[allBuildVersions.length - 1].version
-    : undefined;
-
-  const activeVersion = useMemo(() => {
-    if (allBuildVersions.length === 0) return undefined;
-    const targetVer = selectedVersion ?? latestVersion;
-    if (targetVer === undefined) return undefined;
-    const matched = allBuildVersions.find((v) => v.version === targetVer);
-    return matched ? matched.version : latestVersion;
-  }, [allBuildVersions, selectedVersion, latestVersion]);
-
   const activeVersionObj = useMemo(
-    () => allBuildVersions.find((v) => v.version === activeVersion),
-    [allBuildVersions, activeVersion]
+    () => resolveSelectedVersion(allBuildVersions, selectedVersionId),
+    [allBuildVersions, selectedVersionId]
   );
 
-  const safeSelectedVersion = activeVersion;
+  const safeSelectedVersionId = activeVersionObj?.id;
 
   const latestBuilds = useMemo(() => {
     if (allBuildVersions.length > 0) {
       return allBuildVersions[allBuildVersions.length - 1].builds;
     }
-    return findLatestBuilds(messages, config.currency);
+    return deriveSafely(() => findLatestBuilds(messages, config.currency), null);
   }, [allBuildVersions, messages, config.currency]);
 
-  const displayBuilds = activeVersionObj?.builds ?? activeBuilds ?? latestBuilds;
-
+  // Memoised so the selection keeps its identity while nothing it selects from
+  // has changed; the header effect below also fingerprints the value.
+  const displayBuilds = useMemo(
+    () => activeVersionObj?.builds ?? activeBuilds ?? latestBuilds,
+    [activeVersionObj, activeBuilds, latestBuilds]
+  );
 
   const lastSigRef = useRef<string>("");
   const hasInitializedOpenRef = useRef(false);
+  const lastVersionIdRef = useRef<string | undefined>(undefined);
+
+  // A build version that just arrived supersedes whatever was selected, so the
+  // panel follows the new build instead of staying pinned to an older one.
+  useEffect(() => {
+    const newestId = allBuildVersions[allBuildVersions.length - 1]?.id;
+    const nextId = followNewestVersion(selectedVersionId, lastVersionIdRef.current, allBuildVersions);
+    lastVersionIdRef.current = newestId;
+    if (nextId === selectedVersionId) return;
+    setSelectedVersionId(nextId);
+  }, [allBuildVersions, selectedVersionId]);
 
   useEffect(() => {
-    const currentSig = buildsSignature(latestBuilds);
+    const currentSig = buildsFingerprint(latestBuilds);
     if (latestBuilds && currentSig) {
       if (currentSig !== lastSigRef.current) {
         lastSigRef.current = currentSig;
@@ -454,9 +536,31 @@ export function ChatView({
         });
       }
     }
-  }, [latestBuilds, isActive]);
+  }, [latestBuilds, isActive, setActiveBuilds]);
 
   const streaming = status === "streaming" || status === "submitted";
+
+  // Read by the page-close flush, which is registered once and must not need
+  // re-registering every time the status flips.
+  const streamingRef = useRef(streaming);
+  useEffect(() => {
+    streamingRef.current = streaming;
+  }, [streaming]);
+
+  // Tell the workspace whether this chat may be evicted. Unmounting a streaming
+  // view kills its stream, so the pool must be allowed over its cap instead.
+  useEffect(() => {
+    onStreamingChange?.(sessionId, streaming);
+  }, [onStreamingChange, sessionId, streaming]);
+
+  // Unmount only. A stream that dies with its view would otherwise leave the entry
+  // flagged streaming forever, which makes it permanently unevictable. Split from
+  // the effect above so the reset does not also fire on every status change.
+  useEffect(
+    () => () => onStreamingChange?.(sessionId, false),
+    [onStreamingChange, sessionId]
+  );
+
   const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
   const activeModel = useMemo(
     () => resolveActiveModel(config, lastAssistantMessage?.metadata?.model),
@@ -469,14 +573,44 @@ export function ChatView({
   );
   const activeBuild = displayBuilds?.[safeAlternativeIndex];
   const headerBuildPrice = activeBuild
-    ? formatPrice(
-        sumPrices(activeBuild.components.map((c) => c.price)),
-        activeBuild.currency
-      )
+    ? formatPrice(resolveBuildTotal(activeBuild), activeBuild.currency)
     : null;
 
+  // Everything this header renders, as one value. `displayBuilds` is rebuilt
+  // from tool parts on every pass, so comparing it by identity re-armed this
+  // effect forever: publish a new element, re-render the provider, derive fresh
+  // builds, publish again - until React gave up with "Maximum update depth
+  // exceeded". The signature ends that cycle, and it is the whole header rather
+  // than just the build so nothing goes stale behind the guard.
+  const headerSignature = buildHeaderSignature({
+    sessionId,
+    model: activeModel,
+    streaming,
+    compacting: activeIsCompacting,
+    sidePanelOpen,
+    messageCount: messages.length,
+    // The transcript menu copies and downloads the messages it closed over, so
+    // their content is part of what the header shows - a reply streaming in has
+    // to move this or the export goes out without it.
+    transcript: messagesSignature,
+    error: error ? getErrorMessage(error) : "",
+    currency: config.currency,
+    countryCode: config.countryCode,
+    buildPrice: headerBuildPrice,
+    builds: displayBuilds
+  });
+  const lastHeaderSignatureRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      // Another pooled chat owns the header while this one is hidden. Forget what
+      // we published, so switching back republishes ours instead of leaving the
+      // other chat's header (and its transcript export) on screen.
+      lastHeaderSignatureRef.current = null;
+      return;
+    }
+    if (lastHeaderSignatureRef.current === headerSignature) return;
+    lastHeaderSignatureRef.current = headerSignature;
     setHeaderSuffix(
       <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -533,6 +667,7 @@ export function ChatView({
   }, [
     isActive,
     setHeaderSuffix,
+    headerSignature,
     activeModel,
     streaming,
     activeIsCompacting,
@@ -560,25 +695,32 @@ export function ChatView({
   }, [messages, streaming, isActive]);
 
   const persistSnapshot = useCallback(
-    (currentMessages: ChatUIMessage[]) => {
+    (currentMessages: ChatUIMessage[], options?: { urgent?: boolean }) => {
       if (currentMessages.length === 0) return;
       const signature = sessionSignature(currentMessages);
       const marketPref = getMarketPreference();
 
+      // Compaction may have run during this turn; carry the compacted context into
+      // every save, including the throttled mid-stream ones and the page-close
+      // flush, so a reopened chat resumes against the same compacted history.
       const lastAssistant = [...currentMessages].reverse().find((m) => m.role === "assistant");
       const meta = lastAssistant?.metadata as { compactContext?: StoredCompactContext } | undefined;
       if (meta?.compactContext) {
         compactContextRef.current = meta.compactContext;
       }
 
-      void saveQueue.enqueue(signature, {
-        id: sessionIdRef.current,
-        messages: currentMessages,
-        title: deriveTitle(currentMessages),
-        countryCode: marketPref.countryCode || configRef.current.countryCode,
-        currency: marketPref.currencyCode || configRef.current.currency,
-        compactContext: compactContextRef.current
-      });
+      void saveQueue.enqueue(
+        signature,
+        {
+          id: sessionIdRef.current,
+          messages: currentMessages,
+          title: deriveTitle(currentMessages),
+          countryCode: marketPref.countryCode || configRef.current.countryCode,
+          currency: marketPref.currencyCode || configRef.current.currency,
+          compactContext: compactContextRef.current
+        },
+        options
+      );
     },
     [saveQueue]
   );
@@ -589,23 +731,95 @@ export function ChatView({
     persistSnapshot(messages);
   }, [status, messages, persistSnapshot]);
 
+  // Persist *while* streaming, throttled. Without this, closing or reloading the
+  // page mid-reply throws the whole partial answer away: the effect above only
+  // ever runs once a turn reaches "ready" or "error".
+  const streamSaveRef = useRef<{ signature: string | null; at: number | null }>({ signature: null, at: null });
+  useEffect(() => {
+    // The guard comes first on purpose: sessionSignature is a full JSON.stringify
+    // of the transcript, and this effect runs on every render of every mounted pool
+    // entry. Deciding "skip" first keeps an idle background tab from paying for a
+    // signature nobody reads.
+    if (!streaming || messages.length === 0) return;
+    const signature = sessionSignature(messages);
+    const now = Date.now();
+    const decision = decideStreamPersist({
+      streaming,
+      signature,
+      lastSavedSignature: streamSaveRef.current.signature,
+      lastSavedAt: streamSaveRef.current.at,
+      now
+    });
+    if (decision !== "save") return;
+    streamSaveRef.current = { signature, at: now };
+    persistSnapshot(messages);
+  }, [messages, streaming, persistSnapshot]);
+
+  /**
+   * Best-effort flush when the page is being hidden or closed. Local mode sends
+   * this with `fetch(..., { keepalive: true })`, which MDN documents as not being
+   * aborted by the unload: "the browser will not abort the associated request if
+   * the page that initiated it is unloaded before the request is complete".
+   *
+   * Two honest limits, both of which make this a tail-risk reducer rather than
+   * the durability mechanism:
+   *
+   * - It cannot work above 64 KiB of body. MDN: "The body size for `keepalive`
+   *   requests is limited to 64 kibibytes." A real long chat is far larger, so the
+   *   flush refuses and throws rather than letting the browser silently drop it.
+   *   The 5-second throttle above is what actually protects a long conversation.
+   * - `visibilitychange` (hidden) also fires on an ordinary tab switch, and an
+   *   urgent write deliberately bypasses the queue's dedupe. Re-uploading an
+   *   unchanged transcript on every tab switch would be pure waste, so the flush
+   *   only fires when there is something the last save does not already have:
+   *   a live stream, or messages that have changed since it.
+   *
+   * The browser can also skip the event entirely. MDN, on `pagehide`: "the
+   * `pagehide` event is not fired at all" when the user switches to another app and
+   * later closes the browser from the app manager. A request already in flight
+   * cannot be jumped ahead of either. None of that changes what the throttle
+   * guarantees.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const lifecycle = {
+      get visibilityState() {
+        return document.visibilityState;
+      },
+      addEventListener: (type: string, listener: () => void) => document.addEventListener(type, listener),
+      removeEventListener: (type: string, listener: () => void) => document.removeEventListener(type, listener)
+    };
+    return registerPageCloseFlush(lifecycle, () => {
+      const messages = messagesRef.current;
+      const shouldFlush = shouldFlushOnPageHide({
+        messageCount: messages.length,
+        streaming: streamingRef.current,
+        signature: sessionSignature(messages),
+        isAcknowledged: (signature) => saveQueue.isAcknowledged(signature)
+      });
+      if (!shouldFlush) return;
+      persistSnapshot(messages, { urgent: true });
+    });
+  }, [persistSnapshot, saveQueue]);
+
+  // The view is going away (pool eviction, app teardown), so this is the last
+  // chance to write: same urgent path as the page-close flush, and the same
+  // compactContext carry-over, because it goes through `persistSnapshot`.
+  // Same rule as the page-close flush: an idle chat whose transcript is already
+  // saved has nothing to write, and re-saving it would bump its revision and
+  // move it to the top of the sidebar on every eviction.
   useEffect(() => {
     return () => {
-      if (messagesRef.current.length > 0) {
-        const msgs = messagesRef.current;
-        const signature = sessionSignature(msgs);
-        const marketPref = getMarketPreference();
-        void saveQueue.enqueue(signature, {
-          id: sessionIdRef.current,
-          messages: msgs,
-          title: deriveTitle(msgs),
-          countryCode: marketPref.countryCode || configRef.current.countryCode,
-          currency: marketPref.currencyCode || configRef.current.currency,
-          compactContext: compactContextRef.current
-        });
-      }
+      const messages = messagesRef.current;
+      const shouldFlush = shouldFlushOnPageHide({
+        messageCount: messages.length,
+        streaming: streamingRef.current,
+        signature: sessionSignature(messages),
+        isAcknowledged: (signature) => saveQueue.isAcknowledged(signature)
+      });
+      if (shouldFlush) persistSnapshot(messages, { urgent: true });
     };
-  }, [saveQueue]);
+  }, [persistSnapshot, saveQueue]);
 
   const checkShouldCompact = (currentMsgs: ChatUIMessage[], newText: string) => {
     const entry = configRef.current.chatChain?.[0];
@@ -615,7 +829,7 @@ export function ChatView({
   };
 
   const send = (text: string) => {
-    if (!text.trim() || streaming) return;
+    if (!text.trim() || streaming || isLoading) return;
     recovery.reset();
     setIncompleteNotice(null);
     if (checkShouldCompact(messages, text)) {
@@ -631,7 +845,7 @@ export function ChatView({
   };
 
   const handleEditMessage = (index: number, newText: string) => {
-    if (streaming) return;
+    if (streaming || isLoading) return;
     recovery.reset();
     setIncompleteNotice(null);
     const truncated = messages.slice(0, index);
@@ -654,7 +868,15 @@ export function ChatView({
       <div className="flex flex-1 flex-col min-w-0 h-full">
         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[760px] px-4 pb-6">
-            {messages.length === 0 ? (
+            {isLoading ? (
+              // An existing chat whose messages are still being fetched. Showing
+              // the new-chat screen here would look like an empty history and
+              // invite the user to type into a thread that is about to change.
+              <div className="flex items-center gap-2 pt-8 text-sm text-text-muted" role="status">
+                <span className="h-2 w-2 rounded-full bg-text-muted animate-pulse shrink-0" />
+                <span>Loading chat…</span>
+              </div>
+            ) : messages.length === 0 ? (
               <ChatEmptyState onPick={send} currency={config.currency} />
             ) : (
               <div className="flex flex-col gap-6 pt-6">
@@ -664,31 +886,19 @@ export function ChatView({
                     <MessageView
                       key={message.id || `msg-${index}`}
                       message={message}
+                      isStreaming={streaming && index === messages.length - 1 && message.role === "assistant"}
                       versions={msgVersions}
-                      currency={config.currency}
                       followups={index === messages.length - 1 ? getFollowups(message, status) : []}
                       onFollowup={send}
-                      onViewBuild={(builds, versionOrId) => {
-                        let matched: BuildVersion | undefined;
-                        if (typeof versionOrId === "number") {
-                          matched = allBuildVersions.find((v) => v.version === versionOrId);
-                        } else if (typeof versionOrId === "string") {
-                          matched = allBuildVersions.find((v) => v.presentationId === versionOrId);
-                        }
-                        if (!matched) {
-                          matched = allBuildVersions.find((v) => v.builds === builds);
-                        }
-                        if (!matched) {
-                          matched = allBuildVersions.find((v) => v.messageIndex === index);
-                        }
+                      onViewBuild={(versionId) => {
+                        // Resolve within this message's own versions by stable
+                        // id, so the clicked message always opens its own
+                        // build and the panel never holds an ad-hoc list.
+                        const matched: BuildVersion | undefined = msgVersions.find((v) => v.id === versionId);
+                        if (!matched) return;
 
-                        if (matched) {
-                          setSelectedVersion(matched.version);
-                          setActiveBuilds(matched.builds);
-                        } else {
-                          setSelectedVersion(undefined);
-                          setActiveBuilds(builds);
-                        }
+                        setSelectedVersionId(matched.id);
+                        setActiveBuilds(matched.builds);
                         setSelectedAlternativeIndex(0);
                         setSidePanelOpen(true);
                       }}
@@ -712,6 +922,9 @@ export function ChatView({
               <p className="mt-4 rounded-card border border-border bg-surface px-4 py-3 text-sm text-text-secondary" role="alert">
                 Response ended before completion. You can send “continue” to try again.
               </p>
+            ) : null}
+            {saveFailureNotice || conflictNotice ? (
+              <SaveAlert message={saveFailureNotice ?? conflictNotice ?? ""} />
             ) : null}
             {contextExceededNotice ? (
               <div
@@ -773,6 +986,9 @@ export function ChatView({
                 setIsCompacting(false);
                 void stop();
               }}
+              // A half-loaded chat must not be messaged into: the transcript it
+              // would be appended to is not the one the user is looking at.
+              disabled={isLoading}
               streaming={streaming || activeIsCompacting}
             />
             <p className="mt-2 text-center text-caption text-text-muted">
@@ -796,7 +1012,7 @@ export function ChatView({
       </div>
 
       {/* Desktop Right Side Panel Splitter & Aside */}
-      {sidePanelOpen && displayBuilds && displayBuilds.length > 0 ? (
+      {!isLoading && sidePanelOpen && displayBuilds && displayBuilds.length > 0 ? (
         <>
           {/* Clean Draggable Splitter Area (no visible handle artifact) */}
           <div
@@ -827,7 +1043,7 @@ export function ChatView({
                 <h2 className="text-sm font-semibold text-text truncate">Proposed Build</h2>
                 {allBuildVersions.length > 1 ? (
                   <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
-                    v{safeSelectedVersion ?? allBuildVersions[allBuildVersions.length - 1].version} of {allBuildVersions.length}
+                    v{safeSelectedVersionId ? allBuildVersions.find((v) => v.id === safeSelectedVersionId)?.version ?? 1 : 1} of {allBuildVersions.length}
                   </span>
                 ) : displayBuilds && displayBuilds.length > 1 ? (
                   <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
@@ -867,27 +1083,32 @@ export function ChatView({
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
-              <BuildCard
-                builds={displayBuilds ?? undefined}
-                versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
-                selectedVersion={safeSelectedVersion}
-                onVersionChange={(ver) => {
-                  setSelectedVersion(ver);
-                  setSelectedAlternativeIndex(0);
-                  const matched = allBuildVersions.find((v) => v.version === ver);
-                  if (matched) setActiveBuilds(matched.builds);
-                }}
-                selectedAlternativeIndex={safeAlternativeIndex}
-                onAlternativeChange={setSelectedAlternativeIndex}
-                inSidePanel
-              />
+              <BuildErrorBoundary resetKeys={[safeSelectedVersionId, safeAlternativeIndex]}>
+                <BuildCard
+                  builds={displayBuilds ?? undefined}
+                  versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
+                  selectedVersionId={safeSelectedVersionId}
+                  onVersionChange={(versionId) => {
+                    setSelectedVersionId(versionId);
+                    setSelectedAlternativeIndex(0);
+                    const matched = allBuildVersions.find((v) => v.id === versionId);
+                    if (matched) setActiveBuilds(matched.builds);
+                  }}
+                  selectedAlternativeIndex={safeAlternativeIndex}
+                  onAlternativeChange={setSelectedAlternativeIndex}
+                  inSidePanel
+                />
+              </BuildErrorBoundary>
             </div>
           </aside>
         </>
       ) : null}
 
       {/* Mobile/Tablet Slide-over Drawer / Sheet */}
-      <Sheet open={sidePanelOpen && !isDesktop && Boolean(displayBuilds?.length)} onOpenChange={setSidePanelOpen}>
+      <Sheet
+        open={!isLoading && sidePanelOpen && !isDesktop && Boolean(displayBuilds?.length)}
+        onOpenChange={setSidePanelOpen}
+      >
         <SheetContent
           side="right"
           className="w-full sm:max-w-md bg-surface p-0 flex flex-col h-full border-l border-border"
@@ -898,7 +1119,7 @@ export function ChatView({
               <SheetTitle className="text-sm font-semibold text-text truncate">Proposed Build</SheetTitle>
               {allBuildVersions.length > 1 ? (
                 <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
-                  v{safeSelectedVersion ?? allBuildVersions[allBuildVersions.length - 1].version} of {allBuildVersions.length}
+                  v{safeSelectedVersionId ? allBuildVersions.find((v) => v.id === safeSelectedVersionId)?.version ?? 1 : 1} of {allBuildVersions.length}
                 </span>
               ) : displayBuilds && displayBuilds.length > 1 ? (
                 <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
@@ -912,20 +1133,22 @@ export function ChatView({
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-4">
             {displayBuilds && (
-              <BuildCard
-                builds={displayBuilds}
-                versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
-                selectedVersion={safeSelectedVersion}
-                onVersionChange={(ver) => {
-                  setSelectedVersion(ver);
-                  setSelectedAlternativeIndex(0);
-                  const matched = allBuildVersions.find((v) => v.version === ver);
-                  if (matched) setActiveBuilds(matched.builds);
-                }}
-                selectedAlternativeIndex={safeAlternativeIndex}
-                onAlternativeChange={setSelectedAlternativeIndex}
-                inSidePanel
-              />
+              <BuildErrorBoundary resetKeys={[safeSelectedVersionId, safeAlternativeIndex]}>
+                <BuildCard
+                  builds={displayBuilds}
+                  versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
+                  selectedVersionId={safeSelectedVersionId}
+                  onVersionChange={(versionId) => {
+                    setSelectedVersionId(versionId);
+                    setSelectedAlternativeIndex(0);
+                    const matched = allBuildVersions.find((v) => v.id === versionId);
+                    if (matched) setActiveBuilds(matched.builds);
+                  }}
+                  selectedAlternativeIndex={safeAlternativeIndex}
+                  onAlternativeChange={setSelectedAlternativeIndex}
+                  inSidePanel
+                />
+              </BuildErrorBoundary>
             )}
           </div>
         </SheetContent>

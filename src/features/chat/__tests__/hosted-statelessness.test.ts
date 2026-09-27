@@ -178,6 +178,7 @@ describe("Track A: Hosted Mode Statelessness & Compaction Boundary", () => {
     process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "local";
 
     const saveSessionSpy = vi.spyOn(sessionsModule, "saveSession");
+    const saveCompactSpy = vi.spyOn(sessionsModule, "saveCompactContext").mockImplementation(() => {});
     const getSessionSpy = vi.spyOn(sessionsModule, "getSession").mockReturnValue({
       id: "sess-local-1",
       revision: 1,
@@ -208,12 +209,15 @@ describe("Track A: Hosted Mode Statelessness & Compaction Boundary", () => {
     const res = await chatCompactPost(compactReq);
     expect(res.status).toBe(200);
 
-    // In local mode, saveSession is called to persist to SQLite
+    // In local mode the compacted context is stored in SQLite without a transcript
+    // save, so the browser's revision is not bumped behind its back.
     expect(getSessionSpy).toHaveBeenCalledWith("sess-local-1");
-    expect(saveSessionSpy).toHaveBeenCalled();
-    const saved = saveSessionSpy.mock.calls[0][0];
-    expect(saved.id).toBe("sess-local-1");
-    expect(saved.compactContext).toBeDefined();
+    expect(saveSessionSpy).not.toHaveBeenCalled();
+    expect(saveCompactSpy).toHaveBeenCalled();
+    const [savedId, savedContext] = saveCompactSpy.mock.calls[0];
+    expect(savedId).toBe("sess-local-1");
+    expect(savedContext).toBeDefined();
+    saveCompactSpy.mockRestore();
   });
 
   it("Challenger 4: Mid-turn compaction re-fire confirmation and fix verification", async () => {

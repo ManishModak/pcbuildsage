@@ -15,7 +15,7 @@ vi.mock("better-sqlite3", async (importOriginal) => {
 
 import { GET as listRoute, POST as saveRoute } from "../route";
 import { GET as getRoute, DELETE as deleteRoute } from "../[id]/route";
-import { getSessionsDb } from "@/lib/sessions";
+import { getSessionsDb, saveCompactContext } from "@/lib/sessions";
 
 describe("Server Sessions Routes Dual-Mode Policy", () => {
   const originalEnv = process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
@@ -144,6 +144,78 @@ describe("Server Sessions Routes Dual-Mode Policy", () => {
       // 6. Verify deleted
       const getDeleted = await getRoute(getReq, { params: Promise.resolve({ id: "local-sess-1" }) });
       expect(getDeleted.status).toBe(404);
+    });
+
+    it("keeps the server-owned compactContext when a browser save sends its own", async () => {
+      // In local mode the chat engine owns compacted context (saveCompactContext).
+      // The browser's copy is empty or stale after a reload, so a transcript save
+      // must never overwrite what the engine stored - and must not bump anything
+      // that would make the next transcript save look like a conflict.
+      const first = await saveRoute(
+        new Request("http://localhost/api/sessions", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            id: "compact-1",
+            revision: 1,
+            messages: [{ id: "m1", role: "user", parts: [{ type: "text", text: "hi" }] }]
+          })
+        })
+      );
+      expect(first.status).toBe(200);
+
+      const engineContext = { messages: [{ role: "user" as const, content: "engine summary" }], boundaryMessageId: "msg-1" };
+      saveCompactContext("compact-1", engineContext);
+
+      const res = await saveRoute(
+        new Request("http://localhost/api/sessions", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            id: "compact-1",
+            revision: 2,
+            messages: [{ id: "m1", role: "user", parts: [{ type: "text", text: "hi again" }] }],
+            compactContext: null
+          })
+        })
+      );
+      expect(res.status).toBe(200);
+
+      const row = getSessionsDb()
+        .prepare("SELECT compact_context, revision FROM sessions WHERE id = ?")
+        .get("compact-1") as { compact_context: string | null; revision: number };
+      expect(JSON.parse(row.compact_context!).messages).toEqual(engineContext.messages);
+      expect(row.revision).toBe(2);
+    });
+
+    it("still saves the transcript when compactContext is absent or malformed", async () => {
+      for (const [label, compactContext] of [
+        ["absent", undefined],
+        ["null", null],
+        ["not a context", { nonsense: true }]
+      ] as const) {
+        const id = `compact-bad-${label.replace(/\s+/g, "-")}`;
+        const res = await saveRoute(
+          new Request("http://localhost/api/sessions", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              id,
+              revision: 1,
+              messages: [{ id: "m1", role: "user", parts: [{ type: "text", text: "hi" }] }],
+              ...(compactContext === undefined ? {} : { compactContext })
+            })
+          })
+        );
+        expect(res.status, label).toBe(200);
+        const getRes = await getRoute(new Request(`http://localhost/api/sessions/${id}`), {
+          params: Promise.resolve({ id })
+        });
+        expect(getRes.status, label).toBe(200);
+        const body = (await getRes.json()) as { session: { messages: unknown[]; compact_context: unknown } };
+        expect(body.session.messages.length, label).toBeGreaterThan(0);
+        expect(body.session.compact_context, label).toBeNull();
+      }
     });
   });
 });

@@ -27,7 +27,9 @@ describe("catalog product identity through validation and presentation", () => {
     expect(output).toMatchObject({ resolved: { gpu: { key: gpu.id, spec: { vram_gb: 12 } } } });
     const calls = [
       { type: "tool-validate_build", state: "output-available", input: { parts }, output },
-      { type: "tool-present_build", state: "input-available", input: { builds: [{ parts: [
+      // A finished presentation. An input-available / input-streaming call was
+      // interrupted, and an interrupted call is not a build.
+      { type: "tool-present_build", state: "output-available", input: { builds: [{ parts: [
         { category: "gpu", product_id: gpu.id, name: gpu.name },
         { category: "case", product_id: pcCase.id, name: pcCase.name },
         { category: "cpu", product_id: cpu.id, name: cpu.name }

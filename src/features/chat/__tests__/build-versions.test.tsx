@@ -127,7 +127,7 @@ describe("Build Versions and UI Accessibility (Issue 08)", () => {
   it("renders selected previous version with original parts and prices", () => {
     const versions = findAllBuildVersions(sampleMessages, "INR");
     const markup = renderToStaticMarkup(
-      <BuildCard versions={versions} selectedVersion={1} inSidePanel />
+      <BuildCard versions={versions} selectedVersionId={versions[0].id} inSidePanel />
     );
 
     expect(markup).toContain('aria-label="Previous versions"');
@@ -631,7 +631,6 @@ describe("Build Versions and UI Accessibility (Issue 08)", () => {
       <MessageView
         message={singleMessageMultiPresent[1]}
         versions={versions}
-        currency="INR"
       />
     );
 
@@ -640,21 +639,19 @@ describe("Build Versions and UI Accessibility (Issue 08)", () => {
     expect(markup).toContain("₹39,000");
     expect(markup).toContain("₹72,000");
 
-    // Clicking either presentation card passes presentationId to select the exact version
+    // Clicking either presentation card hands the panel that card's stable id
     const selectedVersions: number[] = [];
-    const onViewBuild = (_builds: unknown, versionOrId?: number | string) => {
-      if (typeof versionOrId === "string") {
-        const matched = versions.find((v) => v.presentationId === versionOrId);
-        if (matched) selectedVersions.push(matched.version);
-      }
+    const onViewBuild = (versionId: string) => {
+      const matched = versions.find((v) => v.id === versionId);
+      if (matched) selectedVersions.push(matched.version);
     };
 
     // Simulate clicking call-2 presentation
-    onViewBuild(versions[1].builds, versions[1].presentationId);
+    onViewBuild(versions[1].id);
     expect(selectedVersions).toEqual([2]);
 
     // Simulate clicking call-1 presentation
-    onViewBuild(versions[0].builds, versions[0].presentationId);
+    onViewBuild(versions[0].id);
     expect(selectedVersions).toEqual([2, 1]);
   });
 });

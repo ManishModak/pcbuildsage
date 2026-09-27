@@ -17,6 +17,7 @@ import {
   saveSession,
   setCachedDeploymentMode
 } from "../api-client";
+import { resetClientStoreState } from "@/lib/sessions/client-store";
 
 const successOutcome = {
   status: "succeeded" as const,
@@ -28,7 +29,32 @@ const successOutcome = {
   errors: []
 };
 
+/** Minimal Storage stand-in: the client store needs a real writable layer. */
+function createMemoryStorage() {
+  const map = new Map<string, string>();
+  return {
+    get length() {
+      return map.size;
+    },
+    key: (index: number) => Array.from(map.keys())[index] ?? null,
+    getItem: (key: string) => map.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      map.set(key, String(value));
+    },
+    removeItem: (key: string) => {
+      map.delete(key);
+    },
+    clear: () => map.clear()
+  };
+}
+
 beforeEach(async () => {
+  // Hosted mode stores chats in the browser. Node has no localStorage, and the
+  // client store no longer accepts an in-memory save as success, so give the
+  // delegation tests a real writable layer.
+  vi.stubGlobal("indexedDB", undefined);
+  vi.stubGlobal("localStorage", createMemoryStorage());
+  resetClientStoreState();
   resetCachedDeploymentMode();
   await clearClientSessions();
 });
@@ -36,6 +62,7 @@ beforeEach(async () => {
 afterEach(async () => {
   resetCachedDeploymentMode();
   await clearClientSessions();
+  resetClientStoreState();
   vi.unstubAllGlobals();
 });
 

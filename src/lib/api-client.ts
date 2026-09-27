@@ -22,6 +22,7 @@ import {
   type SaveSessionRequest,
   type SessionDetail
 } from "./sessions/client-store";
+import { markInterruptedToolCalls } from "./sessions/interrupted-tools";
 
 export class HttpError extends Error {
   constructor(
@@ -400,8 +401,12 @@ export async function fetchSession(id: string): Promise<SessionDetail | null> {
         country_code: (data.session.country_code as string | undefined) ?? null,
         currency: (data.session.currency as string | undefined) ?? null,
         build_state: data.session.build_state ?? null,
+        // Repaired in memory on read: a tool call that was persisted mid-flight
+        // must not come back as a permanent spinner. The stored row is untouched.
         messages: Array.isArray(data.session.messages)
-          ? data.session.messages.map((m, idx) => normalizeUIMessage(m, idx))
+          ? (markInterruptedToolCalls(data.session.messages) as SessionDetailRaw["messages"]).map((m, idx) =>
+              normalizeUIMessage(m, idx)
+            )
           : []
       };
     },
@@ -409,15 +414,91 @@ export async function fetchSession(id: string): Promise<SessionDetail | null> {
   );
 }
 
-export async function saveSession(input: SaveSessionRequest): Promise<void> {
+/**
+ * The keepalive body ceiling, from MDN's RequestInit#keepalive: "The body size for
+ * `keepalive` requests is limited to 64 kibibytes." A longer transcript cannot be
+ * flushed through an unload handler at all, so this is a real and frequently-hit
+ * limit for a long conversation - not a theoretical one.
+ *
+ * For comparison, `navigator.sendBeacon` carries a 64 KiB cap of its own, but that
+ * figure is spec-derived (the Beacon API) rather than quoted from MDN's
+ * sendBeacon page, and MDN itself points at `keepalive` for our case anyway: "For
+ * use cases that need ... access to the server response, instead use the `fetch()`
+ * method with `keepalive` set to true." A beacon cannot read the 409
+ * `stale_revision` / `session_deleted` bodies this save path depends on.
+ */
+export const KEEPALIVE_BODY_LIMIT_BYTES = 64 * 1024;
+
+/**
+ * Why a page-close flush could not be attempted. Distinct from a failed save:
+ * nothing is wrong with storage, the request simply cannot be made from an
+ * unloading page at this size. The chat is still being saved on the ordinary
+ * throttle, so this must never be shown to the user as a save failure.
+ */
+export const KEEPALIVE_OVERSIZE = "keepalive_oversize" as const;
+
+export class KeepaliveTooLargeError extends Error {
+  readonly isKeepaliveTooLarge = true;
+  readonly reason = KEEPALIVE_OVERSIZE;
+  constructor(
+    readonly sessionId: string,
+    readonly bodyBytes: number
+  ) {
+    super(
+      `Page-close flush skipped for session ${sessionId}: ${bodyBytes} bytes of request body exceeds the ${KEEPALIVE_BODY_LIMIT_BYTES} byte keepalive limit.`
+    );
+    this.name = "KeepaliveTooLargeError";
+  }
+}
+
+/**
+ * Size of a serialized body *as it goes on the wire*. The browser limit applies
+ * to bytes, and `String.length` counts UTF-16 code units, so checking `.length`
+ * under-counts every non-ASCII character. Rupee signs and Devanagari are the
+ * norm in this product's transcripts, which is enough to turn a 40k-character
+ * body into 120k UTF-8 bytes - one that passes a naive check and is then dropped
+ * by the browser.
+ */
+export function requestBodyByteLength(body: string): number {
+  return new TextEncoder().encode(body).length;
+}
+
+export type SaveSessionOptions = {
+  /**
+   * Best-effort flush for a page that is being hidden or closed. Sent with
+   * `fetch(..., { keepalive: true })`: MDN documents that "the browser will not
+   * abort the associated request if the page that initiated it is unloaded before
+   * the request is complete". Not a durability guarantee — see the page-close
+   * flush in `chat-view.tsx`.
+   */
+  urgent?: boolean;
+};
+
+export async function saveSession(input: SaveSessionRequest, options?: SaveSessionOptions): Promise<void> {
+  const keepalive = options?.urgent === true;
   return withSessionFallback(
     async () => {
+      // The server owns compacted context in local mode; see /api/sessions.
+      const { compactContext: _serverOwned, ...transcript } = input;
+      void _serverOwned;
+      const body = JSON.stringify(transcript);
+      if (keepalive) {
+        const bodyBytes = requestBodyByteLength(body);
+        if (bodyBytes > KEEPALIVE_BODY_LIMIT_BYTES) {
+          // Refuse rather than let the browser silently drop an oversize body:
+          // this throws a typed, non-transient error so the queue keeps the
+          // snapshot unacknowledged and does not warn the user about a save that
+          // the ordinary throttle is already making.
+          throw new KeepaliveTooLargeError(input.id, bodyBytes);
+        }
+      }
       await requestJson(
         "/api/sessions",
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify(input)
+          body,
+          keepalive
         },
         (value): value is { ok: true; revision: number } =>
           isRecord(value) && value.ok === true && value.revision === input.revision

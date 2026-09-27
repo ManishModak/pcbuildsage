@@ -1,5 +1,6 @@
 import type { BuildIssue, ProductRow, ValidationResult } from "@/types/client";
 import type { BuildSnapshot, BuildSnapshotComponent } from "@/lib/catalog/build-snapshot";
+import { sumPricesByCurrency } from "@/lib/format";
 import { isTextPart, isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
 export type { ChatUIMessage } from "./message";
@@ -10,7 +11,12 @@ import {
   type StripBadge
 } from "./validation-strip";
 import {
+  buildHeaderSignature,
+  buildsFingerprint,
   findAllBuildVersions,
+  followNewestVersion,
+  openedBuildsForSession,
+  resolveSelectedVersion,
   type BuildVersion
 } from "./build-versions";
 
@@ -21,7 +27,12 @@ export {
   type StripBadge
 };
 export {
+  buildHeaderSignature,
+  buildsFingerprint,
   findAllBuildVersions,
+  followNewestVersion,
+  openedBuildsForSession,
+  resolveSelectedVersion,
   type BuildVersion
 };
 
@@ -64,11 +75,41 @@ export type DerivedBuild = {
   components: BuildComponent[];
   currency: string;
   validation: ValidationResult | null;
+  /**
+   * Authoritative total when one exists (from the validate_build snapshot,
+   * which is already null when any part is unpriced). `undefined` means "no
+   * snapshot", and the total is then summed from the components.
+   */
   total?: number | null;
   isLegacy?: boolean;
+  /**
+   * Set when the turn said a build existed but nothing renderable came with
+   * it (no validation, no snapshot, only raw product ids). The card shows an
+   * explicit "ask again" message instead of a blank or invented total.
+   */
+  detailsUnavailable?: boolean;
+  /**
+   * Set when the build was parsed out of the assistant's prose rather than
+   * computed by validate_build. The weakest evidence there is, so the card
+   * says so instead of presenting it as a validated proposal.
+   */
+  textDerived?: boolean;
 };
 
 type PartIdentity = { product_id?: string; key?: string; name: string };
+
+/**
+ * The total to display for a build.
+ *
+ * A validate_build snapshot is authoritative and already reports `total: null`
+ * when any part is unpriced, so prefer it. Without a snapshot the components
+ * are summed, which yields null (rendered as an em dash) when a price is
+ * missing or the parts span more than one currency.
+ */
+export function resolveBuildTotal(build: Pick<DerivedBuild, "total" | "components">): number | null {
+  if (build.total !== undefined) return build.total;
+  return sumPricesByCurrency(build.components);
+}
 
 function partLabel(part: unknown): PartIdentity {
   if (typeof part === "string") return { key: part, name: part };
@@ -96,6 +137,9 @@ export function findComponentIssue(
   key?: string,
   name?: string
 ): BuildIssue | undefined {
+  // Old or malformed saved data can arrive with no issue list at all, or with
+  // issues whose `components` is missing or is not an array.
+  if (!Array.isArray(issues)) return undefined;
   const normCat = normalize(category);
   const normKey = key ? normalize(key) : undefined;
   const canonKey = key ? canonicalizePartName(key) : undefined;
@@ -103,7 +147,8 @@ export function findComponentIssue(
   const canonName = name ? canonicalizePartName(name) : undefined;
 
   const matching = issues.filter((issue) =>
-    issue.components.some((component) => {
+    (Array.isArray(issue?.components) ? issue.components : []).some((component) => {
+      if (typeof component !== "string") return false;
       const c = component.trim();
       if (!c) return false;
       const cNorm = normalize(c);
@@ -723,126 +768,508 @@ function isComponentMatch(vPart: PartIdentity, bPart: PartIdentity): boolean {
   return false;
 }
 
+/** A saved snapshot is usable when it still carries the component list. */
+export function isBuildSnapshot(value: unknown): value is BuildSnapshot {
+  return Boolean(value) && typeof value === "object" && Array.isArray((value as BuildSnapshot).components);
+}
+
+/** The AI SDK lets a tool part name its tool by `type` or by `toolName`. */
+export function isValidatePart(part: ToolPart): boolean {
+  return part.type === "tool-validate_build" || part.toolName === "validate_build";
+}
+
+/** Is this part a `present_build` call at all? */
+export function isPresentBuildPart(part: ToolPart): boolean {
+  return part.type === "tool-present_build" || part.toolName === "present_build";
+}
+
+/**
+ * A `present_build` is a build only once the model finished it. Treating "has
+ * any input" as finished is what left interrupted sessions with a build panel
+ * that rendered nothing at all: the tool chip kept spinning forever, the call
+ * was replayed on reload, and the card was rebuilt from a half-written input.
+ * `input-available` / `input-streaming` still count while the part belongs to
+ * the message currently being streamed.
+ */
+export function isFinishedPresentPart(
+  part: ToolPart,
+  messageId?: string,
+  streamingMessageId?: string
+): boolean {
+  if (!isPresentBuildPart(part)) return false;
+  if (part.state === "output-available") return true;
+  if (part.state === "input-available" || part.state === "input-streaming") {
+    return Boolean(messageId) && messageId === streamingMessageId;
+  }
+  return false;
+}
+
+/** True when a validate_build output carries at least one build snapshot. */
+export function hasValidationSnapshot(part: ToolPart): boolean {
+  const output = part.output;
+  if (!output || typeof output !== "object") return false;
+  const out = output as { builds?: unknown; snapshot?: unknown };
+  if (isBuildSnapshot(out.snapshot)) return true;
+  if (out.builds && typeof out.builds === "object") {
+    return Object.values(out.builds as Record<string, unknown>).some((entry) =>
+      Boolean(entry) && typeof entry === "object" && isBuildSnapshot((entry as { snapshot?: unknown }).snapshot)
+    );
+  }
+  return false;
+}
+
+/**
+ * A snapshot component falls back to the raw product id the model passed in
+ * when the catalog has no listing for it (`createBuildSnapshot` does exactly
+ * that). That id is not a product name and must never reach the name slot.
+ */
+function isOpaqueProductId(name: string, productId?: string): boolean {
+  if (!name) return true;
+  if (productId && name === productId) return true;
+  if (/\s/.test(name)) return false;
+  return /^[0-9a-f]{16,}$/i.test(name) || /^[0-9a-z]{20,}$/i.test(name);
+}
+
+/** What a build parsed out of the assistant's prose is labelled, exactly. */
+export const TEXT_BUILD_CAVEAT = "Not validated — from the assistant's text";
+
+/**
+ * The blocking issues the latest finished validate_build in this turn raised.
+ * A text-parsed build is still shown next to them: a build the rules engine
+ * rejected must not look clean just because it was never validated.
+ */
+function blockingIssuesFromToolParts(toolParts: ToolPart[]): BuildIssue[] {
+  for (let i = toolParts.length - 1; i >= 0; i--) {
+    const part = toolParts[i];
+    if (!isValidatePart(part) || part.state !== "output-available") continue;
+    const output = part.output as { issues?: unknown; builds?: unknown } | undefined;
+    if (!output || typeof output !== "object") continue;
+
+    const candidates: unknown[] = [];
+    if (output.builds && typeof output.builds === "object") {
+      for (const entry of Object.values(output.builds as Record<string, unknown>)) {
+        const issues = (entry as { issues?: unknown } | undefined)?.issues;
+        if (Array.isArray(issues)) candidates.push(...issues);
+      }
+    } else if (Array.isArray(output.issues)) {
+      candidates.push(...output.issues);
+    }
+
+    const blocking = candidates.filter(
+      (issue): issue is BuildIssue =>
+        Boolean(issue) &&
+        typeof issue === "object" &&
+        (issue as BuildIssue).severity === "blocking"
+    );
+    if (blocking.length > 0) return blocking;
+  }
+  return [];
+}
+
+/**
+ * Mark builds that came from the assistant's text rather than from
+ * validate_build, and surface any blocking issue raised in the same turn.
+ *
+ * Components with no issue stay unverified rather than becoming "ok": a text
+ * build was never checked, and the caveat label is what says so.
+ */
+export function markTextDerivedBuilds(builds: DerivedBuild[], toolParts: ToolPart[]): DerivedBuild[] {
+  const blocking = blockingIssuesFromToolParts(toolParts);
+  return builds.map((build) => {
+    // A component the rules engine named keeps its verdict; every other one
+    // stays unverified, because nothing ever checked it.
+    const components = build.components.map((component) => {
+      const issue =
+        blocking.length > 0
+          ? findComponentIssue(
+              blocking,
+              component.category,
+              component.registryKey ?? component.productId,
+              component.name
+            )
+          : undefined;
+      return {
+        ...component,
+        ...(issue ? decorateComponentStatus(issue, true) : decorateComponentStatus(undefined, false))
+      };
+    });
+
+    return {
+      ...build,
+      components,
+      textDerived: true,
+      // The summary is load-bearing: without it computeValidationStats falls
+      // back to counting the rules a build was never run against, and the card
+      // would report "1 check failed - 6 passed" for a build nothing checked.
+      validation:
+        blocking.length > 0
+          ? {
+              valid: false,
+              issues: blocking,
+              resolved: {},
+              summary: {
+                passed: 0,
+                failed: blocking.length,
+                unverified: 0,
+                text: `${blocking.length} check(s) failed`
+              }
+            }
+          : null
+    };
+  });
+}
+
+/**
+ * Render a build straight from a `validate_build` snapshot. Snapshots are the
+ * catalog-calculated data the rules engine produced, so this is what a turn
+ * can still show when it validated a build but was interrupted before it got
+ * to present one.
+ */
+export function derivedBuildFromSnapshot(
+  snapshot: BuildSnapshot,
+  validation: ValidationResult | null,
+  fallbackCurrency = "USD"
+): DerivedBuild {
+  const currency =
+    typeof snapshot.currency === "string" && snapshot.currency ? snapshot.currency : fallbackCurrency;
+  const rawComponents = Array.isArray(snapshot.components) ? snapshot.components : [];
+
+  const components: BuildComponent[] = rawComponents
+    .map((raw): BuildComponent => {
+      const snapComp = (raw ?? {}) as BuildSnapshotComponent;
+      const category = typeof snapComp.category === "string" ? snapComp.category : "other";
+      const categoryLabel = CATEGORY_LABELS[category] ?? category;
+      const productId =
+        typeof snapComp.product_id === "string" && snapComp.product_id.trim() ? snapComp.product_id.trim() : undefined;
+      const rawName = typeof snapComp.name === "string" ? snapComp.name.trim() : "";
+      const price = typeof snapComp.price === "number" && !Number.isNaN(snapComp.price) ? snapComp.price : null;
+      const componentCurrency =
+        typeof snapComp.currency === "string" && snapComp.currency ? snapComp.currency : currency;
+      const issue = validation
+        ? findComponentIssue(validation.issues ?? [], category, productId, rawName)
+        : undefined;
+      const statusInfo = decorateComponentStatus(issue, Boolean(validation));
+
+      return {
+        category,
+        categoryLabel,
+        // An unresolved part is named by its category, never by its product id.
+        name: isOpaqueProductId(rawName, productId) ? categoryLabel : rawName,
+        registryKey: undefined,
+        productId,
+        price,
+        currency: componentCurrency,
+        retailer: typeof snapComp.retailer === "string" ? snapComp.retailer : undefined,
+        url: typeof snapComp.url === "string" ? snapComp.url : undefined,
+        notInCatalog: price === null,
+        ...statusInfo
+      };
+    })
+    .sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category));
+
+  return {
+    label: typeof snapshot.label === "string" && snapshot.label.trim() ? snapshot.label.trim() : undefined,
+    components,
+    currency,
+    validation,
+    // The snapshot total is null unless every part is priced in its own
+    // currency — better an honest "—" than a sum that is quietly too low.
+    total: typeof snapshot.total === "number" ? snapshot.total : null,
+    isLegacy: false
+  };
+}
+
+/**
+ * Every build a finished `validate_build` call produced, taken from its
+ * snapshots. Used for turns that never reached `present_build`.
+ */
+export function derivedBuildsFromValidation(part: ToolPart, fallbackCurrency: string): DerivedBuild[] {
+  const output = part.output;
+  if (!output || typeof output !== "object") return [];
+  const out = output as { builds?: unknown; snapshot?: unknown };
+
+  const builds: DerivedBuild[] = [];
+
+  if (out.builds && typeof out.builds === "object") {
+    for (const entry of Object.values(out.builds as Record<string, ValidationResult>)) {
+      const snapshot = (entry as { snapshot?: unknown } | undefined)?.snapshot;
+      if (isBuildSnapshot(snapshot)) builds.push(derivedBuildFromSnapshot(snapshot, entry, fallbackCurrency));
+    }
+  }
+
+  if (builds.length === 0 && isBuildSnapshot(out.snapshot)) {
+    builds.push(derivedBuildFromSnapshot(out.snapshot, output as ValidationResult, fallbackCurrency));
+  }
+
+  return builds;
+}
+
 export type MatchedValidation = {
   validation: ValidationResult;
   snapshot?: BuildSnapshot;
 };
 
+/**
+ * The issues that mention a component, narrowed by product id when the build
+ * names one. `issue.components` is read defensively: saved sessions from older
+ * builds can carry issues without it.
+ */
+function issuesForComponent(
+  issues: BuildIssue[] | undefined,
+  productId: string | undefined,
+  category: string
+): BuildIssue[] {
+  if (!Array.isArray(issues) || issues.length === 0) return [];
+  if (!productId) return issues;
+  return issues.filter((issue) => {
+    const components = Array.isArray(issue?.components) ? issue.components : [];
+    return components.includes(productId) || components.includes(category);
+  });
+}
+
+type PresentedBuild = {
+  label?: string;
+  parts?: Array<{ category: string; name: string; product_id?: string }>;
+  product_ids?: string[];
+};
+
+/**
+ * The validate_build output a presented build refers to, judged by label. The
+ * caller verifies the parts before accepting it: labels get reused across
+ * turns, so a label match alone is not evidence that it is the same build.
+ */
+function matchValidationByLabel(build: PresentedBuild, vPart: ToolPart): MatchedValidation | null {
+  const output = vPart.output;
+  if (!output || typeof output !== "object") return null;
+  const out = output as Record<string, unknown>;
+
+  // 1. Multi-build output: out.builds is an object keyed by label
+  if (out.builds && typeof out.builds === "object") {
+    const buildsObj = out.builds as Record<string, ValidationResult & { snapshot?: BuildSnapshot }>;
+    if (build.label && buildsObj[build.label]) {
+      return { validation: buildsObj[build.label], snapshot: buildsObj[build.label].snapshot };
+    }
+    if (build.label) {
+      const matchKey = Object.keys(buildsObj).find(
+        (k) => k.trim().toLowerCase() === build.label!.trim().toLowerCase()
+      );
+      if (matchKey && buildsObj[matchKey]) {
+        return { validation: buildsObj[matchKey], snapshot: buildsObj[matchKey].snapshot };
+      }
+    }
+    // If 1 build exists in output and label was omitted
+    const entries = Object.entries(buildsObj);
+    if (!build.label && entries.length === 1 && !Array.isArray(build.parts)) {
+      return { validation: entries[0][1], snapshot: entries[0][1].snapshot };
+    }
+  }
+
+  // 2. Output itself is keyed by label: out[build.label]
+  if (
+    build.label &&
+    out[build.label] &&
+    typeof out[build.label] === "object" &&
+    "valid" in (out[build.label] as object)
+  ) {
+    const val = out[build.label] as ValidationResult & { snapshot?: BuildSnapshot };
+    return { validation: val, snapshot: val.snapshot };
+  }
+
+  // 3. Single-build output (legacy): output has `valid` directly at top level
+  if ("valid" in out) {
+    const vInput = vPart.input as { label?: string; parts?: Record<string, unknown> } | undefined;
+    const vValidation = out as unknown as ValidationResult & { snapshot?: BuildSnapshot };
+
+    if (build.label && vInput?.label) {
+      if (vInput.label.trim().toLowerCase() === build.label.trim().toLowerCase()) {
+        return { validation: vValidation, snapshot: vValidation.snapshot };
+      }
+    } else if (!build.label && !vInput?.label && !Array.isArray(build.parts)) {
+      return { validation: vValidation, snapshot: vValidation.snapshot };
+    }
+  }
+
+  return null;
+}
+
+/** Every catalog product id a validate_build call was given, in its input. */
+function productIdsOfValidationInput(vPart: ToolPart): string[] {
+  const input = vPart.input as
+    | { parts?: Record<string, unknown>; builds?: Array<{ parts?: unknown }> }
+    | undefined;
+  if (!input || typeof input !== "object") return [];
+
+  const ids: string[] = [];
+  const collect = (raw: unknown) => {
+    for (const entry of Array.isArray(raw) ? raw : [raw]) {
+      const id = partLabel(entry).product_id;
+      if (typeof id === "string" && id.trim()) ids.push(id.trim());
+    }
+  };
+
+  if (input.parts && typeof input.parts === "object") {
+    for (const raw of Object.values(input.parts)) collect(raw);
+  }
+  if (Array.isArray(input.builds)) {
+    for (const entry of input.builds) {
+      if (entry?.parts && typeof entry.parts === "object" && !Array.isArray(entry.parts)) {
+        for (const raw of Object.values(entry.parts)) collect(raw);
+      }
+    }
+  }
+  return ids;
+}
+
+function snapshotProductIds(snapshot?: BuildSnapshot): string[] {
+  if (!snapshot || !Array.isArray(snapshot.components)) return [];
+  return snapshot.components
+    .map((component) => component?.product_id)
+    .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+    .map((id) => id.trim());
+}
+
+/** Catalog product ids a presented build refers to, however it spelled them. */
+function presentedProductIds(build: PresentedBuild): string[] {
+  const ids = Array.isArray(build.product_ids) ? [...build.product_ids] : [];
+  const fromParts = Array.isArray(build.parts) ? build.parts : [];
+  for (const part of fromParts) {
+    if (typeof part?.product_id === "string" && part.product_id.trim()) ids.push(part.product_id.trim());
+  }
+  return ids.filter((id) => typeof id === "string" && id.length > 0);
+}
+
+/** Do the two sets cover the same parts, category by category? */
+function componentSetsMatch(
+  buildParts: Array<{ category: string; name: string; product_id?: string }>,
+  inputParts: Record<string, unknown>
+): boolean {
+  const bMap = new Map<string, PartIdentity[]>();
+  for (const p of buildParts) {
+    // Old or malformed saved data can carry a null part or a null category;
+    // never call string methods on whatever came out of storage.
+    if (!p || typeof p !== "object") continue;
+    const rawCategory = String(p.category ?? "");
+    const normCat = normalizeCategory(rawCategory) ?? rawCategory.toLowerCase();
+    const list = bMap.get(normCat) ?? [];
+    list.push(p as PartIdentity);
+    bMap.set(normCat, list);
+  }
+
+  const vMap = new Map<string, PartIdentity[]>();
+  for (const [rawCategory, raw] of Object.entries(inputParts)) {
+    const normCat = normalizeCategory(String(rawCategory ?? "")) ?? String(rawCategory ?? "").toLowerCase();
+    const items = Array.isArray(raw) ? raw : [raw];
+    vMap.set(normCat, items.map(partLabel));
+  }
+
+  if (bMap.size !== vMap.size) return false;
+  for (const [cat, bList] of bMap.entries()) {
+    const vList = vMap.get(cat);
+    if (!vList || vList.length !== bList.length) return false;
+    const matchedIndices = new Set<number>();
+    for (const bName of bList) {
+      let foundMatch = false;
+      for (let vi = 0; vi < vList.length; vi++) {
+        if (!matchedIndices.has(vi) && isComponentMatch(vList[vi], bName)) {
+          matchedIndices.add(vi);
+          foundMatch = true;
+          break;
+        }
+      }
+      if (!foundMatch) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Confirm a label match really describes this build before trusting it.
+ *
+ * Returns true when there is nothing to compare against, so a bare label is
+ * still enough for shapes that carry no parts to check.
+ */
+function candidateDescribesBuild(build: PresentedBuild, candidate: MatchedValidation, vPart: ToolPart): boolean {
+  const wantedIds = presentedProductIds(build);
+  if (wantedIds.length > 0) {
+    // Product ids are the model's own link to the catalog, so they are the
+    // strongest evidence available and they survive a relabelled build.
+    const knownIds = snapshotProductIds(candidate.snapshot);
+    const source = knownIds.length > 0 ? knownIds : productIdsOfValidationInput(vPart);
+    if (source.length > 0) return wantedIds.every((id) => source.includes(id));
+    return true;
+  }
+
+  if (Array.isArray(build.parts) && build.parts.length > 0) {
+    const input = vPart.input as { parts?: Record<string, unknown> } | undefined;
+    if (input?.parts && typeof input.parts === "object") {
+      return componentSetsMatch(build.parts, input.parts);
+    }
+  }
+  return true;
+}
+
+/** Every validation a validate_build output carries, snapshot included. */
+function validationCandidates(vPart: ToolPart): MatchedValidation[] {
+  const output = vPart.output;
+  if (!output || typeof output !== "object") return [];
+  const out = output as Record<string, unknown>;
+  const candidates: MatchedValidation[] = [];
+
+  if (out.builds && typeof out.builds === "object") {
+    for (const entry of Object.values(out.builds as Record<string, ValidationResult>)) {
+      if (entry && typeof entry === "object") {
+        const validation = entry as ValidationResult & { snapshot?: BuildSnapshot };
+        candidates.push({ validation, snapshot: validation.snapshot });
+      }
+    }
+  }
+  if ("valid" in out) {
+    const validation = output as ValidationResult & { snapshot?: BuildSnapshot };
+    candidates.push({ validation, snapshot: validation.snapshot });
+  }
+  return candidates;
+}
+
+/**
+ * No label matched, so match on catalog product ids instead: the model
+ * routinely renames a build between validating and presenting it, but it keeps
+ * passing the same ids.
+ */
+function matchValidationByProductIds(build: PresentedBuild, validateParts: ToolPart[]): MatchedValidation | null {
+  const wantedIds = presentedProductIds(build);
+  if (wantedIds.length === 0) return null;
+
+  for (let i = validateParts.length - 1; i >= 0; i--) {
+    for (const candidate of validationCandidates(validateParts[i])) {
+      const knownIds = snapshotProductIds(candidate.snapshot);
+      if (knownIds.length > 0 && wantedIds.every((id) => knownIds.includes(id))) return candidate;
+    }
+  }
+  return null;
+}
+
+/**
+ * Find the validation a presented build came from.
+ *
+ * Two passes: first by label, but only accepting a match whose parts (or
+ * product ids) agree, so a duplicated label falls through to the validation
+ * that really is this build; then by product id for the builds the model
+ * relabelled. Returns null when nothing matches, and the card then says the
+ * details are unavailable instead of inventing them.
+ */
 export function findMatchingValidationResult(
-  build: { label?: string; parts?: Array<{ category: string; name: string; product_id?: string }>; product_ids?: string[] },
+  build: PresentedBuild,
   validateParts: ToolPart[]
 ): MatchedValidation | null {
   if (validateParts.length === 0) return null;
 
   for (let i = validateParts.length - 1; i >= 0; i--) {
     const vPart = validateParts[i];
-    const output = (vPart as { output?: unknown }).output;
-    if (!output || typeof output !== "object") continue;
-    const out = output as Record<string, unknown>;
-
-    // 1. Multi-build output: out.builds is an object keyed by label
-    if (out.builds && typeof out.builds === "object") {
-      const buildsObj = out.builds as Record<string, ValidationResult & { snapshot?: BuildSnapshot }>;
-      if (build.label && buildsObj[build.label]) {
-        return {
-          validation: buildsObj[build.label],
-          snapshot: buildsObj[build.label].snapshot
-        };
-      }
-      if (build.label) {
-        const matchKey = Object.keys(buildsObj).find(
-          (k) => k.trim().toLowerCase() === build.label!.trim().toLowerCase()
-        );
-        if (matchKey && buildsObj[matchKey]) {
-          return {
-            validation: buildsObj[matchKey],
-            snapshot: buildsObj[matchKey].snapshot
-          };
-        }
-      }
-      // If 1 build exists in output and label was omitted
-      const entries = Object.entries(buildsObj);
-      if (!build.label && entries.length === 1 && !Array.isArray(build.parts)) {
-        return {
-          validation: entries[0][1],
-          snapshot: entries[0][1].snapshot
-        };
-      }
-    }
-
-    // 2. Output itself is keyed by label: out[build.label]
-    if (build.label && out[build.label] && typeof out[build.label] === "object" && "valid" in (out[build.label] as object)) {
-      const val = out[build.label] as ValidationResult & { snapshot?: BuildSnapshot };
-      return {
-        validation: val,
-        snapshot: val.snapshot
-      };
-    }
-
-    // 3. Single-build output (legacy): output has `valid` directly at top level
-    if ("valid" in out) {
-      const vInput = vPart.input as { label?: string; parts?: Record<string, unknown> } | undefined;
-      const vValidation = out as unknown as ValidationResult & { snapshot?: BuildSnapshot };
-
-      if (build.label && vInput?.label) {
-        if (vInput.label.trim().toLowerCase() === build.label.trim().toLowerCase()) {
-          return { validation: vValidation, snapshot: vValidation.snapshot };
-        }
-      } else if (!build.label && !vInput?.label && !Array.isArray(build.parts)) {
-        return { validation: vValidation, snapshot: vValidation.snapshot };
-      }
-
-      // Check component matching for legacy parts
-      if (Array.isArray(build.parts) && build.parts.length > 0 && vInput?.parts) {
-        const bMap = new Map<string, PartIdentity[]>();
-        for (const p of build.parts) {
-          const normCat = normalizeCategory(p.category) ?? p.category.toLowerCase();
-          const list = bMap.get(normCat) ?? [];
-          list.push(p);
-          bMap.set(normCat, list);
-        }
-
-        const vMap = new Map<string, PartIdentity[]>();
-        for (const [rawCategory, raw] of Object.entries(vInput.parts)) {
-          const normCat = normalizeCategory(rawCategory) ?? rawCategory.toLowerCase();
-          const items = Array.isArray(raw) ? raw : [raw];
-          vMap.set(normCat, items.map(partLabel));
-        }
-
-        if (bMap.size === vMap.size) {
-          let allMatch = true;
-          for (const [cat, bList] of bMap.entries()) {
-            const vList = vMap.get(cat);
-            if (!vList || vList.length !== bList.length) {
-              allMatch = false;
-              break;
-            }
-            const matchedIndices = new Set<number>();
-            for (const bName of bList) {
-              let foundMatch = false;
-              for (let vi = 0; vi < vList.length; vi++) {
-                if (!matchedIndices.has(vi) && isComponentMatch(vList[vi], bName)) {
-                  matchedIndices.add(vi);
-                  foundMatch = true;
-                  break;
-                }
-              }
-              if (!foundMatch) {
-                allMatch = false;
-                break;
-              }
-            }
-            if (!allMatch) break;
-          }
-          if (allMatch) {
-            return { validation: vValidation, snapshot: vValidation.snapshot };
-          }
-        }
-      }
-    }
+    const candidate = matchValidationByLabel(build, vPart);
+    if (candidate && candidateDescribesBuild(build, candidate, vPart)) return candidate;
   }
 
-  return null;
+  return matchValidationByProductIds(build, validateParts);
 }
 
 export function findMatchingValidation(
@@ -857,15 +1284,12 @@ export function deriveBuildsFromToolParts(
   fallbackCurrency: string,
   targetPresentPart?: ToolPart
 ): DerivedBuild[] {
+  // Auto-discovery has no streaming context, so only a finished call counts:
+  // a half-written present_build must never become a build (see
+  // isFinishedPresentPart for why that used to blank the panel).
   const presentPart =
     targetPresentPart ??
-    [...parts]
-      .reverse()
-      .find(
-        (part) =>
-          (part.type === "tool-present_build" || part.toolName === "present_build") &&
-          (part.state === "output-available" || part.state === "input-available" || Boolean(part.input))
-      );
+    [...parts].reverse().find((part) => isFinishedPresentPart(part));
 
   if (presentPart) {
     const input = presentPart.input as
@@ -910,14 +1334,12 @@ export function deriveBuildsFromToolParts(
           if (matchedSnapshot && Array.isArray(matchedSnapshot.components) && matchedSnapshot.components.length > 0) {
             components = matchedSnapshot.components.map((snapComp) => {
               const hasCatalogId = Boolean(snapComp.product_id && snapComp.product_id.trim());
+              const category = String(snapComp.category);
+              const categoryLabel = CATEGORY_LABELS[category] ?? category;
               const issue = matchedValidation
                 ? findComponentIssue(
-                    hasCatalogId
-                      ? (matchedValidation.issues ?? []).filter((issue) =>
-                          issue.components.includes(snapComp.product_id!) || issue.components.includes(String(snapComp.category))
-                        )
-                      : matchedValidation.issues ?? [],
-                    String(snapComp.category),
+                    issuesForComponent(matchedValidation.issues, snapComp.product_id, category),
+                    category,
                     snapComp.product_id,
                     snapComp.name
                   )
@@ -926,23 +1348,27 @@ export function deriveBuildsFromToolParts(
 
               if (hasCatalogId) {
                 return {
-                  category: String(snapComp.category),
-                  categoryLabel: CATEGORY_LABELS[String(snapComp.category)] ?? String(snapComp.category),
-                  name: snapComp.name,
+                  category,
+                  categoryLabel,
+                  // A snapshot reuses the raw product id as the name when the
+                  // catalog lookup missed; a product id is not a name.
+                  name: isOpaqueProductId(snapComp.name, snapComp.product_id) ? categoryLabel : snapComp.name,
                   productId: snapComp.product_id,
                   price: snapComp.price,
                   currency: snapComp.currency || currency,
                   retailer: snapComp.retailer,
                   url: snapComp.url,
-                  notInCatalog: false,
+                  // A catalog miss keeps its product id but has no price: same rule
+                  // as derivedBuildFromSnapshot, so it never reads as a "derived requirement".
+                  notInCatalog: snapComp.price == null || isOpaqueProductId(snapComp.name, snapComp.product_id),
                   ...statusInfo
                 };
               }
 
               return {
-                category: String(snapComp.category),
-                categoryLabel: CATEGORY_LABELS[String(snapComp.category)] ?? String(snapComp.category),
-                name: snapComp.name,
+                category,
+                categoryLabel,
+                name: isOpaqueProductId(snapComp.name, snapComp.product_id) ? categoryLabel : snapComp.name,
                 productId: undefined,
                 price: null,
                 currency,
@@ -952,21 +1378,6 @@ export function deriveBuildsFromToolParts(
                 ...statusInfo
               };
             });
-          } else if (Array.isArray(build.product_ids)) {
-            components = build.product_ids.map((id) => ({
-              category: "other",
-              categoryLabel: "Part",
-              name: id,
-              productId: undefined,
-              price: null,
-              currency,
-              retailer: undefined,
-              url: undefined,
-              notInCatalog: true,
-              unverified: true,
-              unverifiedNote: "Unverified compatibility",
-              status: "unverified" as const
-            }));
           }
 
           components.sort((a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category));
@@ -975,8 +1386,17 @@ export function deriveBuildsFromToolParts(
             label: build.label,
             currency,
             validation: matchedValidation,
-            total: matchedSnapshot?.total ?? matchedSnapshot?.subtotal ?? null,
+            // Authoritative when there is a snapshot: null (an em dash) rather
+            // than a subtotal that silently omits unpriced parts.
+            total: matchedSnapshot
+              ? typeof matchedSnapshot.total === "number"
+                ? matchedSnapshot.total
+                : null
+              : undefined,
             components,
+            // No snapshot and nothing but product ids: the build exists, but
+            // nothing about it can be rendered honestly.
+            detailsUnavailable: components.length === 0,
             isLegacy: false
           };
         }
@@ -985,9 +1405,9 @@ export function deriveBuildsFromToolParts(
         const currency = build.parts?.find((p) => p.currency)?.currency ?? matchedSnapshot?.currency ?? fallbackCurrency;
 
         const snapshotMap = new Map<string, BuildSnapshotComponent>();
-        if (matchedSnapshot?.components) {
+        if (Array.isArray(matchedSnapshot?.components)) {
           for (const sc of matchedSnapshot.components) {
-            if (sc.product_id) snapshotMap.set(sc.product_id.trim(), sc);
+            if (sc?.product_id) snapshotMap.set(sc.product_id.trim(), sc);
           }
         }
 
@@ -995,11 +1415,7 @@ export function deriveBuildsFromToolParts(
           .map((part) => {
             const issue = matchedValidation
               ? findComponentIssue(
-                  part.product_id
-                    ? (matchedValidation.issues ?? []).filter((issue) =>
-                        issue.components.includes(part.product_id!) || issue.components.includes(part.category)
-                      )
-                    : matchedValidation.issues ?? [],
+                  issuesForComponent(matchedValidation.issues, part.product_id, part.category),
                   part.category,
                   part.product_id,
                   part.name
@@ -1009,24 +1425,31 @@ export function deriveBuildsFromToolParts(
 
             if (matchedSnapshot) {
               const snapComp = part.product_id ? snapshotMap.get(part.product_id.trim()) : undefined;
+              const categoryLabel = CATEGORY_LABELS[part.category] ?? part.category;
               if (snapComp) {
                 return {
                   category: part.category,
-                  categoryLabel: CATEGORY_LABELS[part.category] ?? part.category,
-                  name: snapComp.name,
+                  categoryLabel,
+                  // Same guard as the new-format path: a snapshot reuses the
+                  // raw product id as the name when the catalog lookup missed.
+                  name: isOpaqueProductId(snapComp.name, snapComp.product_id)
+                    ? categoryLabel
+                    : snapComp.name,
                   productId: snapComp.product_id,
                   price: snapComp.price,
                   currency: snapComp.currency || currency,
                   retailer: snapComp.retailer,
                   url: snapComp.url,
-                  notInCatalog: false,
+                  // A catalog miss keeps its product id but has no price: same rule
+                  // as derivedBuildFromSnapshot, so it never reads as a "derived requirement".
+                  notInCatalog: snapComp.price == null || isOpaqueProductId(snapComp.name, snapComp.product_id),
                   ...statusInfo
                 };
               }
               return {
                 category: part.category,
-                categoryLabel: CATEGORY_LABELS[part.category] ?? part.category,
-                name: part.name,
+                categoryLabel,
+                name: isOpaqueProductId(part.name, part.product_id) ? categoryLabel : part.name,
                 productId: undefined,
                 price: null,
                 currency,
@@ -1037,10 +1460,13 @@ export function deriveBuildsFromToolParts(
               };
             }
 
+            // No snapshot at all: the model may still have passed a product id
+            // where a name belongs, so the same guard applies.
+            const categoryLabel = CATEGORY_LABELS[part.category] ?? part.category;
             return {
               category: part.category,
-              categoryLabel: CATEGORY_LABELS[part.category] ?? part.category,
-              name: part.name,
+              categoryLabel,
+              name: isOpaqueProductId(part.name, part.product_id) ? categoryLabel : part.name,
               productId: part.product_id,
               price: typeof part.price === "number" ? part.price : null,
               currency: part.currency ?? currency,
@@ -1055,8 +1481,13 @@ export function deriveBuildsFromToolParts(
           label: build.label,
           currency,
           validation: matchedValidation,
-          total: matchedSnapshot?.total ?? matchedSnapshot?.subtotal ?? null,
+          total: matchedSnapshot
+            ? typeof matchedSnapshot.total === "number"
+              ? matchedSnapshot.total
+              : null
+            : undefined,
           components,
+          detailsUnavailable: components.length === 0,
           isLegacy: true
         };
       });
@@ -1145,7 +1576,7 @@ export function deriveBuilds(parts: unknown[], fallbackCurrency: string): Derive
     const combinedText = textParts.map((p) => p.text).join("\n\n");
     const markdownBuilds = parseBuildsFromMarkdown(combinedText, fallbackCurrency);
     if (markdownBuilds.length > 0) {
-      return enrichBuildsWithToolProducts(markdownBuilds, toolParts);
+      return enrichBuildsWithToolProducts(markTextDerivedBuilds(markdownBuilds, toolParts), toolParts);
     }
   }
 
@@ -1174,7 +1605,10 @@ export function extractBuildsFromMessage(
   if (typeof message.content === "string" && message.content.trim()) {
     const markdownBuilds = parseBuildsFromMarkdown(message.content, fallbackCurrency);
     if (markdownBuilds.length > 0) {
-      return enrichBuildsWithToolProducts(markdownBuilds, combinedToolParts);
+      return enrichBuildsWithToolProducts(
+        markTextDerivedBuilds(markdownBuilds, combinedToolParts),
+        combinedToolParts
+      );
     }
   }
 

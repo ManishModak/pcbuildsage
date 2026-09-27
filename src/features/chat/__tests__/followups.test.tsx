@@ -12,14 +12,14 @@ const message = {
 
 describe("follow-up actions", () => {
   it("hides the raw tool in chat while retaining it in transcripts", () => {
-    const markup = renderToStaticMarkup(<MessageView message={message} currency="USD" />);
+    const markup = renderToStaticMarkup(<MessageView message={message} />);
     expect(markup).not.toContain("suggest_followups");
     expect(markup).not.toContain("Make it quieter");
     expect(formatMarkdownTranscript({ messages: [message] })).toContain("suggest_followups");
   });
 
   it("places accessible prompt buttons below the answer", () => {
-    const markup = renderToStaticMarkup(<MessageView message={message} currency="USD" followups={["Make it quieter"]} onFollowup={vi.fn()} />);
+    const markup = renderToStaticMarkup(<MessageView message={message} followups={["Make it quieter"]} onFollowup={vi.fn()} />);
     expect(markup).toContain('aria-label="Suggested follow-ups"');
     expect(markup).toContain('type="button"');
     expect(markup).toContain("focus-visible:outline");

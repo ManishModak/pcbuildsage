@@ -43,13 +43,20 @@ export function ChatSidebar({
   currentSessionId,
   onNew,
   onSelect,
-  onDelete
+  onDelete,
+  isLoading = false
 }: {
   sessions: SessionSummary[];
   currentSessionId: string;
   onNew: () => void;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
+  /**
+   * True while the session list is still being fetched. Without it a user with
+   * saved chats sees "No saved chats yet" flash on every page load, because the
+   * list is briefly empty while the request is in flight.
+   */
+  isLoading?: boolean;
 }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -85,9 +92,18 @@ export function ChatSidebar({
             <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Chats</SidebarGroupLabel>
             <SidebarGroupContent>
               {sessions.length === 0 ? (
-                <p className="px-2 py-4 text-caption text-text-muted group-data-[collapsible=icon]:hidden">
-                  No saved chats yet.
-                </p>
+                isLoading ? (
+                  <p
+                    className="px-2 py-4 text-caption text-text-muted group-data-[collapsible=icon]:hidden"
+                    role="status"
+                  >
+                    Loading chats…
+                  </p>
+                ) : (
+                  <p className="px-2 py-4 text-caption text-text-muted group-data-[collapsible=icon]:hidden">
+                    No saved chats yet.
+                  </p>
+                )
               ) : (
                 <SidebarMenu>
                   {sessions.map((session) => {

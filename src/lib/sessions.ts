@@ -176,6 +176,18 @@ export function saveSession(input: SaveSessionInput): SaveSessionResult {
   })();
 }
 
+/**
+ * Store the server-side compacted context for a local session without touching
+ * the transcript or its revision. In local mode the server owns this context
+ * (the chat engine writes it), so bumping the revision here would make the
+ * browser's next transcript save look like a conflict from another tab.
+ */
+export function saveCompactContext(id: string, compactContext: StoredCompactContext | null): void {
+  getSessionsDb()
+    .prepare("UPDATE sessions SET compact_context = ? WHERE id = ?")
+    .run(compactContext ? JSON.stringify(compactContext) : null, id);
+}
+
 /** List sessions newest-first, without the (potentially large) messages blob. */
 export function listSessions(): SessionSummary[] {
   const db = getSessionsDb();
