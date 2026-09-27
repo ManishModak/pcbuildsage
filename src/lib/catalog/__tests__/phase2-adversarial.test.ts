@@ -244,6 +244,8 @@ function createTempCandidateDb(
   trackedTempDirs.push(tmpDir);
   const dbPath = path.join(tmpDir, "candidate.db");
   const db = new Database(dbPath);
+  db.pragma("journal_mode = MEMORY");
+  db.pragma("synchronous = OFF");
 
   const version = options.schemaVersion ?? DATABASE_SCHEMA_VERSION;
   db.pragma(`user_version = ${version}`);
@@ -300,28 +302,32 @@ function createTempCandidateDb(
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
-      for (let i = 0; i < products.length; i++) {
-        const p = products[i];
+      const insertMany = db.transaction((items: CandidateProductRow[]) => {
         const now = new Date().toISOString();
-        insert.run(
-          p.id ?? `prod-${i + 1}`,
-          p.name ?? `Valid Test Component ${i + 1}`,
-          p.normalized_name ?? `valid test component ${i + 1}`,
-          p.registry_key ?? "cpu-key",
-          p.price !== undefined ? p.price : 149.99,
-          p.currency ?? "USD",
-          p.country_code ?? "US",
-          p.retailer ?? "RetailerPrime",
-          p.url ?? `https://retailer.example.com/item-${i + 1}`,
-          p.image_url ?? "https://example.com/img.jpg",
-          p.in_stock !== undefined ? (p.in_stock ? 1 : 0) : 1,
-          p.category ?? (i % 2 === 0 ? "cpu" : "gpu"),
-          p.subcategory ?? "desktop",
-          p.specs ?? JSON.stringify({ cores: 8, threads: 16 }),
-          p.first_seen ?? now,
-          p.last_scraped ?? now
-        );
-      }
+        for (let i = 0; i < items.length; i++) {
+          const p = items[i];
+          insert.run(
+            p.id ?? `prod-${i + 1}`,
+            p.name ?? `Valid Test Component ${i + 1}`,
+            p.normalized_name ?? `valid test component ${i + 1}`,
+            p.registry_key ?? "cpu-key",
+            p.price !== undefined ? p.price : 149.99,
+            p.currency ?? "USD",
+            p.country_code ?? "US",
+            p.retailer ?? "RetailerPrime",
+            p.url ?? `https://retailer.example.com/item-${i + 1}`,
+            p.image_url ?? "https://example.com/img.jpg",
+            p.in_stock !== undefined ? (p.in_stock ? 1 : 0) : 1,
+            p.category ?? (i % 2 === 0 ? "cpu" : "gpu"),
+            p.subcategory ?? "desktop",
+            p.specs ?? JSON.stringify({ cores: 8, threads: 16 }),
+            p.first_seen ?? now,
+            p.last_scraped ?? now
+          );
+        }
+      });
+
+      insertMany(products);
     }
   }
 
@@ -455,7 +461,7 @@ describe("Phase 2 Adversarial Verification & Stress Testing Suite", () => {
 
       for (const tc of wafTestCases) {
         const prods = [
-          ...generatePristineProducts(49),
+          ...generatePristineProducts(9),
           {
             id: "waf-bad",
             name: tc.name,
@@ -464,32 +470,36 @@ describe("Phase 2 Adversarial Verification & Stress Testing Suite", () => {
             category: "cpu"
           }
         ];
-        const { dbPath } = createTempCandidateDb(prods);
-        const mockClient = createControllableTursoClient();
+        const { dbPath, cleanup } = createTempCandidateDb(prods);
+        try {
+          const mockClient = createControllableTursoClient();
 
-        const result = await publishCatalogSnapshot({
-          dbPath,
-          client: mockClient,
-          validatorOptions: { minProducts: 10 }
-        });
+          const result = await publishCatalogSnapshot({
+            dbPath,
+            client: mockClient,
+            validatorOptions: { minProducts: 10 }
+          });
 
-        expect(result.success).toBe(false);
-        expect(result.publishedCount).toBe(0);
-        expect(
-          result.errors!.some(
-            (e) => e.includes("WAF challenge") || e.includes("CAPTCHA")
-          )
-        ).toBe(true);
+          expect(result.success).toBe(false);
+          expect(result.publishedCount).toBe(0);
+          expect(
+            result.errors!.some(
+              (e) => e.includes("WAF challenge") || e.includes("CAPTCHA")
+            )
+          ).toBe(true);
 
-        // Client must be 100% untouched
-        expect(mockClient.batches.length).toBe(0);
-        expect(mockClient.catalogRuns.length).toBe(0);
-        expect(mockClient.executed.length).toBe(0);
+          // Client must be 100% untouched
+          expect(mockClient.batches.length).toBe(0);
+          expect(mockClient.catalogRuns.length).toBe(0);
+          expect(mockClient.executed.length).toBe(0);
 
-        // CLI runner check
-        const exitCode = await runPublishCli([dbPath], { client: mockClient });
-        expect(exitCode).toBe(1);
-        expect(mockClient.batches.length).toBe(0);
+          // CLI runner check
+          const exitCode = await runPublishCli([dbPath], { client: mockClient });
+          expect(exitCode).toBe(1);
+          expect(mockClient.batches.length).toBe(0);
+        } finally {
+          cleanup();
+        }
       }
     });
 

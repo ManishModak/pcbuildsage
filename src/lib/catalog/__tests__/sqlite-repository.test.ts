@@ -6,6 +6,9 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 import { initializeSchema } from "@/lib/db";
 import { createValidateBuildTool } from "@/lib/tools/validate-build";
 import type { Product } from "@/types/db";
@@ -130,9 +133,11 @@ describe("SqliteCatalogRepository", () => {
       await expect(repo.close()).resolves.toBeUndefined();
     });
 
-    it("returns only markets with in-stock products via getMarkets()", async () => {
-      // Empty catalog yields no active markets
-      expect(await repo.getMarkets()).toEqual([]);
+    it("returns markets from installed profiles when empty, and active catalog markets when stocked", async () => {
+      // Empty catalog in local mode falls back to installed profiles; the us-example.json
+      // template (example.com) has no real retailer, so only India is offered
+      const initialMarkets = await repo.getMarkets();
+      expect(initialMarkets.map((m) => m.code)).toEqual(["IN"]);
 
       // Insert in-stock products for IN, out-of-stock for US
       insertProduct(db, { id: "p-in", country_code: "IN", currency: "INR", in_stock: 1 });
@@ -148,6 +153,44 @@ describe("SqliteCatalogRepository", () => {
       markets = await repo.getMarkets();
       expect(markets).toHaveLength(2);
       expect(markets.map((m) => m.code)).toEqual(["IN", "US"]);
+    });
+
+    it("offers India when empty DB has only india.json installed, while hosted mode returns empty", async () => {
+      const tmpDir = path.join(os.tmpdir(), `profiles-test-${Date.now()}`);
+      fs.mkdirSync(tmpDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "india.json"),
+        JSON.stringify({
+          country_code: "IN",
+          default_currency: "INR",
+          sites: [{ base_url: "https://mdcomputers.in/" }]
+        })
+      );
+      // Template profile: every site on a reserved example domain, so it must not add a market
+      fs.writeFileSync(
+        path.join(tmpDir, "us-example.json"),
+        JSON.stringify({
+          country_code: "US",
+          default_currency: "USD",
+          sites: [{ base_url: "https://example.com/" }, { base_url: "https://shop.example.org/" }]
+        })
+      );
+
+      try {
+        const emptyLocalRepo = new SqliteCatalogRepository(createInMemoryDb(), undefined, tmpDir);
+        const localMarkets = await emptyLocalRepo.getMarkets();
+        expect(localMarkets).toHaveLength(1);
+        expect(localMarkets[0]).toEqual({
+          code: "IN",
+          name: "India",
+          defaultCurrency: "INR",
+          supportedCurrencies: ["INR"],
+          locale: "en-IN"
+        });
+        await emptyLocalRepo.close();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
     });
   });
 

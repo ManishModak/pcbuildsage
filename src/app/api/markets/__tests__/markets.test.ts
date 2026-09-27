@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import Database from "better-sqlite3";
+import { initializeSchema } from "@/lib/db";
 import { GET as getMarkets } from "../route";
 import type { MarketMetadata } from "@/lib/config/deployment";
-import { setCatalogRepository, type CatalogRepository } from "@/lib/catalog";
+import { setCatalogRepository, SqliteCatalogRepository, type CatalogRepository } from "@/lib/catalog";
 
 describe("GET /api/markets", () => {
   it("with an IN-only fixture returns only IN", async () => {
@@ -90,6 +95,52 @@ describe("GET /api/markets", () => {
     expect(text).not.toContain("browser_config");
     expect(text).not.toContain("pagination");
     expect(text).not.toContain(".db");
+  });
+
+  it("offers India when empty DB has india.json installed in local mode", async () => {
+    const tmpDir = path.join(os.tmpdir(), `markets-test-${Date.now()}`);
+    fs.mkdirSync(tmpDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, "india.json"),
+      JSON.stringify({
+        country_code: "IN",
+        default_currency: "INR"
+      })
+    );
+
+    const memDb = new Database(":memory:");
+    initializeSchema(memDb);
+    const localRepo = new SqliteCatalogRepository(memDb, undefined, tmpDir);
+    setCatalogRepository(localRepo);
+
+    try {
+      const response = await getMarkets();
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as { markets: MarketMetadata[] };
+      expect(body.markets).toHaveLength(1);
+      expect(body.markets[0].code).toBe("IN");
+      expect(body.markets[0].name).toBe("India");
+      expect(body.markets[0].defaultCurrency).toBe("INR");
+    } finally {
+      setCatalogRepository(null);
+      await localRepo.close();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns empty list in hosted mode when catalog has no in-stock products", async () => {
+    const hostedEmptyRepo: Partial<CatalogRepository> = {
+      getMarkets: async () => []
+    };
+    setCatalogRepository(hostedEmptyRepo as CatalogRepository);
+    try {
+      const response = await getMarkets();
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as { markets: MarketMetadata[] };
+      expect(body.markets).toEqual([]);
+    } finally {
+      setCatalogRepository(null);
+    }
   });
 });
 

@@ -981,6 +981,8 @@ export function createTestSqliteDb(
 ): { dbPath: string; db: Database.Database; cleanup: () => void } {
   const targetPath = options.dbPath || path.join(os.tmpdir(), `test-pcbuildsage-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.db`);
   const db = new Database(targetPath);
+  db.pragma("journal_mode = MEMORY");
+  db.pragma("synchronous = OFF");
 
   const schemaVersion = options.schemaVersion !== undefined ? options.schemaVersion : 5;
   db.pragma(`user_version = ${schemaVersion}`);
@@ -1042,27 +1044,31 @@ export function createTestSqliteDb(
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    for (const p of options.products) {
-      const full = createMockProduct(p);
-      insertStmt.run(
-        full.id,
-        full.name,
-        full.normalizedName || null,
-        full.registryKey || null,
-        full.price,
-        full.currency,
-        full.countryCode,
-        full.retailer,
-        full.url,
-        full.imageUrl || null,
-        full.inStock ? 1 : 0,
-        full.category,
-        full.subcategory || null,
-        full.specs ? JSON.stringify(full.specs) : null,
-        full.firstSeen,
-        full.lastScraped
-      );
-    }
+    const insertMany = db.transaction((products: Array<Partial<Product>>) => {
+      for (const p of products) {
+        const full = createMockProduct(p);
+        insertStmt.run(
+          full.id,
+          full.name,
+          full.normalizedName || null,
+          full.registryKey || null,
+          full.price,
+          full.currency,
+          full.countryCode,
+          full.retailer,
+          full.url,
+          full.imageUrl || null,
+          full.inStock ? 1 : 0,
+          full.category,
+          full.subcategory || null,
+          full.specs ? JSON.stringify(full.specs) : null,
+          full.firstSeen,
+          full.lastScraped
+        );
+      }
+    });
+
+    insertMany(options.products);
   }
 
   return {

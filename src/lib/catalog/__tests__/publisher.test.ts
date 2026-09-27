@@ -173,6 +173,8 @@ function createCandidateDatabase(
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "publisher-test-"));
   const dbPath = path.join(tmpDir, "candidate.db");
   const db = new Database(dbPath);
+  db.pragma("journal_mode = MEMORY");
+  db.pragma("synchronous = OFF");
 
   const version = options.schemaVersion ?? 5;
   db.pragma(`user_version = ${version}`);
@@ -220,28 +222,32 @@ function createCandidateDatabase(
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    for (let i = 0; i < products.length; i++) {
-      const p = products[i];
+    const insertMany = db.transaction((items: TestProduct[]) => {
       const now = new Date().toISOString();
-      insert.run(
-        p.id ?? `prod-${i + 1}`,
-        p.name ?? `Test CPU Component ${i + 1}`,
-        p.normalized_name ?? `test cpu component ${i + 1}`,
-        p.registry_key ?? "cpu-key",
-        p.price !== undefined ? p.price : 199.99,
-        p.currency ?? "USD",
-        p.country_code ?? "US",
-        p.retailer ?? "TestRetailer",
-        p.url ?? `https://example.com/item-${i + 1}`,
-        p.image_url ?? "https://example.com/img.jpg",
-        p.in_stock !== undefined ? p.in_stock : 1,
-        p.category ?? "cpu",
-        p.subcategory ?? "desktop",
-        p.specs ?? JSON.stringify({ cores: 8, threads: 16 }),
-        p.first_seen ?? now,
-        p.last_scraped ?? now
-      );
-    }
+      for (let i = 0; i < items.length; i++) {
+        const p = items[i];
+        insert.run(
+          p.id ?? `prod-${i + 1}`,
+          p.name ?? `Test CPU Component ${i + 1}`,
+          p.normalized_name ?? `test cpu component ${i + 1}`,
+          p.registry_key ?? "cpu-key",
+          p.price !== undefined ? p.price : 199.99,
+          p.currency ?? "USD",
+          p.country_code ?? "US",
+          p.retailer ?? "TestRetailer",
+          p.url ?? `https://example.com/item-${i + 1}`,
+          p.image_url ?? "https://example.com/img.jpg",
+          p.in_stock !== undefined ? p.in_stock : 1,
+          p.category ?? "cpu",
+          p.subcategory ?? "desktop",
+          p.specs ?? JSON.stringify({ cores: 8, threads: 16 }),
+          p.first_seen ?? now,
+          p.last_scraped ?? now
+        );
+      }
+    });
+
+    insertMany(products);
   }
 
   db.close();
