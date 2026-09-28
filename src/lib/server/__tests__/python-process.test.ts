@@ -5,7 +5,9 @@ import {
   filesystemScrapePaths,
   pythonEnvironment,
   pythonCandidates,
+  pythonSpawnOptions,
   runPythonCaptured,
+  stripProviderKeys,
   type PythonResolution,
   type ScrapePathPolicy
 } from "../python-process";
@@ -111,5 +113,58 @@ describe("bounded process capture", () => {
       [],
       { timeoutMs: 50, maxOutputBytes: 100, killGraceMs: 20 }
     )).rejects.toThrow("exceeded its 50 ms deadline");
+  });
+});
+
+describe("crawl_page isolation", () => {
+  it("strips provider keys from the crawl environment but keeps other vars", () => {
+    const clean = stripProviderKeys({
+      GEMINI_API_KEY: "secret",
+      GOOGLE_API_KEY: "secret",
+      OPENROUTER_API_KEY: "secret",
+      OPENAI_COMPATIBLE_API_KEY: "secret",
+      EXA_API_KEY: "secret",
+      KEEP_ME: "yes",
+      NODE_ENV: "test"
+    });
+    expect(clean.GEMINI_API_KEY).toBeUndefined();
+    expect(clean.OPENROUTER_API_KEY).toBeUndefined();
+    expect(clean.EXA_API_KEY).toBeUndefined();
+    expect(clean.KEEP_ME).toBe("yes");
+  });
+
+  it("passes no provider keys to scraper.crawl_page but keeps them for scraper runs", async () => {
+    const baseEnv = { ...process.env, GEMINI_API_KEY: "test-crawl-secret", KEEP_TEST: "yes" };
+    const crawlCode = "import os;print(os.environ.get('GEMINI_API_KEY','absent'),end='')";
+    const crawlResolution: PythonResolution = {
+      ok: true,
+      command: "python3",
+      args: ["-c", crawlCode],
+      label: "python-test-process"
+    };
+    const crawled = await runPythonCaptured(
+      crawlResolution,
+      ["-m", "scraper.crawl_page", "https://example.com"],
+      { timeoutMs: 2000, maxOutputBytes: 100, env: baseEnv }
+    );
+    expect(crawled.stdout).toBe("absent");
+
+    const scraper = await runPythonCaptured(
+      crawlResolution,
+      ["-m", "scraper", "--profile", "india"],
+      { timeoutMs: 2000, maxOutputBytes: 100, env: baseEnv }
+    );
+    expect(scraper.stdout).toBe("test-crawl-secret");
+  });
+
+  it("starts python in its own process group so kill takes Chromium", () => {
+    const opts = pythonSpawnOptions("/repo", { NODE_ENV: "test" }, "pipe");
+    if (process.platform !== "win32") expect(opts.detached).toBe(true);
+    expect(opts.stdio).toEqual(["ignore", "pipe", "pipe"]);
+    expect(pythonSpawnOptions("/repo", { NODE_ENV: "test" }, "inherit").stdio).toEqual([
+      "ignore",
+      "inherit",
+      "inherit"
+    ]);
   });
 });
