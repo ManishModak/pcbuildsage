@@ -1,6 +1,7 @@
 import { hasWattageConflict, resolveComponent, type ComponentCategory, type Confidence, type RegistrySpec, type ResolvedSpec } from "./registry";
 import { canonicalizeSocket } from "./spec-canonical";
 import { checkClearance, checkCooler } from "./rules/clearance";
+import { checkCpuSupport } from "./rules/cpu-support";
 import { checkDdr } from "./rules/ddr";
 import { checkStorage } from "./rules/storage";
 import {
@@ -19,7 +20,7 @@ export { isSingleModuleRam, isStockCooler } from "./rules/shared";
 
 export type RuleCheckStatus = "passed" | "failed" | "unverified";
 export type CheckStatus = RuleCheckStatus;
-export type RuleName = "socket" | "ddr" | "wattage" | "clearance" | "cooler" | "storage" | "display_output" | "spec_resolution";
+export type RuleName = "socket" | "cpu_support" | "ddr" | "wattage" | "clearance" | "cooler" | "storage" | "display_output" | "spec_resolution";
 export type RuleCheckResult = {
   rule: RuleName;
   status: RuleCheckStatus;
@@ -59,6 +60,7 @@ export type ValidationResult = {
 /** Which parts each rule needs before it can say anything at all. */
 const RULE_INPUTS: Array<{ rule: RuleName; needs: ComponentCategory[] }> = [
   { rule: "socket", needs: ["cpu", "motherboard"] },
+  { rule: "cpu_support", needs: ["cpu", "motherboard"] },
   { rule: "ddr", needs: ["motherboard", "ram"] },
   { rule: "wattage", needs: ["cpu", "psu"] },
   { rule: "cooler", needs: ["cpu", "cooler"] },
@@ -198,6 +200,7 @@ export function validateBuild(
   }
 
   checkSocket(cpu, motherboard, recordCheckLocal, extraIssues, parts);
+  checkCpuSupport(cpu, motherboard, recordCheckLocal, extraIssues);
   checkDdr(cpu, motherboard, ram, recordCheckLocal, extraIssues, parts);
   const hasGpu = parts.gpu !== undefined && parts.gpu !== null;
   checkWattage(cpu, gpu, psu, hasGpu, recordCheckLocal, extraIssues);
