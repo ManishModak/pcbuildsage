@@ -115,7 +115,7 @@ describe("discoverModels", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://llm.example/v1/models",
-      { headers: { Authorization: "Bearer compatible-key" } }
+      expect.objectContaining({ headers: { Authorization: "Bearer compatible-key" } })
     );
   });
 
@@ -128,7 +128,7 @@ describe("discoverModels", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://openrouter.ai/api/v1/models",
-      { headers: { Authorization: "Bearer openrouter-key" } }
+      expect.objectContaining({ headers: { Authorization: "Bearer openrouter-key" } })
     );
   });
 
@@ -138,7 +138,7 @@ describe("discoverModels", () => {
 
     await discoverModels({ provider: "openai-compatible", model: "test", baseUrl: "https://llm.example/v1", keySource: "none" }, fetchMock);
 
-    expect(fetchMock).toHaveBeenCalledWith("https://llm.example/v1/models", { headers: undefined });
+    expect(fetchMock).toHaveBeenCalledWith("https://llm.example/v1/models", expect.objectContaining({ headers: undefined }));
   });
 
   it("uses Groq's key and default endpoint for Groq model discovery", async () => {
@@ -156,7 +156,7 @@ describe("discoverModels", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.groq.com/openai/v1/models",
-      { headers: { Authorization: "Bearer gsk_test_groq_key" } }
+      expect.objectContaining({ headers: { Authorization: "Bearer gsk_test_groq_key" } })
     );
     expect(models).toEqual([
       { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B" },

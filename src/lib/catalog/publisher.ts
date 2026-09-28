@@ -3,9 +3,10 @@
  *
  * Atomic Fail-Closed Turso Catalog Publisher Engine.
  * Validates candidate SQLite catalog snapshots using acceptance gates with baseline comparison,
- * sweeps stale listings for active retailers (marking in_stock = 0), preserves listings for
- * failed retailer scrapes (with warnings), and commits upserts + audit run atomically in a single
- * write transaction with rollback on failure.
+ * sweeps stale listings (marking in_stock = 0) only for (country, retailer, category) scopes whose
+ * scrape job the scraper recorded as 'complete' in `scrape_jobs`, preserves listings for partial,
+ * failed or unrecorded scopes (with warnings), and commits upserts + audit run atomically in a
+ * single write transaction with rollback on failure.
  */
 
 import { createClient, type Client, type InStatement, type Transaction } from "@libsql/client";
@@ -30,6 +31,13 @@ export interface PublishOptions {
   validatorOptions?: SnapshotValidationOptions;
   client?: Client;
   throwOnError?: boolean;
+  /**
+   * In-stock rows of a scope that isn't marked complete (partial, failed or
+   * unrecorded) are kept, unless no scrape has seen them for this many days.
+   * Without this, a category that never completes (e.g. more pages than its
+   * page limit) would keep showing sold-out listings forever. Default 7.
+   */
+  staleAfterDays?: number;
 }
 
 export interface PublishResult {
@@ -73,6 +81,50 @@ export async function getLastSuccessfulProductCount(client: Client): Promise<num
     // Table may not exist yet or catalog is empty
   }
   return undefined;
+}
+
+/** A (country, retailer, category) scope the scraper crawled end to end. */
+export interface SweepScope {
+  countryCode: string;
+  retailer: string;
+  category: string;
+}
+
+/**
+ * Reads the scopes whose latest scrape job is 'complete' from the candidate
+ * DB's `scrape_jobs` table, plus warnings for scopes that are not. Only these
+ * scopes may have unseen Turso rows marked out of stock: a partial or failed
+ * job never saw the whole listing. A missing table means no scope is safe.
+ */
+export function readSweepScopes(db: Database.Database): { scopes: SweepScope[]; warnings: string[] } {
+  const hasTable = db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'scrape_jobs'")
+    .get();
+  if (!hasTable) {
+    return {
+      scopes: [],
+      warnings: ["Candidate snapshot has no scrape_jobs table; no listings will be marked out of stock."]
+    };
+  }
+  const jobs = db
+    .prepare("SELECT country_code, retailer, category, status FROM scrape_jobs")
+    .all() as Array<{ country_code: string; retailer: string; category: string; status: string }>;
+  const scopes: SweepScope[] = [];
+  const warnings: string[] = [];
+  for (const job of jobs) {
+    if (job.status === "complete") {
+      scopes.push({ countryCode: job.country_code, retailer: job.retailer, category: job.category });
+    } else {
+      warnings.push(
+        `Scrape job ${job.country_code}/${job.retailer}/${job.category} is ${job.status}; preserving its existing listings.`
+      );
+    }
+  }
+  return { scopes, warnings };
+}
+
+function scopeKey(countryCode: string, retailer: string, category: string): string {
+  return JSON.stringify([countryCode, retailer, category]);
 }
 
 /**
@@ -205,20 +257,19 @@ export async function publishCatalogSnapshot(
       .all() as Array<Record<string, unknown>>;
 
     const candidateRetailerCounts = new Map<string, number>();
-    const candidateScopes = new Map<string, { countryCode: string; retailer: string }>();
+    const candidateScopeKeys = new Set<string>();
     const candidateIds = new Set<string>();
     for (const r of rows) {
       candidateIds.add(String(r.id));
       const ret = String(r.retailer ?? "").trim();
-      const country = String(r.country_code ?? "US").trim();
       if (ret) {
         candidateRetailerCounts.set(ret, (candidateRetailerCounts.get(ret) ?? 0) + 1);
-        const scopeKey = `${country}:::${ret}`;
-        if (!candidateScopes.has(scopeKey)) {
-          candidateScopes.set(scopeKey, { countryCode: country, retailer: ret });
-        }
+        candidateScopeKeys.add(
+          scopeKey(String(r.country_code ?? "").trim(), ret, String(r.category ?? "").trim())
+        );
       }
     }
+    const sweep = readSweepScopes(sqliteDb);
 
     // f. Check for retailers in remote database (or expected retailers) that have 0 rows in candidate DB
     let existingRetailers: string[] = [];
@@ -232,7 +283,7 @@ export async function publishCatalogSnapshot(
     }
 
     const allKnownRetailers = new Set([...existingRetailers, ...(options.expectedRetailers ?? [])]);
-    const warnings: string[] = [...(validation.warnings ?? [])];
+    const warnings: string[] = [...(validation.warnings ?? []), ...sweep.warnings];
 
     for (const retailer of allKnownRetailers) {
       if (!candidateRetailerCounts.has(retailer) || (candidateRetailerCounts.get(retailer) ?? 0) === 0) {
@@ -242,17 +293,23 @@ export async function publishCatalogSnapshot(
       }
     }
 
-    // g. Identify stale listings in Turso belonging to active scopes (country_code, retailer) in candidate snapshot
-    const activeScopes = Array.from(candidateScopes.values());
+    // g. Identify stale listings: in-stock Turso rows of a completely crawled
+    //    (country, retailer, category) scope that are missing from the snapshot.
+    //    A complete scope with no snapshot rows is treated as suspect and kept.
+    const activeScopes = sweep.scopes.filter((scope) =>
+      candidateScopeKeys.has(scopeKey(scope.countryCode, scope.retailer, scope.category))
+    );
     const staleIds: string[] = [];
     if (activeScopes.length > 0) {
       const scopeChunkSize = 25;
       for (let s = 0; s < activeScopes.length; s += scopeChunkSize) {
         const chunk = activeScopes.slice(s, s + scopeChunkSize);
-        const placeholders = chunk.map(() => "(country_code = ? AND retailer = ?)").join(" OR ");
-        const args = chunk.flatMap((scope) => [scope.countryCode, scope.retailer]);
+        const placeholders = chunk
+          .map(() => "(country_code = ? AND retailer = ? AND category = ?)")
+          .join(" OR ");
+        const args = chunk.flatMap((scope) => [scope.countryCode, scope.retailer, scope.category]);
         const existingProds = await client.execute({
-          sql: `SELECT id, country_code, retailer FROM products WHERE (${placeholders}) AND in_stock = 1`,
+          sql: `SELECT id FROM products WHERE (${placeholders}) AND in_stock = 1`,
           args
         });
         for (const row of existingProds.rows) {
@@ -261,6 +318,22 @@ export async function publishCatalogSnapshot(
             staleIds.push(id);
           }
         }
+      }
+    }
+
+    // g2. Safety net for scopes that never complete: retire in-stock rows of the
+    //     snapshot's countries that no scrape has seen for staleAfterDays.
+    const snapshotCountries = [...new Set(rows.map((r) => String(r.country_code ?? "").trim()).filter(Boolean))];
+    if (snapshotCountries.length > 0) {
+      const cutoff = new Date(Date.now() - (options.staleAfterDays ?? 7) * 86_400_000).toISOString();
+      const expired = await client.execute({
+        sql: `SELECT id FROM products WHERE in_stock = 1 AND last_scraped < ? AND country_code IN (${snapshotCountries.map(() => "?").join(", ")})`,
+        args: [cutoff, ...snapshotCountries]
+      });
+      const already = new Set(staleIds);
+      for (const row of expired.rows) {
+        const id = String(row.id);
+        if (!candidateIds.has(id) && !already.has(id)) staleIds.push(id);
       }
     }
 

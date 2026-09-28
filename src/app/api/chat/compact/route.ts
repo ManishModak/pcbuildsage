@@ -4,11 +4,17 @@ import { buildAppConfig, UnsafeConfigError } from "../../_lib/credentials";
 import { badRequest, readJson, serverError } from "../../_lib/responses";
 import { buildSystemPrompt } from "@/lib/llm/chat-engine";
 import { compactConversation } from "@/lib/llm/compaction";
+import { createToolRegistry } from "@/lib/tools";
 import { getModelContextLimit } from "@/lib/llm/context-budget";
 import { deriveBuildState } from "@/lib/llm/messages";
 import { getSession, saveCompactContext, isSessionCompacting } from "@/lib/sessions";
 import type { BuildSnapshot } from "@/lib/catalog/build-snapshot";
-import { isHostedDemo } from "@/lib/config/deployment";
+import {
+  checkChatPayloadSize,
+  exceedsHostedChatBodyLimit,
+  HOSTED_CHAT_MAX_BODY_BYTES,
+  isHostedDemo
+} from "@/lib/config/deployment";
 function isHosted(): boolean {
   return isHostedDemo();
 }
@@ -43,7 +49,22 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const body = compactRequestSchema.parse(await readJson(request));
+    // Payload caps apply only in hosted-demo mode (no-ops locally).
+    if (exceedsHostedChatBodyLimit(request.headers)) {
+      return Response.json(
+        { error: "payload_too_large", message: `Request body exceeds ${HOSTED_CHAT_MAX_BODY_BYTES} bytes.` },
+        { status: 413 }
+      );
+    }
+    const rawBody = await readJson(request);
+    const sizeCheck = checkChatPayloadSize(rawBody);
+    if (!sizeCheck.allowed) {
+      return Response.json(
+        { error: "payload_too_large", message: sizeCheck.reason ?? "Request body too large." },
+        { status: 413 }
+      );
+    }
+    const body = compactRequestSchema.parse(rawBody);
     const config = buildAppConfig(request.headers, body.config ?? {});
     const systemPrompt = buildSystemPrompt(config);
 
@@ -61,7 +82,9 @@ export async function POST(request: Request): Promise<Response> {
     const sessionSnapshot = (session?.build_state as { snapshot?: BuildSnapshot } | null)?.snapshot ??
       (deriveBuildState(uiMessages)?.snapshot as BuildSnapshot | undefined);
 
-    const modelMessages = await convertToModelMessages(uiMessages);
+    // With the tools, replayed tool outputs use their trimmed model view, the
+    // same one the chat engine sends.
+    const modelMessages = await convertToModelMessages(uiMessages, { tools: createToolRegistry(config) });
 
     const result = await compactConversation({
       chain: config.llm.roles.chat,

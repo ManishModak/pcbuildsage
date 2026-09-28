@@ -794,7 +794,9 @@ export function isPresentBuildPart(part: ToolPart): boolean {
  * that rendered nothing at all: the tool chip kept spinning forever, the call
  * was replayed on reload, and the card was rebuilt from a half-written input.
  * `input-available` / `input-streaming` still count while the part belongs to
- * the message currently being streamed.
+ * the message currently being streamed. A call the tool rejected
+ * (`presented: false`, e.g. an unvalidated label) showed the user nothing and
+ * is never a presented build; the turn then reads as validated-only.
  */
 export function isFinishedPresentPart(
   part: ToolPart,
@@ -802,7 +804,10 @@ export function isFinishedPresentPart(
   streamingMessageId?: string
 ): boolean {
   if (!isPresentBuildPart(part)) return false;
-  if (part.state === "output-available") return true;
+  if (part.state === "output-available") {
+    const output = (part as { output?: unknown }).output;
+    return !(output && typeof output === "object" && (output as { presented?: unknown }).presented === false);
+  }
   if (part.state === "input-available" || part.state === "input-streaming") {
     return Boolean(messageId) && messageId === streamingMessageId;
   }
@@ -1188,6 +1193,19 @@ function componentSetsMatch(
 }
 
 /**
+ * Prefix-aware ID match: a presented ID may be a unique prefix (>=8 chars)
+ * of the snapshot's full 40-char hash.
+ */
+function presentedIdMatchesSnapshot(wanted: string, knownIds: string[]): boolean {
+  const p = wanted.trim();
+  if (!p) return false;
+  if (knownIds.includes(p)) return true;
+  if (p.length < 8) return false;
+  const lower = p.toLowerCase();
+  return knownIds.some((full) => full.toLowerCase().startsWith(lower));
+}
+
+/**
  * Confirm a label match really describes this build before trusting it.
  *
  * Returns true when there is nothing to compare against, so a bare label is
@@ -1198,9 +1216,10 @@ function candidateDescribesBuild(build: PresentedBuild, candidate: MatchedValida
   if (wantedIds.length > 0) {
     // Product ids are the model's own link to the catalog, so they are the
     // strongest evidence available and they survive a relabelled build.
+    // Presented IDs may be short prefixes of the snapshot's full hashes.
     const knownIds = snapshotProductIds(candidate.snapshot);
     const source = knownIds.length > 0 ? knownIds : productIdsOfValidationInput(vPart);
-    if (source.length > 0) return wantedIds.every((id) => source.includes(id));
+    if (source.length > 0) return wantedIds.every((id) => presentedIdMatchesSnapshot(id, source));
     return true;
   }
 
@@ -1247,7 +1266,7 @@ function matchValidationByProductIds(build: PresentedBuild, validateParts: ToolP
   for (let i = validateParts.length - 1; i >= 0; i--) {
     for (const candidate of validationCandidates(validateParts[i])) {
       const knownIds = snapshotProductIds(candidate.snapshot);
-      if (knownIds.length > 0 && wantedIds.every((id) => knownIds.includes(id))) return candidate;
+      if (knownIds.length > 0 && wantedIds.every((id) => presentedIdMatchesSnapshot(id, knownIds))) return candidate;
     }
   }
   return null;
@@ -1425,6 +1444,18 @@ export function deriveBuildsFromToolParts(
             if (sc?.product_id) snapshotMap.set(sc.product_id.trim(), sc);
           }
         }
+        const findSnapComp = (wanted?: string): BuildSnapshotComponent | undefined => {
+          if (!wanted) return undefined;
+          const trimmed = wanted.trim();
+          const exact = snapshotMap.get(trimmed);
+          if (exact) return exact;
+          if (trimmed.length < 8) return undefined;
+          const lower = trimmed.toLowerCase();
+          for (const [full, comp] of snapshotMap.entries()) {
+            if (full.toLowerCase().startsWith(lower)) return comp;
+          }
+          return undefined;
+        };
 
         const components: BuildComponent[] = (build.parts || [])
           .map((part) => {
@@ -1439,7 +1470,7 @@ export function deriveBuildsFromToolParts(
             const statusInfo = decorateComponentStatus(issue, Boolean(matchedValidation));
 
             if (matchedSnapshot) {
-              const snapComp = part.product_id ? snapshotMap.get(part.product_id.trim()) : undefined;
+              const snapComp = findSnapComp(part.product_id);
               const categoryLabel = CATEGORY_LABELS[part.category] ?? part.category;
               if (snapComp) {
                 return {
@@ -1510,6 +1541,10 @@ export function deriveBuildsFromToolParts(
     }
   }
 
+  // No build without a present_build: a validated-only turn is shown as
+  // "validated, not presented" by findAllBuildVersions, never as presented.
+  // A present_build whose input has no builds yet (still streaming) is
+  // nothing too - the tool chip shows progress.
   return [];
 }
 

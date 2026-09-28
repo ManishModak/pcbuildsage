@@ -161,6 +161,70 @@ export function toCompactProductItem(
 }
 
 /**
+ * Model-only view of a product's specs: functional keys only.
+ * Drops the `confidence` provenance string kept in the full compact output
+ * (MCP/UI keep it) and returns undefined when nothing functional remains,
+ * so the row omits `specs` instead of sending an empty/metadata-only object.
+ */
+export function toModelProductSpecs(
+  specs: Record<string, unknown> | null | undefined
+): Record<string, unknown> | undefined {
+  if (!specs || typeof specs !== "object") return undefined;
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(specs)) {
+    if (key === "confidence") continue;
+    cleaned[key] = value;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
+
+/**
+ * Model-only view of a product row: short 10-char ID, no url/currency/
+ * country_code/registry_key, no specs confidence, subcategory only when set,
+ * in_stock only when false, and category only when the search did not
+ * already filter by it. Retailer, name, price, and functional specs stay —
+ * they are what the model needs to compare and pick parts.
+ */
+export function toModelProductItem(
+  item: CompactProductItem,
+  opts?: { dropCategory?: boolean }
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    id: typeof item.id === "string" ? item.id.slice(0, 10) : item.id,
+    name: item.name,
+    price: item.price,
+    retailer: item.retailer
+  };
+  if (!opts?.dropCategory) out.category = item.category;
+  if (item.subcategory != null) out.subcategory = item.subcategory;
+  if (item.in_stock !== true) out.in_stock = item.in_stock;
+  const specs = toModelProductSpecs(item.specs);
+  if (specs !== undefined) out.specs = specs;
+  return out;
+}
+
+/**
+ * Model-only view of a search result: trimmed rows, full metadata kept.
+ * UI and MCP keep the full compact result; only the chat model sees this.
+ * Also runs on replayed history, so an output without a `results` array
+ * (an older saved shape) passes through unchanged instead of throwing.
+ */
+export function toModelSearchResult(
+  result: CompactSearchProductsResult,
+  input?: { category?: string }
+): Record<string, unknown> {
+  if (!result || typeof result !== "object" || !Array.isArray(result.results)) {
+    return result as unknown as Record<string, unknown>;
+  }
+  const dropCategory = Boolean(
+    typeof input?.category === "string" && input.category.trim().length > 0
+  );
+  return {
+    ...result,
+    results: result.results.map((item) => toModelProductItem(item, { dropCategory }))
+  };
+}
+/**
  * Pure compaction of a search result object (used by both live tools and conversation replay).
  * Drops duplicate `items` array and strips non-functional overhead while preserving
  * all results and complete contract metadata (scope, hints, price ranges, errors).

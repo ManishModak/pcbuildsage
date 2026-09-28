@@ -124,11 +124,11 @@ describe("GitHub Actions Workflow: Refresh Hosted Catalog (.github/workflows/ref
       expect(pythonStep!.with?.cache).toBe("pip");
     });
 
-    it("configures Node.js 20 with npm caching using actions/setup-node@v4", () => {
+    it("configures Node.js 22 with npm caching using actions/setup-node@v4", () => {
       const nodeStep = steps.find((s) => s.uses?.startsWith("actions/setup-node"));
       expect(nodeStep).toBeDefined();
       expect(nodeStep!.uses).toBe("actions/setup-node@v4");
-      expect(String(nodeStep!.with?.["node-version"])).toBe("20");
+      expect(String(nodeStep!.with?.["node-version"])).toBe("22");
       expect(nodeStep!.with?.cache).toBe("npm");
     });
 

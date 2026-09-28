@@ -5,6 +5,9 @@ on:
     - cron: "17 2,14 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: hosted-catalog-publish
   cancel-in-progress: false
@@ -21,7 +24,7 @@ jobs:
           cache: pip
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Install dependencies

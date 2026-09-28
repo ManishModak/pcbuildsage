@@ -1,6 +1,7 @@
 import { hasWattageConflict, resolveComponent, type ComponentCategory, type Confidence, type RegistrySpec, type ResolvedSpec } from "./registry";
 import { canonicalizeSocket } from "./spec-canonical";
 import { checkClearance, checkCooler } from "./rules/clearance";
+import { checkCpuSupport } from "./rules/cpu-support";
 import { checkDdr } from "./rules/ddr";
 import { checkStorage } from "./rules/storage";
 import {
@@ -19,7 +20,7 @@ export { isSingleModuleRam, isStockCooler } from "./rules/shared";
 
 export type RuleCheckStatus = "passed" | "failed" | "unverified";
 export type CheckStatus = RuleCheckStatus;
-export type RuleName = "socket" | "ddr" | "wattage" | "clearance" | "cooler" | "storage" | "display_output" | "spec_resolution";
+export type RuleName = "socket" | "cpu_support" | "ddr" | "wattage" | "clearance" | "cooler" | "storage" | "display_output" | "spec_resolution";
 export type RuleCheckResult = {
   rule: RuleName;
   status: RuleCheckStatus;
@@ -59,6 +60,7 @@ export type ValidationResult = {
 /** Which parts each rule needs before it can say anything at all. */
 const RULE_INPUTS: Array<{ rule: RuleName; needs: ComponentCategory[] }> = [
   { rule: "socket", needs: ["cpu", "motherboard"] },
+  { rule: "cpu_support", needs: ["cpu", "motherboard"] },
   { rule: "ddr", needs: ["motherboard", "ram"] },
   { rule: "wattage", needs: ["cpu", "psu"] },
   { rule: "cooler", needs: ["cpu", "cooler"] },
@@ -198,6 +200,7 @@ export function validateBuild(
   }
 
   checkSocket(cpu, motherboard, recordCheckLocal, extraIssues, parts);
+  checkCpuSupport(cpu, motherboard, recordCheckLocal, extraIssues);
   checkDdr(cpu, motherboard, ram, recordCheckLocal, extraIssues, parts);
   const hasGpu = parts.gpu !== undefined && parts.gpu !== null;
   checkWattage(cpu, gpu, psu, hasGpu, recordCheckLocal, extraIssues);
@@ -323,11 +326,11 @@ function checkWattage(
     );
     return;
   }
-  const cpuTdp = numberSpec(cpu, "tdp_w", issues);
+  const cpuPower = cpuPowerW(cpu, issues);
   const gpuTdp = hasGpu ? (gpu ? numberSpec(gpu, "tdp_w", issues) : undefined) : 0;
   const wattage = numberSpec(psu, "wattage", issues);
   const components = [cpu, gpu, psu].filter((component): component is ResolvedSpec => Boolean(component));
-  if (cpuTdp === undefined || gpuTdp === undefined || wattage === undefined) {
+  if (cpuPower === undefined || gpuTdp === undefined || wattage === undefined) {
     recordCheck(
       "wattage",
       "unverified",
@@ -336,7 +339,7 @@ function checkWattage(
     );
     return;
   }
-  const required = Math.ceil((cpuTdp + gpuTdp + 50) * 1.2);
+  const required = Math.ceil((cpuPower + gpuTdp + 50) * 1.2);
   if (required > wattage) {
     const msg = `Estimated ${required}W requirement exceeds PSU ${wattage}W.`;
     recordCheck("wattage", "failed", components.map((c) => c.key), msg);
@@ -345,22 +348,45 @@ function checkWattage(
   const recPsu = gpu && typeof gpu.spec.recommended_psu_w === "number" && Number.isFinite(gpu.spec.recommended_psu_w) && gpu.spec.recommended_psu_w > 0
     ? gpu.spec.recommended_psu_w
     : undefined;
-  let message = `PSU wattage (${wattage}W) covers estimated requirement (${required}W).`;
-  if (recPsu !== undefined) {
-    message = wattage < recPsu
-      ? `PSU wattage (${wattage}W) covers estimated requirement (${required}W), but is below GPU manufacturer recommendation (${recPsu}W).`
-      : `PSU wattage (${wattage}W) covers estimated requirement (${required}W) and meets manufacturer recommendation (${recPsu}W).`;
+  // A GPU maker's recommended PSU assumes a worst-case system and an unknown
+  // PSU, so it overshoots typical budget builds (RTX 4060: 550W recommended vs
+  // ~276W estimated with a Ryzen 5 5600). Only a PSU far below it (under 80%)
+  // blocks; one that covers the estimate but misses the recommendation gets an
+  // advisory naming the recommendation, not a false block.
+  const gpuName = gpu ? gpu.spec.model || gpu.key : "the GPU";
+  if (recPsu !== undefined && wattage < recPsu * 0.8) {
+    const msg = `PSU wattage (${wattage}W) is well below the GPU manufacturer recommendation (${recPsu}W) for ${gpuName}.`;
+    recordCheck("wattage", "failed", components.map((c) => c.key), msg);
+    return;
   }
-  recordCheck("wattage", "passed", components.map((c) => c.key), message);
-  if (recPsu !== undefined && wattage < recPsu) {
+  const belowRec = recPsu !== undefined && wattage < recPsu;
+  if (belowRec) {
     issues.push({
       severity: "advisory",
       rule: "wattage",
-      components: gpu ? [psu.key, gpu.key] : [psu.key],
-      detail: `PSU wattage (${wattage}W) meets estimated draw (${required}W) but is below GPU manufacturer recommendation of ${recPsu}W.`
+      components: components.map((c) => c.key),
+      detail: `PSU wattage (${wattage}W) covers the estimated ${required}W but is below the GPU maker's ${recPsu}W recommendation for ${gpuName}. It should run this build; a ${recPsu}W unit adds headroom for power spikes.`
     });
   }
+  const message = recPsu !== undefined && !belowRec
+    ? `PSU wattage (${wattage}W) covers estimated requirement (${required}W) and meets manufacturer recommendation (${recPsu}W).`
+    : `PSU wattage (${wattage}W) covers estimated requirement (${required}W).`;
+  recordCheck("wattage", "passed", components.map((c) => c.key), message);
   confidenceGate("wattage", components, issues, `Wattage pass uses low-confidence researched specs for ${lowNames(components)}.`);
+}
+
+/**
+ * Realistic sustained CPU power for PSU sizing: base TDP understates unlocked
+ * desktop chips under load (14900K: 125W base, 253W Maximum Turbo Power per
+ * Intel ARK). Curated max_power_w (Intel Maximum Turbo Power / AMD socket PPT)
+ * wins when present; otherwise base TDP.
+ */
+function cpuPowerW(cpu: ResolvedSpec, issues: BuildIssue[]): number | undefined {
+  const base = numberSpec(cpu, "tdp_w", issues);
+  if (base === undefined) return undefined;
+  const max = cpu.spec.max_power_w;
+  if (typeof max === "number" && Number.isFinite(max) && max > 0) return Math.max(max, base);
+  return base;
 }
 
 function checkDisplayOutput(

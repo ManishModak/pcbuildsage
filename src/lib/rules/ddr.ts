@@ -5,6 +5,7 @@
  * motherboard, and RAM against the motherboard (and transitively the CPU).
  */
 import { canonicalizeMemory } from "../spec-canonical";
+import { statesSodimm } from "../spec-parsers";
 import type { ResolvedSpec } from "../registry";
 import type { BuildIssue, BuildPart, BuildParts } from "../rules-engine";
 import {
@@ -13,9 +14,18 @@ import {
   label,
   lowNames,
   stringSpec,
+  trustedNumber,
   untrusted,
   type CheckRecorder,
 } from "./shared";
+
+/** SO-DIMM (laptop) sticks are physically shorter and do not fit desktop DIMM slots. */
+function ramIsSodimm(ram: ResolvedSpec): boolean {
+  const ff = typeof ram.spec.form_factor === "string" ? ram.spec.form_factor.toLowerCase().replace(/[\s\-_]/g, "") : "";
+  if (ff === "sodimm") return true;
+  const text = [ram.key, typeof ram.spec.model === "string" ? ram.spec.model : "", ...((ram.spec.aliases ?? []) as unknown[])].join(" ");
+  return statesSodimm(text);
+}
 
 function getCpuSupportedMemory(cpu: ResolvedSpec, issues: BuildIssue[]): string[] | undefined {
   if (untrusted(cpu, issues)) return undefined;
@@ -31,12 +41,42 @@ export function checkDdr(
   cpu: ResolvedSpec | undefined,
   motherboard: ResolvedSpec | undefined,
   ram: ResolvedSpec | undefined,
-  recordCheck: CheckRecorder,
+  recordOuter: CheckRecorder,
   issues: BuildIssue[],
   parts?: BuildParts
 ) {
   if (!motherboard) return;
+  // Once the kit is known not to fit the slots, a later generation match must
+  // not also record "ddr passed" - that reads as contradictory. Other failures
+  // and unverified notes still surface.
+  let slotsFailed = false;
+  const recordCheck: CheckRecorder = (rule, status, components, message) => {
+    if (slotsFailed && status === "passed") return;
+    recordOuter(rule, status, components, message);
+  };
   const boardDdr = stringSpec(motherboard, "ddr", issues);
+  if (ram && ramIsSodimm(ram)) {
+    recordCheck(
+      "ddr",
+      "failed",
+      [motherboard.key, ram.key],
+      `RAM ${ram.spec.model || ram.key} is SO-DIMM (laptop) memory and does not fit the DIMM slots on this desktop motherboard.`
+    );
+    return;
+  }
+  if (ram) {
+    const boardSlots = trustedNumber(motherboard, "ram_slots", issues);
+    const kitModules = typeof ram.spec.modules === "number" && Number.isFinite(ram.spec.modules) ? ram.spec.modules : undefined;
+    if (boardSlots !== undefined && kitModules !== undefined && kitModules > boardSlots) {
+      recordCheck(
+        "ddr",
+        "failed",
+        [motherboard.key, ram.key],
+        `RAM kit uses ${kitModules} modules but the motherboard has only ${boardSlots} memory slot(s).`
+      );
+      slotsFailed = true;
+    }
+  }
   if (!boardDdr) {
     recordCheck(
       "ddr",

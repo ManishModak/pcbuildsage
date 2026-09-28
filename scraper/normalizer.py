@@ -94,19 +94,34 @@ def product_id(url: str) -> str:
 
 
 def parse_price(price_text: str | None) -> float | None:
+    """Return the listed price, not a number from marketing copy.
+
+    With a currency token present, the first currency-anchored number wins:
+    "Save 10% ₹45,000" -> 45000, and a discounted price listed before the
+    struck-through original is kept. Without any currency token the first
+    number wins: "45,000 (10% off)" -> 45000.
+    """
     if not price_text:
         return None
     text = price_text.replace("\xa0", " ")
-    match = re.search(r"(\d[\d,]*(?:\.\d{1,2})?)", text)
-    if not match:
-        return None
-    numeric = match.group(1).replace(",", "")
+    # Currency-anchored numbers first: ₹45,000, Rs. 45000, 45000 INR, $499.
+    currency_number = re.compile(
+        r"(?:₹|\$|€|£|Rs\.?|INR|USD)\s*(\d[\d,]*(?:\.\d{1,2})?)"
+        r"|(\d[\d,]*(?:\.\d{1,2})?)\s*(?:₹|Rs\.?|INR|USD)",
+        re.IGNORECASE,
+    )
+    anchored = currency_number.search(text)
+    if anchored:
+        numeric = anchored.group(1) or anchored.group(2) or ""
+    else:
+        first = re.search(r"\d[\d,]*(?:\.\d{1,2})?", text)
+        if not first:
+            return None
+        numeric = first.group(0)
     try:
-        value = Decimal(numeric)
+        return float(Decimal(numeric.replace(",", "")))
     except InvalidOperation:
         return None
-    return float(value)
-
 
 
 def parse_cpu_package(name: str) -> dict[str, str]:

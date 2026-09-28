@@ -5,6 +5,7 @@
     "model": "Intel Core i9-14900K",
     "socket": "LGA 1700",
     "tdp_w": 125,
+    "max_power_w": 253,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 24,
@@ -79,6 +80,7 @@
     "model": "Intel Core i7-14700K",
     "socket": "LGA 1700",
     "tdp_w": 125,
+    "max_power_w": 253,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 20,
@@ -153,6 +155,7 @@
     "model": "Intel Core i5-14600K",
     "socket": "LGA 1700",
     "tdp_w": 125,
+    "max_power_w": 181,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 14,
@@ -164,8 +167,8 @@
       "14600K"
     ],
     "sources": [
-      "https://www.intel.com/content/www/us/en/products/sku/236793/intel-core-i5-processor-14600k-24m-cache-up-to-5-30-ghz/specifications.html",
-      "https://www.techpowerup.com/cpu-specs/core-i5-14600k.c3264"
+      "https://www.techpowerup.com/cpu-specs/core-i5-14600k.c3264",
+      "https://www.intel.com/content/www/us/en/products/sku/236799/intel-core-i5-processor-14600k-24m-cache-up-to-5-30-ghz/specifications.html"
     ],
     "confidence": "high",
     "researched_at": "2026-08-16T10:05:00Z",
@@ -251,6 +254,7 @@
     "model": "Intel Core i5-14400",
     "socket": "LGA 1700",
     "tdp_w": 65,
+    "max_power_w": 148,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -260,8 +264,8 @@
       "i5-14400"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.techpowerup.com",
+      "https://www.intel.com/content/www/us/en/products/sku/236788/intel-core-i5-processor-14400-20m-cache-up-to-4-70-ghz/specifications.html"
     ],
     "confidence": "medium",
     "researched_at": "2026-07-11T17:47:57Z",
@@ -275,6 +279,7 @@
     "model": "Intel Core i5-14400F",
     "socket": "LGA 1700",
     "tdp_w": 65,
+    "max_power_w": 148,
     "ddr": "DDR5",
     "igpu": false,
     "cores": 10,
@@ -351,6 +356,7 @@
     "model": "Intel Core i9-13900K",
     "socket": "LGA 1700",
     "tdp_w": 125,
+    "max_power_w": 253,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 24,
@@ -425,6 +431,7 @@
     "model": "Intel Core i7-13700K",
     "socket": "LGA 1700",
     "tdp_w": 125,
+    "max_power_w": 253,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 16,
@@ -436,8 +443,8 @@
       "13700K"
     ],
     "sources": [
-      "https://www.intel.com/content/www/us/en/products/sku/230490/intel-core-i713700k-processor-30m-cache-up-to-5-40-ghz/specifications.html",
-      "https://www.techpowerup.com/cpu-specs/core-i7-13700k.c2844"
+      "https://www.techpowerup.com/cpu-specs/core-i7-13700k.c2844",
+      "https://www.intel.com/content/www/us/en/products/sku/230500/intel-core-i713700k-processor-30m-cache-up-to-5-40-ghz/specifications.html"
     ],
     "confidence": "high",
     "researched_at": "2026-08-16T10:05:00Z",
@@ -497,6 +504,7 @@
     "model": "Intel Core i5-13600K",
     "socket": "LGA 1700",
     "tdp_w": 125,
+    "max_power_w": 181,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 14,
@@ -687,6 +695,7 @@
     "model": "Intel Core i9-12900K",
     "socket": "LGA 1700",
     "tdp_w": 125,
+    "max_power_w": 241,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -825,6 +834,7 @@
     "model": "Intel Core i5-12600K",
     "socket": "LGA 1700",
     "tdp_w": 125,
+    "max_power_w": 150,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 10,
@@ -940,6 +950,7 @@
     "model": "Intel Core i5-12400F",
     "socket": "LGA 1700",
     "tdp_w": 65,
+    "max_power_w": 117,
     "ddr": "DDR5",
     "igpu": false,
     "cores": 6,
@@ -1125,6 +1136,7 @@
     "model": "AMD Ryzen 9 7950X",
     "socket": "AM5",
     "tdp_w": 170,
+    "max_power_w": 230,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 16,
@@ -1138,7 +1150,8 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7950x.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-9-7950x.c2856"
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-7950x.c2856",
+      "https://www.tomshardware.com/reviews/amd-ryzen-9-7950x-ryzen-5-7600x-cpu-review/4"
     ],
     "confidence": "high",
     "researched_at": "2026-08-16T10:05:00Z"

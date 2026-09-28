@@ -124,7 +124,8 @@ describe("crawl enhancement", () => {
       { provider: "exa", apiKey: "key" },
       {
         runPythonModule,
-        checkCrawlerReadiness: async () => ({ ready: true })
+        checkCrawlerReadiness: async () => ({ ready: true }),
+        crawlPreflight: async () => {}
       }
     ).search("gpu", { crawlEnabled: true });
 
@@ -152,7 +153,8 @@ describe("crawl enhancement", () => {
       { provider: "exa", apiKey: "key" },
       {
         runPythonModule,
-        checkCrawlerReadiness: async () => ({ ready: true })
+        checkCrawlerReadiness: async () => ({ ready: true }),
+        crawlPreflight: async () => {}
       }
     ).search("gpu", { crawlEnabled: true });
 

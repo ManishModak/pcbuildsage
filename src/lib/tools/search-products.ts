@@ -5,6 +5,7 @@ import {
   type CatalogRepository,
   type CatalogScope,
   toCompactSearchResult,
+  toModelSearchResult,
   type CompactSearchProductsResult
 } from "@/lib/catalog";
 
@@ -98,10 +99,16 @@ export function createSearchProductsTool(
 ) {
   return tool({
     description:
-      "Use search_products to find purchasable PC parts from the local SQLite database. Use it for component candidates and price comparisons; do not use it for compatibility verdicts or web research. Results are in-stock only unless you pass in_stock: false. Filterable fields: term/query, model_id, category, subcategory, price_min/price_max in standard major units (e.g. Rupees/Dollars), brands, retailer, in_stock, socket, ddr, form_factor, min_vram_gb, segment, max_tdp_w, max_length_mm, min_gpu_clearance_mm, min_cooler_clearance_mm, min_capacity_gb, modules (e.g. 2 for dual-channel kits), interface, min_wattage, sort_by, order, limit. Example: {\"category\":\"case\",\"min_gpu_clearance_mm\":320}.",
+      "Use search_products to find purchasable PC parts from the local catalog. Use it for component candidates and price comparisons; do not use it for compatibility verdicts or web research. Results are in-stock only unless you pass in_stock: false. Example: {\"category\":\"case\",\"min_gpu_clearance_mm\":320}.",
     inputSchema: searchProductsInputSchema,
+    toModelOutput: async ({ input, output }) =>
+      ({ type: "json", value: toModelSearchResult(output as CompactSearchProductsResult, input as { category?: string }) }) as never,
     execute: async (input) => searchProducts(input, scope, repository ?? scope.repository)
   });
+}
+
+function oneLineValidFilters(): string {
+  return `Valid filters: ${validFilters.join(", ")}.`;
 }
 
 export async function searchProducts(
@@ -121,7 +128,7 @@ export async function searchProducts(
       ].filter(Boolean);
       return {
         results: [],
-        error: `${filters.join(" and ")} ${filters.length > 1 ? "are" : "is"} only valid for the 'case' category.`,
+        error: `${filters.join(" and ")} ${filters.length > 1 ? "are" : "is"} only valid for the 'case' category. ${oneLineValidFilters()}`,
         valid_filters: validFilters
       };
     }
@@ -130,7 +137,7 @@ export async function searchProducts(
   if (input.max_length_mm !== undefined && category !== "gpu") {
     return {
       results: [],
-      error: "max_length_mm is only valid for the 'gpu' category.",
+      error: `max_length_mm is only valid for the 'gpu' category. ${oneLineValidFilters()}`,
       valid_filters: validFilters
     };
   }
@@ -166,7 +173,7 @@ export async function searchProducts(
     if (!Number.isInteger(coerced) || coerced <= 0) {
       return {
         results: [],
-        error: `Invalid modules filter: expected a positive integer stick count (e.g. 2 for dual-channel kits).`,
+        error: `Invalid modules filter: expected a positive integer stick count (e.g. 2 for dual-channel kits). ${oneLineValidFilters()}`,
         valid_filters: validFilters
       };
     }

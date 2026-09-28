@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_SWEEP_MIN_RATIO = 0.5
 
 RunStatus = Literal["succeeded", "partial", "failed", "cancelled"]
-JobStatus = Literal["succeeded", "failed", "skipped"]
+JobStatus = Literal["succeeded", "partial", "failed", "skipped"]
 
 
 @dataclass(frozen=True)
@@ -39,6 +39,7 @@ class JobOutcome:
     status: JobStatus
     products_written: int = 0
     error: str | None = None
+    partial: bool = False
 
 
 @dataclass(frozen=True)
@@ -50,13 +51,27 @@ class RunOutcome:
     jobs_skipped: int
     products_written: int | None
     errors: list[str]
+    # Jobs that kept good pages but missed some (no sweep). Reported apart
+    # from jobs_failed, which counts only hard failures.
+    jobs_partial: int = 0
 
 
 def summarize_run(jobs: list[JobOutcome]) -> RunOutcome:
+    """Fold job outcomes into the run outcome emitted to Node.
+
+    succeeded: no partial or failed job. failed: nothing succeeded, even
+    partially. partial: anything in between (see run_exit_code).
+    """
     succeeded = sum(job.status == "succeeded" for job in jobs)
+    partial = sum(job.status == "partial" for job in jobs)
     failed = sum(job.status == "failed" for job in jobs)
     skipped = sum(job.status == "skipped" for job in jobs)
-    status: RunStatus = "succeeded" if failed == 0 else "failed" if failed == len(jobs) else "partial"
+    if failed == 0 and partial == 0:
+        status: RunStatus = "succeeded"
+    elif succeeded == 0 and partial == 0:
+        status = "failed"
+    else:
+        status = "partial"
     return RunOutcome(
         status=status,
         jobs_total=len(jobs),
@@ -65,7 +80,22 @@ def summarize_run(jobs: list[JobOutcome]) -> RunOutcome:
         jobs_skipped=skipped,
         products_written=sum(job.products_written for job in jobs),
         errors=[job.error for job in jobs if job.error],
+        jobs_partial=partial,
     )
+
+
+def run_exit_code(outcome: RunOutcome) -> int:
+    """0 when the run produced a publishable snapshot, else 1.
+
+    A partial run that wrote rows exits 0 so CI publishes it: the publisher
+    leaves scopes without a 'complete' job untouched. Mirrors
+    resolveRunTermination in src/contracts/scrape.ts.
+    """
+    if outcome.status == "succeeded":
+        return 0
+    if outcome.status == "partial" and (outcome.products_written or 0) > 0:
+        return 0
+    return 1
 
 
 def emit_outcome(emitter: EventEmitter, outcome: RunOutcome) -> None:
@@ -156,7 +186,16 @@ def build_work(profile_arg: str, args: argparse.Namespace) -> tuple[list[tuple[S
 
 
 def make_product(raw: RawProduct, site: SiteConfig, category: str, matcher: RegistryMatcher, scraped_at: str) -> ScrapedProduct | None:
+    """Build a catalog row, or None when the listing is not buyable.
+
+    A listing without a parseable positive price ("call for price") is
+    dropped: the snapshot validator rejects null prices, and a complete
+    crawl's stale sweep retires the row normally.
+    """
     if not raw.title or not raw.url:
+        return None
+    price = parse_price(raw.price_text)
+    if price is None or price <= 0:
         return None
     specs: dict[str, Any] = {}
     if category == "cpu":
@@ -173,7 +212,7 @@ def make_product(raw: RawProduct, site: SiteConfig, category: str, matcher: Regi
         name=raw.title,
         normalized_name=normalized,
         registry_key=matcher.match(normalized),
-        price=parse_price(raw.price_text),
+        price=price,
         currency=site.currency,
         country_code=site.country_code,
         retailer=site.site_name,
@@ -212,6 +251,24 @@ def search_terms_for_category(category: str, limit: int = 100) -> list[str]:
     return terms or [category]
 
 
+def write_products_partial(
+    db_path: str,
+    products: list[ScrapedProduct],
+    scraped_at: str,
+    site: SiteConfig,
+    category: CategoryConfig,
+    run_started_at: str,
+) -> tuple[int, str | None]:
+    """Upsert partial-crawl products without retiring unseen rows.
+
+    A page-2+ failure proves the listing was not fully seen, so the stale
+    sweep must never run: retiring would mark live products out of stock.
+    """
+    with ProductStore(db_path) as store:
+        written = store.upsert_products(products, scraped_at=scraped_at) if products else 0
+        return written, "partial crawl"
+
+
 def write_products(
     db_path: str,
     products: list[ScrapedProduct],
@@ -238,6 +295,34 @@ def write_products(
             sweep_min_ratio=sweep_min_ratio,
             force_sweep=force_sweep,
         )
+
+
+def record_job_status(
+    db_path: str,
+    site: SiteConfig,
+    category: CategoryConfig,
+    status: Literal["complete", "partial", "failed"],
+    error: str | None = None,
+) -> None:
+    """Record a job's outcome in the catalog DB for the Turso publisher.
+
+    'complete' means every page was seen and the local sweep ran, so the
+    publisher may retire this scope's unseen Turso rows. Skipped jobs record
+    nothing and keep the previous outcome.
+    """
+    try:
+        with ProductStore(db_path) as store:
+            store.record_job(
+                country_code=site.country_code,
+                retailer=site.site_name,
+                category=category.name,
+                status=status,
+                error=error,
+            )
+    except Exception:
+        # Losing the record only makes the publisher more conservative
+        # (no row: scope untouched), so never fail the job over it.
+        logger.exception("Could not record job status for %s/%s", site.site_name, category.name)
 
 
 async def run_test_profile(args: argparse.Namespace, emitter: EventEmitter) -> int:
@@ -346,6 +431,47 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
                 for raw in raw_products
                 if (product := make_product(raw, site, category.name, matcher, scraped_at)) is not None
             ]
+            is_partial = bool(getattr(raw_products, "partial", False))
+            partial_error = getattr(raw_products, "partial_error", None)
+            if is_partial and not args.force_sweep:
+                # A page-2+ failure is not end-of-listing: keep the good
+                # pages but never retire unseen rows on a partial crawl.
+                written, _guard_skip = await asyncio.to_thread(
+                    write_products_partial,
+                    args.db,
+                    products,
+                    scraped_at,
+                    site,
+                    category,
+                    run_started_at,
+                )
+                reason = f"partial crawl ({partial_error})" if partial_error else "partial crawl"
+                await asyncio.to_thread(record_job_status, args.db, site, category, "partial", reason)
+                emitter.emit(
+                    "sweep_skipped",
+                    site=site.site_name,
+                    category=category.name,
+                    reason=reason,
+                )
+                logger.warning(
+                    "Stale-stock sweep skipped for %s/%s: %s. Existing rows keep their stock status; "
+                    "re-run with --force-sweep if the drop is real.",
+                    site.site_name,
+                    category.name,
+                    reason,
+                    extra={"component": "scraper"},
+                )
+                emitter.progress(site=site.site_name, category=category.name, percent=100, products_seen=len(products))
+                logger.info(
+                    "Job partial: %s/%s. Found %d products, wrote %d to DB (%s).",
+                    site.site_name,
+                    category.name,
+                    len(products),
+                    written,
+                    reason,
+                    extra={"component": "scraper"}
+                )
+                return JobOutcome("partial", products_written=written, error=f"{site.site_name}/{category.name}: {reason}", partial=True)
             written, sweep_skipped = await asyncio.to_thread(
                 write_products,
                 args.db,
@@ -356,6 +482,16 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
                 run_started_at,
                 args.sweep_min_ratio,
                 args.force_sweep,
+            )
+            # A skipped local sweep means a suspected partial crawl: the
+            # publisher must not retire this scope's rows either.
+            await asyncio.to_thread(
+                record_job_status,
+                args.db,
+                site,
+                category,
+                "partial" if sweep_skipped else "complete",
+                sweep_skipped,
             )
             if sweep_skipped:
                 # Surfaced rather than silent: skipping leaves rows that may
@@ -397,6 +533,7 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
                 extra={"component": "scraper", "details": error_details}
             )
             emitter.emit("site_failed", site=site.site_name, category=category.name, error=str(exc))
+            await asyncio.to_thread(record_job_status, args.db, site, category, "failed", str(exc))
             return JobOutcome("failed", error=f"{site.site_name}/{category.name}: {exc}")
 
     # Group work by site so each site's categories run sequentially,
@@ -426,11 +563,14 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
         extra={"component": "scraper"}
     )
     emit_outcome(emitter, outcome)
-    if outcome.status == "succeeded":
-        return 0
-    if outcome.status == "partial" and (outcome.products_written or 0) > 0:
-        return 0
-    return 1
+    return run_exit_code(outcome)
+
+
+def _handle_sigterm(_signum: object, _frame: object) -> None:
+    # Node terminates the scraper with SIGINT then SIGKILL, but
+    # orchestrators send SIGTERM: treat it like Ctrl-C so browsers
+    # close and the run reports cancelled instead of hanging.
+    raise KeyboardInterrupt
 
 
 def main() -> int:
@@ -464,7 +604,20 @@ def main() -> int:
         if not args.profile:
             parser.print_help(sys.stderr)
             return 2
-        return asyncio.run(run_scrape(args, emitter))
+        try:
+            import signal as _signal
+
+            _previous_sigterm = _signal.getsignal(_signal.SIGTERM)
+            _signal.signal(_signal.SIGTERM, _handle_sigterm)
+            try:
+                return asyncio.run(run_scrape(args, emitter))
+            finally:
+                try:
+                    _signal.signal(_signal.SIGTERM, _previous_sigterm)
+                except Exception:
+                    pass
+        except KeyboardInterrupt:
+            raise
     except KeyboardInterrupt:
         if not args.test_profile and not args.list_models:
             emit_outcome(emitter, RunOutcome("cancelled", 0, 0, 0, 0, None, []))

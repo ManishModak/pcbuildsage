@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { generateTextWithFallback, probeToolCapability } from "@/lib/llm/client";
+import { generateTextWithFallback, probeToolCapability, PROBE_TIMEOUT_MS } from "@/lib/llm/client";
 import { isHostedDemo, validateChatProviderUrl } from "@/lib/config/deployment";
 import { entryFromRequest } from "../../_lib/credentials";
 import { badRequest, json } from "../../_lib/responses";
@@ -41,13 +41,16 @@ export async function POST(request: Request): Promise<Response> {
     }, request.headers);
     const started = Date.now();
     try {
-      await generateTextWithFallback({ chain: [entry], prompt: "Reply with ok." });
+      await generateTextWithFallback({ chain: [entry], prompt: "Reply with ok.", timeoutMsPerEntry: PROBE_TIMEOUT_MS });
       const toolProbe = await probeToolCapability(entry);
       return json({
         reachable: true,
         latencyMs: Date.now() - started,
         toolCapable: toolProbe.ok,
-        hint: toolProbe.ok ? undefined : (toolProbe.remedies ?? []).join(" ")
+        // "no_tool_call" (model answered in text) vs "request_failed" (the
+        // probe request itself failed); hint leads with the plain reason.
+        toolProbeReason: toolProbe.ok ? undefined : toolProbe.reason,
+        hint: toolProbe.ok ? undefined : [toolProbe.error, ...(toolProbe.remedies ?? [])].filter(Boolean).join(" ")
       });
     } catch (error) {
       return json({

@@ -51,7 +51,7 @@ What you get:
 
 ## Quick start (local)
 
-> Prerequisites: Node 20+, Python 3.11+
+> Prerequisites: Node 22+, Python 3.11+
 
 ```bash
 git clone https://github.com/ManishModak/pcbuildsage
@@ -104,6 +104,21 @@ docker run -d -p 127.0.0.1:3000:10000 -e PCBUILDSAGE_DEPLOYMENT_MODE=local pcbui
 ```
 
 Then open http://localhost:3000.
+
+### Deploy your own (free tier: Render + Turso)
+
+`render.yaml` deploys the Docker image as a Render **free** web service that reads the catalog from a **free** Turso database. Before applying the Blueprint to an account that already runs PCBuildSage, match the existing service's `name` and `region` in `render.yaml` so you update it instead of creating a duplicate.
+
+| Variable | Where | Purpose |
+| :-- | :-- | :-- |
+| `PCBUILDSAGE_DEPLOYMENT_MODE=hosted-demo` | web service | Turns on hosted mode |
+| `TURSO_DATABASE_URL` | web service + refresh workflow | Turso (LibSQL) catalog URL |
+| `TURSO_READ_TOKEN` | web service | Read-only token for catalog reads |
+| `TURSO_INGEST_TOKEN` | refresh workflow only | Write token for `npm run publish-catalog`. Never set it on the web service. |
+
+Render's health check is `GET /api/health`. It always returns HTTP 200, with `status: "degraded"` if Turso can't be reached. The catalog is refreshed by `.github/workflows/refresh-catalog.yml`. See `.env.example` for the full list.
+
+Hosted mode also locks the server down: only public `/api` routes are reachable, requests are rate-limited per IP (60/min), chat payloads are capped (8 MB, 400 messages, 20,000 characters per typed message), and keyless search (DuckDuckGo, SearXNG) is turned off. Users bring a keyed search provider or none.
 
 ---
 

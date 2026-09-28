@@ -131,6 +131,21 @@ export function buildModuleArgs(module: string, args: string[] = []): string[] {
 
 type SpawnOptions = { cwd?: string; env?: NodeJS.ProcessEnv };
 
+export function pythonSpawnOptions(
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  stdio: "pipe" | "inherit" = "pipe"
+): { cwd: string; env: NodeJS.ProcessEnv; stdio: ("ignore" | "pipe" | "inherit")[]; detached: boolean } {
+  return {
+    cwd,
+    env,
+    stdio: stdio === "inherit" ? ["ignore", "inherit", "inherit"] : ["ignore", "pipe", "pipe"],
+    // Own process group so killing the scraper also takes Chromium
+    // children spawned by Crawl4AI/Playwright.
+    detached: process.platform !== "win32"
+  };
+}
+
 export function spawnPython(
   resolution: PythonResolution,
   args: string[],
@@ -150,15 +165,116 @@ export function spawnPython(
     throw new Error(resolution.error ?? "Python interpreter is unavailable.");
   }
   const cwd = options.cwd ?? process.cwd();
-  return spawn(resolution.command, [...resolution.args, ...args], {
-    cwd,
-    env: pythonEnvironment(cwd, options.env ?? process.env),
-    stdio: options.stdio === "inherit" ? ["ignore", "inherit", "inherit"] : ["ignore", "pipe", "pipe"]
-  });
+  const baseEnv = pythonEnvironment(cwd, options.env ?? process.env);
+  const env = isCrawlPageModule(args) ? stripProviderKeys(baseEnv) : baseEnv;
+  const child = spawn(
+    resolution.command,
+    [...resolution.args, ...args],
+    pythonSpawnOptions(cwd, env, options.stdio ?? "pipe")
+  );
+  trackPythonChild(child);
+  return child;
+}
+
+// Detached children lead their own process group, so the terminal's Ctrl-C
+// and Node's exit no longer reach them. Track them and signal their groups
+// ourselves, or the scraper and its Chromium outlive Node as orphans.
+const trackedChildren = new Set<ChildProcess>();
+let parentHooksInstalled = false;
+
+function trackPythonChild(child: ChildProcess): void {
+  // win32 spawns attached (detached:false): the console already delivers
+  // Ctrl-C and there is no process group to signal.
+  if (process.platform === "win32" || child.pid === undefined) return;
+  trackedChildren.add(child);
+  child.once("exit", () => trackedChildren.delete(child));
+  installParentHooks();
+}
+
+/** Number of spawned Python children still running (for tests and diagnostics). */
+export function trackedPythonChildCount(): number {
+  return trackedChildren.size;
+}
+
+/** Signal every tracked Python child's process group (Python + Chromium). */
+export function killTrackedPythonChildren(signal: NodeJS.Signals = "SIGTERM"): void {
+  for (const child of trackedChildren) {
+    if (child.exitCode === null && child.signalCode === null) killProcessTree(child, signal);
+  }
+}
+
+function installParentHooks(): void {
+  if (parentHooksInstalled) return;
+  parentHooksInstalled = true;
+  // "exit" handlers must be synchronous: signalling is. SIGTERM lets
+  // Python's handler close browsers; the whole group gets it too.
+  process.once("exit", () => killTrackedPythonChildren("SIGTERM"));
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    const forward = () => {
+      killTrackedPythonChildren(signal);
+      // A signal listener disables Node's default "exit on signal". When no
+      // one else handles it, restore that default by re-raising.
+      if (process.listenerCount(signal) === 1) {
+        process.removeListener(signal, forward);
+        process.kill(process.pid, signal);
+      }
+    };
+    process.on(signal, forward);
+  }
+}
+
+function isCrawlPageModule(args: string[]): boolean {
+  return args.includes("scraper.crawl_page");
+}
+
+const PROVIDER_KEY_PATTERN = /(api[_-]?key|secret|token|password)/i;
+
+export function stripProviderKeys(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const clean = { ...env };
+  for (const key of Object.keys(clean)) {
+    const upper = key.toUpperCase();
+    if (
+      upper === "GEMINI_API_KEY" ||
+      upper === "GOOGLE_API_KEY" ||
+      upper === "OPENROUTER_API_KEY" ||
+      upper === "OPENAI_COMPATIBLE_API_KEY" ||
+      upper === "OPENAI_API_KEY" ||
+      upper === "EXA_API_KEY" ||
+      upper === "TAVILY_API_KEY" ||
+      upper === "BRAVE_API_KEY" ||
+      PROVIDER_KEY_PATTERN.test(key)
+    ) {
+      delete clean[key];
+    }
+  }
+  return clean;
+}
+
+function killProcessTree(
+  child: Pick<ChildProcess, "exitCode" | "kill"> & { pid?: number },
+  signal: NodeJS.Signals
+): void {
+  // With detached:true the child leads its own process group: a negative
+  // pid signals the whole group (Python + Chromium). Fall back to the
+  // direct child kill when group kill is unavailable (Windows, no pid).
+  const pid = child.pid;
+  if (pid !== undefined && process.platform !== "win32") {
+    try {
+      process.kill(-pid, signal);
+      return;
+    } catch {
+      // fall through to direct kill
+    }
+  }
+  try {
+    child.kill(signal);
+  } catch {
+    // child already exited
+  }
 }
 
 export function createProcessTerminator(
-  child: Pick<ChildProcess, "exitCode" | "kill">,
+  child: Pick<ChildProcess, "exitCode" | "kill"> & { pid?: number },
   graceMs = 3000
 ): { readonly requested: boolean; terminate(): void; clear(): void } {
   let requested = false;
@@ -170,9 +286,9 @@ export function createProcessTerminator(
     terminate() {
       if (requested || child.exitCode !== null) return;
       requested = true;
-      child.kill("SIGINT");
+      killProcessTree(child, "SIGINT");
       timer = setTimeout(() => {
-        if (child.exitCode === null) child.kill("SIGKILL");
+        if (child.exitCode === null) killProcessTree(child, "SIGKILL");
       }, graceMs);
     },
     clear() {

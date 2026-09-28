@@ -274,6 +274,35 @@ function checkPsuFit(
   }
 }
 
+/**
+ * Cross-generation mounting carry-over. A cooler that lists only the older
+ * socket still fits the newer one when the vendor keeps the mounting geometry:
+ *
+ * - AM4 coolers fit AM5: AMD kept the stock-backplate threads and pattern
+ *   identical across AM4 and AM5
+ *   (https://www.amd.com/en/partner/articles/socket-am5-change-game.html -
+ *   "Supports Existing AM4 Cooling Solutions"). Noctua confirms all AM4
+ *   mountings support AM5 except the custom-backplate NH-L9a-AM4 /
+ *   NM-AM4-L9aL9i
+ *   (https://www.noctua.at/en/news/noctua-confirms-am5-heatsink-compatibility-and-announces-free-of-charge-upgrades-for-low-profile-coolers-and-older-heatsink-models).
+ * - LGA 1700 coolers fit LGA 1851: Intel kept the mounting holes in the same
+ *   locations, so LGA 1700 backplates align with LGA 1851
+ *   (https://www.intel.com/content/www/us/en/support/articles/000099700/processors.html).
+ *   Noctua confirms all LGA 1700 coolers and mounting kits support LGA 1851
+ *   (https://www.noctua.at/en/news/noctua-confirms-intel-lga1851-heatsink-compatibility-and-announces-free-of-charge-upgrades-for-older-heatsink-models).
+ */
+export function coolerSocketCarryOver(coolerSockets: string[], cpuSocket: string): boolean {
+  const want = canonicalizeSocket(cpuSocket);
+  const have = new Set(coolerSockets.map(canonicalizeSocket));
+  const equivalents: Record<string, string[]> = {
+    am4: ["am5"],
+    am5: ["am4"],
+    lga1700: ["lga1851"],
+    lga1851: ["lga1700"]
+  };
+  return (equivalents[want] ?? []).some((alt) => have.has(alt));
+}
+
 export function checkCooler(
   cpu: ResolvedSpec | undefined,
   cooler: ResolvedSpec | undefined,
@@ -311,9 +340,11 @@ export function checkCooler(
     return;
   }
   if (!sockets.map(canonicalizeSocket).includes(canonicalizeSocket(socket))) {
-    const msg = `Cooler does not list a ${socket} mounting bracket.`;
-    recordCheck("cooler", "failed", [cpu.key, cooler.key], msg);
-    return;
+    if (!coolerSocketCarryOver(sockets, socket)) {
+      const msg = `Cooler does not list a ${socket} mounting bracket.`;
+      recordCheck("cooler", "failed", [cpu.key, cooler.key], msg);
+      return;
+    }
   }
   const msg = isStockCooler(cooler)
     ? `Stock cooler is suitable for ${cpu.key} (${cpuTdp}W TDP).`
