@@ -23,6 +23,8 @@ export const metadata: Metadata = {
   description:
     "Describe your budget and needs in plain language and get PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source.",
   applicationName: "PCBuildSage",
+  // Google Search Console ownership tag for https://pcbuildsage.onrender.com/ (public by design).
+  verification: { google: "HxDIB8pSIG-iAWHPjFk7ZSAYtIEw652mnLh-Ns1II7w" },
   openGraph: {
     type: "website",
     siteName: "PCBuildSage",
