@@ -5,6 +5,7 @@
     "model": "Intel Core i9-14900K",
     "socket": "LGA 1700",
     "tdp_w": 125,
+    "max_power_w": 253,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 24,
@@ -1125,6 +1126,7 @@
     "model": "AMD Ryzen 9 7950X",
     "socket": "AM5",
     "tdp_w": 170,
+    "max_power_w": 230,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 16,
@@ -1138,7 +1140,8 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7950x.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-9-7950x.c2856"
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-7950x.c2856",
+      "https://www.tomshardware.com/reviews/amd-ryzen-9-7950x-ryzen-5-7600x-cpu-review/4"
     ],
     "confidence": "high",
     "researched_at": "2026-08-16T10:05:00Z"
