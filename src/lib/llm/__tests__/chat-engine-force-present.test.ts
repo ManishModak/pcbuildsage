@@ -127,9 +127,28 @@ describe("chat-engine force-present directives", () => {
       activeTools: ["validate_build", "present_build"],
       toolChoice: "required"
     });
-    await expect(
-      capturedPrepareStep!({ steps: [], stepNumber: 20, messages: [] })
-    ).resolves.toEqual({ activeTools: ["validate_build", "present_build"] });
+  });
+
+  it("closes research without narrowing tools when nothing is validated late in the turn", async () => {
+    const result = (await capturedPrepareStep!({ steps: [], stepNumber: 20, messages: [] })) as {
+      activeTools?: string[];
+      toolChoice?: unknown;
+      instructions?: string;
+    };
+    // Search stays callable (no NoSuchToolError); the model must call a tool and is told why.
+    expect(result.activeTools).toBeUndefined();
+    expect(result.toolChoice).toBe("required");
+    expect(result.instructions).toContain("research is closed (4 steps left)");
+    expect(result.instructions).toContain("validate_build");
+  });
+
+  it("allows text only on the final step when nothing was validated, so the turn cannot end empty", async () => {
+    const result = (await capturedPrepareStep!({ steps: [], stepNumber: 24, messages: [] })) as {
+      toolChoice?: unknown;
+      instructions?: string;
+    };
+    expect(result.toolChoice).toBe("none");
+    expect(result.instructions).toContain("Answer now in text");
   });
 
   it("forces present_build by name on the final step when validation succeeded but nothing is presented", async () => {
