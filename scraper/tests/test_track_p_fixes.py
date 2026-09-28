@@ -5,10 +5,9 @@ import asyncio
 import gzip
 import urllib.request
 import zlib
-from types import SimpleNamespace
 from typing import Any
 
-from scraper.__main__ import JobOutcome, summarize_run, write_products_partial
+from scraper.__main__ import JobOutcome, summarize_run
 from scraper.crawler import (
     Crawl4AIFetcher,
     CrawlError,
