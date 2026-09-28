@@ -8,6 +8,7 @@
 import { isHostedMode } from "@/lib/api-client";
 import { getMarketPreference, type MarketPreference } from "@/lib/market/client-market-store";
 import { getActiveByokProvider, getByokModel, getByokReasoningEffort, hasByokKey } from "@/lib/llm/client-byok-store";
+import { hostedDefaultModelFor } from "@/lib/llm/hosted-defaults";
 import type { StoredCompactContext } from "@/lib/sessions/compact-context";
 import type { ClientConfig, KeySource, LLMProvider, ReasoningEffort, SearchProvider } from "@/types/client";
 
@@ -92,12 +93,7 @@ export function resolveChatRequestBody(
               : null;
 
     if (preferredProvider) {
-      const defaultModel =
-        preferredProvider === "gemini"
-          ? "gemini-2.5-flash"
-          : preferredProvider === "groq"
-            ? "llama-3.3-70b-versatile"
-            : "anthropic/claude-3.5-sonnet";
+      const defaultModel = hostedDefaultModelFor(preferredProvider);
       const model = getModelFn(preferredProvider) || defaultModel;
       const effort = getReasoningEffortFn(preferredProvider);
       chatChain = [
@@ -207,12 +203,7 @@ export function resolveActiveModel(
               : null;
 
     if (preferredProvider) {
-      const defaultModel =
-        preferredProvider === "gemini"
-          ? "gemini-2.5-flash"
-          : preferredProvider === "groq"
-            ? "llama-3.3-70b-versatile"
-            : "anthropic/claude-3.5-sonnet";
+      const defaultModel = hostedDefaultModelFor(preferredProvider);
       return getModelFn(preferredProvider) || defaultModel;
     }
   }

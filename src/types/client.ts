@@ -106,7 +106,19 @@ export type EndpointPreset = {
   launch_flags?: string;
 };
 
-export type DiscoveredModel = { id: string; name?: string; contextLimit?: number };
+export type DiscoveredModel = {
+  id: string;
+  name?: string;
+  contextLimit?: number;
+  /** Raw OpenRouter `supported_parameters` (e.g. includes "tools" when tool calling is supported). */
+  supportedParameters?: string[];
+  /** Raw OpenRouter `pricing` (per-token prices as strings, e.g. "0" for free models). */
+  pricing?: { prompt?: string | number; completion?: string | number };
+  /** True when prompt+completion pricing are both zero. */
+  free?: boolean;
+  /** True when discovery metadata confirms tool calling; undefined when unknown. */
+  toolCapable?: boolean;
+};
 
 export type ScrapeEvent =
   | { type: "started"; id?: string }
