@@ -88,9 +88,9 @@ describe("canonical registry_key hits are guarded against title conflicts", () =
   });
 });
 
-// Sourced max_power_w values for common CPUs are deferred (needs Intel ARK /
-// AMD PPT sources); only the 14900K and 7950X carry it today.
-describe.skip("curated CPU max power", () => {
+// Intel values come from ARK "Maximum Turbo Power"; AMD PPT values are still
+// missing except the 7950X (amd.com pages were unreachable when sourcing).
+describe("curated CPU max power", () => {
   it("every max_power_w value cites a manufacturer page", () => {
     const cpus = [...loadRegistry().byKey.values()].filter((entry) => entry.category === "cpu" && typeof entry.spec.max_power_w === "number");
     expect(cpus.length).toBeGreaterThan(10);
