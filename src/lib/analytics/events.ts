@@ -9,6 +9,8 @@
  * browsers may only report landing_view / onboarding_completed via /api/metrics.
  */
 
+import type { LLMProvider } from "@/types/config";
+
 export const SERVER_ANALYTICS_EVENTS = [
   "chat_started",
   "build_presented",
@@ -45,7 +47,7 @@ export const ANALYTICS_UPSERT_SQL =
 
 const MAX_DIMENSION_LENGTH = 128;
 
-/** Dimensions carry coarse labels only (provider:model, error class); strip anything else. */
+/** Dimensions carry coarse labels only (provider id, error class); strip anything else. */
 export function sanitizeDimension(raw: unknown): string {
   if (typeof raw !== "string") return "";
   return raw
@@ -55,9 +57,22 @@ export function sanitizeDimension(raw: unknown): string {
     .slice(0, MAX_DIMENSION_LENGTH);
 }
 
-export function sanitizeProviderDimension(provider: unknown, model: unknown): string {
-  const combined = `${sanitizeDimension(provider) || "unknown"}:${sanitizeDimension(model) || "unknown"}`;
-  return combined.slice(0, MAX_DIMENSION_LENGTH);
+/**
+ * provider_used dimensions: a fixed allow-list of provider ids, nothing else.
+ * The model id is client-sent free text (a pasted key or name could land in
+ * it) and has unbounded distinct values, so it is never recorded.
+ */
+export const ANALYTICS_PROVIDERS = [
+  "gemini",
+  "groq",
+  "openrouter",
+  "ollama",
+  "openai-compatible"
+] as const satisfies readonly LLMProvider[];
+
+/** Maps a provider to its allow-listed id, or "other". */
+export function providerDimension(provider: unknown): string {
+  return (ANALYTICS_PROVIDERS as readonly unknown[]).includes(provider) ? String(provider) : "other";
 }
 
 function statusFromUnknown(error: unknown): number | undefined {

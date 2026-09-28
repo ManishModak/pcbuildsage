@@ -55,7 +55,7 @@ describe("M2: one hosted session shows up in npm run analytics", () => {
     // Server-counted events, as the chat route records them.
     record("chat_started", "");
     record("build_presented", "");
-    record("provider_used", "gemini:gemini-2.5-flash");
+    record("provider_used", "gemini");
     record("error_type", "rate_limit");
     await flush({ force: true });
 
@@ -79,6 +79,6 @@ describe("M2: one hosted session shows up in npm run analytics", () => {
     ]) {
       expect(output).toContain(event);
     }
-    expect(output).toContain("gemini:gemini-2.5-flash");
+    expect(output).toContain("gemini");
   });
 });

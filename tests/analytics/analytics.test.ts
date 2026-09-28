@@ -28,8 +28,8 @@ import {
   ANALYTICS_UPSERT_SQL,
   classifyErrorType,
   DAILY_COUNTS_DDL,
-  sanitizeDimension,
-  sanitizeProviderDimension
+  providerDimension,
+  sanitizeDimension
 } from "@/lib/analytics/events";
 import {
   flush,
@@ -157,7 +157,7 @@ describe("analytics store resilience", () => {
     );
     expect(() => {
       record("chat_started", "");
-      record("provider_used", "gemini:gemini-2.5-flash");
+      record("provider_used", "gemini");
       record("error_type", "upstream");
     }).not.toThrow();
     await expect(flush({ force: true })).resolves.toBeUndefined();
@@ -188,7 +188,7 @@ describe("analytics store resilience", () => {
     setAnalyticsClientFactoryForTesting(() => fakeClient());
     record("chat_started", "");
     record("chat_started", "");
-    record("provider_used", "gemini:gemini-2.5-flash");
+    record("provider_used", "gemini");
     await flush({ force: true });
     expect(mocks.execute).toHaveBeenCalledWith(DAILY_COUNTS_DDL);
     const statements = (mocks.batch.mock.calls as unknown[][])[0]?.[0] as unknown as Array<{
@@ -242,7 +242,8 @@ describe("schema privacy contract", () => {
 
 describe("sanitizers", () => {
   it("strips everything but coarse labels from dimensions", () => {
-    expect(sanitizeProviderDimension("gemini", "gemini-2.5-flash")).toBe("gemini:gemini-2.5-flash");
+    expect(providerDimension("gemini")).toBe("gemini");
+    expect(providerDimension("AIzaSySecretKey")).toBe("other");
     expect(sanitizeDimension("sk-or-v1-abc DEF")).toBe("sk-or-v1-abcdef");
     expect(sanitizeDimension("AIzaSySecretKey!!")).toBe("aizasysecretkey");
     expect(sanitizeDimension(undefined)).toBe("");

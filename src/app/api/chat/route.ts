@@ -11,7 +11,7 @@ import {
   exceedsHostedChatBodyLimit,
   HOSTED_CHAT_MAX_BODY_BYTES
 } from "@/lib/config/deployment";
-import { classifyErrorType, sanitizeProviderDimension } from "@/lib/analytics/events";
+import { classifyErrorType, providerDimension } from "@/lib/analytics/events";
 import { flushInBackground, record as recordAnalytics } from "@/lib/analytics/store";
 
 export const runtime = "nodejs";
@@ -158,11 +158,11 @@ export async function POST(request: Request): Promise<Response> {
     );
     // Anonymous hosted-only counters; each call is total and fire-and-forget.
     try {
-      recordAnalytics("chat_started", "");
-      recordAnalytics(
-        "provider_used",
-        sanitizeProviderDimension(result.provider, result.model)
-      );
+      // A chat starts with its first user message; later turns resend history.
+      if (body.messages.filter((message) => message.role === "user").length === 1) {
+        recordAnalytics("chat_started", "");
+      }
+      recordAnalytics("provider_used", providerDimension(result.provider));
     } catch {
       // Never break chat for analytics.
     }
