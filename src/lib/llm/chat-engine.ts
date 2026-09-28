@@ -122,7 +122,7 @@ export function buildSystemPrompt(
       : `Budget example: For a strict ${currencySymbol}45,000 budget, you can present a within-budget option at ${currencySymbol}45,000 (labeled 'Within budget') alongside a recommended option at ${currencySymbol}46,000 (labeled 'Small upgrade' or 'Recommended', ${currencySymbol}1,000 extra / ~2.2% over cap, explaining the clear value jump). These are illustrative totals, not product prices.`,
     "When search_products returns category_total: 0, that component category has no catalog data: do not retry it with different prices or filters. When it returns category_price_range, nearest_above, or nearest_below (e.g. when market prices are higher than expected and price_max was set too low), use those boundary hints to immediately correct your price bounds into the available price range instead of guessing or inventing prices.",
     "search_products returns in-stock listings only unless you pass in_stock: false. Build exclusively from in-stock results; a row the last scrape retired is a listing that no longer exists, not a cheaper option. Pass in_stock: false only when the user asks about a specific part that has disappeared, and say plainly that it is no longer listed. When a result set comes back with in_stock_total: 0, the catalog has that category but nothing purchasable: report that rather than falling back to a retired listing, and note that a fresh scrape may restore it.",
-    "Validate each proposed build with validate_build before presenting it. Check earlier when compatibility affects a component choice. Always use the snapshot total from validate_build when checking budget or presenting the build, rather than calculating or guessing your own total. Product IDs are 40-char hashes: search_products shows the first 10 chars, and validate_build/present_build accept any unique prefix of at least 8 chars.",
+    "Validate each proposed build with validate_build before presenting it. Check earlier when compatibility affects a component choice. Always use the snapshot total from validate_build when checking budget or presenting the build, rather than calculating or guessing your own total. When the user states a budget, pass it as `budget` to validate_build and quote its budget.over_by / under_by, vs_cheapest.more_by and price_summary figures instead of calculating prices or differences yourself. Product IDs are 40-char hashes: search_products shows the first 10 chars, and validate_build/present_build accept any unique prefix of at least 8 chars.",
     "Treat initial configurations as tentative until catalog prices confirm the total.",
     "Call `present_build` to present proposed PC builds so the interactive Build Card renders with component tables, retailer links, and verified pricing. Finalize component choices and run compatibility checks before calling present_build. Pass labels matching validate_build from this turn; product_ids are optional prefixes defaulting to the validated snapshot. Include all intended alternatives together in one call with short labels such as 'Within budget' and 'Small upgrade'. If a later correction is needed, present a revised version and explain what changed. Never output raw component markdown tables or part price lists in your text message. Use your text response exclusively to explain component rationale, expected performance for that workload, tradeoffs, and upgrade paths.",
     "If a build is invalid or needs research, run the tools yourself to investigate and resolve it, or explain the compatibility issues clearly to the user. If a component category is unavailable, state this clearly and explain why.",
@@ -159,7 +159,7 @@ export function getSnapshotFromOutput(output: unknown): BuildSnapshot | undefine
 
 /** Agentic turn budget: the model gets this many tool steps before it must wrap up. */
 const MAX_STEPS = 25;
-/** Late-turn steps restrict tool use to validation and presentation. */
+/** From this step, late-turn tool use narrows to validation and presentation (research closes). */
 const PRESENT_FORCE_START_STEP = 20;
 /** 0-indexed stepNumber of the final allowed step. */
 const FINAL_STEP = MAX_STEPS - 1;
@@ -320,27 +320,103 @@ export function stopAfterFollowups({ steps }: { steps: StepLike[] }): boolean {
  * after validate_build returns a presentable build the model must call another tool
  * (toolChoice "required"), late-turn steps are restricted to validate_build
  * and present_build, and the final step forces present_build by name.
+ *
+ * When nothing is validated by PRESENT_FORCE_START_STEP, research closes
+ * (see isResearchClosed / gateResearchTools): every tool stays callable so a
+ * late search gets a plain "search is closed" result instead of an SDK error,
+ * the model must call a tool (so it validates what it has), and the final
+ * step allows text only so the turn never ends empty.
+ *
  * Returns {} (auto) when nothing is validated yet or after presenting, so
  * the model can research freely and explain afterwards.
  */
 export function forcePresentDirectives(
   steps: StepLike[] | undefined | null,
   stepNumber: number
-): { activeTools?: string[]; toolChoice?: "required" | { type: "tool"; toolName: string } } {
+): { activeTools?: string[]; toolChoice?: "required" | "none" | { type: "tool"; toolName: string } } {
   const validated = hasSuccessfulValidation(steps);
   if (hasPresentedBuild(steps)) return {};
   if (validated && stepNumber >= FINAL_STEP) {
     return { activeTools: ["present_build"], toolChoice: { type: "tool", toolName: "present_build" } };
   }
   if (stepNumber >= PRESENT_FORCE_START_STEP) {
-    return validated
-      ? { activeTools: ["validate_build", "present_build"], toolChoice: "required" }
-      : { activeTools: ["validate_build", "present_build"] };
+    if (validated) return { activeTools: ["validate_build", "present_build"], toolChoice: "required" };
+    return stepNumber >= FINAL_STEP ? { toolChoice: "none" } : { toolChoice: "required" };
   }
   if (validated) {
     return { toolChoice: "required" };
   }
   return {};
+}
+
+/** Research tools that close late in a turn that has nothing validated yet. */
+const RESEARCH_TOOLS = ["search_products", "list_models", "consult"] as const;
+
+/**
+ * True when late-turn research is closed: nothing validated or presented yet
+ * and the turn has reached PRESENT_FORCE_START_STEP.
+ */
+export function isResearchClosed(steps: StepLike[] | undefined | null, stepNumber: number): boolean {
+  if (stepNumber < PRESENT_FORCE_START_STEP) return false;
+  return !hasSuccessfulValidation(steps) && !hasPresentedBuild(steps);
+}
+
+/** Steps the model still has after the current one (0-indexed stepNumber). */
+function stepsLeftAfter(stepNumber: number): number {
+  return Math.max(0, FINAL_STEP - stepNumber);
+}
+
+/** Tool result a closed research tool returns in place of running. */
+export function researchClosedMessage(stepsLeft: number): string {
+  return `Search is closed for this turn (${stepsLeft} step${stepsLeft === 1 ? "" : "s"} left). Call validate_build now with the best parts you've already found, then present_build a valid build.`;
+}
+
+/** Instruction appended to the system prompt while research is closed. */
+function researchClosedInstruction(stepsLeft: number): string {
+  return stepsLeft > 0
+    ? `\n\nTurn budget: research is closed (${stepsLeft} step${stepsLeft === 1 ? "" : "s"} left). Do not call search_products, list_models or consult. Call validate_build with the best parts already found, then present_build.`
+    : "\n\nTurn budget: no tool steps left. Answer now in text with the best build you can assemble from the parts already found, and say it was not validated.";
+}
+
+type ClosedResearchOutput = { results: []; search_closed: true; message: string };
+
+function isClosedResearchOutput(output: unknown): output is ClosedResearchOutput {
+  return Boolean(output && typeof output === "object" && (output as { search_closed?: unknown }).search_closed === true);
+}
+
+/**
+ * Wraps the research tools so that, while `closedStepsLeft()` returns a
+ * number, they skip their work and return researchClosedMessage as a normal
+ * tool result (empty `results` keeps UI renderers happy). Other tools and
+ * the open phase are untouched.
+ */
+export function gateResearchTools(tools: ToolSet, closedStepsLeft: () => number | null): ToolSet {
+  const gated: ToolSet = { ...tools };
+  for (const name of RESEARCH_TOOLS) {
+    const original = tools[name];
+    if (!original?.execute) continue;
+    const execute = original.execute;
+    const toModelOutput = original.toModelOutput;
+    gated[name] = {
+      ...original,
+      execute: (async (input: unknown, options: unknown) => {
+        const stepsLeft = closedStepsLeft();
+        if (stepsLeft !== null) {
+          return { results: [], search_closed: true, message: researchClosedMessage(stepsLeft) } satisfies ClosedResearchOutput;
+        }
+        return (execute as (input: unknown, options: unknown) => unknown)(input, options);
+      }) as typeof execute,
+      ...(toModelOutput
+        ? {
+            toModelOutput: ((args: { output: unknown }) =>
+              isClosedResearchOutput(args.output)
+                ? { type: "text", value: args.output.message }
+                : (toModelOutput as (a: unknown) => unknown)(args)) as typeof toModelOutput
+          }
+        : {})
+    } as typeof original;
+  }
+  return gated;
 }
 
 function persistSessionCompactContext(
@@ -355,6 +431,17 @@ function persistSessionCompactContext(
     boundaryMessageId,
     snapshot: snapshot ?? null
   });
+}
+
+/**
+ * Response message id for a chat request, mirroring the AI SDK's
+ * getResponseUIMessageId: when the last incoming message is an assistant
+ * message (a continuation after a dropped stream), the response must reuse
+ * its id so the client appends to it; otherwise undefined (fresh id).
+ */
+export function continuationMessageId(messages: ReadonlyArray<{ id?: string; role: string }>): string | undefined {
+  const last = messages.at(-1);
+  return last?.role === "assistant" && typeof last.id === "string" && last.id.length > 0 ? last.id : undefined;
 }
 
 export async function streamChat(
@@ -383,7 +470,9 @@ export async function streamChat(
 
   // Created before replay conversion so history tool results go through each
   // tool's toModelOutput (the trimmed model view), not the full UI output.
-  const tools = createToolRegistry(config);
+  // Set by prepareStep: steps left while late-turn research is closed, else null.
+  let researchClosedStepsLeft: number | null = null;
+  const tools = gateResearchTools(createToolRegistry(config), () => researchClosedStepsLeft);
   const capped = capMessages(messages);
   const rawModelMessages = await convertToModelMessages(
     capped.map((m: ChatMessage) => ({
@@ -495,7 +584,12 @@ export async function streamChat(
     prepareStep: async ({ steps, stepNumber, messages: currentMessages }) => {
       const currentStep = typeof stepNumber === "number" ? stepNumber : steps.length;
       // A validated turn must end with present_build, never with a text reply.
-      const directives = forcePresentDirectives(steps, currentStep);
+      const forced = forcePresentDirectives(steps, currentStep);
+      researchClosedStepsLeft = isResearchClosed(steps, currentStep) ? stepsLeftAfter(currentStep) : null;
+      // Tell the model research is closed instead of silently narrowing tools.
+      const directives = researchClosedStepsLeft === null
+        ? forced
+        : { ...forced, instructions: systemPrompt + researchClosedInstruction(researchClosedStepsLeft) };
       const currentTokens = calculateStepTokens({
         steps,
         currentMessages,

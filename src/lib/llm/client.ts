@@ -88,6 +88,12 @@ export function sanitizeOpenAICompatibleRequestBody(
       return message;
     });
   }
+  // Local servers (llama.cpp, Ollama) default to one tool call per turn and fail to
+  // parse a turn where the model emits several; hosted APIs already allow parallel calls.
+  const isLocalServer = provider === "openai-compatible" || provider === "ollama";
+  if (isLocalServer && Array.isArray(body.tools) && body.tools.length > 0 && body.parallel_tool_calls === undefined) {
+    body.parallel_tool_calls = true;
+  }
   const isGroq = provider === "groq" || (typeof baseURL === "string" && baseURL.includes("groq.com"));
   if (isGroq && "reasoning_effort" in body) {
     delete body.reasoning_effort;

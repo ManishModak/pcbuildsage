@@ -1,3 +1,4 @@
+import "./load-env";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
@@ -18,6 +19,7 @@ import { getConfigValue, hasCliConfig, isSensitiveConfigKey, readCliConfig, setC
 import { runScraper, runTestProfile, type ScrapeRunConfig } from "./scrape";
 import { STATUS_GLYPHS, banner, createPalette, listThemes, type Palette } from "./theme";
 import { onboarding, ensureNotCanceled } from "./onboarding";
+import { askTurnError, createAskTurnCollector, formatPresentedBuilds, type AskStreamPart, type AskTurn } from "./ask-turn";
 
 // One conversation id per CLI process run, threaded into the debug log so
 // interleaved chat.jsonl / logs entries can be filtered per conversation.
@@ -81,8 +83,11 @@ async function repl(sessionConfig: CliConfig, runtime: Runtime): Promise<void> {
           continue;
         }
         messages.push({ role: "user", content: line });
-        const assistant = await streamAssistant(sessionConfig, messages, runtime.palette);
-        messages.push({ role: "assistant", content: assistant });
+        const turn = await streamAssistant(sessionConfig, messages, runtime.palette);
+        const turnError = askTurnError(turn);
+        if (turnError) console.error(runtime.palette.blocking(`${STATUS_GLYPHS.blocking} ${turnError}`));
+        else if (!turn.content.trim()) console.log(formatPresentedBuilds(turn.builds));
+        messages.push({ role: "assistant", content: turn.content });
       } catch (error) {
         // A failed command or chat turn must not end the session.
         console.error(runtime.palette.blocking(`${STATUS_GLYPHS.blocking} ${error instanceof Error ? error.message : String(error)}`));
@@ -150,12 +155,22 @@ async function askCommand(parsed: ParsedArgs, runtime: Runtime): Promise<number>
   const flags: ConfigInput = {};
   const config = { ...runtime.saved, ...flags };
   const messages: ChatMessage[] = [{ role: "user", content: query }];
-  if (booleanFlag(parsed.flags, "json")) {
-    const content = await collectAssistant(config, messages);
-    console.log(JSON.stringify({ content }));
+  const json = booleanFlag(parsed.flags, "json");
+  const turn = json ? await collectAssistant(config, messages) : await streamAssistant(config, messages, runtime.palette);
+  const error = askTurnError(turn);
+  if (json) {
+    console.log(JSON.stringify({
+      content: turn.content,
+      ...(turn.builds.length > 0 ? { builds: turn.builds } : {}),
+      ...(error ? { error } : {})
+    }));
   } else {
-    await streamAssistant(config, messages, runtime.palette);
+    if (!turn.content.trim() && turn.builds.length > 0) console.log(formatPresentedBuilds(turn.builds));
     console.log();
+  }
+  if (error) {
+    console.error(runtime.palette.blocking(`${STATUS_GLYPHS.blocking} ${error}`));
+    return 1;
   }
   return 0;
 }
@@ -289,7 +304,8 @@ async function searchCommand(parsed: ParsedArgs, runtime: Runtime): Promise<numb
   return 0;
 }
 
-async function streamAssistant(configInput: CliConfig, messages: ChatMessage[], palette: Palette): Promise<string> {
+/** Streams one turn to the terminal (text plus tool summaries) and returns what it produced. */
+async function streamAssistant(configInput: CliConfig, messages: ChatMessage[], palette: Palette): Promise<AskTurn> {
   const config = resolveConfig(configInput);
   const result = await streamChat(config, messages, CLI_SESSION_ID);
   if (result.fallbackIndex > 0) {
@@ -297,10 +313,10 @@ async function streamAssistant(configInput: CliConfig, messages: ChatMessage[], 
     await appendChatLog({ role: "system", content: message, session_id: CLI_SESSION_ID, provider: result.provider, modelId: result.model });
     console.log(palette.warn(`${STATUS_GLYPHS.warn} ${message}`));
   }
-  let content = "";
+  const collector = createAskTurnCollector();
   for await (const part of result.fullStream) {
+    collector.observe(part as AskStreamPart);
     if (part.type === "text-delta") {
-      content += part.text;
       process.stdout.write(part.text);
     } else if (part.type === "tool-result") {
       console.log(`\n${formatToolResult(part.toolName, part.output, palette)}`);
@@ -309,15 +325,16 @@ async function streamAssistant(configInput: CliConfig, messages: ChatMessage[], 
     }
   }
   console.log();
-  return content;
+  return collector.result();
 }
 
-async function collectAssistant(configInput: CliConfig, messages: ChatMessage[]): Promise<string> {
+/** Runs one turn silently (for --json) and returns what it produced. */
+async function collectAssistant(configInput: CliConfig, messages: ChatMessage[]): Promise<AskTurn> {
   const config = resolveConfig(configInput);
   const result = await streamChat(config, messages, CLI_SESSION_ID);
-  let content = "";
-  for await (const part of result.textStream) content += part;
-  return content;
+  const collector = createAskTurnCollector();
+  for await (const part of result.fullStream) collector.observe(part as AskStreamPart);
+  return collector.result();
 }
 
 function formatToolResult(toolName: string, outputValue: unknown, palette: Palette): string {

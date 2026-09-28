@@ -17,6 +17,7 @@ vi.mock("@/lib/analytics/store", () => ({
 }));
 
 vi.mock("@/lib/llm/chat-engine", () => ({
+  continuationMessageId: () => undefined,
   streamChat: async () => ({
     provider: state.provider,
     model: state.model,

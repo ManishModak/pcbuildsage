@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 import { z } from "zod";
-import { streamChat } from "@/lib/llm/chat-engine";
+import { continuationMessageId, streamChat } from "@/lib/llm/chat-engine";
 import { compactChatMessages } from "@/lib/llm/messages";
 import { mapProviderErrorToPlainLanguage } from "@/content/api-key-help";
 import { parseCompactContext, type StoredCompactContext } from "@/lib/sessions";
@@ -154,7 +154,10 @@ export async function POST(request: Request): Promise<Response> {
       compactChatMessages(body.messages),
       body.sessionId,
       request.signal,
-      clientCompactContext
+      clientCompactContext,
+      // Recovery resends the partial assistant message last; reuse its id so the
+      // client continues that message instead of appending a duplicate.
+      continuationMessageId(body.messages)
     );
     // Anonymous hosted-only counters; each call is total and fire-and-forget.
     try {

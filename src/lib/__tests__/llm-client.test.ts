@@ -166,6 +166,17 @@ describe("discoverModels", () => {
 });
 
 describe("sanitizeOpenAICompatibleRequestBody", () => {
+  it("allows parallel tool calls on local servers only, without overriding an explicit value", () => {
+    const tools = [{ type: "function", function: { name: "search_products" } }];
+    expect(sanitizeOpenAICompatibleRequestBody({ tools }, "openai-compatible").parallel_tool_calls).toBe(true);
+    expect(sanitizeOpenAICompatibleRequestBody({ tools }, "ollama").parallel_tool_calls).toBe(true);
+    expect(sanitizeOpenAICompatibleRequestBody({ tools }, "openrouter").parallel_tool_calls).toBeUndefined();
+    expect(sanitizeOpenAICompatibleRequestBody({}, "openai-compatible").parallel_tool_calls).toBeUndefined();
+    expect(
+      sanitizeOpenAICompatibleRequestBody({ tools, parallel_tool_calls: false }, "openai-compatible").parallel_tool_calls
+    ).toBe(false);
+  });
+
   it("strips reasoning_content and reasoning from assistant messages in multi-turn payloads", () => {
     const rawBody = {
       model: "qwen/qwen3.8-27b",
