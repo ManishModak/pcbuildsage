@@ -205,6 +205,59 @@ describe("first-token timeout config", () => {
     expect(calls).toBe(2);
     expect(result).toMatchObject({ provider: "ollama", model: "good", fallbackIndex: 1 });
   });
+
+  it("treats a real-SDK abort part (hung endpoint) as entry failure, not an empty result", async () => {
+    // The real AI SDK emits { type: "abort" } and ends the stream instead of
+    // rejecting when the entry signal aborts a hung endpoint. probeStarted
+    // must turn that into a fallback, not an empty entry-0 result.
+    const abortedStream = {
+      fullStream: (async function* () {
+        yield { type: "start" };
+        yield { type: "abort", reason: "Error: First token timeout after 50ms" };
+      })(),
+    };
+    const goodStream = {
+      fullStream: (async function* () {
+        yield { type: "text-delta", text: "hi" };
+      })(),
+    };
+    let calls = 0;
+    aiState.streamImpl = () => {
+      calls += 1;
+      return calls === 1 ? abortedStream : goodStream;
+    };
+    const chain = [
+      { provider: "ollama", model: "hung", keySource: "none" },
+      { provider: "ollama", model: "good", keySource: "none" },
+    ] as never[];
+    const result = await streamTextWithFallback({
+      chain,
+      messages: [{ role: "user", content: "hi" }],
+      firstTokenTimeoutMs: 50,
+    });
+    expect(calls).toBe(2);
+    expect(result).toMatchObject({ provider: "ollama", model: "good", fallbackIndex: 1 });
+  });
+
+  it("user Stop during a hung stream still aborts instead of falling back", async () => {
+    const controller = new AbortController();
+    aiState.streamImpl = () => ({
+      fullStream: (async function* () {
+        controller.abort();
+        yield { type: "start" };
+        yield { type: "abort", reason: "Error: Aborted by user." };
+      })(),
+    });
+    const chain = [{ provider: "ollama", model: "m", keySource: "none" }] as never[];
+    await expect(
+      streamTextWithFallback({
+        chain,
+        messages: [{ role: "user", content: "hi" }],
+        firstTokenTimeoutMs: 5000,
+        abortSignal: controller.signal,
+      })
+    ).rejects.toThrow(/abort/i);
+  });
 });
 
 describe("probeToolCapability proves tool calling", () => {

@@ -426,6 +426,23 @@ async function probeStarted(result: StreamTextResult<ToolSet, any, any>, firstTo
         throw part.error;
       }
 
+      // The AI SDK surfaces an entry-timeout or transport abort as an
+      // `abort` stream part and then ends the stream normally (it does not
+      // reject). Without this, a hung endpoint resolves as an empty result
+      // from entry 0 and never falls through to the next endpoint.
+      // User Stop still rethrows via the args.abortSignal check in the
+      // streamTextWithFallback catch below.
+      if (part.type === "abort") {
+        const reason = (part as { reason?: unknown }).reason;
+        throw reason instanceof Error
+          ? reason
+          : new Error(
+              typeof reason === "string" && reason.length > 0
+                ? reason.replace(/^Error:\s*/, "")
+                : "Stream aborted before first token"
+            );
+      }
+
       if (
         part.type === "text-delta" ||
         part.type === "tool-call" ||
