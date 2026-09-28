@@ -15,8 +15,10 @@ import {
   buildsFingerprint,
   findAllBuildVersions,
   followNewestVersion,
+  isPresentedVersion,
   openedBuildsForSession,
   resolveSelectedVersion,
+  shouldAutoOpenPanel,
   type BuildVersion
 } from "./build-versions";
 
@@ -31,8 +33,10 @@ export {
   buildsFingerprint,
   findAllBuildVersions,
   followNewestVersion,
+  isPresentedVersion,
   openedBuildsForSession,
   resolveSelectedVersion,
+  shouldAutoOpenPanel,
   type BuildVersion
 };
 
@@ -740,9 +744,10 @@ export function parseBuildsFromMarkdown(markdown: string, fallbackCurrency: stri
     }
   }
 
-  if (results.length === 1 && !results[0].label) {
-    results[0].label = "Proposed Build";
-  }
+  // No invented default label: a build scraped out of prose was never proposed
+  // as a validated build, so calling it "Proposed Build" would overstate the
+  // evidence. The version around it already carries the text caveat, and the
+  // card falls back to that.
 
   return results;
 }
@@ -1320,7 +1325,14 @@ export function deriveBuildsFromToolParts(
           (part.state === "output-available" || Boolean((part as { output?: unknown }).output))
       );
 
-      return input.builds.map((build) => {
+      // A present_build still streaming carries a half-written input: entries
+      // with no components are partial JSON, not real builds. The tool chip
+      // already shows progress, so report nothing rather than flashing an
+      // "unavailable" card for a build that is still arriving.
+      const finished =
+        presentPart.state === "output-available" || Boolean((presentPart as { output?: unknown }).output);
+
+      const derived = input.builds.map((build) => {
         const isLegacy = Array.isArray(build.parts);
         const matched = findMatchingValidationResult(build, validateParts);
         const matchedValidation = matched?.validation ?? null;
@@ -1491,6 +1503,7 @@ export function deriveBuildsFromToolParts(
           isLegacy: true
         };
       });
+      return finished ? derived : derived.filter((build) => build.components.length > 0);
     }
   }
 
@@ -1606,7 +1619,11 @@ export function extractBuildsFromMessage(
     const markdownBuilds = parseBuildsFromMarkdown(message.content, fallbackCurrency);
     if (markdownBuilds.length > 0) {
       return enrichBuildsWithToolProducts(
-        markTextDerivedBuilds(markdownBuilds, combinedToolParts),
+        // Only this message's own tool parts can vouch for a text build: an
+        // older turn's validation describes a superseded build, and attaching
+        // its issues here would stain a build nothing checked (or clear one
+        // the current turn's validation rejected).
+        markTextDerivedBuilds(markdownBuilds, messageToolParts),
         combinedToolParts
       );
     }

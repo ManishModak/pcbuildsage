@@ -13,7 +13,9 @@ import {
   chatViewKey,
   decideOpenAction,
   invalidateSessionSelection,
+  MAX_ACTIVE_SESSIONS,
   selectLatestSession,
+  shrinkSessionPool,
   type PoolEntry
 } from "./session-selection";
 import { SessionSaveQueue, sessionSignature } from "./session-save-queue";
@@ -181,9 +183,22 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
   const handleStreamingChange = useCallback((id: string, isStreaming: boolean) => {
     setActiveSessions((prev) => {
       const index = prev.findIndex((s) => s.id === id);
-      if (index === -1 || prev[index].isStreaming === isStreaming) return prev;
-      const updated = [...prev];
-      updated[index] = { ...updated[index], isStreaming };
+      if (index === -1) return prev;
+      let updated = prev;
+      if (prev[index].isStreaming !== isStreaming) {
+        updated = [...prev];
+        updated[index] = { ...updated[index], isStreaming };
+      }
+      // A stream just ended while the pool was over its cap: the grace that let
+      // it grow (never evict a live stream) no longer applies, so shrink back
+      // to idle entries. The shrink only ever evicts idle, non-current entries.
+      if (updated.length > MAX_ACTIVE_SESSIONS) {
+        const shrunk = shrinkSessionPool({ pool: updated, currentSessionId: currentSessionIdRef.current });
+        if (shrunk.evictedIds.length > 0) {
+          for (const evictedId of shrunk.evictedIds) releasedIdsRef.current.add(evictedId);
+          return shrunk.pool;
+        }
+      }
       return updated;
     });
   }, []);

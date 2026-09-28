@@ -177,6 +177,34 @@ export function shouldRefetchOnOpen(entry: PoolEntry<unknown>): boolean {
   return entry.messages.length === 0;
 }
 
+/**
+ * Trim a pool that grew past its cap back down to it.
+ *
+ * The pool is allowed over the cap while every non-current entry is streaming
+ * (evicting one would unmount its view and kill the reply), but that grace
+ * ends when the streams do: an idle pool holds a full `JSON.stringify` per
+ * queue and a mounted `ChatView` per entry. Only idle, non-current entries are
+ * ever evicted - the active chat and any streaming chat survive regardless of
+ * age. Returns the ids that left, so the host can release what it holds for
+ * them.
+ */
+export function shrinkSessionPool<TQueue>(options: {
+  pool: readonly PoolEntry<TQueue>[];
+  currentSessionId: string;
+  maxSessions?: number;
+}): { pool: PoolEntry<TQueue>[]; evictedIds: string[] } {
+  const { pool, currentSessionId, maxSessions = MAX_ACTIVE_SESSIONS } = options;
+  let next = [...pool];
+  const evictedIds: string[] = [];
+  while (next.length > maxSessions) {
+    const evicted = chooseEvictionIndex(next, currentSessionId);
+    if (evicted === -1) break;
+    evictedIds.push(next[evicted].id);
+    next = next.filter((_, index) => index !== evicted);
+  }
+  return { pool: next, evictedIds };
+}
+
 /** What a sidebar click should do: reuse the open tab, or fetch the chat. */
 export function decideOpenAction(entry: PoolEntry<unknown> | undefined): "switch" | "fetch" {
   if (!entry) return "fetch";

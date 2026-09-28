@@ -77,15 +77,31 @@ function looksCompleted(output: unknown): boolean {
  * so "continue" resumed a build that was never validated. The return shape is
  * unchanged - `parts` plus the optional `verdict` and `snapshot` - with
  * `source` added so a caller can tell a presentation from a validation.
+ *
+ * Pairing rule: a presentation is paired with the validation from its own
+ * turn (the latest finished validation at or before the presentation), never
+ * with a later one. A validation that finished *after* the presentation
+ * describes a build the user was never shown; merging its verdict/snapshot
+ * into the presented build would resume from parts the verdict never checked.
+ * That newer, unpresented validation is returned separately as
+ * `unpresentedValidation` instead.
  */
 export function deriveBuildState(uiMessages: UIMessage[]): {
   parts: unknown;
   verdict?: unknown;
   snapshot?: unknown;
   source?: "present_build" | "validate_build";
+  /**
+   * A finished validation newer than the presented build, describing a build
+   * the user was never shown. Deliberately separate from `verdict`/`snapshot`
+   * so no caller can mistake it for the presented build's own validation.
+   */
+  unpresentedValidation?: { parts: unknown; verdict?: unknown; snapshot?: unknown };
 } | null {
-  let presented: FinishedValidation | null = null;
-  let latestValidation: FinishedValidation | null = null;
+  type ValidationAt = { order: number; validation: FinishedValidation };
+  let presented: (FinishedValidation & { order: number }) | null = null;
+  const validations: ValidationAt[] = [];
+  let order = 0;
 
   for (const message of uiMessages) {
     if (!message.parts) continue;
@@ -101,7 +117,7 @@ export function deriveBuildState(uiMessages: UIMessage[]): {
         const first = builds[0] as { parts?: unknown; product_ids?: unknown } | undefined;
         const parts = first?.parts ?? first?.product_ids;
         if (parts === undefined) continue;
-        presented = { parts };
+        presented = { parts, order: order++ };
         continue;
       }
 
@@ -110,30 +126,43 @@ export function deriveBuildState(uiMessages: UIMessage[]): {
       const parts = partsOfInput((part as { input?: unknown }).input);
       if (parts === undefined) continue;
       const { verdict, snapshot } = verdictAndSnapshot((part as { output?: unknown }).output);
-      latestValidation = {
-        parts,
-        ...(verdict !== undefined ? { verdict } : {}),
-        ...(snapshot !== undefined ? { snapshot } : {})
-      };
+      validations.push({
+        order: order++,
+        validation: {
+          parts,
+          ...(verdict !== undefined ? { verdict } : {}),
+          ...(snapshot !== undefined ? { snapshot } : {})
+        }
+      });
     }
   }
+
+  const latestValidation = validations.length > 0 ? validations[validations.length - 1].validation : null;
 
   // Merge, do not replace. A presentation says which build the user was last
   // shown; a validation is where the verdict and the catalog snapshot live, and
   // compaction seeds itself from that snapshot. Preferring the presentation must
   // not drop them, or the commonest session shape - validated, then presented -
-  // would hand compaction nothing to work from.
-  const winner = presented ?? latestValidation;
-  if (!winner) return null;
+  // would hand compaction nothing to work from. But the validation merged in is
+  // the presentation's own (same turn or earlier): a later validation belongs
+  // to a build that was never presented.
+  if (presented) {
+    const own = [...validations].reverse().find((v) => v.order <= presented!.order)?.validation ?? null;
+    const newer = [...validations].reverse().find((v) => v.order > presented!.order)?.validation ?? null;
+    return {
+      parts: presented.parts,
+      ...(own && "verdict" in own ? { verdict: own.verdict } : {}),
+      ...(own && "snapshot" in own ? { snapshot: own.snapshot } : {}),
+      source: "present_build",
+      ...(newer ? { unpresentedValidation: { ...newer } } : {})
+    };
+  }
+  if (!latestValidation) return null;
   return {
-    parts: winner.parts,
-    ...(latestValidation && "verdict" in latestValidation
-      ? { verdict: latestValidation.verdict }
-      : {}),
-    ...(latestValidation && "snapshot" in latestValidation
-      ? { snapshot: latestValidation.snapshot }
-      : {}),
-    source: presented ? "present_build" : "validate_build"
+    parts: latestValidation.parts,
+    ...("verdict" in latestValidation ? { verdict: latestValidation.verdict } : {}),
+    ...("snapshot" in latestValidation ? { snapshot: latestValidation.snapshot } : {}),
+    source: "validate_build"
   };
 }
 
