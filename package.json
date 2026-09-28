@@ -39,7 +39,8 @@
     "generate-sample-db": "tsx scripts/generate-sample-db.ts",
     "validate:data": "node --import tsx scripts/validate-data.ts",
     "export-research": "tsx scripts/export-research.ts",
-    "publish-catalog": "tsx scripts/publish-catalog.ts"
+    "publish-catalog": "tsx scripts/publish-catalog.ts",
+    "build-guides": "tsx scripts/build-guides.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.11",

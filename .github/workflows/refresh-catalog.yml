@@ -47,3 +47,54 @@ jobs:
           TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
           TURSO_INGEST_TOKEN: ${{ secrets.TURSO_INGEST_TOKEN }}
         run: npm run publish-catalog -- --db "$RUNNER_TEMP/catalog.db"
+
+      - name: Upload scraped catalog for guides
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraped-catalog
+          path: ${{ runner.temp }}/catalog.db
+          retention-days: 1
+
+  guides:
+    needs: refresh
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fetch freshly scraped catalog
+        uses: actions/download-artifact@v4
+        with:
+          name: scraped-catalog
+          path: ${{ runner.temp }}/guides-in
+
+      - name: Build static budget guides
+        run: |
+          cp "${{ runner.temp }}/guides-in/catalog.db" "$RUNNER_TEMP/catalog.db"
+          npm run build-guides -- --db "$RUNNER_TEMP/catalog.db" --out site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy-pages:
+    needs: guides
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
