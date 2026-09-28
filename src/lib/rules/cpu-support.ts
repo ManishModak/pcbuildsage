@@ -159,7 +159,7 @@ export function checkCpuSupport(
     const preZen3 = identity.series === "Ryzen 1000" || identity.series === "Ryzen 2000" || (identity.series === "Ryzen 3000" && identity.apu);
     if (preZen3 && (compact === "B550" || compact === "A520")) {
       recordCheck("cpu_support", B550_A520_PRE_ZEN3_STATUS, components,
-        `${chipset} boards may not support ${cpuName}: 500-series boards generally start at Ryzen 3000 (non-G). Check the board's CPU support list, or pick a Ryzen 5000 CPU.`);
+        `${chipset} boards don't support ${cpuName}: AMD's 500-series chipsets start at Ryzen 3000 (non-G). Pick a Ryzen 3000 (non-G), 4000 or 5000 CPU instead.`);
       return;
     }
     if (identity.series === "Ryzen 5000" && family === "am4-300") {
