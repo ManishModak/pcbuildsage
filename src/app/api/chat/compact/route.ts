@@ -4,6 +4,7 @@ import { buildAppConfig, UnsafeConfigError } from "../../_lib/credentials";
 import { badRequest, readJson, serverError } from "../../_lib/responses";
 import { buildSystemPrompt } from "@/lib/llm/chat-engine";
 import { compactConversation } from "@/lib/llm/compaction";
+import { createToolRegistry } from "@/lib/tools";
 import { getModelContextLimit } from "@/lib/llm/context-budget";
 import { deriveBuildState } from "@/lib/llm/messages";
 import { getSession, saveCompactContext, isSessionCompacting } from "@/lib/sessions";
@@ -81,7 +82,9 @@ export async function POST(request: Request): Promise<Response> {
     const sessionSnapshot = (session?.build_state as { snapshot?: BuildSnapshot } | null)?.snapshot ??
       (deriveBuildState(uiMessages)?.snapshot as BuildSnapshot | undefined);
 
-    const modelMessages = await convertToModelMessages(uiMessages);
+    // With the tools, replayed tool outputs use their trimmed model view, the
+    // same one the chat engine sends.
+    const modelMessages = await convertToModelMessages(uiMessages, { tools: createToolRegistry(config) });
 
     const result = await compactConversation({
       chain: config.llm.roles.chat,
