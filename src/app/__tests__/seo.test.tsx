@@ -1,10 +1,19 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import Home from "@/app/page";
+import { describe, expect, it, vi } from "vitest";
+import { metadata as apiKeyHelpMetadata } from "@/app/help/api-key/page";
+import { metadata as helpMetadata } from "@/app/help/page";
+import { metadata as rootMetadata } from "@/app/layout";
+import Home, { metadata as homeMetadata } from "@/app/page";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
 import { AppProvider } from "@/components/app/app-provider";
-import { GUIDE_SLUGS, SITE_URL } from "@/lib/seo";
+import { SITE_URL } from "@/lib/seo";
+
+// The root layout loads Google fonts at module scope; stub them for Node.
+vi.mock("next/font/google", () => ({
+  Inter: () => ({ variable: "" }),
+  JetBrains_Mono: () => ({ variable: "" })
+}));
 
 // Crawler-style: static markup with no JS and no effects — exactly what a
 // search crawler sees for `/` (client hydration never runs).
@@ -45,19 +54,25 @@ describe("G1 search basics: robots and sitemap", () => {
     });
   });
 
-  it("sitemap lists static routes plus one entry per G2 guide slug", () => {
-    const entries = sitemap();
-    const urls = entries.map((entry) => entry.url);
-    expect(urls).toContain(`${SITE_URL}/`);
-    expect(urls).toContain(`${SITE_URL}/help`);
-    expect(urls).toContain(`${SITE_URL}/help/api-key`);
-    for (const slug of GUIDE_SLUGS) {
-      expect(urls).toContain(`${SITE_URL}/guides/${slug}`);
-    }
-    expect(entries.length).toBe(3 + GUIDE_SLUGS.length);
+  it("sitemap lists the static routes", () => {
+    const urls = sitemap().map((entry) => entry.url);
+    expect(urls).toEqual([`${SITE_URL}/`, `${SITE_URL}/help`, `${SITE_URL}/help/api-key`]);
+  });
+});
+
+describe("per-page canonical", () => {
+  it("root layout sets no canonical or og:url, so pages don't inherit '/'", () => {
+    expect(rootMetadata.alternates?.canonical).toBeUndefined();
+    expect((rootMetadata.openGraph as { url?: unknown } | undefined)?.url).toBeUndefined();
   });
 
-  it("exposes a stable guide-slug extension point for G2", () => {
-    expect(Array.isArray(GUIDE_SLUGS)).toBe(true);
+  it.each([
+    ["/", homeMetadata],
+    ["/help", helpMetadata],
+    ["/help/api-key", apiKeyHelpMetadata]
+  ])("%s has its own canonical and og:url", (path, metadata) => {
+    expect(metadata.alternates?.canonical).toBe(path);
+    expect((metadata.openGraph as { url?: unknown } | undefined)?.url).toBe(path);
+    expect(metadata.title).toBeTruthy();
   });
 });

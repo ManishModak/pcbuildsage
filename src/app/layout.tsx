@@ -18,9 +18,6 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  alternates: {
-    canonical: "/"
-  },
   title: "PCBuildSage — AI PC build planner for India",
   description:
     "Describe your budget and needs in plain language and get PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source.",
@@ -28,7 +25,6 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "PCBuildSage",
-    url: "/",
     title: "PCBuildSage — AI PC build planner for India",
     description:
       "PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source."

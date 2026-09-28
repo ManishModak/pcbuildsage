@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { pageSeo } from "@/lib/seo";
 import {
   API_KEY_FAQS,
   API_KEY_FACTS,
@@ -8,10 +9,11 @@ import {
   KEY_REJECTED_COPY
 } from "@/content/api-key-help";
 
-export const metadata: Metadata = {
-  title: "Get a free API key — PCBuildSage Help",
-  description: "Free Gemini and OpenRouter API key setup for PCBuildSage: steps, costs, safety, and error help."
-};
+export const metadata: Metadata = pageSeo(
+  "/help/api-key",
+  "Get a free API key — PCBuildSage Help",
+  "Free Gemini and OpenRouter API key setup for PCBuildSage: steps, costs, safety, and error help."
+);
 
 export default function ApiKeyHelpPage() {
   return (

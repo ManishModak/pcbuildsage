@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { pageSeo } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Help — PCBuildSage",
-  description: "In-app help for PCBuildSage: API keys, providers, and settings."
-};
+export const metadata: Metadata = pageSeo(
+  "/help",
+  "Help — PCBuildSage",
+  "In-app help for PCBuildSage: API keys, providers, and settings."
+);
 
 export default function HelpPage() {
   return (
