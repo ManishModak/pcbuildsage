@@ -43,6 +43,13 @@ export const listModelsInputSchema = z.object({
     .nonnegative()
     .optional()
     .describe("Minimum storage or RAM capacity in GB."),
+  modules: z
+    .coerce
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("RAM stick count filter, e.g. 2 for dual-channel kits. Resolved from registry modules or title patterns like '2x8GB'."),
   form_factor: z
     .string()
     .optional()
@@ -104,5 +111,28 @@ export async function listModels(
   }
 
   const repo = repository ?? scope.repository ?? getCatalogRepository();
-  return repo.listModels(input, scope);
+  // Coerce `modules` for direct (unparsed) calls; schema-parsed calls arrive numeric.
+  let modules: number | undefined;
+  if (input.modules !== undefined) {
+    const coerced = typeof input.modules === "string" ? Number(input.modules.trim()) : Number(input.modules);
+    if (!Number.isInteger(coerced) || coerced <= 0) {
+      const effectiveScope =
+        typeof scope === "string"
+          ? { countryCode: scope, currency: "USD" }
+          : scope ?? { countryCode: "US", currency: "USD" };
+      return {
+        models: [],
+        total_matching_models: 0,
+        returned_models: 0,
+        truncated: false,
+        scope: {
+          country_code: effectiveScope.countryCode ?? "US",
+          currency: effectiveScope.currency ?? "USD"
+        },
+        error: "Invalid modules filter: expected a positive integer stick count (e.g. 2 for dual-channel kits)."
+      };
+    }
+    modules = coerced;
+  }
+  return repo.listModels({ ...input, modules }, scope);
 }

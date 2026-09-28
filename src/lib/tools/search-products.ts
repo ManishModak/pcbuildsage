@@ -8,6 +8,8 @@ import {
   type CompactSearchProductsResult
 } from "@/lib/catalog";
 
+export const sortFieldSchema = z.enum(["price", "name", "retailer", "last_scraped"]);
+
 export const searchProductsInputSchema = z.object({
   term: z
     .string()
@@ -70,8 +72,15 @@ export const searchProductsInputSchema = z.object({
     .nonnegative()
     .optional()
     .describe("Minimum registry-resolved power supply wattage in watts (e.g. 550, 650, 750, 850)."),
-  sort_by: z.enum(["price", "name", "retailer", "last_scraped"]).default("price").describe("Sort field. Use price for value comparisons (asc for affordable options, desc for higher-end listings), last_scraped for freshest listings."),
-  order: z.enum(["asc", "desc"]).optional().describe("Sort direction. 'asc' sorts ascending (e.g. lowest price first to compare affordable options), 'desc' sorts descending (highest price first). Price order describes price only, not performance ranking."),
+  modules: z
+    .coerce
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("RAM stick count filter, e.g. 2 for dual-channel kits. Resolved from registry modules or title patterns like '2x8GB'."),
+  sort_by: sortFieldSchema.optional().describe("Sort field. Use price for value comparisons (asc for affordable options, desc for higher-end listings), last_scraped for freshest listings."),
+  order: z.union([z.enum(["asc", "desc"]), sortFieldSchema]).optional().describe("Sort direction. 'asc' sorts ascending (e.g. lowest price first to compare affordable options), 'desc' sorts descending (highest price first). A sort field passed here (e.g. 'price') is treated as sort_by when sort_by isn't set. Price order describes price only, not performance ranking."),
   limit: z.number().int().positive().default(12).describe("Maximum result count. Defaults to 12 (showing up to 12 results—the maximum per search).")
 }).strict();
 
@@ -89,7 +98,7 @@ export function createSearchProductsTool(
 ) {
   return tool({
     description:
-      "Use search_products to find purchasable PC parts from the local SQLite database. Use it for component candidates and price comparisons; do not use it for compatibility verdicts or web research. Results are in-stock only unless you pass in_stock: false. Filterable fields: term/query, model_id, category, subcategory, price_min/price_max in standard major units (e.g. Rupees/Dollars), brands, retailer, in_stock, socket, ddr, form_factor, min_vram_gb, segment, max_tdp_w, max_length_mm, min_gpu_clearance_mm, min_cooler_clearance_mm, min_capacity_gb, interface, min_wattage, sort_by, order, limit. Example: {\"category\":\"case\",\"min_gpu_clearance_mm\":320}.",
+      "Use search_products to find purchasable PC parts from the local SQLite database. Use it for component candidates and price comparisons; do not use it for compatibility verdicts or web research. Results are in-stock only unless you pass in_stock: false. Filterable fields: term/query, model_id, category, subcategory, price_min/price_max in standard major units (e.g. Rupees/Dollars), brands, retailer, in_stock, socket, ddr, form_factor, min_vram_gb, segment, max_tdp_w, max_length_mm, min_gpu_clearance_mm, min_cooler_clearance_mm, min_capacity_gb, modules (e.g. 2 for dual-channel kits), interface, min_wattage, sort_by, order, limit. Example: {\"category\":\"case\",\"min_gpu_clearance_mm\":320}.",
     inputSchema: searchProductsInputSchema,
     execute: async (input) => searchProducts(input, scope, repository ?? scope.repository)
   });
@@ -137,12 +146,42 @@ export async function searchProducts(
       : 12;
   }
 
+  // A sort field passed as `order` (e.g. order: "price") is treated as
+  // `sort_by` when `sort_by` isn't set, using the default direction.
+  let sortBy = input.sort_by;
+  const rawOrder = input.order;
+  if (typeof rawOrder === "string" && rawOrder !== "asc" && rawOrder !== "desc") {
+    const field = rawOrder.trim().toLowerCase();
+    if ((sortFieldSchema.options as readonly string[]).includes(field) && sortBy === undefined) {
+      sortBy = field as NonNullable<typeof sortBy>;
+    }
+  }
+  const order = rawOrder === "asc" || rawOrder === "desc" ? rawOrder : undefined;
+  if (sortBy === undefined) sortBy = "price";
+
+  // Coerce `modules` for direct (unparsed) calls; schema-parsed calls arrive numeric.
+  let modules: number | undefined;
+  if (input.modules !== undefined) {
+    const coerced = typeof input.modules === "string" ? Number(input.modules.trim()) : Number(input.modules);
+    if (!Number.isInteger(coerced) || coerced <= 0) {
+      return {
+        results: [],
+        error: `Invalid modules filter: expected a positive integer stick count (e.g. 2 for dual-channel kits).`,
+        valid_filters: validFilters
+      };
+    }
+    modules = coerced;
+  }
+
   const rawTerm = (input.term ?? input.query)?.trim();
-  const normalizedInput: SearchProductsInput = {
+  const normalizedInput = {
     ...input,
     ...(category !== undefined ? { category } : {}),
     ...(rawTerm ? { term: rawTerm } : {}),
-    ...(normalizedLimit !== undefined ? { limit: normalizedLimit } : {})
+    ...(normalizedLimit !== undefined ? { limit: normalizedLimit } : {}),
+    sort_by: sortBy,
+    order,
+    modules
   };
 
   const repo = repository ?? scope.repository ?? getCatalogRepository();
