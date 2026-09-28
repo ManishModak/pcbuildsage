@@ -177,6 +177,7 @@ type StepToolResultLike = {
 };
 
 type StepLike = {
+  text?: string | null;
   toolCalls?: StepToolCallLike[] | null;
   toolResults?: StepToolResultLike[] | null;
 };
@@ -241,10 +242,40 @@ export function hasSuccessfulValidation(steps: StepLike[] | undefined | null): b
   return false;
 }
 
-/** True once present_build has been called in the current turn. */
+/**
+ * True when a present_build call's result actually presented a build. A call
+ * the tool rejected (`presented: false`) or that errored (no tool-result at
+ * all) shows the user nothing, so it must not count as presented.
+ */
+function isPresentedResult(res: StepToolResultLike | null | undefined): boolean {
+  if (!res || res.error != null) return false;
+  const out = unwrapToolOutput(res.output ?? res.result);
+  if (!out || typeof out !== "object") return false;
+  return (out as { presented?: unknown }).presented !== false;
+}
+
+/** Tool-call IDs (and, for nameless results, the call names) of a turn. */
+function callNamesById(steps: StepLike[] | undefined | null): Map<string, unknown> {
+  const names = new Map<string, unknown>();
+  for (const step of steps ?? []) {
+    for (const call of step?.toolCalls ?? []) {
+      if (typeof call?.toolCallId === "string") names.set(call.toolCallId, call.toolName);
+    }
+  }
+  return names;
+}
+
+function isPresentResult(res: StepToolResultLike | null | undefined, names: Map<string, unknown>): boolean {
+  if (!res) return false;
+  if (res.toolName === "present_build") return true;
+  return res.toolName == null && typeof res.toolCallId === "string" && names.get(res.toolCallId) === "present_build";
+}
+
+/** True once present_build has successfully presented a build in the current turn. */
 export function hasPresentedBuild(steps: StepLike[] | undefined | null): boolean {
+  const names = callNamesById(steps);
   return (steps ?? []).some((step) =>
-    (step?.toolCalls ?? []).some((call) => call?.toolName === "present_build")
+    (step?.toolResults ?? []).some((res) => isPresentResult(res, names) && isPresentedResult(res))
   );
 }
 
@@ -259,11 +290,28 @@ export function hasFollowupsCall(steps: StepLike[] | undefined | null): boolean 
  * End the turn after suggest_followups once the text reply is written,
  * without breaking force-present: a validated-but-unpresented turn keeps
  * going so present_build can still be forced.
+ *
+ * Only stops when (a) the turn already has non-empty assistant text, so the
+ * user never gets chips without a reply, and (b) suggest_followups is in the
+ * latest step and every other call in that step needs no model follow-up
+ * (only a successful present_build qualifies): a parallel search_products or
+ * a rejected present_build has results the model still has to read.
  */
 export function stopAfterFollowups({ steps }: { steps: StepLike[] }): boolean {
   if (!hasFollowupsCall(steps)) return false;
   if (hasSuccessfulValidation(steps) && !hasPresentedBuild(steps)) return false;
-  return true;
+  if (!(steps ?? []).some((step) => typeof step?.text === "string" && step.text.trim().length > 0)) return false;
+  const last = steps.at(-1);
+  const calls = last?.toolCalls ?? [];
+  if (!calls.some((call) => call?.toolName === "suggest_followups")) return false;
+  const names = callNamesById(steps);
+  const resultsById = new Map((last?.toolResults ?? []).map((res) => [res?.toolCallId, res]));
+  return calls.every((call) => {
+    if (call?.toolName === "suggest_followups") return true;
+    if (call?.toolName !== "present_build") return false;
+    const res = resultsById.get(call.toolCallId);
+    return isPresentResult(res, names) && isPresentedResult(res);
+  });
 }
 
 /**
@@ -332,6 +380,9 @@ export async function streamChat(
   const activeEntry = config.llm.roles.chat[0];
   const contextLimit = getModelContextLimit(activeEntry);
 
+  // Created before replay conversion so history tool results go through each
+  // tool's toModelOutput (the trimmed model view), not the full UI output.
+  const tools = createToolRegistry(config);
   const capped = capMessages(messages);
   const rawModelMessages = await convertToModelMessages(
     capped.map((m: ChatMessage) => ({
@@ -343,7 +394,8 @@ export async function streamChat(
         : typeof m.content === "string" && m.content
           ? [{ type: "text", text: m.content }]
           : []
-    }))
+    })),
+    { tools }
   );
 
   const assistantMsgId = responseMessageId ?? crypto.randomUUID();
@@ -375,7 +427,8 @@ export async function streamChat(
               role: m.role,
               content: m.content ?? "",
               parts: m.parts ?? []
-            }))
+            })),
+            { tools }
           );
           initialModelMessages = [...effectiveCompactContext.messages, ...laterModelMessages];
         } else {
@@ -394,7 +447,6 @@ export async function streamChat(
     }
   }
 
-  const tools = createToolRegistry(config);
   const toolsOverhead = measureToolDefinitionsTokens(tools);
 
   // Pre-stream compaction check if request already approaches 78–80% context

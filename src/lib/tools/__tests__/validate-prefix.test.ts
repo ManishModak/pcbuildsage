@@ -107,6 +107,44 @@ describe("short product IDs", () => {
     if ("error" in res) expect(res.error).toMatch(/Ambiguous.*abcdef12/i);
   });
 
+  it("an ambiguous prefix fails the build and names each candidate distinctly", async () => {
+    // Same first 12 chars: their 10-char short IDs would be identical.
+    const a = "abcdef123456a890abcdef1234567890abcdef12";
+    const b = "abcdef123456b999abcdef1234567890abcdef34";
+    insert(db, { id: a, name: "Intel Core i9-14900K Desktop Processor", category: "cpu", registry_key: "intel-core-i9-14900k", price: 55000 });
+    insert(db, { id: b, name: "Intel Core i5-14600K Desktop Processor", category: "cpu", registry_key: "intel-core-i5-14600k", price: 28000 });
+    const tool = createValidateBuildTool(scope, repo);
+    const out = (await tool.execute!(
+      {
+        builds: [
+          // The other build loads `a`, which must not make the prefix pick it.
+          { label: "Exact", parts: { cpu: { product_id: a }, motherboard: { product_id: FULL_BOARD } } },
+          { label: "Prefix", parts: { cpu: { product_id: a.slice(0, 10) }, motherboard: { product_id: FULL_BOARD } } }
+        ]
+      },
+      ctx
+    )) as { builds: Record<string, { valid: boolean; issues: Array<{ severity: string; detail: string }>; summary: { failed: number } }> };
+    expect(out.builds.Exact.valid).toBe(true);
+    const prefix = out.builds.Prefix;
+    expect(prefix.valid).toBe(false);
+    expect(prefix.summary.failed).toBeGreaterThan(0);
+    const issue = prefix.issues.find((i) => i.detail.startsWith("Ambiguous"));
+    expect(issue?.severity).toBe("blocking");
+    expect(issue?.detail).toContain(`${a.slice(0, 13)} (Intel Core i9-14900K Desktop Processor)`);
+    expect(issue?.detail).toContain(`${b.slice(0, 13)} (Intel Core i5-14600K Desktop Processor)`);
+  });
+
+  it("treats _ and % in a prefix as literal characters", async () => {
+    const tool = createValidateBuildTool(scope, repo);
+    for (const wildcard of [`${FULL_CPU.slice(0, 8)}_`, `${FULL_CPU.slice(0, 8)}%`]) {
+      const out = (await tool.execute!(
+        { builds: [{ label: "Wild", parts: { cpu: { product_id: wildcard } } }] },
+        ctx
+      )) as { builds: Record<string, { snapshot: { components: Array<{ product_id: string }> } }> };
+      expect(out.builds.Wild.snapshot.components.map((c) => c.product_id)).not.toContain(FULL_CPU);
+    }
+  });
+
   it("description example uses short prefixes, not made-up IDs", async () => {
     const tool = createValidateBuildTool();
     const desc = typeof tool.description === "string" ? tool.description : "";

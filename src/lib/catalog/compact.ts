@@ -206,11 +206,16 @@ export function toModelProductItem(
 /**
  * Model-only view of a search result: trimmed rows, full metadata kept.
  * UI and MCP keep the full compact result; only the chat model sees this.
+ * Also runs on replayed history, so an output without a `results` array
+ * (an older saved shape) passes through unchanged instead of throwing.
  */
 export function toModelSearchResult(
   result: CompactSearchProductsResult,
   input?: { category?: string }
 ): Record<string, unknown> {
+  if (!result || typeof result !== "object" || !Array.isArray(result.results)) {
+    return result as unknown as Record<string, unknown>;
+  }
   const dropCategory = Boolean(
     typeof input?.category === "string" && input.category.trim().length > 0
   );

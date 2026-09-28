@@ -6,7 +6,7 @@ import { getCatalogRepository, type CatalogRepository, type CatalogScope } from 
 import { validateBuild, type BuildParts, type BuildPart, type ValidationResult } from "../rules-engine";
 import { createBuildSnapshot, type BuildSnapshot } from "../catalog/build-snapshot";
 import { createTurnValidationStore, recordValidation, type TurnValidationStore } from "./turn-state";
-import { MIN_PREFIX_LEN, resolveIdPrefix, shortId } from "./product-ids";
+import { distinguishingPrefix, MIN_PREFIX_LEN, resolveIdPrefix, shortId } from "./product-ids";
 
 const componentCategorySchema = z.enum(["cpu", "gpu", "motherboard", "ram", "storage", "psu", "case", "cooler"]);
 
@@ -63,7 +63,8 @@ async function findIdsByPrefix(
 ): Promise<string[]> {
   const p = prefix.trim();
   if (p.length < MIN_PREFIX_LEN) return [];
-  const like = `${p}%`;
+  // Escaped: `_` and `%` in a model-supplied prefix are literals, not wildcards.
+  const like = `${p.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
   const countryCode = scope.countryCode ?? "US";
   const currency = scope.currency ?? "USD";
   try {
@@ -78,13 +79,13 @@ async function findIdsByPrefix(
     if (typeof anyRepo.getDatabase === "function") {
       const db = anyRepo.getDatabase(scope);
       const rows = db
-        .prepare("SELECT id FROM products WHERE id LIKE ? AND country_code = ? AND currency = ? LIMIT 10")
+        .prepare("SELECT id FROM products WHERE id LIKE ? ESCAPE '\\' AND country_code = ? AND currency = ? LIMIT 10")
         .all(like, countryCode, currency);
       return rows.map((r) => String(r.id));
     }
     if (anyRepo.driver && typeof anyRepo.driver.all === "function") {
       const rows = await anyRepo.driver.all(
-        "SELECT id FROM products WHERE id LIKE ? AND country_code = ? AND currency = ? LIMIT 10",
+        "SELECT id FROM products WHERE id LIKE ? ESCAPE '\\' AND country_code = ? AND currency = ? LIMIT 10",
         [like, countryCode, currency],
         scope
       );
@@ -96,12 +97,58 @@ async function findIdsByPrefix(
   return [];
 }
 
-/** Model-only view: only {builds}, with product IDs shortened to 10 chars. */
+/**
+ * An ambiguous ID prefix names no single product, so the build is not valid:
+ * the rules engine records any unresolved part as "unverified", which would
+ * still let the build pass (and be presented) with a part nobody chose. Turns
+ * those checks into failures and their issues into blocking ones, in place.
+ */
+function failAmbiguousParts(
+  validation: ValidationResult,
+  parts: BuildParts,
+  messageFor: (pid: string, category: ComponentCategory) => string | undefined
+): void {
+  const messages = new Set<string>();
+  for (const [category, raw] of Object.entries(parts) as [ComponentCategory, BuildPart | BuildPart[]][]) {
+    for (const part of Array.isArray(raw) ? raw : raw ? [raw] : []) {
+      const pid = typeof part === "string" ? part.trim() : part?.product_id?.trim();
+      const message = pid ? messageFor(pid, category) : undefined;
+      if (message) messages.add(message);
+    }
+  }
+  if (messages.size === 0) return;
+  let moved = 0;
+  for (const check of validation.checks ?? []) {
+    if (check.status === "unverified" && check.message && messages.has(check.message)) {
+      check.status = "failed";
+      moved++;
+    }
+  }
+  validation.issues = validation.issues.map((issue) =>
+    issue.detail && messages.has(issue.detail) ? { ...issue, severity: "blocking" } : issue
+  );
+  const { passed, failed, unverified } = validation.summary;
+  const nowFailed = failed + moved;
+  const nowUnverified = Math.max(0, unverified - moved);
+  validation.summary = {
+    passed,
+    failed: nowFailed,
+    unverified: nowUnverified,
+    text: `${nowFailed} check(s) failed · ${passed} passed · ${nowUnverified} unverified`
+  };
+  validation.valid = false;
+}
+
+/**
+ * Model-only view: only {builds}, with product IDs shortened to 10 chars.
+ * Also runs on replayed history: an output with no `builds` (an older saved
+ * single-build shape) passes through unchanged rather than being emptied.
+ */
 export function toModelValidateOutput(output: unknown): unknown {
   if (!output || typeof output !== "object") return output;
   const obj = output as Record<string, unknown>;
   const builds = obj.builds;
-  if (!builds || typeof builds !== "object") return { builds };
+  if (!builds || typeof builds !== "object") return output;
   const shortBuilds: Record<string, unknown> = {};
   for (const [label, entry] of Object.entries(builds as Record<string, unknown>)) {
     if (!entry || typeof entry !== "object") {
@@ -197,11 +244,37 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
         }
       }
 
+      // Names for ambiguous candidates, so the error can tell the model which
+      // product each distinguishing prefix is.
+      const ambiguousIds = [...new Set([...prefixAmbiguous.values()].flat())];
+      const ambiguousNames = new Map<string, string>();
+      if (ambiguousIds.length > 0) {
+        const found = await repo.searchProducts(
+          { product_ids: ambiguousIds, inStockOnly: false, limit: ambiguousIds.length },
+          scope
+        );
+        for (const p of found.results) ambiguousNames.set(p.id, p.name);
+      }
+      const ambiguityMessage = (pid: string, category: ComponentCategory): string | undefined => {
+        const matches = prefixAmbiguous.get(pid);
+        if (!matches) return undefined;
+        const listed = matches
+          .map((id) => {
+            const name = ambiguousNames.get(id);
+            return name ? `${distinguishingPrefix(id, matches)} (${name})` : distinguishingPrefix(id, matches);
+          })
+          .join(", ");
+        return `Ambiguous product ID prefix '${pid}' for ${category} matches ${matches.length} products: ${listed}. Pass one of these prefixes.`;
+      };
+
       const resolveSuppliedId = (raw: string): string => {
         const trimmed = raw.trim();
         if (byId.has(trimmed)) return trimmed;
         const mapped = prefixToFull.get(trimmed);
         if (mapped) return mapped;
+        // An ambiguous prefix stays unresolved: another build in the batch
+        // loading one of its matches must not make it silently pick that one.
+        if (prefixAmbiguous.has(trimmed)) return trimmed;
         // Fall back to in-memory prefix match against already-loaded IDs
         // (covers mock repos without LIKE support).
         const loaded = [...byId.keys()];
@@ -225,7 +298,7 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
             }
             // A hash-like string that resolves as a unique prefix against
             // loaded IDs is a product reference, not a registry key.
-            if (trimmed.length >= MIN_PREFIX_LEN) {
+            if (trimmed.length >= MIN_PREFIX_LEN && !prefixAmbiguous.has(trimmed)) {
               const res = resolveIdPrefix(trimmed, [...byId.keys()]);
               if ("full" in res) return { product_id: res.full };
             }
@@ -251,12 +324,10 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
         }
 
         const getUnresolvedMessage = (part: BuildPart, category: ComponentCategory): string => {
+          const ambiguous = ambiguityMessage(typeof part === "string" ? part.trim() : (part?.product_id?.trim() ?? ""), category);
+          if (ambiguous) return ambiguous;
           if (typeof part === "object" && part && part.product_id) {
             const pid = part.product_id.trim();
-            const ambiguous = prefixAmbiguous.get(pid);
-            if (ambiguous) {
-              return `Ambiguous product ID prefix '${pid}' for ${category} matches ${ambiguous.length} products: ${ambiguous.map(shortId).join(", ")}. Pass more chars.`;
-            }
             const product = byId.get(pid);
             if (!product) {
               return `Unresolved product ID '${pid}' for ${category}. Verify the product ID from search_products results.`;
@@ -291,6 +362,8 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
           },
           getUnresolvedMessage
         });
+
+        failAmbiguousParts(validation, normalizedParts, (pid, category) => ambiguityMessage(pid, category));
 
         const snapshot = createBuildSnapshot({ label: b.label, parts: normalizedParts, validation, productsById: byId, scope });
         results[b.label] = { ...validation, snapshot };

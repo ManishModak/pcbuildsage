@@ -14,10 +14,39 @@ function validateSuccess(id: string) {
 describe("stopAfterFollowups", () => {
   it("ends turn after suggest_followups when text reply path is done", () => {
     const steps = [
-      { toolCalls: [{ toolName: "suggest_followups", toolCallId: "s1" }], toolResults: [] }
+      { text: "Go with the 7800X3D.", toolCalls: [{ toolName: "suggest_followups", toolCallId: "s1" }], toolResults: [] }
     ];
     expect(hasFollowupsCall(steps)).toBe(true);
     expect(stopAfterFollowups({ steps })).toBe(true);
+  });
+
+  it("keeps going when no text reply has been written yet", () => {
+    const steps = [
+      { text: "  ", toolCalls: [{ toolName: "suggest_followups", toolCallId: "s1" }], toolResults: [] }
+    ];
+    expect(stopAfterFollowups({ steps })).toBe(false);
+  });
+
+  it("keeps going when another call in the same step still needs the model", () => {
+    const steps = [
+      {
+        text: "Let me check prices.",
+        toolCalls: [
+          { toolName: "search_products", toolCallId: "q1" },
+          { toolName: "suggest_followups", toolCallId: "s1" }
+        ],
+        toolResults: [{ toolCallId: "q1", toolName: "search_products", output: { results: [] } }]
+      }
+    ];
+    expect(stopAfterFollowups({ steps })).toBe(false);
+  });
+
+  it("keeps going when suggest_followups was an earlier step, not the latest", () => {
+    const steps = [
+      { text: "Here you go.", toolCalls: [{ toolName: "suggest_followups", toolCallId: "s1" }], toolResults: [] },
+      { toolCalls: [{ toolName: "search_products", toolCallId: "q1" }], toolResults: [] }
+    ];
+    expect(stopAfterFollowups({ steps })).toBe(false);
   });
 
   it("does not stop when validated but not presented (force-present wins)", () => {

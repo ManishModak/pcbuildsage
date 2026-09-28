@@ -178,4 +178,11 @@ describe("model-only trimming via toModelOutput", () => {
     expect(typeof (tool as unknown as { toModelOutput?: unknown }).toModelOutput).toBe("function");
     expect(validFilters).toContain("term");
   });
+
+  it("replayed outputs in older shapes pass through instead of breaking", () => {
+    const legacy = { valid: true, issues: [], snapshot: { components: [] } };
+    expect(toModelValidateOutput(legacy)).toBe(legacy);
+    const noResults = { items: [], error: "old shape" } as unknown as CompactSearchProductsResult;
+    expect(toModelSearchResult(noResults)).toBe(noResults);
+  });
 });

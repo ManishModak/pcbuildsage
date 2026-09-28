@@ -11,6 +11,25 @@ function isPrefixMatch(wanted: string, full: string): boolean {
   return full.toLowerCase().startsWith(wanted.toLowerCase());
 }
 
+/**
+ * Shortest prefix of `id` (at least MIN_PREFIX_LEN chars) that none of
+ * `others` shares, so an ambiguity error can name each candidate by an ID the
+ * model can pass back. Candidates sharing their first 10 chars would otherwise
+ * all print as the same short ID.
+ */
+export function distinguishingPrefix(id: string, others: string[]): string {
+  let len = MIN_PREFIX_LEN;
+  const lower = id.toLowerCase();
+  for (const other of others) {
+    const o = other.toLowerCase();
+    if (o === lower) continue;
+    let common = 0;
+    while (common < lower.length && common < o.length && lower[common] === o[common]) common++;
+    len = Math.max(len, common + 1);
+  }
+  return id.slice(0, Math.min(len, id.length));
+}
+
 export type PrefixResolution =
   | { full: string }
   | { error: string; ambiguous?: string[] };
@@ -38,7 +57,7 @@ export function resolveIdPrefix(prefix: string, candidates: string[]): PrefixRes
   if (matches.length > 1) {
     return {
       ambiguous: matches,
-      error: `Ambiguous product ID prefix '${p}' matches ${matches.length} products: ${matches.map(shortId).join(", ")}. Pass more chars.`
+      error: `Ambiguous product ID prefix '${p}' matches ${matches.length} products: ${matches.map((m) => distinguishingPrefix(m, matches)).join(", ")}. Pass one of these.`
     };
   }
   return { full: matches[0] };

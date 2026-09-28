@@ -794,7 +794,9 @@ export function isPresentBuildPart(part: ToolPart): boolean {
  * that rendered nothing at all: the tool chip kept spinning forever, the call
  * was replayed on reload, and the card was rebuilt from a half-written input.
  * `input-available` / `input-streaming` still count while the part belongs to
- * the message currently being streamed.
+ * the message currently being streamed. A call the tool rejected
+ * (`presented: false`, e.g. an unvalidated label) showed the user nothing and
+ * is never a presented build; the turn then reads as validated-only.
  */
 export function isFinishedPresentPart(
   part: ToolPart,
@@ -802,7 +804,10 @@ export function isFinishedPresentPart(
   streamingMessageId?: string
 ): boolean {
   if (!isPresentBuildPart(part)) return false;
-  if (part.state === "output-available") return true;
+  if (part.state === "output-available") {
+    const output = (part as { output?: unknown }).output;
+    return !(output && typeof output === "object" && (output as { presented?: unknown }).presented === false);
+  }
   if (part.state === "input-available" || part.state === "input-streaming") {
     return Boolean(messageId) && messageId === streamingMessageId;
   }
@@ -1536,26 +1541,10 @@ export function deriveBuildsFromToolParts(
     }
   }
 
-  // No present_build (e.g. provider ignored forcing): fall back to the latest
-  // presentable validation in this turn, using the same force-present rules
-  // as chat-engine (valid, no blocking, whole build with cpu+motherboard).
-  const validateParts = parts.filter(
-    (part) =>
-      (part.type === "tool-validate_build" || part.toolName === "validate_build") &&
-      (part.state === "output-available" || Boolean((part as { output?: unknown }).output))
-  );
-  for (let i = validateParts.length - 1; i >= 0; i--) {
-    const builds = derivedBuildsFromValidation(validateParts[i], fallbackCurrency).filter((b) => {
-      const validation = b.validation;
-      if (!validation || validation.valid !== true) return false;
-      const issues = Array.isArray(validation.issues) ? validation.issues : [];
-      if (issues.some((issue) => issue?.severity === "blocking")) return false;
-      const cats = new Set(b.components.map((c) => c.category));
-      return cats.has("cpu") && cats.has("motherboard");
-    });
-    if (builds.length > 0) return builds;
-  }
-
+  // No build without a present_build: a validated-only turn is shown as
+  // "validated, not presented" by findAllBuildVersions, never as presented.
+  // A present_build whose input has no builds yet (still streaming) is
+  // nothing too - the tool chip shows progress.
   return [];
 }
 

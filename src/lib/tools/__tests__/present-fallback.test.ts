@@ -43,22 +43,10 @@ function validationPart(): ToolPart {
 }
 
 describe("present fallback and prefix matching", () => {
-  it("derives build from presentable validation when present_build is missing", () => {
-    const builds = deriveBuildsFromToolParts([validationPart()], "INR");
-    expect(builds).toHaveLength(1);
-    expect(builds[0].components.map((c) => c.productId)).toContain(FULL_CPU);
-  });
-
-  it("does not fall back for invalid or spot-check validations", () => {
-    const invalid = validationPart();
-    (invalid.output as { builds: Record<string, { valid: boolean }> }).builds["Within budget"].valid = false;
-    expect(deriveBuildsFromToolParts([invalid], "INR")).toHaveLength(0);
-
-    const spot = validationPart();
-    (spot.output as never as { builds: Record<string, { snapshot: { components: unknown[] } }> }).builds["Within budget"].snapshot.components = [
-      { category: "gpu", product_id: FULL_CPU, name: "GPU", price: 1, currency: "INR" }
-    ];
-    expect(deriveBuildsFromToolParts([spot], "INR")).toHaveLength(0);
+  it("derives no presented build from a validation alone", () => {
+    // A validated-only turn is shown as "validated, not presented" by
+    // findAllBuildVersions; it must never read as a presented build.
+    expect(deriveBuildsFromToolParts([validationPart()], "INR")).toEqual([]);
   });
 
   it("matches presented prefixes to snapshot full IDs", () => {
