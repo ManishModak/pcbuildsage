@@ -246,8 +246,17 @@ class ProductStore:
         for product in products:
             # Classify at the single write choke point so no scrape path can
             # smuggle a pen drive in under the retailer's "storage" shelf label.
+            # Reclassify first, then derive the build role from the FINAL
+            # category: a DDR5 RAM stick sitting in the storage aisle must end
+            # up as category=ram/subcategory=None, never storage/internal.
+            # A stale caller-supplied subcategory is dropped when the category
+            # changed, otherwise a reclassified row would keep the old aisle's
+            # role.
             category = reclassify_category(product.name, product.category)
-            subcategory = product.subcategory or classify_subcategory(product.name, category)
+            if category != product.category:
+                subcategory = classify_subcategory(product.name, category)
+            else:
+                subcategory = product.subcategory or classify_subcategory(product.name, category)
             rows.append(
                 {
                     "id": product.id,
@@ -283,7 +292,7 @@ class ProductStore:
                     name = excluded.name,
                     normalized_name = excluded.normalized_name,
                     registry_key = excluded.registry_key,
-                    price = excluded.price,
+                    price = COALESCE(excluded.price, products.price),
                     currency = excluded.currency,
                     country_code = excluded.country_code,
                     retailer = excluded.retailer,
@@ -350,8 +359,17 @@ class ProductStore:
         with self.conn:
             previous_in_stock = self._count_in_stock(retailer, category)
             written = self._upsert_products(products, scraped_at) if products else 0
+            # Guard counts unique URLs that still belong to this category
+            # after reclassification: RAM sticks found in the storage aisle
+            # must not inflate the storage sweep baseline.
+            relevant_urls = {
+                product.url
+                for product in products
+                if product.url
+                and reclassify_category(product.name, product.category) == category
+            }
             skip_reason = sweep_skip_reason(
-                found=len(products),
+                found=len(relevant_urls),
                 previous_in_stock=previous_in_stock,
                 min_ratio=sweep_min_ratio,
                 force=force_sweep,

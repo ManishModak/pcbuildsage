@@ -11,6 +11,10 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Gemini network call must never hang a crawl: 20s fits inside the Node
+# 30s crawl_page deadline and the per-page crawl budget.
+GEMINI_TIMEOUT_S = 20.0
+
 DEFAULT_PROVIDER = "gemini"
 DEFAULT_MODEL = "gemini-2.5-flash-lite"
 ALLOWED_PROVIDERS = {"gemini", "ollama", "openrouter", "openai-compatible"}
@@ -59,7 +63,17 @@ class LLMClient:
             return []
         prompt = self._extraction_prompt(product_blocks)
         client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(model=self.config.model, contents=prompt)
+        try:
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    client.models.generate_content, model=self.config.model, contents=prompt
+                )
+                response = future.result(timeout=GEMINI_TIMEOUT_S)
+        except Exception as exc:
+            logger.warning("LLM extraction call failed or timed out: %s", exc)
+            return []
         text = getattr(response, "text", "") or ""
         return self._parse_extraction_text(text)
 

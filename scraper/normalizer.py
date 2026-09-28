@@ -94,13 +94,36 @@ def product_id(url: str) -> str:
 
 
 def parse_price(price_text: str | None) -> float | None:
+    """Return the listed price, not the first number in marketing copy.
+
+    "Save 10% ₹45,000" must yield 45000, not 10. Numbers adjacent to a
+    currency token are price candidates (first such wins, so a discounted
+    price listed before the struck-through original is kept); otherwise the
+    trailing number wins.
+    """
     if not price_text:
         return None
     text = price_text.replace("\xa0", " ")
-    match = re.search(r"(\d[\d,]*(?:\.\d{1,2})?)", text)
-    if not match:
+    matches = list(re.finditer(r"(\d[\d,]*(?:\.\d{1,2})?)", text))
+    if not matches:
         return None
-    numeric = match.group(1).replace(",", "")
+    # Currency-anchored numbers first: ₹45,000, Rs. 45000, 45000 INR, $499.
+    currency_number = re.compile(
+        r"(?:₹|\$|€|£|Rs\.?|INR|USD)\s*(\d[\d,]*(?:\.\d{1,2})?)"
+        r"|(\d[\d,]*(?:\.\d{1,2})?)\s*(?:₹|Rs\.?|INR|USD)",
+        re.IGNORECASE,
+    )
+    for match in currency_number.finditer(text):
+        numeric = (match.group(1) or match.group(2) or "").replace(",", "")
+        if not numeric:
+            continue
+        try:
+            return float(Decimal(numeric))
+        except InvalidOperation:
+            continue
+    # No currency anchor: the trailing number is most likely the price
+    # (model numbers like "RTX 4070" precede it).
+    numeric = matches[-1].group(1).replace(",", "")
     try:
         value = Decimal(numeric)
     except InvalidOperation:
