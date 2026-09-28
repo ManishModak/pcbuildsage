@@ -348,12 +348,27 @@ function checkWattage(
   const recPsu = gpu && typeof gpu.spec.recommended_psu_w === "number" && Number.isFinite(gpu.spec.recommended_psu_w) && gpu.spec.recommended_psu_w > 0
     ? gpu.spec.recommended_psu_w
     : undefined;
-  if (recPsu !== undefined && wattage < recPsu) {
-    const msg = `PSU wattage (${wattage}W) is below the GPU manufacturer recommendation (${recPsu}W) for ${gpu?.key}.`;
+  // A GPU maker's recommended PSU assumes a worst-case system and an unknown
+  // PSU, so it overshoots typical budget builds (RTX 4060: 550W recommended vs
+  // ~276W estimated with a Ryzen 5 5600). Only a PSU far below it (under 80%)
+  // blocks; one that covers the estimate but misses the recommendation gets an
+  // advisory naming the recommendation, not a false block.
+  const gpuName = gpu ? gpu.spec.model || gpu.key : "the GPU";
+  if (recPsu !== undefined && wattage < recPsu * 0.8) {
+    const msg = `PSU wattage (${wattage}W) is well below the GPU manufacturer recommendation (${recPsu}W) for ${gpuName}.`;
     recordCheck("wattage", "failed", components.map((c) => c.key), msg);
     return;
   }
-  const message = recPsu !== undefined
+  const belowRec = recPsu !== undefined && wattage < recPsu;
+  if (belowRec) {
+    issues.push({
+      severity: "advisory",
+      rule: "wattage",
+      components: components.map((c) => c.key),
+      detail: `PSU wattage (${wattage}W) covers the estimated ${required}W but is below the GPU maker's ${recPsu}W recommendation for ${gpuName}. It should run this build; a ${recPsu}W unit adds headroom for power spikes.`
+    });
+  }
+  const message = recPsu !== undefined && !belowRec
     ? `PSU wattage (${wattage}W) covers estimated requirement (${required}W) and meets manufacturer recommendation (${recPsu}W).`
     : `PSU wattage (${wattage}W) covers estimated requirement (${required}W).`;
   recordCheck("wattage", "passed", components.map((c) => c.key), message);

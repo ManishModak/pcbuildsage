@@ -5,6 +5,7 @@
  * motherboard, and RAM against the motherboard (and transitively the CPU).
  */
 import { canonicalizeMemory } from "../spec-canonical";
+import { statesSodimm } from "../spec-parsers";
 import type { ResolvedSpec } from "../registry";
 import type { BuildIssue, BuildPart, BuildParts } from "../rules-engine";
 import {
@@ -23,7 +24,7 @@ function ramIsSodimm(ram: ResolvedSpec): boolean {
   const ff = typeof ram.spec.form_factor === "string" ? ram.spec.form_factor.toLowerCase().replace(/[\s\-_]/g, "") : "";
   if (ff === "sodimm") return true;
   const text = [ram.key, typeof ram.spec.model === "string" ? ram.spec.model : "", ...((ram.spec.aliases ?? []) as unknown[])].join(" ");
-  return /\bSO[-\s]?DIMM\b/i.test(text) || /\bLAPTOP\b/i.test(text);
+  return statesSodimm(text);
 }
 
 function getCpuSupportedMemory(cpu: ResolvedSpec, issues: BuildIssue[]): string[] | undefined {
@@ -40,11 +41,19 @@ export function checkDdr(
   cpu: ResolvedSpec | undefined,
   motherboard: ResolvedSpec | undefined,
   ram: ResolvedSpec | undefined,
-  recordCheck: CheckRecorder,
+  recordOuter: CheckRecorder,
   issues: BuildIssue[],
   parts?: BuildParts
 ) {
   if (!motherboard) return;
+  // Once the kit is known not to fit the slots, a later generation match must
+  // not also record "ddr passed" - that reads as contradictory. Other failures
+  // and unverified notes still surface.
+  let slotsFailed = false;
+  const recordCheck: CheckRecorder = (rule, status, components, message) => {
+    if (slotsFailed && status === "passed") return;
+    recordOuter(rule, status, components, message);
+  };
   const boardDdr = stringSpec(motherboard, "ddr", issues);
   if (ram && ramIsSodimm(ram)) {
     recordCheck(
@@ -65,6 +74,7 @@ export function checkDdr(
         [motherboard.key, ram.key],
         `RAM kit uses ${kitModules} modules but the motherboard has only ${boardSlots} memory slot(s).`
       );
+      slotsFailed = true;
     }
   }
   if (!boardDdr) {

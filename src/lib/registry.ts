@@ -5,7 +5,7 @@ import { getDb } from "@/lib/db";
 import type { RegistryResearchEntry } from "@/types";
 import { normalizeTitle, slugifyComponent } from "./normalizer";
 import { canonicalizeFormFactor } from "./spec-canonical";
-import { parseSpecsFromTitle } from "./spec-parsers";
+import { DASHLESS_ITX_CHIPSET, parseSpecsFromTitle, statesSodimm } from "./spec-parsers";
 import { gpuVariant } from "./gpu-variant";
 
 export type ComponentCategory = "cpu" | "gpu" | "motherboard" | "ram" | "storage" | "psu" | "case" | "cooler";
@@ -59,7 +59,15 @@ export function resolveComponent(
   const name = typeof input === "string" ? input : input.name ?? input.key ?? "";
   const category = typeof input === "string" ? undefined : input.category;
 
-  const canonical = key ? getRegistryEntry(registry.byKey, key) : undefined;
+  const keyed = key ? getRegistryEntry(registry.byKey, key) : undefined;
+  // A catalog row's registry_key is itself a fuzzy match made at scrape time
+  // ("MSI Pro B760M-A WIFI DDR4" was keyed to the DDR5 record), so the same
+  // title-conflict guard applies to key hits as to alias hits. On conflict the
+  // key is dropped entirely - including for the research lookup and the derived
+  // key - and resolution falls through to alias / title parsing.
+  const keyConflict = keyed && name !== key ? titleConflictsWithSpec(name, keyed.spec, keyed.category) : undefined;
+  const canonical = keyConflict ? undefined : keyed;
+  const trustedKey = keyConflict ? undefined : key;
   const normalized = normalizeTitle(name);
   const alias = registry.byAlias.get(normalized);
   const variant = gpuVariant(name);
@@ -109,7 +117,7 @@ export function resolveComponent(
     // last resort rather than nothing - flagged low, so the rules engine refuses to
     // compute a verdict from it and asks for research instead.
     if (!options.skipDbLookup && options.db !== null) {
-      const researched = lookupResearch({ key: key ?? slugifyComponent(name), name, category }, options.db ?? getDb());
+      const researched = lookupResearch({ key: trustedKey ?? slugifyComponent(name), name, category }, options.db ?? getDb());
       if (researched && compatible(researched)) return normalizeResolvedSpec(researched);
       if (researched?.category === "gpu" && !compatible(researched)) rejectedGpu ??= researched;
     }
@@ -117,7 +125,7 @@ export function resolveComponent(
     const derived = parseSpecsFromTitle(name, category);
     if (derived) {
       return normalizeResolvedSpec({
-        key: key ?? slugifyComponent(name),
+        key: trustedKey ?? slugifyComponent(name),
         category: (category ?? "storage") as ComponentCategory,
         spec: derived,
         source: "derived" as const,
@@ -209,11 +217,10 @@ export function titleConflictsWithSpec(title: string, spec: RegistrySpec, catego
   }
 
   if (category === "ram") {
-    const titleSodimm = /\bSO[-\s]?DIMM\b/i.test(title) || /\bLAPTOP\b/i.test(title) || /\bNOTEBOOK\b/i.test(title);
-    if (titleSodimm) {
+    if (statesSodimm(title)) {
       const ff = typeof spec.form_factor === "string" ? spec.form_factor.toLowerCase().replace(/[\s\-_]/g, "") : "";
       const text = [spec.model, ...(spec.aliases ?? [])].join(" ");
-      const specSodimm = ff === "sodimm" || /\bSO[-\s]?DIMM\b/i.test(text) || /\bLAPTOP\b/i.test(text);
+      const specSodimm = ff === "sodimm" || statesSodimm(text);
       if (!specSodimm) {
         return "listing states laptop/SO-DIMM memory but the registry record is desktop memory";
       }
@@ -233,10 +240,10 @@ function extractTitleDdr(title: string): "DDR4" | "DDR5" | undefined {
   return undefined;
 }
 
-/** Form factor explicitly stated in a listing title, incl. "-I" ITX suffixes. */
+/** Form factor explicitly stated in a listing title, incl. "-I" / dashless "B650I" ITX suffixes. */
 function extractTitleFormFactor(title: string): "mini-itx" | "micro-atx" | "atx" | "e-atx" | undefined {
   const upper = title.toUpperCase();
-  if (/\bMINI[-\s]?ITX\b/.test(upper) || /\bITX\b/.test(upper) || /\b[A-Z]+\d+[A-Z]*-I\b/.test(upper)) return "mini-itx";
+  if (/\bMINI[-\s]?ITX\b/.test(upper) || /\bITX\b/.test(upper) || /\b[A-Z]+\d+[A-Z]*-I\b/.test(upper) || DASHLESS_ITX_CHIPSET.test(upper)) return "mini-itx";
   if (/\bE[-\s]?ATX\b/.test(upper)) return "e-atx";
   if (
     /\bMICRO[-\s]?ATX\b/.test(upper) ||

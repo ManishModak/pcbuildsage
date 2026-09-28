@@ -245,7 +245,7 @@ describe("R3: PSU sizing uses realistic power and enforces GPU recommendations",
 });
 
 describe("R4: chipset x CPU generation support and BIOS", () => {
-  it("flags B450 + Ryzen 5000 as needing a BIOS update", () => {
+  it("passes B450 + Ryzen 5000 with a BIOS advisory", () => {
     const result = validateBuild(
       { cpu: "ryzen-5600", motherboard: "b450-board" },
       {
@@ -256,15 +256,14 @@ describe("R4: chipset x CPU generation support and BIOS", () => {
       }
     );
     const check = result.checks.find((c) => c.rule === "cpu_support");
-    expect(check?.status).toBe("unverified");
-    expect(check?.message).toMatch(/BIOS update/i);
+    expect(check?.status).toBe("passed");
     expect(result.issues).toContainEqual(
-      expect.objectContaining({ severity: "needs_verification", rule: "cpu_support" })
+      expect.objectContaining({ severity: "advisory", rule: "cpu_support", detail: expect.stringMatching(/CPU support list/) })
     );
     expect(result.valid).toBe(true);
   });
 
-  it("flags 600-series + 13th/14th gen as needing a BIOS update", () => {
+  it("passes 600-series + 13th/14th gen with a BIOS advisory", () => {
     const cpu13700k = makeResolved("i7-13700k", "cpu", {
       brand: "Intel",
       model: "Intel Core i7-13700K",
@@ -283,10 +282,11 @@ describe("R4: chipset x CPU generation support and BIOS", () => {
       { cpu: cpu13700k.key, motherboard: z690.key },
       { resolve: resolveWith({ cpu: cpu13700k, motherboard: z690 }) }
     );
-    expect(result.checks.find((c) => c.rule === "cpu_support")?.status).toBe("unverified");
+    expect(result.checks.find((c) => c.rule === "cpu_support")?.status).toBe("passed");
+    expect(result.issues).toContainEqual(expect.objectContaining({ severity: "advisory", rule: "cpu_support" }));
   });
 
-  it("blocks Ryzen 5 5500 on A320 as unsupported", () => {
+  it("asks to verify Ryzen 5 5500 on A320 against the board's support list", () => {
     const result = validateBuild(
       { cpu: "ryzen-5500", motherboard: "a320-board" },
       {
@@ -297,8 +297,8 @@ describe("R4: chipset x CPU generation support and BIOS", () => {
       }
     );
     const check = result.checks.find((c) => c.rule === "cpu_support");
-    expect(check?.status).toBe("failed");
-    expect(result.valid).toBe(false);
+    expect(check?.status).toBe("unverified");
+    expect(check?.message).toMatch(/CPU support list/);
   });
 
   it("passes contemporary pairings (B550 + Ryzen 5000, Z790 + 13th gen)", () => {

@@ -29,6 +29,10 @@ const M2 = /\bm\.?2\b/i;
 const TWO_FIVE = /\b2\.5\s*(?:inch|in|")?\b/i;
 const PCIE_GEN = /\bgen\s*([345])\b/i;
 
+/** Chipset immediately followed by "I" (GIGABYTE B650I AORUS ULTRA, H810I):
+ *  a Mini-ITX board. Plain chipset names (B650M, X670E, Z790) never end in I. */
+export const DASHLESS_ITX_CHIPSET = /\b[ABHXZ]\d{3}[EM]?I\b/i;
+
 export function parseStorageSpecs(name: string): RegistrySpec | undefined {
   const capacityMatch = CAPACITY.exec(name);
   const capacity_gb = capacityMatch
@@ -129,8 +133,9 @@ export function parseMotherboardSpecs(name: string): RegistrySpec | undefined {
   // Only record a form factor the title actually states. A bare chipset+model
   // title (e.g. "B650M Pro RS" with no ATX/M-ATX/ITX token) leaves form_factor
   // unknown so board-fit reports unverified. ASUS-style "-I" suffixes
-  // (B650E-I, Z790-I) denote Mini-ITX boards.
-  const isItx = /\bMINI[-\s]?ITX\b/.test(norm) || /\bITX\b/.test(norm) || /\b[A-Z]+\d+[A-Z]*-I\b/.test(norm);
+  // (B650E-I, Z790-I) and GIGABYTE-style dashless ones (B650I, H810I) denote
+  // Mini-ITX boards.
+  const isItx = /\bMINI[-\s]?ITX\b/.test(norm) || /\bITX\b/.test(norm) || /\b[A-Z]+\d+[A-Z]*-I\b/.test(norm) || DASHLESS_ITX_CHIPSET.test(norm);
   const isEatx = /\bE[-\s]?ATX\b/.test(norm);
   const isMatx =
     /\bMICRO[-\s]?ATX\b/.test(norm) ||
@@ -204,7 +209,7 @@ export function parseRamSpecs(name: string): RegistrySpec | undefined {
   // Physical stick type is only recorded when the title states it. Laptop /
   // notebook SO-DIMM sticks do not fit desktop DIMM slots, so carrying this
   // signal lets the DDR rule block them instead of passing on generation alone.
-  const isSodimm = /\bSO[-\s]?DIMM\b/i.test(name) || /\bLAPTOP\b/i.test(name) || /\bNOTEBOOK\b/i.test(name);
+  const isSodimm = statesSodimm(name);
   const isDesktopDimm = /\bUDIMM\b/i.test(name) || /\bDESKTOP\b/i.test(name);
 
   return {
@@ -217,6 +222,20 @@ export function parseRamSpecs(name: string): RegistrySpec | undefined {
     ...(modules && perModule ? { modules } : {}),
     ...(isSodimm ? { form_factor: "sodimm" } : isDesktopDimm ? { form_factor: "dimm" } : {})
   };
+}
+
+/**
+ * True when a RAM title/model states laptop SO-DIMM packaging: an explicit
+ * SODIMM/SO-DIMM token, or laptop/notebook wording that is laptop-only.
+ * "for Desktop and Laptop" and "(not for laptop)" are not SO-DIMM claims.
+ * Shared by the title parser, the registry conflict guard and the DDR rule.
+ */
+export function statesSodimm(text: string): boolean {
+  if (/\bSO[-\s]?DIMMS?\b/i.test(text)) return true;
+  if (!/\b(?:LAPTOP|NOTEBOOK)S?\b/i.test(text)) return false;
+  if (/\bDESKTOPS?\b/i.test(text)) return false;
+  if (/\b(?:not|non)[-\s]+(?:for[-\s]+)?(?:a[-\s]+)?(?:laptop|notebook)/i.test(text)) return false;
+  return true;
 }
 
 export type CpuPackageInfo = {

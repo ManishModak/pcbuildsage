@@ -55,43 +55,45 @@ describe("rule: wattage", () => {
         // (170 + 360 + 50) * 1.2 = 580 * 1.2 = 696W > 550W
         expect(wattageCheck?.message).toContain("Estimated 696W requirement exceeds PSU 550W");
       });
-      it("fails wattage check when PSU is below GPU recommended PSU even if estimated draw passes", () => {
+      describe("GPU maker's recommended PSU", () => {
         const cpu = makeResolved("cpu-mid", "cpu", {
-          brand: "AMD",
-          model: "Ryzen 5 7600",
-          tdp_w: 65,
-          socket: "AM5",
-          ddr: "DDR5",
-          igpu: true,
-          aliases: ["7600"]
+          brand: "AMD", model: "Ryzen 5 7600", tdp_w: 65, socket: "AM5", ddr: "DDR5", igpu: true, aliases: ["7600"]
         });
         const gpu = makeResolved("gpu-rtx-5080", "gpu", {
-          brand: "NVIDIA",
-          model: "GeForce RTX 5080",
-          tdp_w: 360,
-          recommended_psu_w: 850,
-          vram_gb: 16,
-          aliases: ["RTX 5080"]
+          brand: "NVIDIA", model: "GeForce RTX 5080", tdp_w: 360, recommended_psu_w: 850, vram_gb: 16, aliases: ["RTX 5080"]
         });
-        const psu = makeResolved("psu-750w", "psu", {
-          brand: "Corsair",
-          model: "RM750e",
-          wattage: 750,
-          form_factor: "ATX",
-          aliases: ["RM750e"]
+        const psuOf = (w: number) => makeResolved(`psu-${w}w`, "psu", { brand: "Corsair", model: `PSU ${w}`, wattage: w, form_factor: "ATX", aliases: [`PSU ${w}`] });
+
+        // Estimate: (65 + 360 + 50) * 1.2 = 570W.
+        it("passes with an advisory when the PSU covers the estimate but misses the recommendation", () => {
+          const result = run({ cpu, gpu, psu: psuOf(750) });
+          const wattageCheck = result.checks.find((c) => c.rule === "wattage");
+          expect(wattageCheck?.status).toBe("passed");
+          expect(result.valid).toBe(true);
+          const advisory = result.issues.find((i) => i.rule === "wattage");
+          expect(advisory?.severity).toBe("advisory");
+          expect(advisory?.detail).toContain("850W recommendation");
         });
 
-        // (65 + 360 + 50) * 1.2 = 475 * 1.2 = 570W <= 750W, but the GPU
-        // manufacturer recommendation is 850W, so the PSU fails.
-        const result = run({ cpu, gpu, psu });
-        const wattageCheck = result.checks.find((c) => c.rule === "wattage");
-        expect(wattageCheck?.status).toBe("failed");
-        expect(wattageCheck?.message).toContain("below the GPU manufacturer recommendation (850W)");
-        expect(result.valid).toBe(false);
+        it("blocks when the PSU is below 80% of the recommendation even if the estimate passes", () => {
+          // 650W < 0.8 * 850W = 680W.
+          const result = run({ cpu, gpu, psu: psuOf(650) });
+          const wattageCheck = result.checks.find((c) => c.rule === "wattage");
+          expect(wattageCheck?.status).toBe("failed");
+          expect(wattageCheck?.message).toContain("well below the GPU manufacturer recommendation (850W)");
+          expect(result.valid).toBe(false);
+        });
 
-        const blocking = result.issues.find((i) => i.severity === "blocking" && i.rule === "wattage");
-        expect(blocking).toBeDefined();
-        expect(blocking?.detail).toContain("below the GPU manufacturer recommendation (850W)");
+        it("Ryzen 5 5600 + RTX 4060 + 450W passes with an advisory (550W recommended, 276W estimated)", () => {
+          const r5600 = makeResolved("r5600", "cpu", { brand: "AMD", model: "Ryzen 5 5600", tdp_w: 65, socket: "AM4", ddr: "DDR4", igpu: false, aliases: ["5600"] });
+          const rtx4060 = makeResolved("rtx4060", "gpu", { brand: "NVIDIA", model: "GeForce RTX 4060", tdp_w: 115, recommended_psu_w: 550, vram_gb: 8, aliases: ["RTX 4060"] });
+          const psu = psuOf(450);
+          const byKey = new Map([r5600, rtx4060, psu].map((p) => [p.key, p]));
+          const result = validateBuild({ cpu: r5600.key, gpu: rtx4060.key, psu: psu.key }, { resolve: (part) => byKey.get(part as string) });
+          expect(result.checks.find((c) => c.rule === "wattage")?.status).toBe("passed");
+          expect(result.valid).toBe(true);
+          expect(result.issues).toContainEqual(expect.objectContaining({ severity: "advisory", rule: "wattage" }));
+        });
       });
       it("passes cleanly without advisory when PSU satisfies both estimated draw and manufacturer recommended PSU", () => {
         const cpu = makeResolved("cpu-mid", "cpu", {
