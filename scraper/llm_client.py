@@ -62,18 +62,22 @@ class LLMClient:
             logger.warning("LLM extraction skipped: google.genai import failed: %s", exc)
             return []
         prompt = self._extraction_prompt(product_blocks)
-        client = genai.Client(api_key=api_key)
-        try:
-            import concurrent.futures
+        # SDK-level HTTP timeout (ms) bounds the request itself; the future
+        # timeout below bounds the caller even if the SDK ignores it.
+        client = genai.Client(api_key=api_key, http_options={"timeout": int(GEMINI_TIMEOUT_S * 1000)})
+        import concurrent.futures
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(
-                    client.models.generate_content, model=self.config.model, contents=prompt
-                )
-                response = future.result(timeout=GEMINI_TIMEOUT_S)
+        # Not a `with` block: its exit is shutdown(wait=True), which would
+        # block on a hung call and defeat the timeout.
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        try:
+            future = pool.submit(client.models.generate_content, model=self.config.model, contents=prompt)
+            response = future.result(timeout=GEMINI_TIMEOUT_S)
         except Exception as exc:
             logger.warning("LLM extraction call failed or timed out: %s", exc)
             return []
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
         text = getattr(response, "text", "") or ""
         return self._parse_extraction_text(text)
 

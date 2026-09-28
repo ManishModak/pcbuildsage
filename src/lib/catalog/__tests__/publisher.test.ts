@@ -166,9 +166,16 @@ interface TestProduct {
   last_scraped?: string;
 }
 
+interface TestScrapeJob {
+  country_code?: string;
+  retailer: string;
+  category?: string;
+  status: "complete" | "partial" | "failed";
+}
+
 function createCandidateDatabase(
   products: TestProduct[] = [],
-  options: { schemaVersion?: number; omitProductsTable?: boolean } = {}
+  options: { schemaVersion?: number; omitProductsTable?: boolean; jobs?: TestScrapeJob[] } = {}
 ): { dbPath: string; cleanup: () => void } {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "publisher-test-"));
   const dbPath = path.join(tmpDir, "candidate.db");
@@ -248,6 +255,27 @@ function createCandidateDatabase(
     });
 
     insertMany(products);
+  }
+
+  if (options.jobs) {
+    // Mirrors SCRAPE_JOBS_DDL in scraper/db.py.
+    db.exec(`
+      CREATE TABLE scrape_jobs (
+        country_code TEXT NOT NULL,
+        retailer TEXT NOT NULL,
+        category TEXT NOT NULL,
+        status TEXT NOT NULL,
+        finished_at TEXT NOT NULL,
+        error TEXT,
+        PRIMARY KEY (country_code, retailer, category)
+      );
+    `);
+    const insertJob = db.prepare(
+      "INSERT INTO scrape_jobs (country_code, retailer, category, status, finished_at) VALUES (?, ?, ?, ?, ?)"
+    );
+    for (const job of options.jobs) {
+      insertJob.run(job.country_code ?? "US", job.retailer, job.category ?? "cpu", job.status, new Date().toISOString());
+    }
   }
 
   db.close();
@@ -604,10 +632,13 @@ describe("Publisher Engine & Turso Schema", () => {
       });
 
       // Candidate DB only has p-keep and a new product p-new (p-stale is missing from snapshot)
-      const { dbPath, cleanup } = createCandidateDatabase([
-        { id: "p-keep", name: "Kept Item", retailer: "RetailerA" },
-        { id: "p-new", name: "New Item", retailer: "RetailerA" }
-      ]);
+      const { dbPath, cleanup } = createCandidateDatabase(
+        [
+          { id: "p-keep", name: "Kept Item", retailer: "RetailerA" },
+          { id: "p-new", name: "New Item", retailer: "RetailerA" }
+        ],
+        { jobs: [{ retailer: "RetailerA", status: "complete" }] }
+      );
 
       const result = await publishCatalogSnapshot({
         dbPath,
@@ -836,10 +867,13 @@ describe("Publisher Engine & Turso Schema", () => {
       // - amz-in-new is a newly added item
       // - amz-in-stale is omitted (should be swept)
       // - amz-us-1 and amz-us-2 are not in this candidate DB at all
-      const { dbPath, cleanup } = createCandidateDatabase([
-        { id: "amz-in-keep", name: "Amazon IN CPU", currency: "INR", country_code: "IN", retailer: "Amazon" },
-        { id: "amz-in-new", name: "Amazon IN New RAM", currency: "INR", country_code: "IN", retailer: "Amazon" }
-      ]);
+      const { dbPath, cleanup } = createCandidateDatabase(
+        [
+          { id: "amz-in-keep", name: "Amazon IN CPU", currency: "INR", country_code: "IN", retailer: "Amazon" },
+          { id: "amz-in-new", name: "Amazon IN New RAM", currency: "INR", country_code: "IN", retailer: "Amazon" }
+        ],
+        { jobs: [{ country_code: "IN", retailer: "Amazon", status: "complete" }] }
+      );
 
       const result = await publishCatalogSnapshot({
         dbPath,
@@ -870,6 +904,77 @@ describe("Publisher Engine & Turso Schema", () => {
       // CRITICAL: US Amazon products MUST NOT be swept! They must remain in_stock = 1
       expect(us1?.in_stock).toBe(1);
       expect(us2?.in_stock).toBe(1);
+
+      cleanup();
+    });
+
+    it("sweeps only (country, retailer, category) scopes whose scrape job is complete", async () => {
+      const client = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(client);
+
+      const now = new Date().toISOString();
+      await client.execute({
+        sql: `INSERT INTO products (id, name, currency, country_code, retailer, url, in_stock, category, first_seen, last_scraped)
+              VALUES ('cpu-keep', 'CPU Keep', 'INR', 'IN', 'Shop', 'https://shop.in/cpu-keep', 1, 'cpu', ?, ?),
+                     ('cpu-gone', 'CPU Gone', 'INR', 'IN', 'Shop', 'https://shop.in/cpu-gone', 1, 'cpu', ?, ?),
+                     ('gpu-keep', 'GPU Keep', 'INR', 'IN', 'Shop', 'https://shop.in/gpu-keep', 1, 'gpu', ?, ?),
+                     ('gpu-unseen', 'GPU Unseen', 'INR', 'IN', 'Shop', 'https://shop.in/gpu-unseen', 1, 'gpu', ?, ?),
+                     ('ram-unseen', 'RAM Unseen', 'INR', 'IN', 'Shop', 'https://shop.in/ram-unseen', 1, 'ram', ?, ?),
+                     ('psu-unseen', 'PSU Unseen', 'INR', 'IN', 'Shop', 'https://shop.in/psu-unseen', 1, 'psu', ?, ?)`,
+        args: Array(12).fill(now)
+      });
+
+      const base = { currency: "INR", country_code: "IN", retailer: "Shop" };
+      const { dbPath, cleanup } = createCandidateDatabase(
+        [
+          { ...base, id: "cpu-keep", category: "cpu" },
+          { ...base, id: "gpu-keep", category: "gpu" },
+          { ...base, id: "ram-seen", category: "ram" }
+        ],
+        {
+          jobs: [
+            { country_code: "IN", retailer: "Shop", category: "cpu", status: "complete" },
+            { country_code: "IN", retailer: "Shop", category: "gpu", status: "partial" },
+            { country_code: "IN", retailer: "Shop", category: "ram", status: "failed" }
+            // psu: no job recorded at all
+          ]
+        }
+      );
+
+      const result = await publishCatalogSnapshot({ dbPath, client, validatorOptions: { minProducts: 1 } });
+
+      expect(result.success).toBe(true);
+      expect(result.staleCount).toBe(1);
+      const stock = Object.fromEntries(
+        (await client.execute("SELECT id, in_stock FROM products")).rows.map((r) => [String(r.id), Number(r.in_stock)])
+      );
+      expect(stock["cpu-gone"]).toBe(0); // complete scope: retired
+      expect(stock["gpu-unseen"]).toBe(1); // partial scope: untouched
+      expect(stock["ram-unseen"]).toBe(1); // failed scope: untouched
+      expect(stock["psu-unseen"]).toBe(1); // no job: untouched
+      expect(result.warnings?.some((w) => w.includes("IN/Shop/gpu is partial"))).toBe(true);
+
+      cleanup();
+    });
+
+    it("marks nothing out of stock when the snapshot has no scrape_jobs table", async () => {
+      const client = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(client);
+
+      const now = new Date().toISOString();
+      await client.execute({
+        sql: `INSERT INTO products (id, name, currency, country_code, retailer, url, in_stock, category, first_seen, last_scraped)
+              VALUES ('old', 'Old Item', 'USD', 'US', 'RetailerA', 'https://example.com/old', 1, 'cpu', ?, ?)`,
+        args: [now, now]
+      });
+      const { dbPath, cleanup } = createCandidateDatabase([{ id: "new", retailer: "RetailerA" }]);
+
+      const result = await publishCatalogSnapshot({ dbPath, client, validatorOptions: { minProducts: 1 } });
+
+      expect(result.success).toBe(true);
+      expect(result.staleCount).toBe(0);
+      expect((await client.execute("SELECT in_stock FROM products WHERE id = 'old'")).rows[0].in_stock).toBe(1);
+      expect(result.warnings?.some((w) => w.includes("no scrape_jobs table"))).toBe(true);
 
       cleanup();
     });

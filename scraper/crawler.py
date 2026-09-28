@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import gzip
 import logging
+import math
 import urllib.error
 import urllib.request
 import zlib
@@ -43,6 +44,25 @@ WAF_MARKERS = (
 
 class CrawlError(RuntimeError):
     """Raised when crawling or fallback extraction cannot continue."""
+
+
+# Statuses that mean "this listing page does not exist". On page 2+ they are
+# the normal end of a listing (WooCommerce 404s /page/2/ on a one-page
+# category), not a fetch failure.
+NOT_FOUND_STATUSES = frozenset({404, 410})
+
+
+class HttpStatusError(CrawlError):
+    """A fetch that got a definitive HTTP status (surfaced for page-end checks)."""
+
+    def __init__(self, url: str, status: int) -> None:
+        super().__init__(f"HTTP {status} for {url}")
+        self.url = url
+        self.status = status
+
+    @property
+    def not_found(self) -> bool:
+        return self.status in NOT_FOUND_STATUSES
 
 
 def _validate_http_url(url: str) -> None:
@@ -122,8 +142,9 @@ def _is_selector_failure_reason(reason: str) -> bool:
 def validate_llm_items(items: list[dict[str, Any]], base_url: str) -> list[dict[str, Any]]:
     """Drop LLM items with wrong types or off-retailer URLs.
 
-    The model must return plain JSON: title/price as strings (or price as
-    number), in_stock as a real boolean, and url on the retailer's domain.
+    The model must return plain JSON: title/price as strings (or price as a
+    positive number, never a bool), in_stock as a real boolean, and an
+    http(s) url on the retailer's domain.
     Anything else is discarded so a hallucinating model cannot poison the
     catalog or leak cross-site URLs.
     """
@@ -143,8 +164,12 @@ def validate_llm_items(items: list[dict[str, Any]], base_url: str) -> list[dict[
             continue
         try:
             resolved = urljoin(base_url, url.strip())
-            host = (urlparse(resolved).hostname or "").casefold()
+            parsed = urlparse(resolved)
+            scheme = parsed.scheme.lower()
+            host = (parsed.hostname or "").casefold()
         except Exception:
+            continue
+        if scheme not in ("http", "https"):
             continue
         if not host or (base_host and host != base_host):
             continue
@@ -154,13 +179,17 @@ def validate_llm_items(items: list[dict[str, Any]], base_url: str) -> list[dict[
         price_text = item.get("price_text", item.get("price"))
         if price_text is None or (isinstance(price_text, str) and not price_text.strip()):
             continue
-        if not isinstance(price_text, (str, int, float)):
+        # bool is an int subclass: True must not pass as a price of 1.
+        if isinstance(price_text, bool) or not isinstance(price_text, (str, int, float)):
             continue
         if isinstance(price_text, str):
             from .normalizer import parse_price as _parse_price
 
-            if _parse_price(price_text) is None:
-                continue
+            price_value = _parse_price(price_text)
+        else:
+            price_value = float(price_text)
+        if price_value is None or not math.isfinite(price_value) or price_value <= 0:
+            continue
         valid.append(item)
     return valid
 
@@ -304,6 +333,9 @@ class Crawl4AIFetcher:
                     return html
             except urllib.error.HTTPError as http_err:
                 last_error = http_err
+                if http_err.code in NOT_FOUND_STATUSES:
+                    # Definitive answer: retrying cannot make the page exist.
+                    raise HttpStatusError(url, http_err.code) from http_err
                 if http_err.code == 429:
                     logger.warning(
                         "HTTP 429 Rate Limit for %s (attempt %d/%d). Backing off...",
@@ -358,6 +390,8 @@ class Crawl4AIFetcher:
                 result = await crawler.arun(url=url, config=run_cfg)
                 success = bool(getattr(result, "success", False))
                 status_code = getattr(result, "status_code", 200) or 200
+                if status_code in NOT_FOUND_STATUSES:
+                    raise HttpStatusError(url, status_code)
                 if success and status_code < 400:
                     html = getattr(result, "html", None) or getattr(result, "cleaned_html", "")
                     if html:
@@ -372,6 +406,8 @@ class Crawl4AIFetcher:
                     err_msg,
                     extra={"component": "scraper"},
                 )
+            except HttpStatusError:
+                raise
             except Exception as exc:
                 last_error = exc
                 logger.warning(
@@ -393,11 +429,15 @@ class Crawl4AIFetcher:
         if engine == "http":
             try:
                 return await self.fetch_http(url, site, retries=retries)
+            except HttpStatusError:
+                raise
             except Exception:
                 return await self.fetch_browser(url, site, retries=retries)
         else:
             try:
                 return await self.fetch_browser(url, site, retries=retries)
+            except HttpStatusError:
+                raise
             except Exception:
                 return await self.fetch_http(url, site, retries=retries)
 
@@ -573,21 +613,30 @@ class ScraperCrawler:
     ) -> tuple[str, list[RawProduct]]:
         """Extraction-aware dual-engine fetcher with sticky failover.
 
-        A page-2+ fetch/validation failure raises CrawlError (it is not the
-        end of the listing). Callers mark the job partial and skip the stale
-        sweep so good pages already scraped are kept.
+        A page-2+ HTTP 404/410 is the end of the listing and returns no
+        products. Any other page-2+ fetch/validation failure (timeout, 5xx,
+        WAF) raises CrawlError: callers mark the job partial and skip the
+        stale sweep so good pages already scraped are kept.
         """
         _validate_http_url(url)
         has_dual = hasattr(self.fetcher, "fetch_http") and hasattr(self.fetcher, "fetch_browser")
         if not has_dual:
-            html = await self.fetcher.fetch(url, site)
+            try:
+                html = await self.fetcher.fetch(url, site)
+            except HttpStatusError as exc:
+                if page > 1 and exc.not_found:
+                    return "", []
+                raise
             raw_products = extract_products(html, site.selectors, site.base_url)
             return html, raw_products
 
         primary = self.active_engines.get(site.site_name, getattr(site, "engine", "browser") or "browser")
         secondary = "browser" if primary == "http" else "http"
 
+        end_of_listing = False
+
         async def _try_engine(engine_name: str) -> tuple[str, list[RawProduct], bool, str]:
+            nonlocal end_of_listing
             try:
                 if engine_name == "http":
                     try:
@@ -602,6 +651,10 @@ class ScraperCrawler:
                 extracted = extract_products(fetched_html, site.selectors, site.base_url)
                 is_valid, reason = validate_extracted_products(extracted, fetched_html, site, is_first_page=(page == 1))
                 return fetched_html, extracted, is_valid, reason
+            except HttpStatusError as exc:
+                if page > 1 and exc.not_found:
+                    end_of_listing = True
+                return "", [], False, str(exc)
             except Exception as exc:
                 return "", [], False, str(exc)
 
@@ -609,6 +662,9 @@ class ScraperCrawler:
         html, raw_products, is_valid, reason = await _try_engine(primary)
         if is_valid:
             return html, raw_products
+        if end_of_listing:
+            # The server says the page does not exist: the listing ended.
+            return "", []
         if page == 1 and _is_selector_failure_reason(reason):
             recovered = await self._maybe_llm_recover_page1(site, html, raw_products, url)
             if recovered is not raw_products:
@@ -626,6 +682,8 @@ class ScraperCrawler:
 
         # 2. Try secondary fallback engine
         fb_html, fb_products, fb_valid, fb_reason = await _try_engine(secondary)
+        if end_of_listing:
+            return "", []
         if fb_valid:
             self.active_engines[site.site_name] = secondary
             logger.info(
@@ -700,6 +758,9 @@ class ScraperCrawler:
         products = CrawlProducts()
         fallback_state = ExtractionFallbackState()
         seen_urls: set[str] = set()
+        # True once page 1's pagination links told us the real page count;
+        # reaching an undetected page_limit means pages may remain unseen.
+        limit_confirmed = False
         page = 1
         while page <= page_limit:
             url = category_page_url(site, category, page)
@@ -743,8 +804,9 @@ class ScraperCrawler:
             # Detect actual page count from page 1 dynamically
             if page == 1 and category.pagination_pattern:
                 detected_pages = detect_max_pages(html, category.pagination_pattern)
-                if detected_pages:
-                    page_limit = min(page_limit, detected_pages)
+                if detected_pages and detected_pages <= page_limit:
+                    page_limit = detected_pages
+                    limit_confirmed = True
 
             try:
                 raw_products, fallback_state = await self._apply_extraction_fallback(site, raw_products, fallback_state)
@@ -772,6 +834,13 @@ class ScraperCrawler:
             if self.delay_ms > 0 and page < page_limit:
                 await asyncio.sleep(self.delay_ms / 1000)
             page += 1
+        else:
+            # Loop ran out of pages rather than hitting end-of-listing. Unless
+            # pagination confirmed the count, later pages were never seen, so
+            # this snapshot must not retire rows (partial, not complete).
+            if products and not limit_confirmed and not products.partial:
+                products.partial = True
+                products.partial_error = f"stopped at page limit {page_limit} before end of listing"
         return products
 
     async def crawl_search(
@@ -817,13 +886,11 @@ class ScraperCrawler:
                     try:
                         raw_products, fallback_state = await self._apply_extraction_fallback(site, raw_products, fallback_state)
                     except CrawlError as exc:
-                        if products or raw_products:
-                            products.extend(raw_products)
+                        # raw_products are the failed, price-less items: never
+                        # keep them (mirrors crawl_category).
+                        if products:
                             products.partial = True
                             products.partial_error = str(exc)
-                            if on_page:
-                                on_page(index, raw_products, html)
-                            continue
                         if on_page:
                             on_page(index, [], html)
                         continue
@@ -848,12 +915,13 @@ class ScraperCrawler:
                 try:
                     raw_products, fallback_state = await self._apply_extraction_fallback(site, raw_products, fallback_state)
                 except CrawlError as exc:
-                    if products or raw_products:
-                        products.extend(raw_products)
+                    # Keep earlier terms as partial but never the failed,
+                    # price-less items of this term (mirrors crawl_category).
+                    if products:
                         products.partial = True
                         products.partial_error = str(exc)
                         if on_page:
-                            on_page(index, raw_products, html)
+                            on_page(index, [], html)
                         continue
                     raise
                 products.extend(raw_products)

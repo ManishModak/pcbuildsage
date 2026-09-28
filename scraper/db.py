@@ -36,6 +36,25 @@ LOGS_TABLE_DDL = """
     """
 
 
+# One row per (country, retailer, category) scope: the latest scrape job's
+# outcome. The Turso publisher sweeps a scope's unseen rows out of stock only
+# when its status is 'complete'; any other status (or no row) leaves them.
+# Additive (CREATE IF NOT EXISTS), so no schema-version bump.
+SCRAPE_JOBS_DDL = """
+    CREATE TABLE IF NOT EXISTS scrape_jobs (
+      country_code TEXT NOT NULL,
+      retailer TEXT NOT NULL,
+      category TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('complete', 'partial', 'failed')),
+      finished_at TEXT NOT NULL,
+      error TEXT,
+      PRIMARY KEY (country_code, retailer, category)
+    )
+    """
+
+JOB_STATUSES = frozenset({"complete", "partial", "failed"})
+
+
 def utc_now_iso() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -125,6 +144,7 @@ class ProductStore:
             if current_version < SCHEMA_VERSION:
                 self._run_migrations(current_version)
             self._apply_canonical_schema()
+            self.conn.execute(SCRAPE_JOBS_DDL)
             self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     def _run_migrations(self, from_version: int) -> None:
@@ -377,6 +397,35 @@ class ProductStore:
             if skip_reason is None:
                 self._sweep_stale_stock(retailer, category, run_started_at)
             return written, skip_reason
+
+    def record_job(
+        self,
+        *,
+        country_code: str,
+        retailer: str,
+        category: str,
+        status: str,
+        finished_at: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        """Record the latest job outcome for a scope (replaces the previous one).
+
+        Only 'complete' lets the publisher retire this scope's unseen rows.
+        """
+        if status not in JOB_STATUSES:
+            raise ValueError(f"unknown scrape job status: {status}")
+        with self.conn:
+            self.conn.execute(
+                """
+                INSERT INTO scrape_jobs (country_code, retailer, category, status, finished_at, error)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(country_code, retailer, category) DO UPDATE SET
+                    status = excluded.status,
+                    finished_at = excluded.finished_at,
+                    error = excluded.error
+                """,
+                (country_code, retailer, category, status, finished_at or utc_now_iso(), error),
+            )
 
     def was_scraped_since(self, retailer: str, category: str, hours: int) -> bool:
         threshold = datetime.now(UTC) - timedelta(hours=hours)

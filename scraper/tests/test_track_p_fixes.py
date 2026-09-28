@@ -126,7 +126,8 @@ def test_partial_crawl_never_sweeps_stale_rows(tmp_path) -> None:
 
     # A partial job is reported distinctly from success.
     outcome = summarize_run([JobOutcome("partial", products_written=1, error="Shop/gpu: partial", partial=True)])
-    assert outcome.jobs_failed == 1
+    assert outcome.jobs_partial == 1
+    assert outcome.jobs_failed == 0
     assert outcome.products_written == 1
 
 

@@ -167,11 +167,60 @@ export function spawnPython(
   const cwd = options.cwd ?? process.cwd();
   const baseEnv = pythonEnvironment(cwd, options.env ?? process.env);
   const env = isCrawlPageModule(args) ? stripProviderKeys(baseEnv) : baseEnv;
-  return spawn(
+  const child = spawn(
     resolution.command,
     [...resolution.args, ...args],
     pythonSpawnOptions(cwd, env, options.stdio ?? "pipe")
   );
+  trackPythonChild(child);
+  return child;
+}
+
+// Detached children lead their own process group, so the terminal's Ctrl-C
+// and Node's exit no longer reach them. Track them and signal their groups
+// ourselves, or the scraper and its Chromium outlive Node as orphans.
+const trackedChildren = new Set<ChildProcess>();
+let parentHooksInstalled = false;
+
+function trackPythonChild(child: ChildProcess): void {
+  // win32 spawns attached (detached:false): the console already delivers
+  // Ctrl-C and there is no process group to signal.
+  if (process.platform === "win32" || child.pid === undefined) return;
+  trackedChildren.add(child);
+  child.once("exit", () => trackedChildren.delete(child));
+  installParentHooks();
+}
+
+/** Number of spawned Python children still running (for tests and diagnostics). */
+export function trackedPythonChildCount(): number {
+  return trackedChildren.size;
+}
+
+/** Signal every tracked Python child's process group (Python + Chromium). */
+export function killTrackedPythonChildren(signal: NodeJS.Signals = "SIGTERM"): void {
+  for (const child of trackedChildren) {
+    if (child.exitCode === null && child.signalCode === null) killProcessTree(child, signal);
+  }
+}
+
+function installParentHooks(): void {
+  if (parentHooksInstalled) return;
+  parentHooksInstalled = true;
+  // "exit" handlers must be synchronous: signalling is. SIGTERM lets
+  // Python's handler close browsers; the whole group gets it too.
+  process.once("exit", () => killTrackedPythonChildren("SIGTERM"));
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    const forward = () => {
+      killTrackedPythonChildren(signal);
+      // A signal listener disables Node's default "exit on signal". When no
+      // one else handles it, restore that default by re-raising.
+      if (process.listenerCount(signal) === 1) {
+        process.removeListener(signal, forward);
+        process.kill(process.pid, signal);
+      }
+    };
+    process.on(signal, forward);
+  }
 }
 
 function isCrawlPageModule(args: string[]): boolean {
