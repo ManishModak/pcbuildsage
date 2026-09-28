@@ -7,9 +7,9 @@
     "pcbuildsage": "./bin/pcbuildsage.js"
   },
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "next dev --webpack -H 127.0.0.1",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 127.0.0.1",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node node_modules/vitest/dist/cli.js run",
