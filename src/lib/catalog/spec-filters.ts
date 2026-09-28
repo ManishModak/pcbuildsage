@@ -56,3 +56,48 @@ export function matchesDdr(spec: RegistrySpec | undefined, inputDdr: string): bo
   if (supported.length > 0) return supported.includes(target);
   return false;
 }
+
+/**
+ * Resolves the RAM stick count for a listing, mirroring the patterns in
+ * isSingleModuleRam (src/lib/rules/shared.ts): an explicit registry `modules`
+ * number wins, otherwise the retail title is parsed for kit notation such as
+ * "2x8GB" or "kit of 2". Returns undefined when neither source states a count.
+ */
+export function resolveRamModules(
+  spec: RegistrySpec | undefined,
+  productName?: string,
+  registryKey?: string
+): number | undefined {
+  const rawModules = spec?.modules;
+  if (typeof rawModules === "number" && Number.isFinite(rawModules) && rawModules > 0) {
+    return Math.floor(rawModules);
+  }
+  if (typeof rawModules === "string" && rawModules.trim().length > 0) {
+    const parsed = Number(rawModules.trim());
+    if (Number.isInteger(parsed) && parsed > 0) return parsed;
+  }
+  const haystack = [registryKey ?? "", typeof spec?.model === "string" ? spec.model : "", productName ?? ""].join(" ");
+  const kitMatch = haystack.match(/(\d+)\s*x\s*\d+\s*gb/i) ?? haystack.match(/kit of (\d+)/i);
+  if (kitMatch) {
+    const count = Number.parseInt(kitMatch[1], 10);
+    if (Number.isInteger(count) && count > 0) return count;
+  }
+  if (/\bdual[-\s]?channel\b/i.test(haystack)) return 2;
+  if (/\bsingle[-\s]?(stick|channel)\b/i.test(haystack)) return 1;
+  return undefined;
+}
+
+/**
+ * Checks whether a RAM listing matches the requested stick count (e.g.
+ * modules: 2 for dual-channel kits). A listing whose stick count cannot be
+ * determined cannot satisfy an explicit filter. Blank input is a no-op.
+ */
+export function matchesModules(
+  spec: RegistrySpec | undefined,
+  inputModules: number | undefined,
+  productName?: string,
+  registryKey?: string
+): boolean {
+  if (inputModules === undefined) return true;
+  return resolveRamModules(spec, productName, registryKey) === inputModules;
+}

@@ -10,7 +10,7 @@ import type { RegistrySpec } from "@/lib/registry";
 import { slugifyComponent } from "@/lib/normalizer";
 import { toCompactFunctionalSpecs } from "./compact";
 import type { ComponentModelItem, ListModelsInput } from "./repository";
-import { matchesSocket, matchesFormFactor, matchesDdr } from "./spec-filters";
+import { matchesSocket, matchesFormFactor, matchesDdr, matchesModules } from "./spec-filters";
 
 /**
  * Extracts or builds the canonical base key for a product.
@@ -212,6 +212,7 @@ export function aggregateModels(
     // In-memory spec filtering for listModels criteria
     if (input.socket && !matchesSocket(spec, input.socket)) continue;
     if (input.ddr && !matchesDdr(spec, input.ddr)) continue;
+    if (input.modules !== undefined && !matchesModules(spec, input.modules, product.name, regKey)) continue;
     if (input.form_factor && !matchesFormFactor(spec, input.form_factor)) continue;
     if (input.min_vram_gb !== undefined && Number(spec?.vram_gb ?? -1) < input.min_vram_gb) {
       continue;

@@ -156,6 +156,121 @@ export function getSnapshotFromOutput(output: unknown): BuildSnapshot | undefine
   return undefined;
 }
 
+/** Agentic turn budget: the model gets this many tool steps before it must wrap up. */
+const MAX_STEPS = 25;
+/** Late-turn steps restrict tool use to validation and presentation. */
+const PRESENT_FORCE_START_STEP = 20;
+/** 0-indexed stepNumber of the final allowed step. */
+const FINAL_STEP = MAX_STEPS - 1;
+
+type StepToolCallLike = {
+  toolName?: unknown;
+  toolCallId?: string;
+};
+
+type StepToolResultLike = {
+  toolName?: unknown;
+  toolCallId?: string;
+  output?: unknown;
+  result?: unknown;
+  error?: unknown;
+};
+
+type StepLike = {
+  toolCalls?: StepToolCallLike[] | null;
+  toolResults?: StepToolResultLike[] | null;
+};
+
+function unwrapToolOutput(output: unknown): unknown {
+  if (output && typeof output === "object" && "value" in output) {
+    return (output as { value: unknown }).value;
+  }
+  return output;
+}
+
+/**
+ * True when a validate_build tool result executed successfully and returned
+ * build data (a snapshot, a per-label builds record, or a validity verdict).
+ * Transport or execution errors don't count.
+ */
+function isSuccessfulValidationOutput(output: unknown): boolean {
+  const val = unwrapToolOutput(output);
+  if (!val || typeof val !== "object") return false;
+  const obj = val as Record<string, unknown>;
+  if (obj.snapshot && typeof obj.snapshot === "object") return true;
+  if (typeof obj.valid === "boolean") return true;
+  const builds = obj.builds;
+  if (builds && typeof builds === "object") {
+    return Object.values(builds).some(
+      (b) => b && typeof b === "object" && ("snapshot" in b || "valid" in b)
+    );
+  }
+  return false;
+}
+
+/**
+ * True once a validate_build call has succeeded in the current turn.
+ * Matches results by tool name, falling back to the tool-call IDs issued
+ * earlier in the turn for providers that omit names on results.
+ */
+export function hasSuccessfulValidation(steps: StepLike[] | undefined | null): boolean {
+  const validateCallIds = new Set<string>();
+  for (const step of steps ?? []) {
+    for (const call of step?.toolCalls ?? []) {
+      if (call?.toolName === "validate_build" && typeof call.toolCallId === "string") {
+        validateCallIds.add(call.toolCallId);
+      }
+    }
+  }
+  for (const step of steps ?? []) {
+    for (const res of step?.toolResults ?? []) {
+      if (!res) continue;
+      const nameMatch = res.toolName === "validate_build";
+      const idMatch = typeof res.toolCallId === "string" && validateCallIds.has(res.toolCallId);
+      if (!nameMatch && !idMatch) continue;
+      if (res.error != null) continue;
+      const raw = res.output ?? res.result;
+      if (isSuccessfulValidationOutput(raw)) return true;
+    }
+  }
+  return false;
+}
+
+/** True once present_build has been called in the current turn. */
+export function hasPresentedBuild(steps: StepLike[] | undefined | null): boolean {
+  return (steps ?? []).some((step) =>
+    (step?.toolCalls ?? []).some((call) => call?.toolName === "present_build")
+  );
+}
+
+/**
+ * Per-step tool forcing so a validated turn can't end on a text reply:
+ * after a successful validate_build the model must call another tool
+ * (toolChoice "required"), late-turn steps are restricted to validate_build
+ * and present_build, and the final step forces present_build by name.
+ * Returns {} (auto) when nothing is validated yet or after presenting, so
+ * the model can research freely and explain afterwards.
+ */
+export function forcePresentDirectives(
+  steps: StepLike[] | undefined | null,
+  stepNumber: number
+): { activeTools?: string[]; toolChoice?: "required" | { type: "tool"; toolName: string } } {
+  const validated = hasSuccessfulValidation(steps);
+  if (hasPresentedBuild(steps)) return {};
+  if (validated && stepNumber >= FINAL_STEP) {
+    return { activeTools: ["present_build"], toolChoice: { type: "tool", toolName: "present_build" } };
+  }
+  if (stepNumber >= PRESENT_FORCE_START_STEP) {
+    return validated
+      ? { activeTools: ["validate_build", "present_build"], toolChoice: "required" }
+      : { activeTools: ["validate_build", "present_build"] };
+  }
+  if (validated) {
+    return { toolChoice: "required" };
+  }
+  return {};
+}
+
 function persistSessionCompactContext(
   sessionId: string | undefined,
   messages: ModelMessage[],
@@ -299,9 +414,12 @@ export async function streamChat(
     messages: initialModelMessages,
     tools,
     // 25 on purpose: small local models (≤27B quants) and ranking several builds from in-stock parts need the steps; 14 was tested and is too low.
-    stopWhen: isStepCount(25),
+    stopWhen: isStepCount(MAX_STEPS),
     abortSignal,
-    prepareStep: async ({ steps, messages: currentMessages }) => {
+    prepareStep: async ({ steps, stepNumber, messages: currentMessages }) => {
+      const currentStep = typeof stepNumber === "number" ? stepNumber : steps.length;
+      // A validated turn must end with present_build, never with a text reply.
+      const directives = forcePresentDirectives(steps, currentStep);
       const currentTokens = calculateStepTokens({
         steps,
         currentMessages,
@@ -337,13 +455,13 @@ export async function streamChat(
               snapshot: latestSnapshot ?? null
             };
             persistSessionCompactContext(sessionId, compaction.messages, assistantMsgId, latestSnapshot);
-            return { messages: compaction.messages };
+            return { ...directives, messages: compaction.messages };
           }
         } finally {
           if (!isHosted() && sessionId) setSessionCompacting(sessionId, false);
         }
       }
-      return {};
+      return directives;
     },
     onStepFinish: async (step: OnStepFinishEvent<ToolSet>) => {
       const resultsById = new Map((step.toolResults || []).map((result) => [result.toolCallId, result]));

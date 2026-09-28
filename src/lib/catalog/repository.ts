@@ -125,6 +125,9 @@ export interface SearchProductsInput {
   /** Memory generation filter */
   ddr?: "DDR3" | "DDR4" | "DDR5" | string;
 
+  /** RAM stick count filter (e.g. 2 for dual-channel kits) */
+  modules?: number;
+
   /** Motherboard or case form factor filter (e.g. "ATX", "Mini-ITX") */
   form_factor?: string;
 
@@ -323,6 +326,9 @@ export interface ListModelsInput {
 
   /** Memory generation filter */
   ddr?: "DDR3" | "DDR4" | "DDR5" | string;
+
+  /** RAM stick count filter (e.g. 2 for dual-channel kits) */
+  modules?: number;
 
   /** Minimum GPU VRAM in GB */
   min_vram_gb?: number;
