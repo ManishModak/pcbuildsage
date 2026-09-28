@@ -2,12 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Plus, Search, X } from "lucide-react";
+import { groupModelsForPicker, isFreeModel } from "@/lib/llm/model-recommend";
 import { cn } from "./cn";
 import { Icon } from "./icon";
 
 export interface SearchableModelOption {
   id: string;
   name?: string;
+  /** Set from discovery metadata: confirmed tool calling → "Recommended" group. */
+  toolCapable?: boolean;
+  supportedParameters?: string[];
+  /** Set from discovery metadata: zero-cost models get a "Free" badge. */
+  free?: boolean;
+  pricing?: { prompt?: string | number; completion?: string | number };
 }
 
 export interface SearchableModelSelectProps {
@@ -106,6 +113,13 @@ export function SearchableModelSelect({
 
     return list;
   }, [models, search, activeTag]);
+
+  // "Recommended" (tool-capable, free first) then the rest, from discovery
+  // metadata only. Lists without tool metadata render flat, as before.
+  const { recommended: filteredRecommended, rest: filteredRest } = useMemo(
+    () => groupModelsForPicker(filteredModels),
+    [filteredModels]
+  );
 
   const selectedModel = models.find((m) => m.id === value);
   const displayName = selectedModel?.name && selectedModel.name !== value
@@ -285,40 +299,24 @@ export function SearchableModelSelect({
                     </button>
                   </div>
                 ) : (
-                  filteredModels.map((model) => {
-                    const isSelected = model.id === value;
-                    return (
-                      <button
-                        key={model.id}
-                        type="button"
-                        onClick={() => handleSelect(model.id)}
-                        className={cn(
-                          "w-full px-3 py-2 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer",
-                          "hover:bg-surface-raised/80",
-                          isSelected && "bg-accent/10"
-                        )}
-                      >
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <span
-                            className={cn(
-                              "text-sm truncate",
-                              isSelected ? "font-semibold text-accent" : "text-text"
-                            )}
-                          >
-                            {model.name && model.name !== model.id ? model.name : model.id}
-                          </span>
-                          {model.name && model.name !== model.id ? (
-                            <span className="font-mono text-xs text-text-muted truncate">
-                              {model.id}
-                            </span>
-                          ) : null}
-                        </div>
-                        {isSelected && (
-                          <Icon icon={Check} size={15} className="text-accent shrink-0" />
-                        )}
-                      </button>
-                    );
-                  })
+                  <>
+                    {filteredRecommended.length > 0 ? (
+                      <div className="px-3 pt-2 pb-1 text-caption font-semibold uppercase tracking-wide text-text-secondary">
+                        Recommended — tool-capable
+                      </div>
+                    ) : null}
+                    {filteredRecommended.map((model) => (
+                      <ModelRow key={model.id} model={model} isSelected={model.id === value} onSelect={handleSelect} />
+                    ))}
+                    {filteredRecommended.length > 0 ? (
+                      <div className="px-3 pt-2 pb-1 text-caption font-semibold uppercase tracking-wide text-text-secondary">
+                        All models
+                      </div>
+                    ) : null}
+                    {filteredRest.map((model) => (
+                      <ModelRow key={model.id} model={model} isSelected={model.id === value} onSelect={handleSelect} />
+                    ))}
+                  </>
                 )}
               </div>
             </>
@@ -326,5 +324,54 @@ export function SearchableModelSelect({
         </div>
       )}
     </div>
+  );
+}
+
+function ModelRow({
+  model,
+  isSelected,
+  onSelect
+}: {
+  model: SearchableModelOption;
+  isSelected: boolean;
+  onSelect: (modelId: string) => void;
+}) {
+  const free = isFreeModel(model);
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(model.id)}
+      className={cn(
+        "w-full px-3 py-2 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer",
+        "hover:bg-surface-raised/80",
+        isSelected && "bg-accent/10"
+      )}
+    >
+      <div className="flex flex-col min-w-0 flex-1">
+        <span className="flex items-center gap-1.5 min-w-0">
+          <span
+            className={cn(
+              "text-sm truncate",
+              isSelected ? "font-semibold text-accent" : "text-text"
+            )}
+          >
+            {model.name && model.name !== model.id ? model.name : model.id}
+          </span>
+          {free ? (
+            <span className="shrink-0 rounded-pill bg-accent/10 px-1.5 py-px text-caption font-medium text-accent">
+              Free
+            </span>
+          ) : null}
+        </span>
+        {model.name && model.name !== model.id ? (
+          <span className="font-mono text-xs text-text-muted truncate">
+            {model.id}
+          </span>
+        ) : null}
+      </div>
+      {isSelected && (
+        <Icon icon={Check} size={15} className="text-accent shrink-0" />
+      )}
+    </button>
   );
 }

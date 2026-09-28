@@ -19,7 +19,7 @@ import { toPriceMinor } from "@/types/catalog";
 import { STANDARD_MARKETS, type MarketMetadata } from "@/lib/config/deployment";
 import type { SqlDriver } from "./sql-driver";
 import { aggregateModels, matchesModelId } from "./model-aggregator";
-import { matchesSocket, matchesFormFactor, matchesDdr } from "./spec-filters";
+import { matchesSocket, matchesFormFactor, matchesDdr, matchesModules } from "./spec-filters";
 import type {
   CatalogRepository,
   CatalogScope,
@@ -37,6 +37,41 @@ import type {
 import type { ProductOffer } from "./types";
 
 export { BUILD_RELEVANT_SQL };
+
+const SORT_COLUMNS = {
+  price: "price",
+  name: "name",
+  retailer: "retailer",
+  last_scraped: "last_scraped"
+} as const;
+
+type SortField = keyof typeof SORT_COLUMNS;
+
+function isSortField(value: unknown): value is SortField {
+  return typeof value === "string" && (Object.keys(SORT_COLUMNS) as string[]).includes(value.trim().toLowerCase());
+}
+
+/**
+ * Resolves the SQL sort column and direction. A sort field passed as `order`
+ * (e.g. order: "price") is treated as `sort_by` when `sort_by` isn't set, and
+ * any other unexpected `order` value falls back to the default direction
+ * instead of reaching the SQL string.
+ */
+function normalizeSort(input: SearchProductsInput): { sortColumn: string; order: "asc" | "desc" } {
+  const rawSortBy = typeof input.sort_by === "string" ? input.sort_by.trim().toLowerCase() : "";
+  const rawOrder = typeof input.order === "string" ? input.order.trim().toLowerCase() : "";
+  let sortBy: SortField = "price";
+  if (isSortField(rawSortBy)) {
+    sortBy = rawSortBy;
+  } else if (input.sort_by === undefined && isSortField(rawOrder)) {
+    sortBy = rawOrder;
+  }
+  const order: "asc" | "desc" =
+    input.order === "asc" || input.order === "desc"
+      ? input.order
+      : sortBy === "price" ? "desc" : "asc";
+  return { sortColumn: SORT_COLUMNS[sortBy], order };
+}
 
 export type RegistrySpecResolver = (
   product: Product,
@@ -284,12 +319,7 @@ export class SqlCatalogRepository implements CatalogRepository {
       where.push("in_stock = 1");
     }
 
-    const sortBy = input.sort_by ?? "price";
-    const sortColumn =
-      { price: "price", name: "name", retailer: "retailer", last_scraped: "last_scraped" }[
-        sortBy
-      ] ?? "price";
-    const order = input.order ?? (sortBy === "price" ? "desc" : "asc");
+    const { sortColumn, order } = normalizeSort(input);
     const rawLimit = input.limit !== undefined ? input.limit : 12;
     const limit = Math.max(0, Math.min(rawLimit, 50));
     const requestOffset = Math.max(0, input.offset ?? 0);
@@ -320,6 +350,7 @@ export class SqlCatalogRepository implements CatalogRepository {
       input.min_cooler_clearance_mm !== undefined ||
       input.socket ||
       input.ddr ||
+      input.modules !== undefined ||
       input.form_factor ||
       input.min_vram_gb !== undefined ||
       input.segment ||
@@ -1000,6 +1031,7 @@ export class SqlCatalogRepository implements CatalogRepository {
     }
     if (input.socket && !matchesSocket(spec, input.socket)) return false;
     if (input.ddr && !matchesDdr(spec, input.ddr)) return false;
+    if (input.modules !== undefined && !matchesModules(spec, input.modules, product.name, registryKey)) return false;
     if (input.form_factor && !matchesFormFactor(spec, input.form_factor)) return false;
     if (input.min_vram_gb !== undefined && Number(spec?.vram_gb ?? -1) < input.min_vram_gb)
       return false;

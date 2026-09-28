@@ -31,8 +31,9 @@ class MockIDBRequest {
   }
 }
 
-function createMockIndexedDB(options?: { rollBackWrites?: boolean }) {
+function createMockIndexedDB(options?: { rollBackWrites?: boolean; log?: string[] }) {
   const stores = new Map<string, Map<string, unknown>>();
+  let transactionSeq = 0;
 
   return {
     open() {
@@ -52,9 +53,22 @@ function createMockIndexedDB(options?: { rollBackWrites?: boolean }) {
               createIndex() {}
             };
           },
-          transaction(storeName: string) {
-            const storeMap = stores.get(storeName) ?? new Map();
-            if (!stores.has(storeName)) stores.set(storeName, storeMap);
+          transaction(storeName: string | string[]) {
+            // Real IndexedDB accepts one store or a scope list; the checked
+            // save opens its revision-check transaction over both the session
+            // and tombstone stores.
+            const names = Array.isArray(storeName) ? storeName : [storeName];
+            const maps = new Map<string, Map<string, unknown>>();
+            for (const name of names) {
+              let storeMap = stores.get(name);
+              if (!storeMap) {
+                storeMap = new Map();
+                stores.set(name, storeMap);
+              }
+              maps.set(name, storeMap);
+            }
+            const txId = (transactionSeq += 1);
+            options?.log?.push(`tx#${txId}:open:${names.join("+")}`);
 
             // Real IndexedDB settles a write on the *transaction*: the request's
             // `success` fires first, then the transaction commits (`oncomplete`).
@@ -74,9 +88,13 @@ function createMockIndexedDB(options?: { rollBackWrites?: boolean }) {
               });
             };
 
-            tx.objectStore = () => ({
+            tx.objectStore = (name?: string) => {
+              const storeMap = (name ? maps.get(name) : undefined) ?? maps.get(names[0]) ?? new Map();
+              const storeName = name ?? names[0];
+              return {
               get(key: string) {
                 const req = new MockIDBRequest();
+                options?.log?.push(`tx#${txId}:get:${storeName}`);
                 req.succeed(storeMap.get(key));
                 return req;
               },
@@ -87,6 +105,7 @@ function createMockIndexedDB(options?: { rollBackWrites?: boolean }) {
               },
               put(val: { id: string }) {
                 const req = new MockIDBRequest();
+                options?.log?.push(`tx#${txId}:put:${storeName}`);
                 commit(() => {
                   if (options?.rollBackWrites) return;
                   storeMap.set(val.id, JSON.parse(JSON.stringify(val)));
@@ -112,7 +131,8 @@ function createMockIndexedDB(options?: { rollBackWrites?: boolean }) {
                 });
                 return req;
               }
-            });
+              };
+            };
 
             return tx;
           },
@@ -129,9 +149,20 @@ function createMockIndexedDB(options?: { rollBackWrites?: boolean }) {
       });
       return openReq;
     },
-    /** Rows that actually committed, for asserting what reached storage. */
+    /**
+     * Rows that actually committed, for asserting what reached storage - and
+     * for seeding rows directly. The map is created on first access, so a
+     * `.set` before any transaction opened the store still lands in the map
+     * the store later reads (previously this returned a detached map and the
+     * seed was silently discarded, which made layer-merge tests vacuous).
+     */
     _rows(storeName = "chat_sessions") {
-      return stores.get(storeName) ?? new Map<string, unknown>();
+      let rows = stores.get(storeName);
+      if (!rows) {
+        rows = new Map<string, unknown>();
+        stores.set(storeName, rows);
+      }
+      return rows;
     }
   };
 }
@@ -646,8 +677,7 @@ describe("ClientStore", () => {
       ).rejects.toMatchObject({ reason: "session_deleted" });
     });
 
-    it("a deleted chat whose row survived is not advertised in the sidebar", async () => {
-      // `deleteClientSession` swallows a failed IndexedDB delete, so the row can
+    it("a deleted chat whose row survived is not advertised in the sidebar", async () => {      // `deleteClientSession` swallows a failed IndexedDB delete, so the row can
       // outlive the tombstone. Listing it would show a chat that opens empty.
       const mockIdb = createMockIndexedDB();
       vi.stubGlobal("indexedDB", mockIdb);
@@ -672,5 +702,175 @@ describe("ClientStore", () => {
       expect((await listClientSessions()).map((s) => s.id)).not.toContain("zombie");
       expect(await getClientSession("zombie")).toBeNull();
     });
+  });
+
+  describe("Atomic revision check and durable tombstones", () => {
+    it("checks the revision and writes in one IndexedDB transaction", async () => {
+      const log: string[] = [];
+      const mockIdb = createMockIndexedDB({ log });
+      vi.stubGlobal("indexedDB", mockIdb);
+      vi.stubGlobal("localStorage", createMockLocalStorage());
+
+      await saveClientSession({ id: "atomic", revision: 1, title: "First", messages: [] });
+      const saveLog = log.filter((entry) => entry.includes("chat_sessions"));
+
+      // The get that enforces the revision and the put that writes must share
+      // one transaction: separate transactions let two tabs both pass the
+      // check and overwrite each other.
+      const txIds = [...new Set(saveLog.map((entry) => entry.split(":")[0]))];
+      expect(txIds).toHaveLength(1);
+      expect(saveLog).toContainEqual(expect.stringMatching(/^tx#\d+:get:chat_sessions$/));
+      expect(saveLog).toContainEqual(expect.stringMatching(/^tx#\d+:put:chat_sessions$/));
+
+      // And the check still refuses a stale write without touching the row.
+      const failure = await saveClientSession({
+        id: "atomic",
+        revision: 1,
+        title: "Stale",
+        messages: []
+      }).catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(SessionConflictError);
+      expect((await getClientSession("atomic"))?.title).toBe("First");
+    });
+
+    it("keeps the tombstone in IndexedDB when localStorage is unavailable", async () => {
+      const mockIdb = createMockIndexedDB();
+      vi.stubGlobal("indexedDB", mockIdb);
+      vi.stubGlobal("localStorage", undefined);
+
+      await saveClientSession({ id: "no-ls", revision: 1, title: "Doomed", messages: [] });
+      await deleteClientSession("no-ls");
+      expect(mockIdb._rows("session_tombstones").has("no-ls")).toBe(true);
+
+      // Simulate a page reload: memory is dropped, localStorage does not exist.
+      resetClientStoreState();
+      vi.stubGlobal("indexedDB", mockIdb);
+      vi.stubGlobal("localStorage", undefined);
+
+      expect(await getClientSession("no-ls")).toBeNull();
+      await expect(
+        saveClientSession({ id: "no-ls", revision: 2, title: "Resurrected", messages: [] })
+      ).rejects.toMatchObject({ reason: "session_deleted" });
+    });
+
+    it("clearClientSessions tombstones every removed session", async () => {
+      const mockIdb = createMockIndexedDB();
+      vi.stubGlobal("indexedDB", mockIdb);
+      vi.stubGlobal("localStorage", createMockLocalStorage());
+
+      await saveClientSession({ id: "clear-a", revision: 1, title: "A", messages: [] });
+      await saveClientSession({ id: "clear-b", revision: 1, title: "B", messages: [] });
+      await clearClientSessions();
+
+      expect(await listClientSessions()).toEqual([]);
+      for (const id of ["clear-a", "clear-b"]) {
+        expect(mockIdb._rows("session_tombstones").has(id)).toBe(true);
+        await expect(
+          saveClientSession({ id, revision: 2, title: "Resurrected", messages: [] })
+        ).rejects.toMatchObject({ reason: "session_deleted" });
+      }
+    });
+
+    it("merges by higher revision first, updated_at only breaks ties", async () => {
+      const mockIdb = createMockIndexedDB();
+      vi.stubGlobal("indexedDB", mockIdb);
+      const mockLs = createMockLocalStorage();
+      vi.stubGlobal("localStorage", mockLs);
+
+      // The IndexedDB copy has the higher revision but the older timestamp; the
+      // localStorage copy is newer by the clock but behind by revision.
+      mockIdb._rows().set("merge", {
+        id: "merge",
+        revision: 5,
+        title: "Higher revision",
+        created_at: "2026-09-01T00:00:00.000Z",
+        updated_at: "2026-09-01T00:00:00.000Z",
+        country_code: null,
+        currency: null,
+        messages: [],
+        build_state: null
+      });
+      mockLs.setItem(
+        "pcbuildsage:session:merge",
+        JSON.stringify({
+          id: "merge",
+          revision: 3,
+          title: "Newer clock",
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-02T00:00:00.000Z",
+          country_code: null,
+          currency: null,
+          messages: [],
+          build_state: null
+        })
+      );
+
+      // The revision is the monotonic write counter both tabs agree on; a clock
+      // must not overrule it.
+      const dbgA = await getClientSession("merge");
+      expect(dbgA?.title).toBe("Higher revision");
+      expect((await getClientSession("merge"))?.revision).toBe(5);
+    });
+  });
+});
+
+describe("IndexedDB save path honours the other layers", () => {
+  afterEach(() => {
+    resetClientStoreState();
+    vi.unstubAllGlobals();
+  });
+
+  it("refuses to resurrect a chat whose tombstone only reached localStorage", async () => {
+    resetClientStoreState();
+    const idb = createMockIndexedDB();
+    const ls = createMockLocalStorage();
+    vi.stubGlobal("indexedDB", idb);
+    vi.stubGlobal("localStorage", ls);
+    await saveClientSession({ id: "z", revision: 1, title: "A", messages: [] });
+
+    // A delete whose IndexedDB tombstone write failed: the tombstone lives only
+    // in localStorage, and the IndexedDB row may still be there.
+    ls.setItem("pcbuildsage:session_tombstones", JSON.stringify(["z"]));
+    resetClientStoreState();
+
+    await expect(saveClientSession({ id: "z", revision: 2, title: "Resurrected", messages: [] })).rejects.toMatchObject({
+      reason: "session_deleted"
+    });
+  });
+
+  it("checks the revision against a newer copy that lives only in localStorage", async () => {
+    resetClientStoreState();
+    const idb = createMockIndexedDB();
+    const ls = createMockLocalStorage();
+    vi.stubGlobal("indexedDB", idb);
+    vi.stubGlobal("localStorage", ls);
+    await saveClientSession({ id: "y", revision: 1, title: "idb1", messages: [] });
+    // Revision 4 was written to localStorage while IndexedDB was failing.
+    ls.setItem(
+      "pcbuildsage:session:y",
+      JSON.stringify({
+        id: "y",
+        revision: 4,
+        title: "ls4",
+        created_at: "2026-09-01T00:00:00.000Z",
+        updated_at: "2026-09-01T00:00:00.000Z",
+        country_code: null,
+        currency: null,
+        messages: [],
+        build_state: null
+      })
+    );
+    expect((await getClientSession("y"))?.revision).toBe(4);
+
+    await expect(saveClientSession({ id: "y", revision: 2, title: "stale", messages: [] })).rejects.toMatchObject({
+      reason: "stale_revision",
+      revision: 4
+    });
+    expect((await getClientSession("y"))?.title).toBe("ls4");
+
+    // A revision above it wins and replaces both copies.
+    await saveClientSession({ id: "y", revision: 5, title: "idb5", messages: [] });
+    expect(await getClientSession("y")).toMatchObject({ revision: 5, title: "idb5" });
+    expect(ls.getItem("pcbuildsage:session:y")).toBeNull();
   });
 });

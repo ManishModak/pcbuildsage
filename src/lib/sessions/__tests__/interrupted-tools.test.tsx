@@ -80,4 +80,19 @@ describe("markInterruptedToolCalls", () => {
     // Guards the assertion above: this is exactly the bug being fixed.
     expect(markupFor(stuckAssistant("input-streaming"))).toContain("pcbs-spin");
   });
+
+  it("leaves the still-streaming turn alone and marks only finished turns", () => {
+    // A transcript saved mid-stream can be re-read while the same turn is
+    // still live. Its in-flight parts are not abandoned, so only the finished
+    // turn is repaired.
+    const live = { ...stuckAssistant("input-streaming"), id: "m-live" };
+    const finished = { ...stuckAssistant("input-available"), id: "m-done" };
+    const cleaned = markInterruptedToolCalls([finished, live], {
+      streamingMessageId: "m-live"
+    }) as ChatUIMessage[];
+
+    expect((cleaned[0].parts[0] as ToolPart).state).toBe("output-error");
+    expect(cleaned[1]).toBe(live);
+    expect((live.parts[0] as ToolPart).state).toBe("input-streaming");
+  });
 });

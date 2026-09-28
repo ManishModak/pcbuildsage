@@ -44,10 +44,16 @@ export type EvictableSession = {
  * a candidate, and when every non-current entry is streaming the pool is allowed
  * to go over the cap — an extra tab is a far smaller problem than silently
  * cutting off a reply in progress.
+ *
+ * `isBusy` guards the same way against losing a save: an entry whose queue still
+ * has unsaved or in-flight work (a pending, offline or conflicted save) is not a
+ * candidate either, since releasing its queue would drop that work. The pool
+ * stays over the cap until the save lands and the host shrinks it again.
  */
-export function chooseEvictionIndex(
-  entries: readonly EvictableSession[],
-  currentId: string
+export function chooseEvictionIndex<T extends EvictableSession>(
+  entries: readonly T[],
+  currentId: string,
+  isBusy: (entry: T) => boolean = () => false
 ): number {
   let candidateIndex = -1;
   let oldestTime = Infinity;
@@ -55,6 +61,7 @@ export function chooseEvictionIndex(
     const entry = entries[i];
     if (entry.id === currentId) continue;
     if (entry.isStreaming) continue;
+    if (isBusy(entry)) continue;
     if (entry.lastActiveAt < oldestTime) {
       oldestTime = entry.lastActiveAt;
       candidateIndex = i;
@@ -118,6 +125,8 @@ export function applySessionSelection<TQueue>(options: {
    */
   pendingLoad?: boolean;
   now?: number;
+  /** Entries that must not be evicted yet; see {@link chooseEvictionIndex}. */
+  isBusy?: (entry: PoolEntry<TQueue>) => boolean;
 }): SessionSelection<TQueue> {
   const { pool, currentSessionId, id, loaded, messages, newEntry } = options;
   const now = options.now ?? Date.now();
@@ -141,7 +150,7 @@ export function applySessionSelection<TQueue>(options: {
   let next = pool;
   let evictedId: string | undefined;
   if (next.length >= MAX_ACTIVE_SESSIONS) {
-    const evicted = chooseEvictionIndex(next, currentSessionId);
+    const evicted = chooseEvictionIndex(next, currentSessionId, options.isBusy);
     if (evicted !== -1) {
       evictedId = next[evicted].id;
       next = next.filter((_, index) => index !== evicted);
@@ -175,6 +184,35 @@ export function shouldRefetchOnOpen(entry: PoolEntry<unknown>): boolean {
   if (entry.isLoading) return false;
   if (entry.isStreaming) return false;
   return entry.messages.length === 0;
+}
+
+/**
+ * Trim a pool that grew past its cap back down to it.
+ *
+ * The pool is allowed over the cap while every non-current entry is streaming
+ * (evicting one would unmount its view and kill the reply), but that grace
+ * ends when the streams do: an idle pool holds a full `JSON.stringify` per
+ * queue and a mounted `ChatView` per entry. Only idle, non-current entries are
+ * ever evicted - the active chat, any streaming chat and any chat with unsaved
+ * work (`isBusy`) survive regardless of age. Returns the ids that left, so the
+ * host can release what it holds for them.
+ */
+export function shrinkSessionPool<TQueue>(options: {
+  pool: readonly PoolEntry<TQueue>[];
+  currentSessionId: string;
+  maxSessions?: number;
+  isBusy?: (entry: PoolEntry<TQueue>) => boolean;
+}): { pool: PoolEntry<TQueue>[]; evictedIds: string[] } {
+  const { pool, currentSessionId, maxSessions = MAX_ACTIVE_SESSIONS, isBusy } = options;
+  let next = [...pool];
+  const evictedIds: string[] = [];
+  while (next.length > maxSessions) {
+    const evicted = chooseEvictionIndex(next, currentSessionId, isBusy);
+    if (evicted === -1) break;
+    evictedIds.push(next[evicted].id);
+    next = next.filter((_, index) => index !== evicted);
+  }
+  return { pool: next, evictedIds };
 }
 
 /** What a sidebar click should do: reuse the open tab, or fetch the chat. */

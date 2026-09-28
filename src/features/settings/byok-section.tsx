@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { fetchModels } from "@/lib/api-client";
+import { pickFreeToolCapableDefault } from "@/lib/llm/model-recommend";
 import type { DiscoveredModel, ReasoningEffort } from "@/types/client";
 import {
   clearByokKey,
@@ -43,7 +44,9 @@ const BYOK_PROVIDERS: ProviderConfig[] = [
     id: "openrouter",
     name: "OpenRouter",
     placeholder: "sk-or-v1-...",
-    defaultModel: "anthropic/claude-3.5-sonnet",
+    // No paid default: the model is preselected from live discovery (free +
+    // tool-capable) once a key is saved, otherwise the user picks.
+    defaultModel: "",
     docsUrl: "https://openrouter.ai/keys",
     docsLabel: "Get OpenRouter API Key"
   }
@@ -91,7 +94,9 @@ export function ByokSection({
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>(() => ({
     gemini: getByokModel("gemini") || "gemini-2.5-flash",
     groq: getByokModel("groq") || "llama-3.3-70b-versatile",
-    openrouter: getByokModel("openrouter") || "anthropic/claude-3.5-sonnet"
+    // OpenRouter has no default: preselected from discovery (free +
+    // tool-capable) once a key exists, otherwise the user picks.
+    openrouter: getByokModel("openrouter") || ""
   }));
 
   const [reasoningEfforts, setReasoningEfforts] = useState<Record<string, ReasoningEffort | undefined>>(() => ({
@@ -115,6 +120,13 @@ export function ByokSection({
   });
 
   const [activeProvider, setActiveProviderState] = useState<string | null>(() => getActiveByokProvider() ?? null);
+
+  // Models the user explicitly picked — auto-preselect never overrides these.
+  const userPickedRef = useRef<Record<string, boolean>>({});
+  const onModelChangeRef = useRef(onModelChange);
+  useEffect(() => {
+    onModelChangeRef.current = onModelChange;
+  });
 
   const loadModelsForProvider = useCallback(
     async (providerId: "gemini" | "openrouter" | "groq", apiKey?: string, forceRefresh = false) => {
@@ -162,6 +174,29 @@ export function ByokSection({
     }
   }, [keys, models, loadingModels, loadModelsForProvider]);
 
+  // Preselect a free, tool-capable model from live discovery when the user
+  // has not picked one. Falls back to asking the user (no hard-coded IDs).
+  useEffect(() => {
+    for (const p of BYOK_PROVIDERS) {
+      const discovered = models[p.id];
+      if (!discovered || discovered.length === 0) continue;
+      if (userPickedRef.current[p.id]) continue;
+      const current = selectedModels[p.id];
+      if (current && discovered.some((m) => m.id === current)) continue;
+      const pick = pickFreeToolCapableDefault(discovered);
+      if (pick && pick.id !== current) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-way preselect from async discovery
+        setSelectedModels((prev) => ({ ...prev, [p.id]: pick.id }));
+        setByokModel(p.id, pick.id, persists[p.id]);
+        // Only the provider the chat will use drives the chain; a background
+        // provider finishing discovery must not switch the user's chat to it.
+        const active = getActiveByokProvider();
+        if (!active || active === p.id) onModelChangeRef.current?.(p.id, pick.id, pick.contextLimit);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-way preselect; selectedModels/persists read intentionally
+  }, [models]);
+
   const handleSave = (provider: "gemini" | "openrouter" | "groq") => {
     const raw = drafts[provider]?.trim();
     if (!raw) return;
@@ -180,9 +215,11 @@ export function ByokSection({
         ? "gemini-2.5-flash"
         : provider === "groq"
           ? "llama-3.3-70b-versatile"
-          : "anthropic/claude-3.5-sonnet");
-    const matched = models[provider]?.find((m) => m.id === activeModel);
-    onModelChange?.(provider, activeModel, matched?.contextLimit);
+          : "");
+    if (activeModel) {
+      const matched = models[provider]?.find((m) => m.id === activeModel);
+      onModelChange?.(provider, activeModel, matched?.contextLimit);
+    }
 
     void loadModelsForProvider(provider, raw, true);
   };
@@ -208,6 +245,7 @@ export function ByokSection({
   const handleModelChange = (providerId: "gemini" | "openrouter" | "groq", modelId: string) => {
     const trimmed = modelId.trim();
     if (!trimmed) return;
+    userPickedRef.current[providerId] = true;
     setSelectedModels((prev) => ({ ...prev, [providerId]: trimmed }));
     setByokModel(providerId, trimmed, persists[providerId]);
     setActiveByokProvider(providerId, persists[providerId]);

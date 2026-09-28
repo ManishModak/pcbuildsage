@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { findAllBuildVersions, validationStrip } from "../build-derive";
+import { deriveBuildsFromToolParts, findAllBuildVersions, isPresentedVersion, shouldAutoOpenPanel, TEXT_BUILD_CAVEAT, validationStrip } from "../build-derive";
+import { VALIDATED_VERSION_LABEL } from "../build-versions";
 import { BuildCard } from "../build-card";
 import { MessageView, type ChatUIMessage } from "../message";
 import type { ValidationResult } from "@/types/client";
@@ -658,3 +659,276 @@ describe("Build Versions and UI Accessibility (Issue 08)", () => {
 
 
 
+
+describe("only presented builds summon the panel, and unavailable builds keep their controls", () => {
+  const userMsg: ChatUIMessage = {
+    id: "u1",
+    role: "user",
+    parts: [{ type: "text", text: "Propose a build" }]
+  };
+
+  function presentedMessage(): ChatUIMessage {
+    return {
+      id: "a-present",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-present_build",
+          toolCallId: "call-present",
+          state: "output-available",
+          input: {
+            builds: [
+              {
+                label: "Presented Build",
+                parts: [{ category: "gpu", name: "RTX 4060 8GB", price: 28500, currency: "INR" }]
+              }
+            ]
+          },
+          output: { presented: true }
+        },
+        { type: "text", text: "Here is the build." }
+      ]
+    } as unknown as ChatUIMessage;
+  }
+
+  function validatedOnlyMessage(): ChatUIMessage {
+    return {
+      id: "a-validated",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-validate_build",
+          toolCallId: "call-validate",
+          state: "output-available",
+          input: { label: "Validated", parts: { gpu: "rtx-4060" } },
+          output: {
+            valid: true,
+            issues: [],
+            snapshot: {
+              label: "Validated",
+              components: [
+                { category: "gpu", product_id: "gpu-1", name: "RTX 4060 8GB", price: 28500, currency: "INR" }
+              ],
+              total: 28500,
+              currency: "INR",
+              is_complete: true
+            }
+          }
+        } as unknown as ChatUIMessage["parts"][number]
+      ]
+    };
+  }
+
+  function textOnlyMessage(): ChatUIMessage {
+    return {
+      id: "a-text",
+      role: "assistant",
+      parts: [
+        {
+          type: "text",
+          text: ["How about this:", "", "| Component | Part | Price |", "|---|---|---|", "| CPU | Ryzen 5 7600 | ₹18,500 |", "| RAM | DDR5 16GB | ₹4,500 |"].join("\n")
+        }
+      ]
+    };
+  }
+
+  it("marks versions by what produced them, and only presented ones open the panel", () => {
+    const presented = findAllBuildVersions([userMsg, presentedMessage()], "INR");
+    expect(presented).toHaveLength(1);
+    expect(presented[0].kind).toBe("present");
+    expect(isPresentedVersion(presented[0])).toBe(true);
+    expect(shouldAutoOpenPanel(presented)).toBe(true);
+
+    const validated = findAllBuildVersions([userMsg, validatedOnlyMessage()], "INR");
+    expect(validated).toHaveLength(1);
+    expect(validated[0].kind).toBe("validated");
+    expect(validated[0].label).toBe(VALIDATED_VERSION_LABEL);
+    expect(isPresentedVersion(validated[0])).toBe(false);
+    expect(shouldAutoOpenPanel(validated)).toBe(false);
+
+    const text = findAllBuildVersions([userMsg, textOnlyMessage()], "INR");
+    expect(text).toHaveLength(1);
+    expect(text[0].kind).toBe("text");
+    expect(text[0].label).toBe(TEXT_BUILD_CAVEAT);
+    expect(shouldAutoOpenPanel(text)).toBe(false);
+  });
+
+  it("reads legacy versions without a kind by their id shape, and opens for nothing", () => {
+    expect(isPresentedVersion({ id: "3:present:call-1" })).toBe(true);
+    expect(isPresentedVersion({ id: "3:validated:call-1" })).toBe(false);
+    expect(isPresentedVersion({ id: "3:text:1" })).toBe(false);
+    expect(shouldAutoOpenPanel([{ id: "3:present:call-1" }])).toBe(true);
+    // The newest version decides: a presented build followed by a text-only
+    // turn must not yank the panel open on its own.
+    expect(shouldAutoOpenPanel([{ id: "1:present:a" }, { id: "2:text:1" }])).toBe(false);
+    expect(shouldAutoOpenPanel([])).toBe(false);
+  });
+
+  it("keeps the version picker and strategy tabs on an unavailable build", () => {
+    // The newest version said a build existed but nothing renderable came
+    // with it. Before the fix the whole card (controls included) was replaced
+    // by the message, stranding the panel on a dead card.
+    const versions = [
+      {
+        id: "1:present:good",
+        version: 1,
+        messageIndex: 1,
+        label: "Version 1",
+        kind: "present" as const,
+        builds: [
+          {
+            label: "Good Build",
+            components: [
+              { category: "gpu", categoryLabel: "Graphics Card", name: "RTX 4060", price: 28500, currency: "INR", unverified: false }
+            ],
+            currency: "INR",
+            validation: null
+          }
+        ]
+      },
+      {
+        id: "3:present:dead",
+        version: 2,
+        messageIndex: 3,
+        label: "Version 2",
+        kind: "present" as const,
+        builds: [
+          { label: "Dead A", components: [], currency: "INR", validation: null, detailsUnavailable: true },
+          { label: "Dead B", components: [], currency: "INR", validation: null, detailsUnavailable: true }
+        ]
+      }
+    ];
+
+    const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
+
+    // Only the body is the unavailable message...
+    expect(markup).toContain("Build details unavailable");
+    // ...while the version picker still reaches the build with details...
+    expect(markup).toContain("Previous versions");
+    expect(markup).toContain("v2 of 2");
+    // ...and the strategy tabs still switch between the dead card's builds.
+    expect(markup).toContain("Build strategy");
+    expect(markup).toContain("Dead A");
+    expect(markup).toContain("Dead B");
+  });
+
+  it("reports nothing, not an unavailable card, for a present_build still streaming", () => {
+    // A present_build with a half-written input (entries with no components
+    // are partial JSON, not real builds) must not flash "unavailable" for a
+    // build that is still arriving.
+    const streaming: ChatUIMessage[] = [
+      userMsg,
+      {
+        id: "a-live",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-present_build",
+            toolCallId: "call-live",
+            state: "input-streaming",
+            input: { builds: [{ label: "Half written" }] }
+          } as unknown as ChatUIMessage["parts"][number]
+        ]
+      }
+    ];
+
+    expect(findAllBuildVersions(streaming, "INR", { streamingMessageId: "a-live" })).toEqual([]);
+    expect(findAllBuildVersions(streaming, "INR")).toEqual([]);
+  });
+
+  it("never stains a text build with an older turn's validation", () => {
+    // Turn 1 rejected DDR4 on an AM5 board; turn 2 describes a build in prose
+    // with no tool calls of its own. The old merge attached turn 1's issues to
+    // turn 2's build, blaming a build nothing checked (or clearing one the
+    // current turn never validated).
+    const messages: ChatUIMessage[] = [
+      userMsg,
+      {
+        id: "a-old",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-validate_build",
+            toolCallId: "v-old",
+            state: "output-available",
+            input: { label: "Old", parts: { cpu: "ryzen-5-7600", ram: "ddr4-16" } },
+            output: {
+              valid: false,
+              issues: [
+                {
+                  severity: "blocking",
+                  rule: "ddr",
+                  components: ["ram", "cpu"],
+                  detail: "AM5 CPUs require DDR5 memory, but DDR4 was selected."
+                }
+              ],
+              resolved: {},
+              checks: []
+            }
+          } as unknown as ChatUIMessage["parts"][number],
+          { type: "text", text: "That DDR4 build will not work." }
+        ]
+      },
+      {
+        id: "a-new",
+        role: "assistant",
+        parts: [
+          {
+            type: "text",
+            text: ["How about this instead:", "", "| Component | Part | Price |", "|---|---|---|", "| CPU | Ryzen 5 7600 | ₹18,500 |", "| RAM | DDR5 16GB | ₹4,500 |"].join("\n")
+          }
+        ]
+      }
+    ];
+
+    const versions = findAllBuildVersions(messages, "INR");
+    expect(versions).toHaveLength(1);
+    expect(versions[0].kind).toBe("text");
+    const build = versions[0].builds[0];
+    expect(build.textDerived).toBe(true);
+    // No component may carry the older turn's failure.
+    for (const component of build.components) {
+      expect(component.failed).not.toBe(true);
+      expect(component.failedNote ?? "").not.toContain("DDR5");
+    }
+    const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
+    expect(markup).not.toContain("AM5 CPUs require DDR5 memory");
+  });
+});
+
+describe("finished-but-failed and text-derived builds", () => {
+  it("shows a present_build that ended in an error as unavailable rather than nothing", () => {
+    const present = {
+      type: "tool-present_build",
+      toolCallId: "p1",
+      state: "output-error",
+      errorText: "tool failed",
+      input: { builds: [{ label: "Value", product_ids: ["cpu-1", "gpu-1"] }] }
+    };
+    const builds = deriveBuildsFromToolParts([present] as never, "INR", present as never);
+    expect(builds).toHaveLength(1);
+    expect(builds[0]).toMatchObject({ label: "Value", detailsUnavailable: true });
+  });
+
+  it("shows the text-build caveat once when there is no version picker", () => {
+    const messages: ChatUIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "suggest a build" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          {
+            type: "text",
+            text: ["Try this:", "", "| Component | Part | Price |", "|---|---|---|", "| CPU | Ryzen 5 7600 | ₹18,500 |", "| RAM | DDR5 16GB | ₹4,500 |"].join("\n")
+          }
+        ]
+      }
+    ];
+    const versions = findAllBuildVersions(messages, "INR");
+    expect(versions).toHaveLength(1);
+    expect(versions[0].builds[0].textDerived).toBe(true);
+    const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
+    // Static markup escapes the apostrophe, so count the unescaped lead-in.
+    expect(markup.split(TEXT_BUILD_CAVEAT.split("'")[0]).length - 1).toBe(1);
+  });
+});

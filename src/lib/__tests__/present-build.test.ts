@@ -67,7 +67,9 @@ This build will deliver excellent 1080p and 1440p gaming performance.
 
     const builds = parseBuildsFromMarkdown(markdown, "INR");
     expect(builds).toHaveLength(1);
-    expect(builds[0].label).toBe("Proposed Build");
+    // A build scraped out of prose is honest about what it is: no invented
+    // "Proposed Build" label. The version around it carries the text caveat.
+    expect(builds[0].label).toBeUndefined();
     expect(builds[0].currency).toBe("INR");
     expect(builds[0].components).toHaveLength(8);
 

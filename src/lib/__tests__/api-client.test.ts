@@ -136,6 +136,29 @@ describe("high-risk API contracts", () => {
     await expect(saveSession({ id: "s1", revision: 7, messages: [] })).rejects.toThrow("invalid response");
   });
 
+  it("never sends compactContext in a local-mode save body: the server owns it", async () => {
+    const bodies: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: unknown, init?: { body?: unknown }) => {
+        bodies.push(String(init?.body ?? ""));
+        return Response.json({ ok: true, revision: 3 });
+      })
+    );
+
+    await saveSession({
+      id: "s1",
+      revision: 3,
+      messages: [],
+      compactContext: { messages: [], boundaryMessageId: "m1" }
+    });
+
+    expect(bodies).toHaveLength(1);
+    const sent = JSON.parse(bodies[0]) as Record<string, unknown>;
+    expect(sent).not.toHaveProperty("compactContext");
+    expect(sent.revision).toBe(3);
+  });
+
   it("retries a failed delete", async () => {
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(Response.json({ error: "delete_failed" }, { status: 500 }))

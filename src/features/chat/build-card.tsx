@@ -8,7 +8,7 @@ import { PillTabs } from "@/components/ui/pill-tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/components/ui/cn";
 import type { DerivedBuild, BuildVersion } from "./build-derive";
-import { resolveBuildTotal, validationStrip, TEXT_BUILD_CAVEAT } from "./build-derive";
+import { resolveBuildTotal, validationStrip, TEXT_BUILD_CAVEAT, type StripBadge } from "./build-derive";
 
 export interface BuildCardProps {
   builds?: DerivedBuild[];
@@ -82,30 +82,11 @@ export function BuildCard({
   const active = activeBuilds[safeIndex];
   if (!active) return null;
 
-  // The turn said a build existed but nothing renderable came with it. Say so
-  // instead of showing an empty card with a made-up total.
-  if (active.detailsUnavailable || active.components.length === 0) {
-    return (
-      <section
-        className={cn(
-          "overflow-hidden rounded-card border border-border bg-surface",
-          !inSidePanel && "my-3"
-        )}
-        aria-label="Proposed build"
-      >
-        <div className="px-4 py-4">
-          {active.label ? (
-            <span className="inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
-              {active.label}
-            </span>
-          ) : null}
-          <p role="alert" className="mt-3 text-sm text-text-secondary">
-            {"Build details unavailable \u2014 ask the assistant to present it again"}
-          </p>
-        </div>
-      </section>
-    );
-  }
+  // The turn said a build existed but nothing renderable came with it. The
+  // version picker and the strategy tabs stay: the controls are how the user
+  // reaches the builds that *do* have details, and dropping them would strand
+  // the panel on a dead card. Only the body is replaced by the message.
+  const unavailable = active.detailsUnavailable || active.components.length === 0;
 
   const tabs = activeBuilds.map((build, i) => ({
     value: String(i),
@@ -176,20 +157,51 @@ export function BuildCard({
       ) : (
         <div className="border-b border-border px-4 py-3">
           <span className="inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
-            {active.label ?? "Proposed build"}
+            {/* A text-derived build's caveat is shown once, in the body below. */}
+            {active.label ?? (active.textDerived ? undefined : currentVersionObj?.label) ?? "Proposed build"}
           </span>
         </div>
       )}
 
       <div className="px-4 py-3">
-        {active.textDerived ? (
-          <p className="mb-3 inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
-            {TEXT_BUILD_CAVEAT}
+        {unavailable ? (
+          <p role="alert" className="text-sm text-text-secondary">
+            {"Build details unavailable \u2014 ask the assistant to present it again"}
           </p>
-        ) : null}
-        <ul className="flex flex-col">
-          {active.components.map((component, componentIndex) => (
-            <li
+        ) : (
+          <>
+            {active.textDerived ? (
+              <p className="mb-3 inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
+                {TEXT_BUILD_CAVEAT}
+              </p>
+            ) : null}
+            <BuildComponentsList active={active} total={total} strip={strip} />
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The renderable body of a build: component rows, authoritative total, and
+ * validation badges. Split out so the unavailable branch above can keep the
+ * version picker and strategy tabs while replacing only this.
+ */
+function BuildComponentsList({
+  active,
+  total,
+  strip
+}: {
+  active: DerivedBuild;
+  total: number | null;
+  strip: StripBadge[];
+}) {
+  return (
+    <>
+      <ul className="flex flex-col">
+        {active.components.map((component, componentIndex) => (
+          <li
               // Two identical parts in one category are legal (a matched pair
               // of sticks, say), so the key needs the position too.
               key={`${componentIndex}-${component.category}-${component.name}`}
@@ -266,7 +278,6 @@ export function BuildCard({
             ))}
           </div>
         ) : null}
-      </div>
-    </section>
+    </>
   );
 }

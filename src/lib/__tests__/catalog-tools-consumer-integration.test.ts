@@ -137,13 +137,15 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
 
   describe("search_products tool delegation", () => {
     const input = { category: "gpu" as const, in_stock: true };
+    // searchProducts() normalizes sort/order defaults before delegating.
+    const normalizedInput = { ...input, sort_by: "price" as const };
     const expectedCompact = toCompactSearchResult(sampleSearchResult);
 
     it("delegates to repository passed directly as argument to searchProducts()", async () => {
       const mockRepo = createMockRepo();
       const result = await searchProducts(input, sampleScope, mockRepo);
 
-      expect(mockRepo.searchProducts).toHaveBeenCalledWith(input, sampleScope);
+      expect(mockRepo.searchProducts).toHaveBeenCalledWith(normalizedInput, sampleScope);
       expect(result).toEqual(expectedCompact);
     });
 
@@ -151,7 +153,7 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
       const mockRepo = createMockRepo();
       const result = await searchProducts(input, { ...sampleScope, repository: mockRepo });
 
-      expect(mockRepo.searchProducts).toHaveBeenCalledWith(input, expect.objectContaining(sampleScope));
+      expect(mockRepo.searchProducts).toHaveBeenCalledWith(normalizedInput, expect.objectContaining(sampleScope));
       expect(result).toEqual(expectedCompact);
     });
 
@@ -160,7 +162,7 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
       setCatalogRepository(mockRepo);
 
       const result = await searchProducts(input, sampleScope);
-      expect(mockRepo.searchProducts).toHaveBeenCalledWith(input, sampleScope);
+      expect(mockRepo.searchProducts).toHaveBeenCalledWith(normalizedInput, sampleScope);
       expect(result).toEqual(expectedCompact);
     });
 
@@ -169,7 +171,7 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
       const toolInstance = createSearchProductsTool(sampleScope, mockRepo) as unknown as TestExecutableTool;
 
       const result = await toolInstance.execute(input, mockExecOptions);
-      expect(mockRepo.searchProducts).toHaveBeenCalledWith(input, sampleScope);
+      expect(mockRepo.searchProducts).toHaveBeenCalledWith(normalizedInput, sampleScope);
       expect(result).toEqual(expectedCompact);
     });
 

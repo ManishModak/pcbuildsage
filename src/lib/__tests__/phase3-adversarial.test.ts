@@ -157,9 +157,21 @@ function createMockIndexedDB(options?: {
               createIndex() {}
             };
           },
-          transaction(storeName: string) {
-            const storeMap = stores.get(storeName) ?? new Map();
-            if (!stores.has(storeName)) stores.set(storeName, storeMap);
+          transaction(storeName: string | string[]) {
+            // Real IndexedDB scopes a transaction over one store or a list;
+            // the atomic save opens its revision-check transaction over both
+            // the session and tombstone stores, so each objectStore() call
+            // must resolve to its own named map.
+            const names = Array.isArray(storeName) ? storeName : [storeName];
+            const maps = new Map<string, Map<string, unknown>>();
+            for (const name of names) {
+              let storeMap = stores.get(name);
+              if (!storeMap) {
+                storeMap = new Map();
+                stores.set(name, storeMap);
+              }
+              maps.set(name, storeMap);
+            }
 
             // Real IndexedDB settles a write on the *transaction*: the request's
             // `success` fires first, then the transaction commits (`oncomplete`).
@@ -183,7 +195,10 @@ function createMockIndexedDB(options?: {
               });
             };
 
-            tx.objectStore = () => ({
+            tx.objectStore = (name?: string) => {
+              const storeMap =
+                (name !== undefined ? maps.get(name) : undefined) ?? maps.get(names[0]) ?? new Map();
+              return {
               get(key: string) {
                 const req = new MockIDBRequest();
                 req.succeed(storeMap.get(key));
@@ -222,7 +237,8 @@ function createMockIndexedDB(options?: {
                 });
                 return req;
               }
-            });
+              };
+            };
 
             return tx;
           },

@@ -454,4 +454,269 @@ describe("SessionSaveQueue", () => {
     expect(delays).toEqual([]);
     expect(onPersistError).toHaveBeenCalledTimes(1);
   });
+
+  it("holds a conflict adoption while streaming and resolves it after the stream ends", async () => {
+    let streaming = true;
+    const persist = vi.fn().mockRejectedValue(staleRevision(6));
+    const onConflictAdopted = vi.fn();
+    const serverMessages = [{ id: "theirs", role: "user" as const, parts: [] }];
+    const queue = new SessionSaveQueue(persist, "initial", 5, () => {}, {
+      sleep: noSleep,
+      isStreaming: () => streaming,
+      loadServerCopy: async () => ({ revision: 6, messages: serverMessages }),
+      onConflictAdopted
+    });
+
+    await queue.enqueue("mine", snapshot("mine"));
+
+    // The server copy must not replace the transcript mid-stream.
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(onConflictAdopted).not.toHaveBeenCalled();
+
+    // Nothing local changed while streaming: the held copy is adopted now.
+    streaming = false;
+    expect(queue.drainDeferredConflict("mine")).toBe("adopted");
+    expect(onConflictAdopted).toHaveBeenCalledWith(expect.objectContaining({ revision: 6 }));
+  });
+
+  it("re-saves on top of the server revision when the stream moved the transcript", async () => {
+    let streaming = true;
+    const revisions: number[] = [];
+    const persist = vi.fn(async (request: SaveSessionRequest) => {
+      revisions.push(request.revision);
+      if (revisions.length === 1) throw staleRevision(6);
+    });
+    const onConflictAdopted = vi.fn();
+    const queue = new SessionSaveQueue(persist, "initial", 5, () => {}, {
+      sleep: noSleep,
+      isStreaming: () => streaming,
+      loadServerCopy: async () => ({ revision: 6, messages: [{ id: "theirs", role: "user", parts: [] }] }),
+      onConflictAdopted
+    });
+
+    await queue.enqueue("mine", snapshot("mine"));
+    expect(onConflictAdopted).not.toHaveBeenCalled();
+
+    // The stream appended turns, so the local transcript no longer matches the
+    // failed save: observe the server revision and re-save locally on top.
+    streaming = false;
+    expect(queue.drainDeferredConflict("mine-plus-stream")).toBe("needs-resave");
+    expect(onConflictAdopted).not.toHaveBeenCalled();
+
+    await queue.enqueue("mine-plus-stream", snapshot("mine-plus-stream"));
+    expect(revisions.at(-1)).toBe(7);
+  });
+
+  it("does not spend the server revision while a conflict waits out a stream", async () => {
+    // The server is two revisions ahead (another tab saved twice). If the
+    // deferral observed that revision eagerly, a save enqueued mid-stream -
+    // e.g. the throttled mid-stream persist - would claim revision 11 for a
+    // transcript that is about to be replaced. Held back, it claims 7: one
+    // past our own last attempt, and the stream-end drain decides from there.
+    let streaming = true;
+    const revisions: number[] = [];
+    const persist = vi.fn(async (request: SaveSessionRequest) => {
+      revisions.push(request.revision);
+      if (revisions.length === 1) throw staleRevision(10);
+    });
+    const onConflictAdopted = vi.fn();
+    const queue = new SessionSaveQueue(persist, "initial", 5, () => {}, {
+      sleep: noSleep,
+      isStreaming: () => streaming,
+      loadServerCopy: async () => ({ revision: 10, messages: [{ id: "theirs", role: "user", parts: [] }] }),
+      onConflictAdopted
+    });
+
+    await queue.enqueue("mine", snapshot("mine"));
+    expect(onConflictAdopted).not.toHaveBeenCalled();
+
+    await queue.enqueue("mine-plus-stream", snapshot("mine-plus-stream"));
+    expect(revisions).toEqual([6, 7]);
+    expect(onConflictAdopted).not.toHaveBeenCalled();
+    streaming = false;
+  });
+
+  it("keeps a 5xx failure for retry instead of dropping it silently", async () => {
+    const persist = vi.fn().mockRejectedValue(new HttpError("server on fire", 500, null));
+    const onPersistError = vi.fn();
+    const queue = new SessionSaveQueue(persist, "initial", 0, () => {}, {
+      sleep: noSleep,
+      onPersistError
+    });
+
+    await queue.enqueue("first", snapshot("first"));
+
+    expect(persist).toHaveBeenCalledTimes(4);
+    expect(onPersistError).toHaveBeenCalledTimes(1);
+    expect(queue.isAcknowledged("first")).toBe(false);
+    expect(queue.hasUnsaved()).toBe(true);
+
+    // The retry claims a fresh revision and lands.
+    persist.mockResolvedValueOnce(undefined);
+    expect(queue.retryUnsaved()).toBe(true);
+    await vi.waitFor(() => expect(queue.isAcknowledged("first")).toBe(true));
+    expect(queue.hasUnsaved()).toBe(false);
+  });
+
+  it("holds an offline failure without burning retries, then resends on retry", async () => {
+    vi.stubGlobal("navigator", { onLine: false });
+    try {
+      const persist = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+      const onPersistError = vi.fn();
+      const queue = new SessionSaveQueue(persist, "initial", 0, () => {}, {
+        sleep: noSleep,
+        onPersistError
+      });
+
+      await queue.enqueue("offline-work", snapshot("offline-work"));
+
+      // One attempt, not four: nothing can succeed until the browser is back.
+      expect(persist).toHaveBeenCalledTimes(1);
+      expect(onPersistError).not.toHaveBeenCalled();
+      expect(queue.hasUnsaved()).toBe(true);
+
+      persist.mockResolvedValueOnce(undefined);
+      expect(queue.retryUnsaved()).toBe(true);
+      await vi.waitFor(() => expect(queue.isAcknowledged("offline-work")).toBe(true));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("retries a brand-new chat's first save on a 5xx when the server has no copy yet", async () => {
+    // Local mode, new chat: the server has nothing for this id, so there is no
+    // one else's work to clobber and the normal backoff applies.
+    const persist = vi.fn().mockRejectedValue(new HttpError("unavailable", 503, null));
+    const onPersistError = vi.fn();
+    const delays: number[] = [];
+    const queue = new SessionSaveQueue(persist, "initial", 0, () => {}, {
+      sleep: (ms) => {
+        delays.push(ms);
+        return Promise.resolve();
+      },
+      onPersistError,
+      loadServerCopy: async () => null
+    });
+
+    await queue.enqueue("first", snapshot("first"));
+
+    expect(persist).toHaveBeenCalledTimes(4);
+    expect(persist.mock.calls.map(([request]) => (request as SaveSessionRequest).revision)).toEqual([1, 2, 3, 4]);
+    expect(delays).toEqual([250, 1000, 4000]);
+    expect(onPersistError).toHaveBeenCalledTimes(1);
+    expect(queue.hasUnsaved()).toBe(true);
+  });
+
+  it("dispose cancels a waiting backoff instead of retrying", async () => {
+    vi.useFakeTimers();
+    try {
+      const persist = vi.fn().mockRejectedValue(new HttpError("unavailable", 503, null));
+      const queue = new SessionSaveQueue(persist, "initial", 0, () => {}, { loadServerCopy: async () => null });
+
+      const run = queue.enqueue("first", snapshot("first"));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(vi.getTimerCount()).toBe(1);
+
+      queue.dispose();
+      expect(vi.getTimerCount()).toBe(0);
+      await run;
+      expect(persist).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a mid-stream save's 409 landing after the stream ended re-saves the final reply instead of adopting", async () => {
+    // The throttled mid-stream save (rev 6) is in flight when the stream ends;
+    // the stream-end drain finds no deferred conflict, the final reply is
+    // queued, and only then does the 409 come back with streaming already off.
+    let streaming = true;
+    let reject409!: () => void;
+    const saved: SaveSessionRequest[] = [];
+    const persist = vi.fn((request: SaveSessionRequest) => {
+      if (persist.mock.calls.length === 1) {
+        return new Promise<void>((_, reject) => {
+          reject409 = () => reject(staleRevision(6));
+        });
+      }
+      if (request.revision <= 6) return Promise.reject(staleRevision(6));
+      saved.push(request);
+      return Promise.resolve();
+    });
+    const onConflictAdopted = vi.fn();
+    const queue = new SessionSaveQueue(persist, "initial", 5, () => {}, {
+      sleep: noSleep,
+      isStreaming: () => streaming,
+      loadServerCopy: async () => ({ revision: 6, messages: [{ id: "theirs", role: "user", parts: [] }] }),
+      onConflictAdopted
+    });
+
+    const run = queue.enqueue("mid", snapshot("mid"));
+    streaming = false;
+    expect(queue.drainDeferredConflict("final")).toBe("none");
+    void queue.enqueue("final", snapshot("final"));
+    reject409();
+    await run;
+    await vi.waitFor(() => expect(queue.isAcknowledged("final")).toBe(true));
+
+    expect(onConflictAdopted).not.toHaveBeenCalled();
+    expect(saved.map((request) => request.messages[0]?.id)).toEqual(["final"]);
+    expect(saved[0].revision).toBeGreaterThan(6);
+  });
+
+  it("a mid-stream save that conflicts after the stream ended keeps local content even with nothing queued yet", async () => {
+    let streaming = true;
+    let reject409!: () => void;
+    const saved: SaveSessionRequest[] = [];
+    const persist = vi.fn((request: SaveSessionRequest) => {
+      if (persist.mock.calls.length === 1) {
+        return new Promise<void>((_, reject) => {
+          reject409 = () => reject(staleRevision(9));
+        });
+      }
+      saved.push(request);
+      return Promise.resolve();
+    });
+    const onConflictAdopted = vi.fn();
+    const queue = new SessionSaveQueue(persist, "initial", 5, () => {}, {
+      sleep: noSleep,
+      isStreaming: () => streaming,
+      loadServerCopy: async () => ({ revision: 9, messages: [{ id: "theirs", role: "user", parts: [] }] }),
+      onConflictAdopted
+    });
+
+    const run = queue.enqueue("mid", snapshot("mid"));
+    streaming = false;
+    reject409();
+    await run;
+
+    expect(onConflictAdopted).not.toHaveBeenCalled();
+    expect(saved).toEqual([expect.objectContaining({ revision: 10, messages: snapshot("mid").messages })]);
+    expect(queue.isAcknowledged("mid")).toBe(true);
+  });
+
+  it("acknowledges an adopted copy so the view echoing it back does not re-save it", async () => {
+    const theirs = [userMessage("theirs")];
+    const persist = vi.fn().mockRejectedValueOnce(staleRevision(6));
+    const onConflictAdopted = vi.fn();
+    const queue = new SessionSaveQueue(persist, "initial", 5, () => {}, {
+      sleep: noSleep,
+      loadServerCopy: async () => ({ revision: 6, messages: theirs }),
+      onConflictAdopted
+    });
+
+    await queue.enqueue("mine", snapshot("mine"));
+    expect(onConflictAdopted).toHaveBeenCalledTimes(1);
+
+    // The view calls setMessages(theirs); its persist effect enqueues them.
+    await queue.enqueue(sessionSignature(theirs), { id: "session", messages: theirs });
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(queue.hasUnsaved()).toBe(false);
+
+    // The next real edit lands above the adopted revision.
+    persist.mockResolvedValueOnce(undefined);
+    const next = [...theirs, userMessage("mine")];
+    await queue.enqueue(sessionSignature(next), { id: "session", messages: next });
+    expect(persist).toHaveBeenLastCalledWith(expect.objectContaining({ revision: 7 }), { urgent: false });
+  });
 });

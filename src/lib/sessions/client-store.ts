@@ -182,7 +182,7 @@ function parseStoredSession(raw: unknown): StoredClientSession | null {
   };
 }
 
-function toSessionDetail(record: StoredClientSession): SessionDetail {
+function toSessionDetail(record: StoredClientSession, markInterrupted = true): SessionDetail {
   return {
     id: record.id,
     revision: record.revision,
@@ -194,8 +194,8 @@ function toSessionDetail(record: StoredClientSession): SessionDetail {
     // Interrupted tool calls are repaired in memory on read; the stored
     // transcript keeps whatever state the stream was in when it stopped.
     messages: Array.isArray(record.messages)
-      ? (markInterruptedToolCalls(record.messages) as ChatUIMessage[]).map((m, idx) =>
-          normalizeUIMessage(m, idx)
+      ? ((markInterrupted ? markInterruptedToolCalls(record.messages) : record.messages) as ChatUIMessage[]).map(
+          (m, idx) => normalizeUIMessage(m, idx)
         )
       : [],
     build_state: record.build_state ?? null,
@@ -236,8 +236,15 @@ function isQuotaExceededError(err: unknown): boolean {
 // ---------------------------------------------------------------------------
 
 const DB_NAME = "pcbuildsage";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "chat_sessions";
+/**
+ * Tombstones live in the same IndexedDB database as the sessions (a second
+ * store, created by the same upgrade), so a delete survives exactly where the
+ * sessions do. localStorage remains as the fallback layer and memory as the
+ * last resort - the read below unions all three.
+ */
+const TOMBSTONE_STORE = "session_tombstones";
 
 let cachedDb: IDBDatabase | null = null;
 
@@ -276,6 +283,9 @@ function openIndexedDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
         store.createIndex("updated_at", "updated_at", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(TOMBSTONE_STORE)) {
+        db.createObjectStore(TOMBSTONE_STORE, { keyPath: "id" });
       }
     };
 
@@ -382,18 +392,137 @@ function awaitTransactionCommit(tx: IDBTransaction, request: IDBRequest, label: 
   });
 }
 
-async function idbSave(record: StoredClientSession): Promise<void> {
+/**
+ * Revision check and write in a single IndexedDB `readwrite` transaction: the
+ * `get` and the conditional `put` are requests on the same transaction, which
+ * IndexedDB serializes against every other tab's `readwrite` transaction on
+ * these stores. Two tabs therefore cannot both read "revision 5 is current"
+ * and both write revision 6 - the second tab's `get` sees the first tab's
+ * committed `put` and loses the check instead of overwriting it.
+ * (Dexie docs describe the same pattern as `db.transaction('rw', ...)` with a
+ * get-then-put inside one scope; this is the raw-IDB equivalent.)
+ *
+ * The tombstone read joins the same transaction, so a delete racing a save in
+ * another tab is refused rather than resurrected. Everything between the `get`
+ * callbacks and the `put` is synchronous: awaiting in between would let the
+ * transaction auto-commit before the write is queued.
+ */
+async function idbSaveChecked(req: SaveSessionRequest): Promise<void> {
   const db = await openIndexedDb();
   return new Promise((resolve, reject) => {
+    let tx: IDBTransaction;
     try {
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.put(record);
-      void awaitTransactionCommit(tx, req, `put(${record.id})`).then(resolve, reject);
+      tx = db.transaction([STORE_NAME, TOMBSTONE_STORE], "readwrite");
     } catch (err) {
       reject(err);
+      return;
     }
+    const fail = (error: unknown) => {
+      try {
+        tx.abort();
+      } catch {
+        // Already finished; the rejection below is what matters.
+      }
+      reject(error);
+    };
+    let sessions: IDBObjectStore;
+    let tombstones: IDBObjectStore;
+    try {
+      sessions = tx.objectStore(STORE_NAME);
+      tombstones = tx.objectStore(TOMBSTONE_STORE);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+
+    let tombstoned = false;
+    const tombReq = tombstones.get(req.id);
+    tombReq.onsuccess = () => {
+      // The other tombstone layers are read synchronously, inside the transaction.
+      tombstoned = (tombReq.result !== undefined && tombReq.result !== null) || isTombstoned(req.id);
+      const sessionReq = sessions.get(req.id);
+      sessionReq.onsuccess = () => {
+        // Check against the newest copy across layers - the one `getClientSession`
+        // reports - not the IndexedDB row alone. A newer revision can live only in
+        // localStorage (written while IndexedDB was failing), and the caller
+        // deletes that copy after this write, so passing a lower revision here
+        // would silently discard it. `lsGet` is synchronous, so the transaction
+        // stays open.
+        const idbCopy = sessionReq.result ? parseStoredSession(sessionReq.result) : null;
+        const existing = mergeNewestById([[idbCopy, lsGet(req.id)].filter((c): c is StoredClientSession => c !== null)])[0] ?? null;
+        let record: StoredClientSession;
+        try {
+          record = checkAndBuildRecord(req, existing, tombstoned);
+        } catch (err) {
+          fail(err);
+          return;
+        }
+        try {
+          const putReq = sessions.put(record);
+          void awaitTransactionCommit(tx, putReq, `put(${record.id})`).then(resolve, reject);
+        } catch (err) {
+          fail(err);
+        }
+      };
+      sessionReq.onerror = () =>
+        fail(sessionReq.error || new Error(`IndexedDB get(${req.id}) failed`));
+    };
+    tombReq.onerror = () => fail(tombReq.error || new Error("IndexedDB tombstone read failed"));
   });
+}
+
+/**
+ * Refuse a save that would clobber a newer copy or resurrect a deleted chat,
+ * then build the stored record. Shared by the IndexedDB ( transactional) and
+ * localStorage paths so both enforce the same rule.
+ */
+function checkAndBuildRecord(
+  req: SaveSessionRequest,
+  existing: StoredClientSession | null,
+  tombstoned: boolean
+): StoredClientSession {
+  if (tombstoned) {
+    throw new SessionConflictError(
+      "session_deleted",
+      null,
+      `Session ${req.id} was deleted, so this save cannot recreate it.`
+    );
+  }
+
+  if (existing && req.revision <= existing.revision) {
+    throw new SessionConflictError(
+      "stale_revision",
+      existing.revision,
+      `Session ${req.id} already has revision ${existing.revision}.`
+    );
+  }
+
+  const now = new Date().toISOString();
+
+  let buildState: unknown = null;
+  try {
+    buildState = deriveBuildState(req.messages as unknown as UIMessage[]);
+  } catch {
+    buildState = null;
+  }
+
+  const rawCompactContext = req.compactContext !== undefined ? req.compactContext : req.compact_context;
+  const compactContext = rawCompactContext !== undefined
+    ? parseCompactContext(rawCompactContext)
+    : (existing?.compact_context ?? null);
+
+  return {
+    id: req.id,
+    revision: req.revision,
+    title: req.title !== undefined ? (req.title ?? null) : (existing?.title ?? null),
+    created_at: existing ? existing.created_at : now,
+    updated_at: now,
+    country_code: req.countryCode !== undefined ? (req.countryCode ?? null) : (existing?.country_code ?? null),
+    currency: req.currency !== undefined ? (req.currency ?? null) : (existing?.currency ?? null),
+    messages: req.messages,
+    build_state: buildState ?? existing?.build_state ?? null,
+    compact_context: compactContext
+  };
 }
 
 async function idbDelete(id: string): Promise<void> {
@@ -486,9 +615,10 @@ function lsGet(id: string): StoredClientSession | null {
 
 // ---------------------------------------------------------------------------
 // Tombstones: ids the user deleted, so a late save cannot resurrect the chat.
-// Mirrors the server's `session_tombstones` table. Backed by localStorage so it
-// survives a reload in hosted mode, with an in-memory cache to avoid re-parsing
-// on every read.
+// Mirrors the server's `session_tombstones` table. Durable in the same layers
+// as the sessions themselves - IndexedDB first, then localStorage, with an
+// in-memory cache last - so a delete survives a reload no matter which layer
+// is holding the sessions.
 // ---------------------------------------------------------------------------
 
 let cachedTombstones: Set<string> | null = null;
@@ -511,6 +641,68 @@ function readTombstones(): Set<string> {
   return cachedTombstones;
 }
 
+/** The IndexedDB tombstone rows, best-effort: [] when IndexedDB is unusable. */
+async function idbListTombstones(): Promise<string[]> {
+  let db: IDBDatabase;
+  try {
+    db = await openIndexedDb();
+  } catch {
+    return [];
+  }
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(TOMBSTONE_STORE, "readonly");
+      const store = tx.objectStore(TOMBSTONE_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const ids: string[] = [];
+        for (const item of (req.result as unknown[] | undefined) || []) {
+          const id = (item as { id?: unknown } | null)?.id;
+          if (typeof id === "string" && id.length > 0) ids.push(id);
+        }
+        resolve(ids);
+      };
+      req.onerror = () => resolve([]);
+    } catch {
+      resolve([]);
+    }
+  });
+}
+
+/** One tombstone row, settled on the transaction like every other write here. */
+async function idbAddTombstone(id: string): Promise<void> {
+  const db = await openIndexedDb();
+  return new Promise((resolve, reject) => {
+    try {
+      const tx = db.transaction(TOMBSTONE_STORE, "readwrite");
+      const store = tx.objectStore(TOMBSTONE_STORE);
+      const req = store.put({ id, deleted_at: new Date().toISOString() });
+      void awaitTransactionCommit(tx, req, `tombstone(${id})`).then(resolve, reject);
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+/**
+ * Union the IndexedDB tombstones into the cache. Called at the top of every
+ * store operation, so a tombstone written while localStorage was unavailable
+ * is still honoured after a reload.
+ */
+async function loadTombstonesFromIdb(): Promise<void> {
+  const ids = await idbListTombstones();
+  if (ids.length === 0) return;
+  const cached = readTombstones();
+  let changed = false;
+  for (const id of ids) {
+    if (!cached.has(id)) {
+      cached.add(id);
+      changed = true;
+    }
+  }
+  if (changed) writeTombstones(cached);
+}
+
 function writeTombstones(ids: Set<string>): void {
   cachedTombstones = new Set(ids);
   if (!isLocalStorageAvailable()) return;
@@ -530,6 +722,20 @@ function addTombstone(id: string): void {
   if (ids.has(id)) return;
   ids.add(id);
   writeTombstones(ids);
+}
+
+/**
+ * The durable version: every layer, so the delete survives wherever the
+ * sessions live. The IndexedDB mirror is best-effort - a blocked database must
+ * not fail a delete the other layers already recorded.
+ */
+async function addTombstoneDurable(id: string): Promise<void> {
+  addTombstone(id);
+  try {
+    await idbAddTombstone(id);
+  } catch {
+    // localStorage + memory already hold it; IndexedDB will catch up next time.
+  }
 }
 
 function lsSave(record: StoredClientSession): void {
@@ -624,16 +830,15 @@ export async function getEffectiveStorageType(): Promise<StorageType> {
 // ---------------------------------------------------------------------------
 
 /**
- * Which of two stored copies of the same session is authoritative. A later
- * `updated_at` wins; when two layers were written in the same millisecond the
- * higher `revision` breaks the tie, so the sidebar list and the session that
- * opens can never disagree about which copy is newer.
+ * Which of two stored copies of the same session is authoritative. The higher
+ * `revision` wins: it is the monotonic write counter both tabs agree on, so it
+ * is the only ordering that cannot be fooled by a clock. `updated_at` only
+ * breaks ties (two layers written at the same revision), so the sidebar list
+ * and the session that opens can never disagree about which copy is newer.
  */
 function isNewerRecord(candidate: StoredClientSession, current: StoredClientSession): boolean {
-  const candidateAt = parseDateSafe(candidate.updated_at).getTime();
-  const currentAt = parseDateSafe(current.updated_at).getTime();
-  if (candidateAt !== currentAt) return candidateAt > currentAt;
-  return candidate.revision > current.revision;
+  if (candidate.revision !== current.revision) return candidate.revision > current.revision;
+  return parseDateSafe(candidate.updated_at).getTime() > parseDateSafe(current.updated_at).getTime();
 }
 
 /**
@@ -697,6 +902,7 @@ export async function listClientSessions(): Promise<SessionSummary[]> {
   // Tombstoned ids are filtered here as well as on read: a delete whose IndexedDB
   // write failed leaves the row behind, and listing it would advertise a chat that
   // opens as an empty screen because `getClientSession` honours the tombstone.
+  await loadTombstonesFromIdb();
   const tombstones = readTombstones();
   const merged = mergeNewestById(await readableLayers()).filter((record) => !tombstones.has(record.id));
   const summaries: SessionSummary[] = merged.map(toSessionSummary);
@@ -710,13 +916,18 @@ export async function listClientSessions(): Promise<SessionSummary[]> {
 /**
  * Retrieves a client session by ID, taking the newest copy across all readable
  * layers. Returns null if not found, if the stored session is corrupted, or if
- * the session was deleted (see the tombstone set).
+ * the session was deleted (see the tombstone set). `markInterrupted: false`
+ * skips the load-time "Interrupted" repair (see `fetchSession`).
  */
-export async function getClientSession(id: string): Promise<SessionDetail | null> {
+export async function getClientSession(
+  id: string,
+  options: { markInterrupted?: boolean } = {}
+): Promise<SessionDetail | null> {
+  await loadTombstonesFromIdb();
   if (isTombstoned(id)) return null;
   const record = mergeNewestById([await readableSessionCopies(id)])[0];
   if (!record) return null;
-  return toSessionDetail(record);
+  return toSessionDetail(record, options.markInterrupted ?? true);
 }
 
 /**
@@ -726,8 +937,17 @@ export async function getClientSession(id: string): Promise<SessionDetail | null
  * pretending to have worked. Conflicts are refused rather than overwriting a
  * newer copy: an older revision and a deleted (tombstoned) id both throw
  * `SessionConflictError`, mirroring `src/lib/sessions.ts`.
+ *
+ * On IndexedDB the revision check and the write are one `readwrite`
+ * transaction (see `idbSaveChecked`), so two tabs cannot both pass the check
+ * and overwrite each other.
  */
 export async function saveClientSession(req: SaveSessionRequest): Promise<void> {
+  await loadTombstonesFromIdb();
+
+  // Every tombstone layer is checked before any write path. The IndexedDB
+  // tombstone is best-effort (see `addTombstoneDurable`), so a delete may live
+  // only in localStorage/memory - and the IndexedDB path must honour it too.
   if (isTombstoned(req.id)) {
     throw new SessionConflictError(
       "session_deleted",
@@ -736,61 +956,51 @@ export async function saveClientSession(req: SaveSessionRequest): Promise<void> 
     );
   }
 
-  const existing = await getClientSession(req.id);
-  if (existing && req.revision <= existing.revision) {
-    throw new SessionConflictError(
-      "stale_revision",
-      existing.revision,
-      `Session ${req.id} already has revision ${existing.revision}.`
-    );
-  }
-
-  const now = new Date().toISOString();
-
-  let buildState: unknown = null;
-  try {
-    buildState = deriveBuildState(req.messages as unknown as UIMessage[]);
-  } catch {
-    buildState = null;
-  }
-
-  const rawCompactContext = req.compactContext !== undefined ? req.compactContext : req.compact_context;
-  const compactContext = rawCompactContext !== undefined
-    ? parseCompactContext(rawCompactContext)
-    : (existing?.compact_context ?? null);
-
-  const record: StoredClientSession = {
-    id: req.id,
-    revision: req.revision,
-    title: req.title !== undefined ? (req.title ?? null) : (existing?.title ?? null),
-    created_at: existing ? existing.created_at.toISOString() : now,
-    updated_at: now,
-    country_code: req.countryCode !== undefined ? (req.countryCode ?? null) : (existing?.country_code ?? null),
-    currency: req.currency !== undefined ? (req.currency ?? null) : (existing?.currency ?? null),
-    messages: req.messages,
-    build_state: buildState ?? existing?.build_state ?? null,
-    compact_context: compactContext
-  };
-
   const type = await getEffectiveStorageType();
 
   if (type === "indexeddb") {
     try {
-      await idbSave(record);
+      await idbSaveChecked(req);
       // The IndexedDB copy is now authoritative, so drop the fallback copies for
       // this id. Leaving them behind is how the layers drift apart and the
       // sidebar ends up listing a copy that opening the chat would not show.
       lsDelete(req.id);
       return;
-    } catch {
+    } catch (error) {
+      // A refused write is final: retrying it would fail identically, and
+      // falling through would write a stale-or-deleted copy to localStorage.
+      if (error instanceof SessionConflictError) throw error;
       // IndexedDB write failed (aborted, blocked, over quota). Try localStorage.
     }
   }
+
+  const existing = await getClientSession(req.id);
+  const record = checkAndBuildRecord(req, existing ? toStoredRecord(existing) : null, false);
 
   // No durable layer accepted the write. `lsSave` throws a typed error the save
   // queue retries and the chat view surfaces; there is deliberately no in-memory
   // fallback, because an in-memory copy is lost the moment the tab closes.
   lsSave(record);
+}
+
+/**
+ * The stored row behind a session detail, for building the next revision of a
+ * record the transactional path did not already handle. Only used on the
+ * localStorage fallback path.
+ */
+function toStoredRecord(detail: SessionDetail): StoredClientSession {
+  return {
+    id: detail.id,
+    revision: detail.revision,
+    title: detail.title,
+    created_at: detail.created_at.toISOString(),
+    updated_at: detail.updated_at.toISOString(),
+    country_code: detail.country_code,
+    currency: detail.currency,
+    messages: detail.messages,
+    build_state: detail.build_state ?? null,
+    compact_context: detail.compact_context ?? null
+  };
 }
 
 /**
@@ -807,15 +1017,17 @@ export async function deleteClientSession(id: string): Promise<void> {
     }
   }
   lsDelete(id);
-  addTombstone(id);
+  await addTombstoneDurable(id);
 }
 
 /**
- * Clears all client sessions across all storage layers. Tombstones are kept:
- * they only guard against resurrecting deleted chats, and new chats always get
- * fresh ids.
+ * Clears all client sessions across all storage layers. Every removed session
+ * is tombstoned, so an in-flight save cannot bring a cleared chat back.
+ * Tombstones themselves are kept: they only guard against resurrection, and new
+ * chats always get fresh ids.
  */
 export async function clearClientSessions(): Promise<void> {
+  const removedIds = (await listClientSessions()).map((session) => session.id);
   if (isIdbAvailable()) {
     try {
       await idbClear();
@@ -824,4 +1036,7 @@ export async function clearClientSessions(): Promise<void> {
     }
   }
   lsClear();
+  for (const id of removedIds) {
+    await addTombstoneDurable(id);
+  }
 }

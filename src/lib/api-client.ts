@@ -387,7 +387,17 @@ export async function fetchSessions(): Promise<SessionSummary[]> {
   );
 }
 
-export async function fetchSession(id: string): Promise<SessionDetail | null> {
+/**
+ * Load one session. Stuck tool calls are shown as "Interrupted" by default (see
+ * `markInterruptedToolCalls`); `markInterrupted: false` returns the transcript
+ * exactly as stored, which the save queue needs to recognise its own mid-stream
+ * save when resolving a conflict.
+ */
+export async function fetchSession(
+  id: string,
+  options: { markInterrupted?: boolean } = {}
+): Promise<SessionDetail | null> {
+  const markInterrupted = options.markInterrupted ?? true;
   return withSessionFallback(
     async () => {
       const data = await getJson<{ session: SessionDetailRaw | null }>(`/api/sessions/${id}`);
@@ -404,13 +414,13 @@ export async function fetchSession(id: string): Promise<SessionDetail | null> {
         // Repaired in memory on read: a tool call that was persisted mid-flight
         // must not come back as a permanent spinner. The stored row is untouched.
         messages: Array.isArray(data.session.messages)
-          ? (markInterruptedToolCalls(data.session.messages) as SessionDetailRaw["messages"]).map((m, idx) =>
-              normalizeUIMessage(m, idx)
-            )
+          ? ((markInterrupted
+              ? markInterruptedToolCalls(data.session.messages)
+              : data.session.messages) as SessionDetailRaw["messages"]).map((m, idx) => normalizeUIMessage(m, idx))
           : []
       };
     },
-    () => getClientSession(id)
+    () => getClientSession(id, { markInterrupted })
   );
 }
 

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { HttpError } from "@/lib/api-client";
 import type { ChatUIMessage } from "../message";
 import {
   applySessionSelection,
@@ -8,6 +9,7 @@ import {
   invalidateSessionSelection,
   MAX_ACTIVE_SESSIONS,
   shouldRefetchOnOpen,
+  shrinkSessionPool,
   type PoolEntry
 } from "../session-selection";
 import { SessionSaveQueue, sessionSignature } from "../session-save-queue";
@@ -362,5 +364,72 @@ describe("chatViewKey", () => {
   it("changes when a loading chat's transcript arrives, so useChat remounts with it", () => {
     expect(chatViewKey({ id: "s1", isLoading: true })).not.toBe(chatViewKey({ id: "s1", isLoading: false }));
     expect(chatViewKey({ id: "s1" })).toBe(chatViewKey({ id: "s1", isLoading: false }));
+  });
+});
+
+describe("pool eviction and unsaved work", () => {
+  const busy = (e: ActiveSessionEntry) => e.queue.hasPendingWork();
+
+  /** A queue whose save failed on a 5xx and is waiting for a retry. */
+  async function queueWithFailedSave() {
+    const queue = new SessionSaveQueue(
+      async () => {
+        throw new HttpError("unavailable", 503, null);
+      },
+      sessionSignature([]),
+      0,
+      () => {},
+      { sleep: noSleep }
+    );
+    await queue.enqueue("unsaved", { id: "s", messages: [userMessage("unsaved")] });
+    return queue;
+  }
+
+  it("does not evict a chat whose save has not landed, even when it is the oldest", async () => {
+    const pool = poolOf(MAX_ACTIVE_SESSIONS + 1);
+    pool[0] = { ...pool[0], queue: await queueWithFailedSave() };
+    expect(pool[0].queue.hasPendingWork()).toBe(true);
+
+    const { pool: next, evictedIds } = shrinkSessionPool({ pool, currentSessionId: "session-9", isBusy: busy });
+
+    expect(evictedIds).toEqual(["session-2"]);
+    expect(next.map((e) => e.id)).toContain("session-1");
+  });
+
+  it("stays over the cap while every candidate has unsaved work, and shrinks once it is saved", async () => {
+    let failing = true;
+    const queues = Array.from({ length: MAX_ACTIVE_SESSIONS }, () =>
+      new SessionSaveQueue(
+        async () => {
+          if (failing) throw new HttpError("unavailable", 503, null);
+        },
+        sessionSignature([]),
+        0,
+        () => {},
+        { sleep: noSleep }
+      )
+    );
+    await Promise.all(queues.map((q) => q.enqueue("unsaved", { id: "s", messages: [userMessage("unsaved")] })));
+    const pool = [
+      ...queues.map((queue, i) => entry(`session-${i + 1}`, (i + 1) * 100, { queue })),
+      entry("current", 10_000)
+    ];
+
+    expect(shrinkSessionPool({ pool, currentSessionId: "current", isBusy: busy }).evictedIds).toEqual([]);
+    const opened = applySessionSelection({
+      pool,
+      currentSessionId: "current",
+      id: "new",
+      loaded: true,
+      messages: [],
+      newEntry: { id: "new", queue: makeQueue(), isStreaming: false, lastActiveAt: 0 },
+      isBusy: busy
+    });
+    expect(opened.evictedId).toBeUndefined();
+
+    failing = false;
+    queues[0].retryUnsaved();
+    await vi.waitFor(() => expect(queues[0].hasPendingWork()).toBe(false));
+    expect(shrinkSessionPool({ pool, currentSessionId: "current", isBusy: busy }).evictedIds).toEqual(["session-1"]);
   });
 });
