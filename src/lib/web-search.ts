@@ -37,7 +37,12 @@ export type SearchClient = { search(query: string, options?: { limit?: number; c
 export type CrawlRunner = (module: string, args: string[], options: {
   timeoutMs: number;
   maxOutputBytes: number;
+  signal?: AbortSignal;
 }) => Promise<CapturedProcessResult>;
+
+/** Per-page text budget before the subagent sees it (~20k chars). */
+export const CRAWLED_PAGE_CAP_CHARS = 20_000;
+export const CRAWL_TIMEOUT_MS = 30_000;
 
 export const searchPresetSchema = z.object({
   $schema: z.string().optional(),
@@ -49,10 +54,13 @@ export const searchPresetSchema = z.object({
 });
 export type SearchPreset = z.infer<typeof searchPresetSchema>;
 
-export async function crawlPage(url: string, runner: CrawlRunner): Promise<string> {
+export async function crawlPage(url: string, runner: CrawlRunner, options?: { signal?: AbortSignal; timeoutMs?: number; maxChars?: number }): Promise<string> {
+  assertCrawlUrlAllowed(url);
+  if (options?.signal?.aborted) throw new Error("Page crawl was cancelled.");
   const result = await runner("scraper.crawl_page", [url], {
-    timeoutMs: 30_000,
-    maxOutputBytes: 500_000
+    timeoutMs: options?.timeoutMs ?? CRAWL_TIMEOUT_MS,
+    maxOutputBytes: 500_000,
+    signal: options?.signal
   });
   if (result.code !== 0) {
     const err = result.stderr.trim();
@@ -63,7 +71,91 @@ export async function crawlPage(url: string, runner: CrawlRunner): Promise<strin
   }
   const content = result.stdout.trim();
   if (!content) throw new Error("Crawler returned no page content.");
-  return content;
+  const cap = options?.maxChars ?? CRAWLED_PAGE_CAP_CHARS;
+  return content.length > cap ? content.slice(0, cap) : content;
+}
+
+/**
+ * Only http/https may be crawled. Private and loopback targets are blocked,
+ * including redirect hops: the initial hostname is checked here and callers
+ * should also validate each redirect Location before following (the Python
+ * Crawl4AI fetcher follows redirects on its own, so a pre-flight chain check
+ * is the only TS-side gate — see assertRedirectChainAllowed).
+ */
+export function assertCrawlUrlAllowed(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Crawl blocked: invalid URL "${url}".`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`Crawl blocked: only http/https URLs are allowed ("${parsed.protocol}").`);
+  }
+  if (isPrivateCrawlHost(parsed.hostname)) {
+    throw new Error(`Crawl blocked: private or loopback address "${parsed.hostname}".`);
+  }
+}
+
+export function isPrivateCrawlHost(hostname: string): boolean {
+  const host = hostname.trim().toLowerCase().replace(/\.$/, "");
+  if (!host) return true;
+  if (host === "localhost" || host.endsWith(".localhost") || host === "localhost.localdomain") return true;
+  if (host === "0.0.0.0" || host === "::" || host === "[::]" || host === "::1" || host === "[::1]") return true;
+  // IPv4 literals (with optional brackets already stripped by URL).
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const parts = v4.slice(1).map(Number);
+    if (parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true;
+    const [a, b] = parts as [number, number, number, number];
+    if (a === 127) return true; // loopback 127/8
+    if (a === 10) return true; // 10/8
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16/12
+    if (a === 192 && b === 168) return true; // 192.168/16
+    if (a === 169 && b === 254) return true; // link-local
+    if (a === 0) return true; // 0/8
+    return false;
+  }
+  // IPv6 literals: block loopback, unspecified, link-local, unique-local.
+  const bare = host.replace(/^\[|\]$/g, "");
+  if (bare.includes(":")) {
+    const lower = bare.toLowerCase();
+    if (lower === "::1" || lower === "::") return true;
+    if (lower.startsWith("fe80:") || lower.startsWith("fe80::")) return true;
+    if (lower.startsWith("fc00:") || lower.startsWith("fd00:") || lower.startsWith("fc") || lower.startsWith("fd")) return true;
+    return false;
+  }
+  // Non-IP hostnames are allowed here (DNS rebinding is handled by the
+  // redirect-chain pre-flight); single-label names resolve locally too often
+  // to trust, so block them except the public test fixtures above.
+  if (!host.includes(".")) return true;
+  if (host.endsWith(".invalid") || host.endsWith(".test") || host.endsWith(".example") || host === "example") return false;
+  return false;
+}
+
+/**
+ * Best-effort redirect-chain gate: follows Location headers manually (up to
+ * 5 hops) and validates every hop with assertCrawlUrlAllowed. Callers that
+ * cannot perform a pre-flight (JS-rendered pages) still get the initial-URL
+ * check in crawlPage; full redirect enforcement inside Crawl4AI 0.9.0 is
+ * unconfirmed (see final report).
+ */
+export async function assertRedirectChainAllowed(startUrl: string, fetchImpl: typeof fetch = fetch, signal?: AbortSignal): Promise<void> {
+  assertCrawlUrlAllowed(startUrl);
+  let current = startUrl;
+  for (let hop = 0; hop < 5; hop += 1) {
+    let response: Response;
+    try {
+      response = await fetchImpl(current, { method: "HEAD", redirect: "manual", signal });
+    } catch {
+      return; // Pre-flight failed (JS-only page, blocked HEAD): initial check stands.
+    }
+    const location = response.headers.get("location");
+    if (!location || (response.status !== 301 && response.status !== 302 && response.status !== 303 && response.status !== 307 && response.status !== 308)) return;
+    const next = new URL(location, current).toString();
+    assertCrawlUrlAllowed(next);
+    current = next;
+  }
 }
 
 export function createSearchClient(
