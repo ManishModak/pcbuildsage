@@ -19,5 +19,10 @@ services:
         sync: false
       - key: TURSO_READ_TOKEN
         sync: false
+      # Anonymous daily counters: a SEPARATE free Turso database, never the catalog one.
+      - key: ANALYTICS_TURSO_URL
+        sync: false
+      - key: ANALYTICS_TURSO_TOKEN
+        sync: false
       # NOTE: do NOT set TURSO_INGEST_TOKEN on the web service.
       # It is only used by the refresh-catalog GitHub Actions workflow.

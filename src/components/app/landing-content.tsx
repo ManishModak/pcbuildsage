@@ -2,7 +2,7 @@
 //
 // This is the HTML crawlers (and first paint) see: the old page rendered only
 // a spinner until client hydration, so search engines found nothing. It is
-// static copy only — no LLM calls, no tracking, no cookies. Never call any
+// static copy only — no LLM calls, no cookies. Never call any
 // build "best".
 export function LandingContent() {
   return (
@@ -28,7 +28,10 @@ export function LandingContent() {
             OpenRouter work). On the hosted demo your key stays in your browser and is never
             stored on the server.
           </li>
-          <li>Free and open source under the MIT license; no accounts, no tracking.</li>
+          <li>
+            Free and open source under the MIT license. No accounts or tracking cookies. The
+            hosted demo keeps anonymous daily totals only (no IPs, no chat content).
+          </li>
         </ul>
         <nav className="mt-8 flex flex-wrap gap-4" aria-label="Learn more">
           <a className="underline" href="/help">
