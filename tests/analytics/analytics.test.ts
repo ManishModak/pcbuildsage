@@ -22,7 +22,8 @@ vi.mock("@libsql/client", () => ({
   }
 }));
 
-import { POST, resetMetricsRateLimitsForTesting } from "@/app/api/metrics/route";
+import { POST } from "@/app/api/metrics/route";
+import { resetMetricsRateLimitsForTesting } from "@/lib/analytics/rate-limit";
 import {
   ANALYTICS_UPSERT_SQL,
   classifyErrorType,

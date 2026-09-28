@@ -10,7 +10,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { POST as metricsPOST, resetMetricsRateLimitsForTesting } from "@/app/api/metrics/route";
+import { POST as metricsPOST } from "@/app/api/metrics/route";
+import { resetMetricsRateLimitsForTesting } from "@/lib/analytics/rate-limit";
 import { flush, record, resetAnalyticsForTesting } from "@/lib/analytics/store";
 import { runAnalytics } from "../../scripts/analytics";
 
