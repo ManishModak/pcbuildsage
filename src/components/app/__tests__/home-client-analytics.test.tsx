@@ -5,8 +5,9 @@
  * Effects never run under renderToStaticMarkup (node env, no DOM), so:
  * - onboarding_completed is verified by capturing the Wizard onComplete prop
  *   through mocked modules and invoking it (proves the real prop fires it);
- * - landing_view is verified by asserting the effect wiring in the source
- *   (same source-grep precedent as the guides no-network test).
+ * - landing_view is verified through its pure gate (landingViewDue) plus the
+ *   effect wiring in the source (same source-grep precedent as the guides
+ *   no-network test).
  */
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
@@ -39,7 +40,8 @@ vi.mock("@/components/app/app-shell", () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <>{children}</>
 }));
 
-import { HomeClient, resetHomeClientEventsForTesting } from "@/components/app/home-client";
+import { CONFIG_KEY, RETURNING_BOOTSTRAP } from "@/lib/client-config-store";
+import { HomeClient, landingViewDue, resetHomeClientEventsForTesting } from "@/components/app/home-client";
 
 beforeEach(() => {
   state.ready = true;
@@ -77,9 +79,32 @@ describe("M2 client event wiring in HomeClient", () => {
     expect(state.fetchCalls).toHaveLength(0);
   });
 
-  it("wires a one-shot landing_view effect for the pre-hydration landing", () => {
+  it("counts landing_view only for first-time visitors, after hydration", () => {
+    expect(landingViewDue(false, false)).toBe(false);
+    expect(landingViewDue(true, true)).toBe(false);
+    expect(landingViewDue(true, false)).toBe(true);
     const source = readFileSync(path.join(process.cwd(), "src", "components", "app", "home-client.tsx"), "utf8");
-    expect(source).toMatch(/useEffect\(\(\) => \{\s*if \(!ready\) fireOnce\("landing_view"\)/);
-    expect(source).toContain('fireOnce(event: "landing_view" | "onboarding_completed")');
+    expect(source).toMatch(/if \(landingViewDue\(ready, config\.onboarded\)\) fireOnce\("landing_view"\)/);
+  });
+
+  it("keeps the landing in pre-hydration HTML, with a spinner for returning users", () => {
+    state.ready = false;
+    const html = renderToStaticMarkup(<HomeClient landing={<div>landing copy</div>} />);
+    expect(html).toContain('<div data-landing=""><div>landing copy</div></div>');
+    expect(html).toContain("data-returning-spinner");
+  });
+
+  it.each([
+    [JSON.stringify({ onboarded: true }), true],
+    [JSON.stringify({ onboarded: false }), false],
+    [null, false],
+    ["{not json", false]
+  ])("head bootstrap marks returning users (saved config %s)", (saved, returning) => {
+    const setAttribute = vi.fn();
+    new Function("localStorage", "document", RETURNING_BOOTSTRAP)(
+      { getItem: (key: string) => (key === CONFIG_KEY ? saved : null) },
+      { documentElement: { setAttribute } }
+    );
+    expect(setAttribute.mock.calls.length > 0).toBe(returning);
   });
 });

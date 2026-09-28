@@ -1,7 +1,24 @@
 import type { ChainEntry, ClientConfig, ScrapeRunConfig, SearchProvider } from "@/types/client";
 import { getByokKey } from "@/lib/llm/client-byok-store";
 
-const CONFIG_KEY = "pcbuildsage:config";
+export const CONFIG_KEY = "pcbuildsage:config";
+
+/**
+ * Inline <head> script (see src/app/layout.tsx): marks returning (onboarded)
+ * users with html[data-returning] before first paint, so globals.css shows
+ * the loading spinner instead of flashing the landing that HomeClient swaps
+ * for the chat after hydration.
+ */
+export const RETURNING_BOOTSTRAP = `
+(function () {
+  try {
+    var raw = localStorage.getItem(${JSON.stringify(CONFIG_KEY)});
+    if (raw && JSON.parse(raw).onboarded === true) {
+      document.documentElement.setAttribute("data-returning", "");
+    }
+  } catch (e) {}
+})();
+`;
 const SCRAPE_KEY = "pcbuildsage:lastScrape";
 const KEYS_KEY = "pcbuildsage:uiKeys";
 

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { AppProvider } from "../components/app/app-provider";
+import { RETURNING_BOOTSTRAP } from "../lib/client-config-store";
 import { SITE_URL } from "../lib/seo";
 import "./globals.css";
 
@@ -74,6 +75,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <script dangerouslySetInnerHTML={{ __html: RETURNING_BOOTSTRAP }} />
       </head>
       <body suppressHydrationWarning>
         <AppProvider>{children}</AppProvider>
