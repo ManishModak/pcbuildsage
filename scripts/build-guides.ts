@@ -3,10 +3,11 @@
  *
  * Zero LLM calls, zero network: per-tier part plan + createValidateBuildTool
  * + validate_build, exactly like scripts/build-sample-fixture.ts. For each
- * budget tier it validates combinations of the cheapest in-stock candidates
- * and keeps the valid, fully-priced, blocking-issue-free build that fits the
- * budget with the fewest unverified specs (needs_research/needs_verification),
- * then the lowest total. A budget with no such build is SKIPPED (logged, no
+ * budget tier it takes the cheapest in-stock candidates for every part but
+ * the GPU, spends what's left on the strongest GPU class that fits
+ * (GPU_LADDER), validates the in-budget combinations, and keeps the valid,
+ * fully-priced, blocking-issue-free build with the fewest unverified specs
+ * (needs_research/needs_verification), then the lowest total. A budget with no such build is SKIPPED (logged, no
  * page published). If EVERY tier is skipped the script exits 1 and writes
  * nothing, so the Pages deploy never runs and the last good site stays up.
  * Nothing here is ever called "best".
@@ -61,104 +62,110 @@ export const CATEGORIES = [
 ] as const;
 export type GuideCategory = (typeof CATEGORIES)[number];
 
+type Resolution = "1080p" | "1440p";
+type FixedCategory = Exclude<GuideCategory, "gpu">;
+
 export interface TierPlan {
   budget: number;
-  resolution: "1080p" | "1440p";
-  /** Per-category catalog search filters for this tier; cheapest in-stock wins. */
-  plan: Record<GuideCategory, SearchProductsInput>;
+  resolution: Resolution;
+  /** Search filters for every part except the GPU; cheapest in-stock wins. */
+  plan: Record<FixedCategory, SearchProductsInput>;
+  /** GPU classes this tier may use, weakest first; the strongest that fits wins. */
+  gpuClasses: readonly string[];
 }
 
 /**
+ * GPU classes (search terms), roughly weakest to strongest. Current families
+ * only: last-gen cards still listed at launch-era prices (RTX 4060, 3060) are
+ * left out. The order is an approximation of relative gaming performance.
+ */
+export const GPU_LADDER = [
+  "RTX 3050",
+  "RTX 5050",
+  "RX 7600",
+  "RTX 5060",
+  "RX 9060 XT",
+  "RTX 5060 Ti",
+  "RX 7700 XT",
+  "RTX 5070",
+  "RX 9070",
+  "RX 9070 XT",
+  "RTX 5070 Ti"
+] as const;
+
+/** Weakest GPU class a page for this resolution may recommend. */
+export const MIN_GPU_CLASS: Record<Resolution, (typeof GPU_LADDER)[number]> = {
+  "1080p": "RTX 3050",
+  "1440p": "RTX 5060 Ti"
+};
+
+/**
  * Tier plan: one compatible AM4/DDR4/B550 backbone for every tier (so
- * validation has a chance everywhere), with the CPU/GPU search terms and
- * PSU/storage minimums stepping up with the budget. Terms are deliberately
+ * validation has a chance everywhere), with the CPU and the storage/PSU
+ * minimums stepping up with the budget. Whatever is left of the budget buys
+ * the strongest GPU class that fits (see runBuildGuides), so pages track real
+ * prices instead of a fixed GPU per budget going stale. Terms are
  * model-family specific (not exact SKUs) so a re-scrape still matches.
  *
- * 1440p is GPU-bound, so its tiers take the GPU one class up and pay for it
- * with the CPU one step down. RAM stays 16GB DDR4 at both resolutions: more
- * capacity doesn't help 1440p gaming specifically.
+ * 1440p is GPU-bound, so its tiers take the CPU one step down to leave more
+ * for the GPU, and must reach at least MIN_GPU_CLASS["1440p"]. RAM stays 16GB
+ * DDR4 (2 modules) everywhere: more capacity doesn't help 1440p specifically.
  */
-const CPU_LADDER = ["Ryzen 3", "Ryzen 5 5500", "Ryzen 5 5600", "Ryzen 7 5700", "Ryzen 7 5800"];
+const CPU_LADDER = ["Ryzen 5 5500", "Ryzen 5 5600"];
 
-function cpuStep(budget: number): number {
-  return budget <= 30000 ? 0 : budget <= 40000 ? 1 : budget <= 60000 ? 2 : budget <= 80000 ? 3 : 4;
-}
-
-function gpuTerm(budget: number, resolution: "1080p" | "1440p"): string {
-  if (resolution === "1440p") {
-    return budget <= 70000 ? "RTX 4060 Ti"
-      : budget <= 80000 ? "RTX 5060 Ti"
-      : budget <= 90000 ? "RTX 5070"
-      : "RX 9070";
-  }
-  return budget <= 30000 ? "RX 6400"
-    : budget <= 40000 ? "RTX 3050"
-    : budget <= 50000 ? "RX 6600"
-    : budget <= 70000 ? "RTX 4060"
-    : budget <= 80000 ? "RTX 5060"
-    : budget <= 90000 ? "RTX 5060 Ti"
-    : "RTX 5070";
-}
-
-export function tierPlan(budget: number, resolution: "1080p" | "1440p"): TierPlan["plan"] {
-  const step = cpuStep(budget) - (resolution === "1440p" ? 1 : 0);
+export function tierPlan(budget: number, resolution: Resolution): TierPlan["plan"] {
+  const step = (budget <= 70000 ? 0 : 1) - (resolution === "1440p" ? 1 : 0);
   return {
     cpu: { term: CPU_LADDER[Math.max(0, step)] },
-    gpu: { term: gpuTerm(budget, resolution) },
     motherboard: { term: "B550" },
     ram: { ddr: "DDR4", min_capacity_gb: 16, modules: 2 },
-    storage: { interface: "nvme", min_capacity_gb: budget <= 40000 ? 500 : 1000 },
-    psu: { min_wattage: budget <= 40000 ? 450 : budget <= 60000 ? 550 : 650, term: "Bronze" },
+    storage: { interface: "nvme", min_capacity_gb: budget < 80000 ? 500 : 1000 },
+    psu: { min_wattage: budget < 90000 ? 550 : 650, term: "Bronze" },
     case: { term: "ATX" },
     cooler: { socket: "AM4" }
   };
 }
 
+function tier(budget: number, resolution: Resolution): TierPlan {
+  return {
+    budget,
+    resolution,
+    plan: tierPlan(budget, resolution),
+    gpuClasses: GPU_LADDER.slice(GPU_LADDER.indexOf(MIN_GPU_CLASS[resolution]))
+  };
+}
+
 export const BUDGET_TIERS: TierPlan[] = [
-  ...[30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000].map((budget) => ({
-    budget,
-    resolution: "1080p" as const,
-    plan: tierPlan(budget, "1080p")
-  })),
-  ...[70000, 80000, 90000, 100000].map((budget) => ({
-    budget,
-    resolution: "1440p" as const,
-    plan: tierPlan(budget, "1440p")
-  }))
+  ...[30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000].map((budget) => tier(budget, "1080p")),
+  ...[70000, 80000, 90000, 100000].map((budget) => tier(budget, "1440p"))
 ];
 
 /**
- * Cheapest in-stock candidates tried per category. Big-ticket and
- * compatibility-heavy parts get 3, commodity parts 2, so the full
- * combination space (3^4 * 2^4 = 1296) fits under MAX_COMBOS and every
- * candidate is actually tried.
+ * Cheapest in-stock candidates tried per category. The full combination
+ * space (3 * 2^7 = 384) fits under MAX_COMBOS, so every candidate is tried;
+ * combinations over budget are dropped by price before validation.
  */
 export const CANDIDATES_PER_CATEGORY: Record<GuideCategory, number> = {
-  cpu: 3,
+  cpu: 2,
   gpu: 3,
-  motherboard: 3,
-  ram: 3,
+  motherboard: 2,
+  ram: 2,
   storage: 2,
   psu: 2,
   case: 2,
   cooler: 2
 };
 export const MAX_COMBOS = 3000;
+/** GPU classes tried per tier (strongest fitting first) before skipping it. */
+export const MAX_GPU_CLASS_TRIES = 2;
 
 /**
- * Categories whose search term defines the tier. If the term finds nothing
- * the tier is skipped: falling back to the cheapest in-stock CPU/GPU would
- * publish e.g. a "1440p under ₹1L" page with the cheapest GPU. Commodity
- * categories may fall back to the cheapest in-stock part.
+ * The CPU term defines the tier: if it finds nothing the tier is skipped
+ * rather than falling back to the cheapest in-stock CPU. GPUs never fall back
+ * either (they come from GPU_LADDER). Commodity categories may fall back to
+ * the cheapest in-stock part.
  */
 export const NO_FALLBACK_CATEGORIES: readonly GuideCategory[] = ["cpu", "gpu"];
-
-/** True when two builds use exactly the same products (order-insensitive). */
-export function samePartSet(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false;
-  const set = new Set(a);
-  return b.every((id) => set.has(id));
-}
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
@@ -293,6 +300,20 @@ export function resolveOutDir(args: string[] = process.argv.slice(2)): string {
 
 type Candidate = { id: string; name: string; price: number | null };
 
+const toCandidate = (product: Candidate): Candidate => ({
+  id: product.id,
+  name: product.name,
+  price: product.price
+});
+
+/** Weakest GPU class a tier may publish: its minimum, and above `above` (a ladder index) when set. */
+function weakestAllowed(tier: TierPlan, above: number | undefined): string {
+  const floor = Math.max(GPU_LADDER.indexOf(tier.gpuClasses[0] as (typeof GPU_LADDER)[number]), (above ?? -1) + 1);
+  return GPU_LADDER[Math.min(floor, GPU_LADDER.length - 1)];
+}
+
+const FIXED_CATEGORIES = CATEGORIES.filter((category): category is FixedCategory => category !== "gpu");
+
 async function inStockCandidates(
   repo: SqliteCatalogRepository,
   scope: CatalogScope,
@@ -312,14 +333,7 @@ async function inStockCandidates(
     result = await search({});
     fallback = result.results.length > 0;
   }
-  return {
-    candidates: result.results.map((product) => ({
-      id: product.id,
-      name: product.name,
-      price: product.price
-    })),
-    fallback
-  };
+  return { candidates: result.results.map(toCandidate), fallback };
 }
 
 async function resolveScope(
@@ -544,9 +558,8 @@ export async function runBuildGuides(
   const repo = deps.repo ?? new SqliteCatalogRepository(dbPath);
   const published: PublishedGuide[] = [];
   const skipped: string[] = [];
-  // Part IDs of each published 1080p page by budget, to skip a 1440p page
-  // that would be identical.
-  const picked1080 = new Map<number, string[]>();
+  // GPU_LADDER index of each published 1080p page's GPU, by budget.
+  const gpuClass1080 = new Map<number, number>();
   try {
     const scope = await resolveScope(repo, repo.getDatabase() as never);
     // "Prices checked" = when the catalog was scraped, not when this ran.
@@ -558,46 +571,14 @@ export async function runBuildGuides(
       NonNullable<typeof tool.execute>
     >[1];
 
-    for (const tier of BUDGET_TIERS) {
-      const label = guideSlug(tier);
-      const perCategory: Candidate[][] = [];
-      const rankByCategory = new Map<string, { rank: number; of: number; term: string }>();
-      const fallbacks: GuideCategory[] = [];
-      let missing: GuideCategory | null = null;
-      for (const category of CATEGORIES) {
-        const { candidates, fallback } = await inStockCandidates(repo, scope, category, tier.plan[category]);
-        if (candidates.length === 0) {
-          missing = category;
-          break;
-        }
-        if (fallback) fallbacks.push(category);
-        perCategory.push(candidates);
-        const term = fallback
-          ? `cheapest in-stock ${category}`
-          : describeFilters(category, tier.plan[category]);
-        // Rank each candidate within its tier list (cheapest-first search order).
-        for (const [index, candidate] of candidates.entries()) {
-          rankByCategory.set(`${category}:${candidate.id}`, {
-            rank: index + 1,
-            of: candidates.length,
-            term: fallback ? `${term} (term fallback: cheapest in-stock ${category})` : term
-          });
-        }
-      }
-      if (missing) {
-        const reason = NO_FALLBACK_CATEGORIES.includes(missing)
-          ? `no in-stock ${missing} matching "${describeFilters(missing, tier.plan[missing])}"`
-          : `no in-stock candidates for ${missing}`;
-        skipped.push(`${label} (${reason})`);
-        continue;
-      }
-
-      const valid: Array<{
-        parts: Record<string, { product_id: string }>;
-        validation: ValidationResult;
-        snapshot: BuildSnapshot;
-      }> = [];
-      for (const combo of combos(perCategory)) {
+    // Validates every in-budget combination of the per-category candidate
+    // lists (CATEGORIES order) and returns the picker's choice, or null.
+    const pickValid = async (label: string, budget: number, lists: Candidate[][]) => {
+      const valid: Array<{ validation: ValidationResult; snapshot: BuildSnapshot }> = [];
+      for (const combo of combos(lists)) {
+        // Cheap price check first: most combinations never need validating.
+        const sum = guideTotal(combo);
+        if (sum === null || sum > budget) continue;
         const parts: Record<string, { product_id: string }> = {};
         CATEGORIES.forEach((category, index) => {
           parts[category] = { product_id: combo[index].id };
@@ -607,11 +588,10 @@ export async function runBuildGuides(
         const snapshot = entry?.snapshot;
         if (!entry || !snapshot || !entry.valid || !snapshot.is_complete || typeof snapshot.total !== "number") continue;
         if (entry.issues.some((issue) => issue.severity === "blocking")) continue;
-        if (snapshot.total > tier.budget) continue;
-        valid.push({ parts, validation: entry, snapshot });
+        if (snapshot.total > budget) continue;
+        valid.push({ validation: entry, snapshot });
       }
-
-      const picked = pickBuildForBudget(
+      return pickBuildForBudget(
         valid.map((v) => ({
           value: v,
           total: v.snapshot.total,
@@ -619,10 +599,94 @@ export async function runBuildGuides(
             (issue) => issue.severity === "needs_research" || issue.severity === "needs_verification"
           ).length
         })),
-        tier.budget
+        budget
       );
+    };
+
+    for (const tier of BUDGET_TIERS) {
+      const label = guideSlug(tier);
+      const lists = new Map<GuideCategory, Candidate[]>();
+      const rankByCategory = new Map<string, { rank: number; of: number; term: string }>();
+      const addRanks = (category: GuideCategory, candidates: Candidate[], term: string) => {
+        // Rank each candidate within its tier list (cheapest-first search order).
+        for (const [index, candidate] of candidates.entries()) {
+          rankByCategory.set(`${category}:${candidate.id}`, { rank: index + 1, of: candidates.length, term });
+        }
+      };
+      const fallbacks: GuideCategory[] = [];
+      let missing: FixedCategory | null = null;
+      for (const category of FIXED_CATEGORIES) {
+        const { candidates, fallback } = await inStockCandidates(repo, scope, category, tier.plan[category]);
+        if (candidates.length === 0) {
+          missing = category;
+          break;
+        }
+        if (fallback) fallbacks.push(category);
+        lists.set(category, candidates);
+        const term = describeFilters(category, tier.plan[category]);
+        addRanks(
+          category,
+          candidates,
+          fallback ? `cheapest in-stock ${category} (term fallback: no ${term} in stock)` : term
+        );
+      }
+      if (missing) {
+        const reason = NO_FALLBACK_CATEGORIES.includes(missing)
+          ? `no in-stock ${missing} matching "${describeFilters(missing, tier.plan[missing])}"`
+          : `no in-stock candidates for ${missing}`;
+        skipped.push(`${label} (${reason})`);
+        continue;
+      }
+
+      // What the cheapest other parts leave buys the GPU: the strongest class
+      // (from the top of the tier's ladder) with an in-stock card that fits.
+      const restMin = [...lists.values()].reduce(
+        (sum, candidates) => sum + Math.min(...candidates.map((c) => c.price ?? Number.POSITIVE_INFINITY)),
+        0
+      );
+      const gpuBudget = tier.budget - restMin;
+      // A 1440p page must beat the 1080p page's GPU at the same budget, or it
+      // would just be that page with a weaker CPU.
+      const above = tier.resolution === "1440p" ? gpuClass1080.get(tier.budget) : undefined;
+      let picked: Awaited<ReturnType<typeof pickValid>> = null;
+      let gpuClass = "";
+      let tries = 0;
+      for (const cls of [...tier.gpuClasses].reverse()) {
+        if (gpuBudget <= 0 || tries >= MAX_GPU_CLASS_TRIES) break;
+        if (above !== undefined && GPU_LADDER.indexOf(cls as (typeof GPU_LADDER)[number]) <= above) break;
+        const gpus = (
+          await repo.searchProducts(
+            {
+              term: cls,
+              category: "gpu",
+              price_max: gpuBudget,
+              inStockOnly: true,
+              limit: CANDIDATES_PER_CATEGORY.gpu,
+              sort_by: "price",
+              order: "asc"
+            },
+            scope
+          )
+        ).results.map(toCandidate);
+        if (gpus.length === 0) continue;
+        tries += 1;
+        lists.set("gpu", gpus);
+        picked = await pickValid(label, tier.budget, CATEGORIES.map((category) => lists.get(category)!));
+        if (picked) {
+          gpuClass = cls;
+          addRanks("gpu", gpus, `${cls} (the strongest GPU class that fits the budget)`);
+          break;
+        }
+      }
       if (!picked) {
-        skipped.push(`${label} (no valid, fully-priced, blocking-issue-free build within budget)`);
+        const reason =
+          gpuBudget <= 0
+            ? `the other parts alone cost ${formatPrice(restMin, scope.currency)}`
+            : tries > 0
+              ? "no valid, fully-priced, blocking-issue-free build within budget"
+              : `no ${weakestAllowed(tier, above)}-or-better GPU fits the ${formatPrice(gpuBudget, scope.currency)} left after other parts` +
+                (above !== undefined ? `; 1440p must beat the 1080p page's ${GPU_LADDER[above]}` : "");
+        skipped.push(`${label} (${reason})`);
         continue;
       }
 
@@ -642,10 +706,7 @@ export async function runBuildGuides(
       }
 
       if (tier.resolution === "1080p") {
-        picked1080.set(tier.budget, ids);
-      } else if (samePartSet(ids, picked1080.get(tier.budget) ?? [])) {
-        skipped.push(`${label} (same parts as the 1080p page at this budget)`);
-        continue;
+        gpuClass1080.set(tier.budget, GPU_LADDER.indexOf(gpuClass as (typeof GPU_LADDER)[number]));
       }
 
       const ranks = new Map<string, { rank: number; of: number; term: string }>();
