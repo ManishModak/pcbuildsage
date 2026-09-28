@@ -5,13 +5,15 @@ import { parseSpecsFromTitle } from "../spec-parsers";
 import { getCatalogRepository, type CatalogRepository, type CatalogScope } from "../catalog";
 import { validateBuild, type BuildParts, type BuildPart, type ValidationResult } from "../rules-engine";
 import { createBuildSnapshot, type BuildSnapshot } from "../catalog/build-snapshot";
+import { createTurnValidationStore, recordValidation, type TurnValidationStore } from "./turn-state";
+import { MIN_PREFIX_LEN, resolveIdPrefix, shortId } from "./product-ids";
 
 const componentCategorySchema = z.enum(["cpu", "gpu", "motherboard", "ram", "storage", "psu", "case", "cooler"]);
 
 const partSchema = z.union([
-  z.string().describe("Registry key or component name."),
+  z.string().describe("Registry key, component name, or catalog product ID prefix."),
   z.object({
-    product_id: z.string().min(1).optional().describe("Exact id from search_products. Preferred for catalog parts; specs are looked up server-side."),
+    product_id: z.string().min(1).optional().describe("Catalog product ID or unique prefix (>=8 chars, first 10 shown by search_products). Preferred for catalog parts; specs are looked up server-side."),
     key: z.string().optional().describe("Canonical registry key when known."),
     name: z.string().optional().describe("Human-readable component name when key is not known."),
     category: componentCategorySchema.optional().describe("Component category hint.")
@@ -53,11 +55,91 @@ export const validateBuildInputSchema = z.object({
 
 export type ValidateBuildInput = z.infer<typeof validateBuildInputSchema>;
 
-export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US", currency: "USD" }, repository?: CatalogRepository) {
+/** Prefix lookup against the catalog for short IDs the model passes back. */
+async function findIdsByPrefix(
+  prefix: string,
+  scope: CatalogScope,
+  repo: CatalogRepository
+): Promise<string[]> {
+  const p = prefix.trim();
+  if (p.length < MIN_PREFIX_LEN) return [];
+  const like = `${p}%`;
+  const countryCode = scope.countryCode ?? "US";
+  const currency = scope.currency ?? "USD";
+  try {
+    const anyRepo = repo as unknown as {
+      getDatabase?: (s?: CatalogScope) => {
+        prepare: (sql: string) => { all: (...args: unknown[]) => Array<{ id: unknown }> };
+      };
+      driver?: {
+        all: (sql: string, params: unknown[], scope?: CatalogScope) => Promise<unknown[]>;
+      };
+    };
+    if (typeof anyRepo.getDatabase === "function") {
+      const db = anyRepo.getDatabase(scope);
+      const rows = db
+        .prepare("SELECT id FROM products WHERE id LIKE ? AND country_code = ? AND currency = ? LIMIT 10")
+        .all(like, countryCode, currency);
+      return rows.map((r) => String(r.id));
+    }
+    if (anyRepo.driver && typeof anyRepo.driver.all === "function") {
+      const rows = await anyRepo.driver.all(
+        "SELECT id FROM products WHERE id LIKE ? AND country_code = ? AND currency = ? LIMIT 10",
+        [like, countryCode, currency],
+        scope
+      );
+      return (rows as Array<Record<string, unknown>>).map((r) => String(r.id));
+    }
+  } catch {
+    return [];
+  }
+  return [];
+}
+
+/** Model-only view: only {builds}, with product IDs shortened to 10 chars. */
+export function toModelValidateOutput(output: unknown): unknown {
+  if (!output || typeof output !== "object") return output;
+  const obj = output as Record<string, unknown>;
+  const builds = obj.builds;
+  if (!builds || typeof builds !== "object") return { builds };
+  const shortBuilds: Record<string, unknown> = {};
+  for (const [label, entry] of Object.entries(builds as Record<string, unknown>)) {
+    if (!entry || typeof entry !== "object") {
+      shortBuilds[label] = entry;
+      continue;
+    }
+    const e = entry as Record<string, unknown>;
+    const snap = e.snapshot as
+      | { components?: Array<Record<string, unknown>> }
+      | undefined;
+    if (!snap || !Array.isArray(snap.components)) {
+      shortBuilds[label] = e;
+      continue;
+    }
+    shortBuilds[label] = {
+      ...e,
+      snapshot: {
+        ...(snap as object),
+        components: snap.components.map((c) => ({
+          ...c,
+          product_id:
+            typeof c.product_id === "string" && c.product_id.length > 10
+              ? shortId(c.product_id)
+              : c.product_id
+        }))
+      }
+    };
+  }
+  return { builds: shortBuilds };
+}
+
+export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US", currency: "USD" }, repository?: CatalogRepository, store?: TurnValidationStore) {
+  const turnStore = store ?? createTurnValidationStore();
   return tool({
     description:
-      "Use validate_build to validate 1 to 5 proposed PC builds side by side in a single call before presenting them. Each build must have a short label naming its tradeoff (e.g. 'Within budget', 'Small upgrade', 'Max Performance') and its component parts. Returns compatibility results and authoritative code-calculated build snapshots with catalog prices, exact product IDs, and totals keyed by label. Preferred parts format uses exact catalog product IDs: {\"builds\":[{\"label\":\"Within budget\",\"parts\":{\"cpu\":{\"product_id\":\"in-cpu-amd-ryzen-5-5600-01\"},\"gpu\":{\"product_id\":\"in-gpu-msi-rtx-4060-01\"}}}]}.",
+      "Use validate_build to validate 1 to 5 proposed PC builds side by side in a single call before presenting them. Each build must have a short label naming its tradeoff (e.g. 'Within budget', 'Small upgrade', 'Max Performance') and its component parts. Returns compatibility results and authoritative code-calculated build snapshots with catalog prices, product IDs, and totals keyed by label. Preferred parts format uses catalog product ID prefixes from search_products (first 10 chars, min 8): {\"builds\":[{\"label\":\"Within budget\",\"parts\":{\"cpu\":{\"product_id\":\"da6670a41d\"},\"gpu\":{\"product_id\":\"a1f8c14e1a\"}}}]}.",
     inputSchema: validateBuildInputSchema,
+    toModelOutput: async ({ output }) => ({ type: "json", value: toModelValidateOutput(output) }) as never,
     execute: async (rawInput: unknown) => {
       const input = (rawInput ?? {}) as {
         builds?: Array<{ label: string; parts: BuildParts }>;
@@ -92,26 +174,68 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
         : { results: [], total_matching: 0 };
       const byId = new Map(products.results.map((product) => [product.id, product]));
 
+      // Resolve unique prefixes (>=8 chars) to full catalog IDs. Exact IDs
+      // win; otherwise a single LIKE match wins and ambiguous prefixes are
+      // reported as unresolved with candidates.
+      const prefixToFull = new Map<string, string>();
+      const prefixAmbiguous = new Map<string, string[]>();
+      for (const candidate of candidateIds) {
+        if (byId.has(candidate)) continue;
+        if (candidate.length < MIN_PREFIX_LEN) continue;
+        const matches = await findIdsByPrefix(candidate, scope, repo);
+        if (matches.length === 1 && !byId.has(matches[0])) {
+          const fullProducts = await repo.searchProducts(
+            { product_ids: [matches[0]], inStockOnly: false, limit: 1 },
+            scope
+          );
+          for (const p of fullProducts.results) byId.set(p.id, p);
+        }
+        if (matches.length === 1) {
+          prefixToFull.set(candidate, matches[0]);
+        } else if (matches.length > 1) {
+          prefixAmbiguous.set(candidate, matches);
+        }
+      }
+
+      const resolveSuppliedId = (raw: string): string => {
+        const trimmed = raw.trim();
+        if (byId.has(trimmed)) return trimmed;
+        const mapped = prefixToFull.get(trimmed);
+        if (mapped) return mapped;
+        // Fall back to in-memory prefix match against already-loaded IDs
+        // (covers mock repos without LIKE support).
+        const loaded = [...byId.keys()];
+        const res = resolveIdPrefix(trimmed, loaded);
+        if ("full" in res) return res.full;
+        return trimmed;
+      };
+
       const results: Record<string, ValidationResult & { snapshot: BuildSnapshot }> = {};
 
       for (const b of buildList) {
         // Narrow server-side normalization:
-        // If a legacy string exactly matches a catalog product ID in the active scope, treat it as that product ID.
-        // Preserve genuine registry-key/name support when there is no exact catalog ID match.
-        // Object product IDs are trimmed exactly like legacy strings so padded IDs resolve identically.
+        // Exact catalog IDs win; unique prefixes resolve to their full ID and
+        // are stored as full IDs. Registry-key/name support is preserved when
+        // there is no catalog ID match.
         const normalizePart = (part: BuildPart): BuildPart => {
           if (typeof part === "string") {
             const trimmed = part.trim();
-            if (byId.has(trimmed)) {
-              return { product_id: trimmed };
+            if (byId.has(trimmed) || prefixToFull.has(trimmed)) {
+              return { product_id: resolveSuppliedId(trimmed) };
+            }
+            // A hash-like string that resolves as a unique prefix against
+            // loaded IDs is a product reference, not a registry key.
+            if (trimmed.length >= MIN_PREFIX_LEN) {
+              const res = resolveIdPrefix(trimmed, [...byId.keys()]);
+              if ("full" in res) return { product_id: res.full };
             }
             return part;
           }
           if (part && typeof part.product_id === "string") {
             const pid = part.product_id.trim();
-            if (pid && pid !== part.product_id) {
-              return { ...part, product_id: pid };
-            }
+            const full = resolveSuppliedId(pid);
+            if (full !== part.product_id) return { ...part, product_id: full };
+            if (pid !== part.product_id) return { ...part, product_id: pid };
           }
           return part;
         };
@@ -129,6 +253,10 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
         const getUnresolvedMessage = (part: BuildPart, category: ComponentCategory): string => {
           if (typeof part === "object" && part && part.product_id) {
             const pid = part.product_id.trim();
+            const ambiguous = prefixAmbiguous.get(pid);
+            if (ambiguous) {
+              return `Ambiguous product ID prefix '${pid}' for ${category} matches ${ambiguous.length} products: ${ambiguous.map(shortId).join(", ")}. Pass more chars.`;
+            }
             const product = byId.get(pid);
             if (!product) {
               return `Unresolved product ID '${pid}' for ${category}. Verify the product ID from search_products results.`;
@@ -166,6 +294,7 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
 
         const snapshot = createBuildSnapshot({ label: b.label, parts: normalizedParts, validation, productsById: byId, scope });
         results[b.label] = { ...validation, snapshot };
+        recordValidation(turnStore, b.label, results[b.label]);
       }
 
       const isLegacySingle = !(rawInput && typeof rawInput === "object" && "builds" in rawInput) && Boolean((rawInput as { parts?: unknown })?.parts);

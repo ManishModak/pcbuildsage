@@ -1,0 +1,54 @@
+/** Short product-ID helpers: 40-char catalog hashes are shown as 10 chars. */
+
+export const SHORT_ID_LEN = 10;
+export const MIN_PREFIX_LEN = 8;
+
+export function shortId(id: string): string {
+  return id.slice(0, SHORT_ID_LEN);
+}
+
+function isPrefixMatch(wanted: string, full: string): boolean {
+  return full.toLowerCase().startsWith(wanted.toLowerCase());
+}
+
+export type PrefixResolution =
+  | { full: string }
+  | { error: string; ambiguous?: string[] };
+
+/**
+ * Resolve a user-supplied ID (full or unique prefix >=8 chars) against
+ * known full IDs. Exact matches win; otherwise a single prefix match wins.
+ */
+export function resolveIdPrefix(prefix: string, candidates: string[]): PrefixResolution {
+  const p = prefix.trim();
+  if (!p) return { error: "Empty product ID. Pass at least 8 chars from search_products." };
+  const exact = candidates.find((c) => c === p);
+  if (exact) return { full: exact };
+  if (p.length < MIN_PREFIX_LEN) {
+    return {
+      error: `Product ID '${p}' is too short (min ${MIN_PREFIX_LEN} chars). Pass at least ${MIN_PREFIX_LEN} chars from search_products.`
+    };
+  }
+  const matches = candidates.filter((c) => isPrefixMatch(p, c));
+  if (matches.length === 0) {
+    return {
+      error: `Unresolved product ID '${p}'. Verify the ID from search_products results.`
+    };
+  }
+  if (matches.length > 1) {
+    return {
+      ambiguous: matches,
+      error: `Ambiguous product ID prefix '${p}' matches ${matches.length} products: ${matches.map(shortId).join(", ")}. Pass more chars.`
+    };
+  }
+  return { full: matches[0] };
+}
+
+/** True when a presented ID refers to the same catalog row as a snapshot ID. */
+export function idsMatch(presented: string, snapshotId: string): boolean {
+  const p = presented.trim();
+  if (!p) return false;
+  if (p === snapshotId) return true;
+  if (p.length >= MIN_PREFIX_LEN && isPrefixMatch(p, snapshotId)) return true;
+  return false;
+}
