@@ -35,7 +35,8 @@ export function Composer({
   streaming,
   disabled,
   placeholder,
-  badge
+  badge,
+  initialValue = ""
 }: {
   onSend: (text: string) => void;
   onStop: () => void;
@@ -43,9 +44,18 @@ export function Composer({
   disabled?: boolean;
   placeholder?: string;
   badge?: React.ReactNode;
+  /** Prefilled draft (read once on mount); the user still has to send it. */
+  initialValue?: string;
 }) {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(initialValue);
   const ref = useRef<HTMLTextAreaElement>(null);
+  // Size a prefilled draft to its content, like typing would.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !el.value) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, []);
   // Re-evaluate the hosted BYOK gate when storage changes (key added/removed
   // in another tab) or when the window regains focus.
   const [byokTick, setByokTick] = useState(0);

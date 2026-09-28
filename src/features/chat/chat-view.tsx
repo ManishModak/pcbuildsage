@@ -144,7 +144,8 @@ export function ChatView({
   onPersisted,
   isActive = true,
   onStreamingChange,
-  isLoading = false
+  isLoading = false,
+  initialPrompt
 }: {
   config: ClientConfig;
   sessionId: string;
@@ -161,6 +162,8 @@ export function ChatView({
    * omit it behave exactly as before.
    */
   isLoading?: boolean;
+  /** Text to prefill (not send) in the composer, e.g. from a guide's `?prompt=` link. */
+  initialPrompt?: string;
 }) {
   const { setHeaderSuffix, updateConfig } = useApp();
   const configRef = useRef(config);
@@ -1055,6 +1058,7 @@ export function ChatView({
               // would be appended to is not the one the user is looking at.
               disabled={isLoading}
               streaming={streaming || activeIsCompacting}
+              initialValue={initialPrompt}
             />
             <p className="mt-2 text-center text-caption text-text-muted">
               {isHostedMode() ? (

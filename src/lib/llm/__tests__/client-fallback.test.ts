@@ -312,7 +312,7 @@ describe("probeToolCapability proves tool calling", () => {
     };
     const result = await probeToolCapability(entry, { sleep: noSleep });
     expect(result).toMatchObject({ ok: false, reason: "request_failed" });
-    expect(result.error).toMatch(/rejected the API key/);
+    expect(result.error).toContain("Your key was rejected. Check you copied all of it.");
   });
 
   it("retries once on 429, waiting out a short Retry-After", async () => {
@@ -338,7 +338,7 @@ describe("probeToolCapability proves tool calling", () => {
     const long = await probeToolCapability(entry, { sleep: noSleep });
     expect(calls).toBe(1);
     expect(long).toMatchObject({ ok: false, reason: "request_failed" });
-    expect(long.error).toMatch(/rate-limiting/);
+    expect(long.error).toContain("You've hit the free limit. Wait a bit or pick another free model.");
 
     calls = 0;
     aiState.generateImpl = async () => {

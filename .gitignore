@@ -1,6 +1,8 @@
 node_modules/
 .next/
 out/
+# Generated budget build-guide pages (track-g2 build artifact, produced in CI)
+site/
 dist/
 data/products.db
 data/products.db-*

@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import { z } from "zod";
 import { streamChat } from "@/lib/llm/chat-engine";
 import { compactChatMessages } from "@/lib/llm/messages";
+import { mapProviderErrorToPlainLanguage } from "@/content/api-key-help";
 import { parseCompactContext, type StoredCompactContext } from "@/lib/sessions";
 import { buildAppConfig, UnsafeConfigError } from "../_lib/credentials";
 import { badRequest, readJson, serverError } from "../_lib/responses";
@@ -10,6 +11,8 @@ import {
   exceedsHostedChatBodyLimit,
   HOSTED_CHAT_MAX_BODY_BYTES
 } from "@/lib/config/deployment";
+import { classifyErrorType, providerDimension } from "@/lib/analytics/events";
+import { flushInBackground, record as recordAnalytics } from "@/lib/analytics/store";
 
 export const runtime = "nodejs";
 
@@ -111,10 +114,15 @@ function sanitizeErrorMessage(error: unknown, headers?: Headers): string {
       }
     }
   }
-  return msg
+  const redacted = msg
     .replace(/\bAIza[0-9A-Za-z-_]{20,}\b/g, "[REDACTED]")
     .replace(/\bsk-(?:or-v1-)?[0-9A-Za-z-_]{15,}\b/g, "[REDACTED]")
     .replace(/([?&](?:api[_-]?key|key)=)[^&\s]+/gi, "$1[REDACTED]");
+  // Lead with plain language for rejected keys / exhausted free quotas so the
+  // chat UI can show it even before client-side formatting runs. Redaction
+  // above runs first so secrets never reach the appended detail.
+  const plain = mapProviderErrorToPlainLanguage({ message: redacted });
+  return plain && !redacted.startsWith(plain) ? `${plain} ${redacted}` : redacted;
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -148,6 +156,17 @@ export async function POST(request: Request): Promise<Response> {
       request.signal,
       clientCompactContext
     );
+    // Anonymous hosted-only counters; each call is total and fire-and-forget.
+    try {
+      // A chat starts with its first user message; later turns resend history.
+      if (body.messages.filter((message) => message.role === "user").length === 1) {
+        recordAnalytics("chat_started", "");
+      }
+      recordAnalytics("provider_used", providerDimension(result.provider));
+    } catch {
+      // Never break chat for analytics.
+    }
+    flushInBackground();
     return result.toUIMessageStreamResponse<UIMessage<{ provider: string; model: string; fallbackIndex: number; primaryError?: string; compactContext?: StoredCompactContext }>>({
       generateMessageId: () => result.responseMessageId,
       messageMetadata: () => ({
@@ -161,6 +180,12 @@ export async function POST(request: Request): Promise<Response> {
       }),
       onError: (error: unknown) => {
         const safeMsg = sanitizeErrorMessage(error, request.headers);
+        try {
+          recordAnalytics("error_type", classifyErrorType(error));
+        } catch {
+          // Never break chat for analytics.
+        }
+        flushInBackground();
         const requestSizeChars = JSON.stringify(body.messages).length;
         console.error(
           `POST /api/chat: Stream Error [model=${result.model ?? "unknown"}, provider=${result.provider ?? "unknown"}, messages=${body.messages.length}, requestSizeChars=${requestSizeChars}]:`,
@@ -171,6 +196,12 @@ export async function POST(request: Request): Promise<Response> {
     });
   } catch (error) {
     const safeMsg = sanitizeErrorMessage(error, request.headers);
+    try {
+      recordAnalytics("error_type", classifyErrorType(error));
+    } catch {
+      // Never break chat for analytics.
+    }
+    flushInBackground();
     console.error("POST /api/chat: Initialization Error:", safeMsg);
     if (
       error instanceof z.ZodError ||

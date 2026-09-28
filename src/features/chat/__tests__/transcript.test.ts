@@ -105,7 +105,7 @@ describe("transcript utilities", () => {
     expect(parsed.session.title).toBe("Test JSON Transcript");
     expect(parsed.session.model).toBe("gemini-2.5-flash");
     expect(parsed.session.currency).toBe("USD");
-    expect(parsed.error).toContain("Rate limit or quota reached (HTTP 429)");
+    expect(parsed.error).toContain("You've hit the free limit. Wait a bit or pick another free model.");
     expect(parsed.messages).toHaveLength(2);
     expect(parsed.messages[0].role).toBe("user");
     expect(parsed.messages[1].role).toBe("assistant");

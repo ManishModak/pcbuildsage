@@ -33,7 +33,7 @@ What you get:
 | 🇮🇳 **India today, more coming** | Retailers are defined in JSON profiles. Adding a retailer or a whole country is a pull request, no code required. |
 | 🤖 **AI consultant, real data** | Chat with the model of your choice (Gemini, OpenRouter, Groq, Ollama, any OpenAI-compatible API). It searches freshly scraped listings, never its memory. |
 | ✅ **One more trust layer** | The AI proposes parts; a deterministic rules engine checks sockets, DDR generation, PSU wattage and physical clearances before a build is presented. Anything it can't verify is shown as unverified. The engine is young: if you spot a wrong verdict, please [open an issue](https://github.com/ManishModak/pcbuildsage/issues). |
-| 🔒 **Private** | No accounts and no tracking. Run it 100% locally, or use the demo, where your key and chats stay in your browser. |
+| 🔒 **Private** | No accounts and no tracking cookies. Run it 100% locally, or use the demo, where your key and chats stay in your browser and the server keeps only anonymous daily totals. |
 | 💻 **Web app and terminal** | A friendly web wizard, or an interactive CLI with scriptable subcommands. |
 
 ---
@@ -46,6 +46,7 @@ What you get:
 - **Bring your own key.** Use a free key from [Google AI Studio](https://aistudio.google.com/app/apikey) (Gemini) or [OpenRouter](https://openrouter.ai/keys), which has free models. The demo never uses server-side keys.
 - **Your key stays in your browser.** It's kept in this tab's session storage and sent with each request only to reach your provider. It's never written to disk, stored in a database, or logged on the server.
 - **Your chats stay in your browser** too (IndexedDB). The server keeps no sessions.
+- **Anonymous usage totals only:** the demo keeps daily totals of six events: landing view, onboarding completed, chat started, build presented, provider used (the provider name only, e.g. `gemini`) and error type (a coarse class, e.g. `rate_limit`). It never stores IPs, cookies, user or session IDs, chat content, API keys, or model names. Local mode counts nothing.
 
 ---
 
@@ -115,8 +116,11 @@ Then open http://localhost:3000.
 | `TURSO_DATABASE_URL` | web service + refresh workflow | Turso (LibSQL) catalog URL |
 | `TURSO_READ_TOKEN` | web service | Read-only token for catalog reads |
 | `TURSO_INGEST_TOKEN` | refresh workflow only | Write token for `npm run publish-catalog`. Never set it on the web service. |
+| `ANALYTICS_TURSO_URL` / `ANALYTICS_TURSO_TOKEN` | web service (optional) | A separate Turso database for the anonymous daily totals. Unset means nothing is counted. |
 
 Render's health check is `GET /api/health`. It always returns HTTP 200, with `status: "degraded"` if Turso can't be reached. The catalog is refreshed by `.github/workflows/refresh-catalog.yml`. See `.env.example` for the full list.
+
+The same workflow publishes the static build guides to GitHub Pages. Before its first deploy, set **Settings → Pages → Source** to **GitHub Actions** in your fork, or the deploy step fails.
 
 Hosted mode also locks the server down: only public `/api` routes are reachable, requests are rate-limited per IP (60/min), chat payloads are capped (8 MB, 400 messages, 20,000 characters per typed message), and keyless search (DuckDuckGo, SearXNG) is turned off. Users bring a keyed search provider or none.
 

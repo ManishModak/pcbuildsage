@@ -22,6 +22,7 @@ import {
 import { Button, Card } from "@/components/ui/primitives";
 import { Icon } from "@/components/ui/icon";
 import { ByokProviderCard, type ProviderConfig } from "./byok-provider-card";
+import { KeyHelpPanel } from "./key-help-panel";
 
 const BYOK_PROVIDERS: ProviderConfig[] = [
   {
@@ -276,6 +277,8 @@ export function ByokSection({
           exclusively via per-request HTTP headers to guarantee zero server-side storage or logging.
         </p>
       </div>
+
+      <KeyHelpPanel />
 
       {configuredProviders.length > 1 && (
         <Card className="flex flex-col gap-3 p-4 bg-surface-raised border-border" data-testid="byok-active-provider-card">

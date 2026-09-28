@@ -19,8 +19,8 @@ describe("Error Diagnostics & Classification", () => {
   it("classifies rate limit / quota exceeded errors accurately", () => {
     const rateLimitError = "HTTP 429: Rate limit exceeded: free-tier limit 20 requests per minute";
     const formatted = getErrorMessageText(rateLimitError);
-    expect(formatted).toContain("Rate limit or quota reached (HTTP 429)");
-    expect(formatted).toContain("wait a moment before trying again");
+    expect(formatted).toContain("You've hit the free limit. Wait a bit or pick another free model.");
+    expect(formatted).toContain("free-tier limit");
   });
 
   it("does NOT diagnose generic HTTP 400 as context overflow without upstream evidence", () => {
