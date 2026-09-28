@@ -1,6 +1,28 @@
 {
   "name": "pcbuildsage",
   "version": "0.1.0",
+  "description": "AI PC build planner for India: builds from in-stock parts at Indian retailers, with exact totals, buy links and rule-checked compatibility.",
+  "keywords": [
+    "pc-builder",
+    "pc-building",
+    "pcpartpicker",
+    "compatibility-checker",
+    "price-comparison",
+    "india",
+    "ai-agent",
+    "tool-calling",
+    "llm",
+    "nextjs"
+  ],
+  "homepage": "https://pcbuildsage.onrender.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ManishModak/pcbuildsage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ManishModak/pcbuildsage/issues"
+  },
+  "license": "MIT",
   "private": true,
   "type": "module",
   "bin": {
