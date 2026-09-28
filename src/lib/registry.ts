@@ -4,6 +4,7 @@ import type Database from "better-sqlite3";
 import { getDb } from "@/lib/db";
 import type { RegistryResearchEntry } from "@/types";
 import { normalizeTitle, slugifyComponent } from "./normalizer";
+import { canonicalizeFormFactor } from "./spec-canonical";
 import { parseSpecsFromTitle } from "./spec-parsers";
 import { gpuVariant } from "./gpu-variant";
 
@@ -69,7 +70,7 @@ export function resolveComponent(
   let hit =
     canonical && (!category || canonical.category === category)
       ? canonical
-      : alias && (!category || alias.category === category)
+      : alias && (!category || alias.category === category) && !titleConflictsWithSpec(name, alias.spec, alias.category)
         ? alias
         : undefined;
 
@@ -83,7 +84,7 @@ export function resolveComponent(
   if (!hit && normalized) {
     for (const { pattern, resolved } of registry.sortedAliases) {
       if (!category || resolved.category === category) {
-        if (pattern.test(normalized) && compatible(resolved)) {
+        if (pattern.test(normalized) && compatible(resolved) && !titleConflictsWithSpec(name, resolved.spec, resolved.category)) {
           hit = resolved;
           break;
         }
@@ -170,6 +171,84 @@ export function withTitleGpuLength(hit: ResolvedSpec, name: string): ResolvedSpe
       spec_conflict: `GPU listing states card length ${stated}mm but the registry record ${hit.key} states ${existing}mm; the dimension is unverified.`
     }
   };
+}
+
+/**
+ * Variant words in a listing title must not be silently overridden by an alias
+ * hit. "MSI PRO B760M-A WIFI DDR4" substring-matches the DDR5 record
+ * (alias "PRO B760M-A"), which let DDR5 RAM pass on a DDR4 board. When the
+ * title states a conflicting spec - DDR generation, form factor, or laptop /
+ * SO-DIMM packaging - the conflicting record is skipped so resolution falls
+ * through to the correct record, a title parse, or unverified. Returns a
+ * reason string on conflict, undefined otherwise.
+ */
+export function titleConflictsWithSpec(title: string, spec: RegistrySpec, category: ComponentCategory): string | undefined {
+  if (category === "motherboard" || category === "ram") {
+    const titleDdr = extractTitleDdr(title);
+    const specDdr = typeof spec.ddr === "string" ? spec.ddr.toUpperCase() : undefined;
+    if (titleDdr && (specDdr === "DDR4" || specDdr === "DDR5") && titleDdr !== specDdr) {
+      return `listing states ${titleDdr} but the registry record states ${specDdr}`;
+    }
+  }
+
+  if (category === "motherboard") {
+    const titleFf = extractTitleFormFactor(title);
+    if (titleFf && typeof spec.form_factor === "string" && spec.form_factor.length > 0) {
+      const specFf = canonicalizeFormFactor(spec.form_factor);
+      const specItx = specFf === "mini-itx" || specFf === "itx";
+      if (titleFf === "mini-itx" && !specItx) {
+        return `listing states Mini-ITX but the registry record is ${spec.form_factor}`;
+      }
+      if (titleFf !== "mini-itx" && specItx) {
+        return `listing states ${titleFf} but the registry record is ${spec.form_factor}`;
+      }
+      if ((titleFf === "micro-atx" || titleFf === "atx" || titleFf === "e-atx") && specFf !== titleFf) {
+        return `listing states ${titleFf} but the registry record is ${spec.form_factor}`;
+      }
+    }
+  }
+
+  if (category === "ram") {
+    const titleSodimm = /\bSO[-\s]?DIMM\b/i.test(title) || /\bLAPTOP\b/i.test(title) || /\bNOTEBOOK\b/i.test(title);
+    if (titleSodimm) {
+      const ff = typeof spec.form_factor === "string" ? spec.form_factor.toLowerCase().replace(/[\s\-_]/g, "") : "";
+      const text = [spec.model, ...(spec.aliases ?? [])].join(" ");
+      const specSodimm = ff === "sodimm" || /\bSO[-\s]?DIMM\b/i.test(text) || /\bLAPTOP\b/i.test(text);
+      if (!specSodimm) {
+        return "listing states laptop/SO-DIMM memory but the registry record is desktop memory";
+      }
+    }
+  }
+
+  return undefined;
+}
+
+/** DDR generation explicitly stated in a listing title ("DDR4", "D4" suffix). */
+function extractTitleDdr(title: string): "DDR4" | "DDR5" | undefined {
+  const upper = title.toUpperCase();
+  const saysDdr5 = /\bDDR5\b/.test(upper) || /(?:^|[\s\-/])D5\b/.test(upper);
+  const saysDdr4 = /\bDDR4\b/.test(upper) || /(?:^|[\s\-/])D4\b/.test(upper);
+  if (saysDdr5 && !saysDdr4) return "DDR5";
+  if (saysDdr4 && !saysDdr5) return "DDR4";
+  return undefined;
+}
+
+/** Form factor explicitly stated in a listing title, incl. "-I" ITX suffixes. */
+function extractTitleFormFactor(title: string): "mini-itx" | "micro-atx" | "atx" | "e-atx" | undefined {
+  const upper = title.toUpperCase();
+  if (/\bMINI[-\s]?ITX\b/.test(upper) || /\bITX\b/.test(upper) || /\b[A-Z]+\d+[A-Z]*-I\b/.test(upper)) return "mini-itx";
+  if (/\bE[-\s]?ATX\b/.test(upper)) return "e-atx";
+  if (
+    /\bMICRO[-\s]?ATX\b/.test(upper) ||
+    /\bM[-\s]?ATX\b/.test(upper) ||
+    /\bU[-\s]?ATX\b/.test(upper) ||
+    /\b[A-Z]\d{3}M\b/.test(upper) ||
+    /\b[A-Z]\d{3}M-/.test(upper)
+  ) {
+    return "micro-atx";
+  }
+  if (/\bATX\b/.test(upper)) return "atx";
+  return undefined;
 }
 
 export function hasWattageConflict(spec: RegistrySpec): boolean {
