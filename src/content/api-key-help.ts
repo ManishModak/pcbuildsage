@@ -214,33 +214,68 @@ export const API_KEY_FAQS: ApiKeyHelpFaq[] = [
   }
 ];
 
-/** Plain-language copy for rejected credentials (HTTP 401/403). */
+/** Plain-language copy for rejected credentials (HTTP 401). */
 export const KEY_REJECTED_COPY = "Your key was rejected. Check you copied all of it.";
+
+/** Plain-language copy for a provider refusing access (HTTP 403): the key was accepted but not allowed here. */
+export const ACCESS_BLOCKED_COPY =
+  "The provider blocked access (HTTP 403), for example the model isn't available to this key or in your region. Try another model or provider.";
 
 /** Plain-language copy for exhausted free quotas (HTTP 429). */
 export const FREE_LIMIT_COPY = "You've hit the free limit. Wait a bit or pick another free model.";
 
-const AUTH_FAILURE_PATTERN =
-  /unauthorized|unauthenticated|forbidden|invalid api key|invalid_api_key|incorrect api key|invalid key|authentication failed|api key.*(revoked|expired|invalid)/i;
+/** Our own hosted-demo rate limiter (src/middleware.ts), not the provider's. */
+export const DEMO_RATE_LIMIT_CODE = "HOSTED_RATE_LIMITED";
+export const DEMO_RATE_LIMIT_COPY = "Too many requests from you on the demo; wait a minute.";
 
+const PLAIN_COPIES = [KEY_REJECTED_COPY, ACCESS_BLOCKED_COPY, FREE_LIMIT_COPY, DEMO_RATE_LIMIT_COPY];
+
+const DEMO_RATE_LIMIT_PATTERN = new RegExp(DEMO_RATE_LIMIT_CODE, "i");
+
+const AUTH_FAILURE_PATTERN =
+  /unauthorized|unauthenticated|invalid api key|invalid_api_key|incorrect api key|invalid key|authentication failed|api key.*(revoked|expired|invalid)/i;
+
+const ACCESS_BLOCKED_PATTERN = /forbidden|permission.?denied|not available in your (region|country)|unsupported (region|country|location)/i;
+
+// `quota` / `exhausted` only count next to limit wording: bare "quota" also
+// appears in billing errors that waiting won't fix.
 const RATE_LIMIT_PATTERN =
-  /rate.?limit|too many requests|quota|resource.?exhausted|tokens per minute|requests per minute|free-tier limit|request limit|exhausted/i;
+  /rate.?limit|too many requests|resource.?exhausted|tokens per minute|requests per minute|free-tier limit|request limit|quota.{0,40}(exceeded|exhausted|reached|limit)|(exceeded|exhausted|reached).{0,40}quota/i;
 
 const STATUS_CODE_PATTERN = /\b(401|403|429)\b/;
 
 /**
- * Map a provider failure to user-facing plain language. Returns the exact
- * 401/429 copy when the failure is a rejected key or an exhausted free quota,
- * otherwise undefined (caller keeps its existing message). Never throws.
+ * Map a failure to user-facing plain language: our own demo rate limit,
+ * a rejected key (401), a provider access block (403), or an exhausted free
+ * quota (429). Returns undefined otherwise (caller keeps its existing
+ * message). Never throws.
  */
 export function mapProviderErrorToPlainLanguage(input: { status?: number; message?: string }): string | undefined {
   const status = input.status;
   const message = input.message ?? "";
-  if (status === 401 || status === 403 || AUTH_FAILURE_PATTERN.test(message)) return KEY_REJECTED_COPY;
+  if (DEMO_RATE_LIMIT_PATTERN.test(message)) return DEMO_RATE_LIMIT_COPY;
+  if (status === 401) return KEY_REJECTED_COPY;
+  if (status === 403) return ACCESS_BLOCKED_COPY;
+  if (status === 429) return FREE_LIMIT_COPY;
+  if (AUTH_FAILURE_PATTERN.test(message)) return KEY_REJECTED_COPY;
+  if (ACCESS_BLOCKED_PATTERN.test(message)) return ACCESS_BLOCKED_COPY;
   const code = message.match(STATUS_CODE_PATTERN)?.[1];
-  if (status === 429 || code === "429" || RATE_LIMIT_PATTERN.test(message)) return FREE_LIMIT_COPY;
-  if (code === "401" || code === "403") return KEY_REJECTED_COPY;
+  if (code === "429" || RATE_LIMIT_PATTERN.test(message)) return FREE_LIMIT_COPY;
+  if (code === "401") return KEY_REJECTED_COPY;
+  if (code === "403") return ACCESS_BLOCKED_COPY;
   return undefined;
+}
+
+/**
+ * Removes a plain-language copy the server already prefixed (see
+ * sanitizeErrorMessage in src/app/api/chat/route.ts), so the client can add
+ * its own without showing it twice.
+ */
+export function stripPlainCopyPrefix(text: string): string {
+  for (const copy of PLAIN_COPIES) {
+    if (text.startsWith(copy)) return text.slice(copy.length).trimStart();
+  }
+  return text;
 }
 
 /** Flat list of every sourced statement, for the source-coverage test. */

@@ -1,7 +1,12 @@
 // Formatting helpers. Prices are integer minor units everywhere in the API;
 // these render them for display. Kept framework-agnostic and unit-tested.
 
-import { FREE_LIMIT_COPY, KEY_REJECTED_COPY, mapProviderErrorToPlainLanguage } from "@/content/api-key-help";
+import {
+  DEMO_RATE_LIMIT_COPY,
+  FREE_LIMIT_COPY,
+  mapProviderErrorToPlainLanguage,
+  stripPlainCopyPrefix
+} from "@/content/api-key-help";
 
 const CURRENCY_MINOR_DIGITS: Record<string, number> = {
   INR: 2,
@@ -167,6 +172,13 @@ export function getErrorMessageText(msg: string): string {
     }
   }
 
+  // The chat route already leads with plain copy; drop it so it isn't shown
+  // twice once this function adds its own.
+  const strippedMsg = stripPlainCopyPrefix(msg);
+  if (!strippedMsg) return msg; // Nothing but the plain copy: show it as is.
+  msg = strippedMsg;
+  extracted = stripPlainCopyPrefix(extracted);
+
   const combined = `${msg} ${extracted}`.toLowerCase();
 
   const isDailyQuota =
@@ -188,12 +200,10 @@ export function getErrorMessageText(msg: string): string {
   // shared api-key-help module so chat, probe, and API surfaces agree.
   const plainCopy = mapProviderErrorToPlainLanguage({ message: combined });
   const shortDetail = extracted !== msg ? extracted : (msg.length < 120 ? msg : "");
-  if (plainCopy === KEY_REJECTED_COPY) {
-    return `${KEY_REJECTED_COPY}${shortDetail ? ` Details: ${shortDetail}` : ""}`;
-  }
-
-  if (plainCopy === FREE_LIMIT_COPY) {
-    return `${FREE_LIMIT_COPY}${shortDetail ? ` Details: ${shortDetail}` : ""}`;
+  // Our own demo limiter's detail adds nothing to the plain copy.
+  if (plainCopy === DEMO_RATE_LIMIT_COPY) return DEMO_RATE_LIMIT_COPY;
+  if (plainCopy) {
+    return `${plainCopy}${shortDetail ? ` Details: ${shortDetail}` : ""}`;
   }
 
   if (

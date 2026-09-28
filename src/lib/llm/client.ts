@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { LLMChainEntry, LLMProvider, LLMRole } from "@/types";
 import { isHostedDemo } from "../config/deployment";
 import { envKeyAllowed } from "./env-key-scope";
-import { FREE_LIMIT_COPY, KEY_REJECTED_COPY } from "@/content/api-key-help";
+import { ACCESS_BLOCKED_COPY, FREE_LIMIT_COPY, KEY_REJECTED_COPY } from "@/content/api-key-help";
 
 /** Generous first-token timeout for the main chat stream (local models load slowly). */
 export const DEFAULT_FIRST_TOKEN_TIMEOUT_MS = 120_000;
@@ -311,8 +311,11 @@ function describeProbeRequestFailure(error: unknown, signal: AbortSignal | undef
   if (status === 429 || /rate limit|too many requests|quota/i.test(detail)) {
     return { error: `${FREE_LIMIT_COPY} (${detail})`, remedies: ["Wait a bit and test again, or pick another free model."] };
   }
-  if (status === 401 || status === 403) {
+  if (status === 401) {
     return { error: `${KEY_REJECTED_COPY} (${detail})`, remedies: ["Check you copied the full key into Settings, then test again."] };
+  }
+  if (status === 403) {
+    return { error: `${ACCESS_BLOCKED_COPY} (${detail})`, remedies: ["Pick another model or provider, then test again."] };
   }
   return { error: `The tool test request failed (${detail}).`, remedies: ["Check the endpoint and try again."] };
 }

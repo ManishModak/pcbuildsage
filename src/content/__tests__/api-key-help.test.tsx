@@ -5,6 +5,8 @@ import {
   API_KEY_FACTS,
   API_KEY_GUIDES,
   API_KEY_HELP_CHECKED_ON,
+  ACCESS_BLOCKED_COPY,
+  DEMO_RATE_LIMIT_COPY,
   FREE_LIMIT_COPY,
   KEY_REJECTED_COPY,
   allApiKeyHelpFacts,
@@ -49,9 +51,8 @@ describe("api-key-help sources", () => {
 });
 
 describe("mapProviderErrorToPlainLanguage", () => {
-  it("maps 401/403 to the exact rejected-key copy", () => {
+  it("maps 401 to the exact rejected-key copy", () => {
     expect(mapProviderErrorToPlainLanguage({ status: 401 })).toBe(KEY_REJECTED_COPY);
-    expect(mapProviderErrorToPlainLanguage({ status: 403 })).toBe(KEY_REJECTED_COPY);
     expect(mapProviderErrorToPlainLanguage({ message: "[HTTP 401] Unauthorized" })).toBe(KEY_REJECTED_COPY);
     expect(mapProviderErrorToPlainLanguage({ message: "Invalid API key provided" })).toBe(KEY_REJECTED_COPY);
     expect(KEY_REJECTED_COPY).toBe("Your key was rejected. Check you copied all of it.");
@@ -64,6 +65,28 @@ describe("mapProviderErrorToPlainLanguage", () => {
     expect(FREE_LIMIT_COPY).toBe("You've hit the free limit. Wait a bit or pick another free model.");
   });
 
+  it("maps 403 to access-blocked copy, not 'key rejected'", () => {
+    expect(mapProviderErrorToPlainLanguage({ status: 403 })).toBe(ACCESS_BLOCKED_COPY);
+    expect(mapProviderErrorToPlainLanguage({ message: "[HTTP 403] Forbidden" })).toBe(ACCESS_BLOCKED_COPY);
+    expect(mapProviderErrorToPlainLanguage({ message: "User location is not supported... 403" })).toBe(ACCESS_BLOCKED_COPY);
+  });
+
+  it("recognises our own demo rate limit before provider limits", () => {
+    const body = JSON.stringify({
+      error: "Rate limit exceeded. Please retry shortly.",
+      message: "Rate limit exceeded. Please retry shortly.",
+      code: "HOSTED_RATE_LIMITED"
+    });
+    expect(mapProviderErrorToPlainLanguage({ status: 429, message: body })).toBe(DEMO_RATE_LIMIT_COPY);
+    expect(getErrorMessage(new Error(body))).toBe(DEMO_RATE_LIMIT_COPY);
+  });
+
+  it("needs limit wording next to 'quota' or 'exhausted'", () => {
+    expect(mapProviderErrorToPlainLanguage({ message: "insufficient_quota: add billing details" })).toBeUndefined();
+    expect(mapProviderErrorToPlainLanguage({ message: "connection pool exhausted" })).toBeUndefined();
+    expect(mapProviderErrorToPlainLanguage({ message: "quota exceeded for metric" })).toBe(FREE_LIMIT_COPY);
+  });
+
   it("returns undefined for unrelated failures", () => {
     expect(mapProviderErrorToPlainLanguage({ message: "Custom hardware failure code 99" })).toBeUndefined();
     expect(mapProviderErrorToPlainLanguage({ status: 503, message: "Service Unavailable" })).toBeUndefined();
@@ -74,7 +97,17 @@ describe("mapProviderErrorToPlainLanguage", () => {
 describe("chat UI provider-error copy", () => {
   it("shows the rejected-key copy for 401 inputs", () => {
     expect(getErrorMessageText("[HTTP 401] Unauthorized: invalid API key")).toContain(KEY_REJECTED_COPY);
-    expect(getErrorMessage(new Error("API request failed with status 403 Forbidden"))).toContain(KEY_REJECTED_COPY);
+    expect(getErrorMessage(new Error("API request failed with status 403 Forbidden"))).toContain(ACCESS_BLOCKED_COPY);
+  });
+
+  it("shows server-prefixed plain copy once", () => {
+    // What the chat route sends: plain copy first, then the redacted detail.
+    const fromServer = `${KEY_REJECTED_COPY} [HTTP 401] Unauthorized`;
+    const shown = getErrorMessage(new Error(fromServer));
+    expect(shown.split(KEY_REJECTED_COPY)).toHaveLength(2);
+    expect(shown).toBe(`${KEY_REJECTED_COPY} Details: [HTTP 401] Unauthorized`);
+    const limit = getErrorMessageText(JSON.stringify({ error: `${FREE_LIMIT_COPY} [HTTP 429] Too Many Requests` }));
+    expect(limit.split(FREE_LIMIT_COPY)).toHaveLength(2);
   });
 
   it("shows the free-limit copy for 429 inputs", () => {
