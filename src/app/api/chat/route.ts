@@ -7,6 +7,7 @@ import { buildAppConfig, UnsafeConfigError } from "../_lib/credentials";
 import { badRequest, readJson, serverError } from "../_lib/responses";
 import {
   checkChatPayloadSize,
+  exceedsHostedChatBodyLimit,
   HOSTED_CHAT_MAX_BODY_BYTES
 } from "@/lib/config/deployment";
 
@@ -118,8 +119,8 @@ function sanitizeErrorMessage(error: unknown, headers?: Headers): string {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const declaredLength = Number(request.headers.get("content-length") ?? "0");
-    if (Number.isFinite(declaredLength) && declaredLength > HOSTED_CHAT_MAX_BODY_BYTES) {
+    // Payload caps apply only in hosted-demo mode (no-ops locally).
+    if (exceedsHostedChatBodyLimit(request.headers)) {
       return Response.json(
         { error: "payload_too_large", message: `Request body exceeds ${HOSTED_CHAT_MAX_BODY_BYTES} bytes.` },
         { status: 413 }

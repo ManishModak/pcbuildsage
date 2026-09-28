@@ -10,6 +10,7 @@ import { getSession, saveCompactContext, isSessionCompacting } from "@/lib/sessi
 import type { BuildSnapshot } from "@/lib/catalog/build-snapshot";
 import {
   checkChatPayloadSize,
+  exceedsHostedChatBodyLimit,
   HOSTED_CHAT_MAX_BODY_BYTES,
   isHostedDemo
 } from "@/lib/config/deployment";
@@ -47,8 +48,8 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const declaredLength = Number(request.headers.get("content-length") ?? "0");
-    if (Number.isFinite(declaredLength) && declaredLength > HOSTED_CHAT_MAX_BODY_BYTES) {
+    // Payload caps apply only in hosted-demo mode (no-ops locally).
+    if (exceedsHostedChatBodyLimit(request.headers)) {
       return Response.json(
         { error: "payload_too_large", message: `Request body exceeds ${HOSTED_CHAT_MAX_BODY_BYTES} bytes.` },
         { status: 413 }

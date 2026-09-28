@@ -40,26 +40,12 @@ What you get:
 
 ## Hosted demo
 
+[pcbuildsage.onrender.com](https://pcbuildsage.onrender.com):
+
+- **India catalog**, refreshed twice a day from Indian retailers such as MDComputers, PrimeABGB, Vedant Computers, PC Studio and Kryptronix.
+- **Bring your own key.** Use a free key from [Google AI Studio](https://aistudio.google.com/app/apikey) (Gemini) or [OpenRouter](https://openrouter.ai/keys), which has free models. The demo never uses server-side keys.
+- **Your key stays in your browser.** It's kept in this tab's session storage and sent with each request only to reach your provider. It's never written to disk, stored in a database, or logged on the server.
 - **Your chats stay in your browser** too (IndexedDB). The server keeps no sessions.
-- **Hosted hardening**: the Edge middleware uses a default-deny allowlist (only `/api/health`, `/api/status`, `/api/markets`, `/api/chat*`, `/api/config`, `/api/models`, `/api/themes`, `/api/personalities`, `/api/endpoints`, `/api/validate`, `/api/search/probe`, `/api/llm/probe` are reachable), enforces a 60 req/min per-IP rate limit (reusable via `checkHostedRateLimit` in `src/lib/config/deployment.ts`), caps chat payloads at 1 MB / 100 messages / 100k chars per message (HTTP 413), and disables keyless/self-hosted search providers (`duckduckgo`, `searxng`) — use a keyed provider (`exa`, `tavily`, `brave`) or `none`.
-
-### Hosted setup (Render + Turso)
-
-Turso catalog credentials (see `.env.example`):
-
-| Variable | Used by | Purpose |
-| :-- | :-- | :-- |
-| `TURSO_DATABASE_URL` | server + refresh workflow | LibSQL URL for the hosted catalog |
-| `TURSO_READ_TOKEN` | server | read-only token for live catalog reads |
-| `TURSO_INGEST_TOKEN` | refresh workflow only | fine-grained write token for `npm run publish-catalog` (never shipped to the web service) |
-| `PCBUILDSAGE_DEPLOYMENT_MODE=hosted-demo` | server | enables hosted hardening |
-
-Render service settings (`render.yaml` in this repo is the source of truth):
-
-- **Runtime:** Docker, **Plan:** Starter (or higher), **Region:** same as your Turso DB when possible.
-- **Health check:** `GET /api/health` (returns HTTP 200 with `{ status: "ok", catalog: { reachable, productCount } }`; the catalog check is a single cheap COUNT query and never fails the check).
-- **Env vars:** `PCBUILDSAGE_DEPLOYMENT_MODE=hosted-demo`, `TURSO_DATABASE_URL`, `TURSO_READ_TOKEN` (do NOT set `TURSO_INGEST_TOKEN` on the web service).
-- **Refresh:** the `.github/workflows/refresh-catalog.yml` workflow (Node 22, Python 3.11) scrapes into runner-local temp storage, validates the snapshot, and publishes with `TURSO_INGEST_TOKEN`.
 
 ---
 
@@ -118,6 +104,21 @@ docker run -d -p 127.0.0.1:3000:10000 -e PCBUILDSAGE_DEPLOYMENT_MODE=local pcbui
 ```
 
 Then open http://localhost:3000.
+
+### Deploy your own (free tier: Render + Turso)
+
+`render.yaml` deploys the Docker image as a Render **free** web service that reads the catalog from a **free** Turso database. Before applying the Blueprint to an account that already runs PCBuildSage, match the existing service's `name` and `region` in `render.yaml` so you update it instead of creating a duplicate.
+
+| Variable | Where | Purpose |
+| :-- | :-- | :-- |
+| `PCBUILDSAGE_DEPLOYMENT_MODE=hosted-demo` | web service | Turns on hosted mode |
+| `TURSO_DATABASE_URL` | web service + refresh workflow | Turso (LibSQL) catalog URL |
+| `TURSO_READ_TOKEN` | web service | Read-only token for catalog reads |
+| `TURSO_INGEST_TOKEN` | refresh workflow only | Write token for `npm run publish-catalog`. Never set it on the web service. |
+
+Render's health check is `GET /api/health`. It always returns HTTP 200, with `status: "degraded"` if Turso can't be reached. The catalog is refreshed by `.github/workflows/refresh-catalog.yml`. See `.env.example` for the full list.
+
+Hosted mode also locks the server down: only public `/api` routes are reachable, requests are rate-limited per IP (60/min), chat payloads are capped (8 MB, 400 messages, 20,000 characters per typed message), and keyless search (DuckDuckGo, SearXNG) is turned off. Users bring a keyed search provider or none.
 
 ---
 

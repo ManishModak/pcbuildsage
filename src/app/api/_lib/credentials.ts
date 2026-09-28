@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { resolveConfig } from "@/lib/config";
-import { getDeploymentMode, validateChatProviderUrl, validateSearchBaseUrl, type DeploymentMode } from "@/lib/config/deployment";
+import { getDeploymentMode, isHostedSearchProviderAllowed, validateChatProviderUrl, validateSearchBaseUrl, type DeploymentMode } from "@/lib/config/deployment";
 import type { AppConfig, ConfigInput, LLMChainEntry, LLMProvider, SearchProvider } from "@/types";
 import { envKeyAllowed } from "@/lib/llm/env-key-scope";
 import { resolveSandboxedPath } from "./paths";
@@ -29,11 +29,24 @@ export function assertSafeLlmChain(chain: LLMChainEntry[], mode: DeploymentMode)
   }
 }
 
-export function assertSafeSearchConfig(search: AppConfig["search"], mode: DeploymentMode): void {
-  if (mode === "local") return;
+/**
+ * Returns the search config that is safe to use for this deployment mode.
+ * Local mode: unchanged. Hosted-demo mode: keyed providers (exa/tavily/brave)
+ * are kept only when the request carries their key; gemini-native is kept
+ * (it grounds through the user's own Gemini call, no server-side search).
+ * Everything else (duckduckgo, searxng, keyed-without-key) is coerced to
+ * "none", so a request that omits searchProvider (config default duckduckgo)
+ * still works without server-side scraping.
+ * Throws UnsafeConfigError when a kept provider's baseUrl fails SSRF checks.
+ */
+export function assertSafeSearchConfig(search: AppConfig["search"], mode: DeploymentMode): AppConfig["search"] {
+  if (mode === "local") return search;
 
-  if (search.provider === "searxng") {
-    throw new UnsafeConfigError("Search provider 'searxng' is not supported in hosted-demo mode.");
+  const provider = search.provider;
+  const allowed = provider !== "none" && isHostedSearchProviderAllowed(provider, mode);
+  const hasRequiredKey = provider === "gemini-native" || Boolean(search.apiKey);
+  if (!allowed || !hasRequiredKey) {
+    return { ...search, provider: "none", baseUrl: undefined, apiKey: undefined };
   }
 
   if (search.baseUrl && search.baseUrl.trim() !== "") {
@@ -42,6 +55,7 @@ export function assertSafeSearchConfig(search: AppConfig["search"], mode: Deploy
       throw new UnsafeConfigError(check.reason ?? `Search endpoint URL "${search.baseUrl}" is not permitted in hosted-demo mode.`);
     }
   }
+  return search;
 }
 
 const providerSchema = z.enum(["gemini", "ollama", "openrouter", "openai-compatible", "groq"]);
@@ -89,7 +103,7 @@ export function buildAppConfig(headers: Headers, bodyConfig: unknown = {}): AppC
     assertSafeLlmChain(hydrated.llm.roles.chat, mode);
     assertSafeLlmChain(hydrated.llm.roles.subagent, mode);
     assertSafeLlmChain(hydrated.llm.roles.scraper, mode);
-    assertSafeSearchConfig(hydrated.search, mode);
+    return { ...hydrated, search: assertSafeSearchConfig(hydrated.search, mode) };
   }
 
   return hydrated;

@@ -567,35 +567,22 @@ describe("Adversarial M0 Empirical Stress Test Suite", () => {
       }));
       expect(res3.status).toBe(400);
 
-      // Case D: SearXNG in hosted mode
+      // Case D: SearchBaseUrl SSRF on a kept keyed provider (searxng /
+      // duckduckgo are coerced to "none" in hosted mode, see
+      // tests/hosted-hardening.test.ts).
       const res4 = await chatRoute(new Request("http://localhost/api/chat", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-exa-api-key": "test-key" },
         body: JSON.stringify({
           messages: [{ role: "user", content: "hello" }],
           config: {
             llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }],
-            searchProvider: "searxng",
-            searchBaseUrl: "http://localhost:8080"
-          }
-        })
-      }));
-      expect(res4.status).toBe(400);
-
-      // Case E: SearchBaseUrl SSRF
-      const res5 = await chatRoute(new Request("http://localhost/api/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: "hello" }],
-          config: {
-            llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }],
-            searchProvider: "duckduckgo",
+            searchProvider: "exa",
             searchBaseUrl: "http://127.0.0.1:8080"
           }
         })
       }));
-      expect(res5.status).toBe(400);
+      expect(res4.status).toBe(400);
     });
   });
 
@@ -618,7 +605,8 @@ describe("Adversarial M0 Empirical Stress Test Suite", () => {
       const res2 = await healthRoute();
       expect(res2.status).toBe(200);
       const body2 = (await res2.json()) as { status: string; mode: string; timestamp: string };
-      expect(body2.status).toBe("ok");
+      // Hosted: "ok" with a reachable Turso, "degraded" otherwise; always HTTP 200.
+      expect(["ok", "degraded"]).toContain(body2.status);
       expect(body2.mode).toBe("hosted-demo");
       expect(body2.timestamp).toBeDefined();
     });

@@ -293,18 +293,52 @@ export function isRouteAllowedInHostedMode(
 }
 
 // ---------------------------------------------------------------------------
-// Hosted per-IP rate limiting (simple in-memory token bucket).
+// Hosted per-IP rate limiting (simple in-memory fixed-window counter).
 // Reusable by the hosted chat routes and a future judge-demo service:
 // call `checkHostedRateLimit(ip)` and return 429 when `allowed` is false.
+// Expired buckets are swept once per window and the map is capped at
+// HOSTED_RATE_LIMIT_MAX_BUCKETS (oldest insertion evicted first), so memory
+// stays bounded on a long-running free-tier instance.
 // ---------------------------------------------------------------------------
 
 export const HOSTED_RATE_LIMIT_MAX_REQUESTS = 60;
 export const HOSTED_RATE_LIMIT_WINDOW_MS = 60_000;
+export const HOSTED_RATE_LIMIT_MAX_BUCKETS = 10_000;
+
+/** Paths that never count against (or get blocked by) the hosted rate limit. */
+export const HOSTED_RATE_LIMIT_EXEMPT_PATHS: readonly string[] = ["/api/health"] as const;
 
 const hostedRateBuckets = new Map<string, { count: number; resetAt: number }>();
+let lastRateSweepAt = 0;
 
 export function resetHostedRateLimitsForTesting(): void {
   hostedRateBuckets.clear();
+  lastRateSweepAt = 0;
+}
+
+/** Number of live buckets; exposed for eviction tests. */
+export function hostedRateBucketCountForTesting(): number {
+  return hostedRateBuckets.size;
+}
+
+export function isRateLimitExemptPath(pathname: string): boolean {
+  const normalized = normalizeRoutePath(pathname);
+  return HOSTED_RATE_LIMIT_EXEMPT_PATHS.includes(normalized);
+}
+
+function sweepHostedRateBuckets(now: number, windowMs: number): void {
+  if (now - lastRateSweepAt >= windowMs) {
+    lastRateSweepAt = now;
+    for (const [key, bucket] of hostedRateBuckets) {
+      if (now >= bucket.resetAt) hostedRateBuckets.delete(key);
+    }
+  }
+  // Hard cap: Map iterates in insertion order, so the first keys are oldest.
+  while (hostedRateBuckets.size >= HOSTED_RATE_LIMIT_MAX_BUCKETS) {
+    const oldest = hostedRateBuckets.keys().next().value;
+    if (oldest === undefined) break;
+    hostedRateBuckets.delete(oldest);
+  }
 }
 
 export function checkHostedRateLimit(
@@ -317,6 +351,8 @@ export function checkHostedRateLimit(
   const key = (ip || "unknown").trim().toLowerCase() || "unknown";
   const bucket = hostedRateBuckets.get(key);
   if (!bucket || now >= bucket.resetAt) {
+    if (bucket) hostedRateBuckets.delete(key);
+    sweepHostedRateBuckets(now, windowMs);
     hostedRateBuckets.set(key, { count: 1, resetAt: now + windowMs });
     return { allowed: true, retryAfterMs: 0 };
   }
@@ -327,7 +363,18 @@ export function checkHostedRateLimit(
   return { allowed: false, retryAfterMs: Math.max(0, bucket.resetAt - now) };
 }
 
-/** Extracts the client IP for rate limiting (honours common proxy headers). */
+/**
+ * Extracts the client IP for rate limiting on Render.
+ *
+ * Render's docs say to read `x-forwarded-for` for the client IP
+ * (https://render.com/articles/how-render-handles-ddos-attacks) and Render
+ * staff state Render sets the FIRST entry to the real client IP
+ * (https://feedback.render.com/features/p/send-the-correct-xforwardedfor), so
+ * the first entry is the proxy-controlled one. Later entries are proxy hops
+ * (Cloudflare/Render edge); keying on the rightmost would lump many users into
+ * one bucket. Render does not document True-Client-IP, so it is not used.
+ * `x-real-ip` is only a fallback for non-Render proxies.
+ */
 export function getClientIpForRateLimit(headers: Headers): string {
   const forwarded = headers.get("x-forwarded-for");
   if (forwarded) {
@@ -341,10 +388,9 @@ export function getClientIpForRateLimit(headers: Headers): string {
 
 // ---------------------------------------------------------------------------
 // Hosted search provider policy: keyless / self-hosted providers are disabled.
-// `duckduckgo` (keyless) and `searxng` (self-hosted) are rejected in
-// hosted-demo mode; keyed providers (exa, tavily, brave, gemini-native) and
-// `none` remain allowed. URL-level validation in validateSearchBaseUrl is
-// unchanged for backwards compatibility.
+// Enforced in assertSafeSearchConfig (src/app/api/_lib/credentials.ts), which
+// coerces anything not allowed here (or a keyed provider without a key) to
+// "none" so hosted requests never trigger server-side scraping search.
 // ---------------------------------------------------------------------------
 
 export const HOSTED_ALLOWED_SEARCH_PROVIDERS: readonly string[] = [
@@ -368,20 +414,55 @@ export function isHostedSearchProviderAllowed(
 
 // ---------------------------------------------------------------------------
 // Hosted chat payload limits (shared by /api/chat and /api/chat/compact).
+// Applied only in hosted-demo mode. Sized for real sessions: assistant
+// messages carry tool outputs and routinely reach several hundred KB, so only
+// user-typed text parts get a per-message cap; the body and message count caps
+// bound total memory per request.
 // ---------------------------------------------------------------------------
 
-export const HOSTED_CHAT_MAX_BODY_BYTES = 1024 * 1024;
-export const HOSTED_CHAT_MAX_MESSAGES = 100;
-export const HOSTED_CHAT_MAX_MESSAGE_CHARS = 100_000;
+export const HOSTED_CHAT_MAX_BODY_BYTES = 8 * 1024 * 1024;
+export const HOSTED_CHAT_MAX_MESSAGES = 400;
+export const HOSTED_CHAT_MAX_USER_TEXT_CHARS = 20_000;
 
-export function checkChatPayloadSize(body: unknown): { allowed: boolean; reason?: string } {
+function utf8ByteLength(value: string): number {
+  return typeof Buffer !== "undefined" ? Buffer.byteLength(value, "utf8") : new TextEncoder().encode(value).length;
+}
+
+/** Length of the user-typed text in a message (`content` plus `text` parts). */
+function userTextLength(message: unknown): number {
+  const m = message as { content?: unknown; parts?: unknown };
+  let total = typeof m?.content === "string" ? m.content.length : 0;
+  if (Array.isArray(m?.parts)) {
+    for (const part of m.parts) {
+      const p = part as { type?: unknown; text?: unknown };
+      if (p?.type === "text" && typeof p.text === "string") total += p.text.length;
+    }
+  }
+  return total;
+}
+
+/** True when a declared Content-Length already exceeds the hosted body cap. */
+export function exceedsHostedChatBodyLimit(
+  headers: Headers,
+  mode: DeploymentMode = getDeploymentMode()
+): boolean {
+  if (mode !== "hosted-demo") return false;
+  const declared = Number(headers.get("content-length") ?? "0");
+  return Number.isFinite(declared) && declared > HOSTED_CHAT_MAX_BODY_BYTES;
+}
+
+export function checkChatPayloadSize(
+  body: unknown,
+  mode: DeploymentMode = getDeploymentMode()
+): { allowed: boolean; reason?: string } {
+  if (mode !== "hosted-demo") return { allowed: true };
   let serialized: string;
   try {
     serialized = JSON.stringify(body ?? {});
   } catch {
     return { allowed: false, reason: "Request body is not serializable." };
   }
-  if (serialized.length > HOSTED_CHAT_MAX_BODY_BYTES) {
+  if (utf8ByteLength(serialized) > HOSTED_CHAT_MAX_BODY_BYTES) {
     return {
       allowed: false,
       reason: `Request body exceeds ${HOSTED_CHAT_MAX_BODY_BYTES} bytes.`
@@ -396,13 +477,11 @@ export function checkChatPayloadSize(body: unknown): { allowed: boolean; reason?
       };
     }
     for (const m of messages) {
-      const text =
-        (m as { content?: unknown })?.content ??
-        JSON.stringify((m as { parts?: unknown })?.parts ?? "");
-      if (typeof text === "string" && text.length > HOSTED_CHAT_MAX_MESSAGE_CHARS) {
+      if ((m as { role?: unknown })?.role !== "user") continue;
+      if (userTextLength(m) > HOSTED_CHAT_MAX_USER_TEXT_CHARS) {
         return {
           allowed: false,
-          reason: `A message exceeds ${HOSTED_CHAT_MAX_MESSAGE_CHARS} characters.`
+          reason: `A user message exceeds ${HOSTED_CHAT_MAX_USER_TEXT_CHARS} characters.`
         };
       }
     }

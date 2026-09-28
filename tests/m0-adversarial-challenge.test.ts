@@ -193,18 +193,17 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
       expect(validateSearchBaseUrl("http://127.0.0.1:8888", "local").allowed).toBe(true);
     });
 
-    it("assertSafeSearchConfig disallows searxng and unapproved search URLs in hosted-demo mode", () => {
-      expect(() => {
-        assertSafeSearchConfig({ provider: "searxng", crawlEnabled: false }, "hosted-demo");
-      }).toThrow(UnsafeConfigError);
+    it("assertSafeSearchConfig coerces searxng/duckduckgo to none and rejects unapproved keyed search URLs in hosted-demo mode", () => {
+      // Keyless / self-hosted providers never run server-side in hosted mode.
+      expect(assertSafeSearchConfig({ provider: "searxng", crawlEnabled: false }, "hosted-demo").provider).toBe("none");
+      const ddg = assertSafeSearchConfig({ provider: "duckduckgo", baseUrl: "http://169.254.169.254", crawlEnabled: false }, "hosted-demo");
+      expect(ddg.provider).toBe("none");
+      expect(ddg.baseUrl).toBeUndefined();
 
+      // A kept keyed provider still has its baseUrl SSRF-checked.
       expect(() => {
-        assertSafeSearchConfig({ provider: "duckduckgo", baseUrl: "http://169.254.169.254", crawlEnabled: false }, "hosted-demo");
+        assertSafeSearchConfig({ provider: "tavily", apiKey: "k", baseUrl: "http://169.254.169.254", crawlEnabled: false }, "hosted-demo");
       }).toThrow(UnsafeConfigError);
-
-      expect(() => {
-        assertSafeSearchConfig({ provider: "duckduckgo", crawlEnabled: false }, "hosted-demo");
-      }).not.toThrow();
 
       // Local mode permits searxng
       expect(() => {
@@ -276,35 +275,15 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
       expect(response.status).toBe(400);
     });
 
-    it("POST /api/chat rejects searchProvider searxng in hosted-demo mode", async () => {
+    it("POST /api/chat rejects malicious searchBaseUrl for a keyed provider in hosted-demo mode", async () => {
       const request = new Request("http://localhost:3000/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-tavily-api-key": "test-key" },
         body: JSON.stringify({
           messages: [{ role: "user", content: "hello" }],
           config: {
             llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }],
-            searchProvider: "searxng",
-            searchBaseUrl: "http://localhost:8080"
-          }
-        })
-      });
-
-      const response = await postChat(request);
-      expect(response.status).toBe(400);
-      const json = await response.json();
-      expect(JSON.stringify(json)).toContain("searxng");
-    });
-
-    it("POST /api/chat rejects malicious searchBaseUrl in hosted-demo mode", async () => {
-      const request = new Request("http://localhost:3000/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: "hello" }],
-          config: {
-            llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }],
-            searchProvider: "duckduckgo",
+            searchProvider: "tavily",
             searchBaseUrl: "http://169.254.169.254"
           }
         })
@@ -319,7 +298,7 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
     it("POST /api/chat rejects malicious searchBaseUrl via x-pcbuildsage-config header", async () => {
       const maliciousHeader = JSON.stringify({
         llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }],
-        searchProvider: "searxng",
+        searchProvider: "brave",
         searchBaseUrl: "http://127.0.0.1:8080"
       });
 
@@ -327,7 +306,8 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-pcbuildsage-config": maliciousHeader
+          "x-pcbuildsage-config": maliciousHeader,
+          "x-brave-api-key": "test-key"
         },
         body: JSON.stringify({
           messages: [{ role: "user", content: "hello" }]
@@ -681,7 +661,8 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
       expect(response.status).toBe(200);
 
       const body = await response.json();
-      expect(body.status).toBe("ok");
+      // "ok" with a reachable Turso, "degraded" otherwise; always HTTP 200.
+      expect(["ok", "degraded"]).toContain(body.status);
       expect(body.mode).toBe("hosted-demo");
       expect(body.timestamp).toBeDefined();
       expect(body.database).toBeUndefined();

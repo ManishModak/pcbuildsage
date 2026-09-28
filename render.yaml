@@ -1,8 +1,14 @@
+# Free tier only (Render free web service + Turso free) until the project is funded.
+# BEFORE applying this Blueprint: if a pcbuildsage service already exists in the
+# Render dashboard, make `name` and `region` below match it exactly (the region
+# here is a placeholder, not the live service's). A service's region can't be
+# changed after creation, so a mismatch can create a second (duplicate) service
+# instead of updating the existing one.
 services:
   - type: web
     name: pcbuildsage
     runtime: docker
-    plan: starter
+    plan: free
     region: oregon
     healthCheckPath: /api/health
     dockerfilePath: ./Dockerfile

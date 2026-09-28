@@ -3,7 +3,9 @@
  *
  * Next.js Edge / Request Middleware for dual-mode deployment route guarding.
  * Allows only explicitly listed public `/api` routes in hosted-demo mode
- * (default-deny), and cross-site or non-loopback requests in local mode.
+ * (default-deny) behind a per-IP rate limit, and rejects cross-site or
+ * non-loopback requests in local mode. Hosted search-provider policy is
+ * enforced per request in assertSafeSearchConfig (api/_lib/credentials.ts).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -11,7 +13,7 @@ import {
   checkHostedRateLimit,
   getClientIpForRateLimit,
   isHostedDemo,
-  isHostedSearchProviderAllowed,
+  isRateLimitExemptPath,
   isRouteAllowedInHostedMode
 } from "@/lib/config/deployment";
 import { allowedHostsFromEnv, localRequestRejection } from "@/lib/middleware/local-request-guard";
@@ -26,8 +28,10 @@ export function middleware(request: NextRequest) {
 
   if (isHostedDemo()) {
     const pathname = request.nextUrl.pathname;
-    const ip = getClientIpForRateLimit(request.headers);
-    const limit = checkHostedRateLimit(ip);
+    // /api/health is exempt so Render's health checks never trip (or spend) the limit.
+    const limit = isRateLimitExemptPath(pathname)
+      ? { allowed: true }
+      : checkHostedRateLimit(getClientIpForRateLimit(request.headers));
     if (!limit.allowed) {
       return NextResponse.json(
         {
@@ -48,32 +52,9 @@ export function middleware(request: NextRequest) {
         { status: 403 }
       );
     }
-    // Disable keyless / self-hosted search (DuckDuckGo, SearXNG) in hosted mode.
-    const searchProvider = hostedSearchProviderFromHeaders(request.headers);
-    if (searchProvider && !isHostedSearchProviderAllowed(searchProvider, "hosted-demo")) {
-      return NextResponse.json(
-        {
-          error: `Search provider '${searchProvider}' is not supported in hosted demo mode`,
-          message: `Search provider '${searchProvider}' is not supported in hosted demo mode`,
-          code: "HOSTED_DEMO_FORBIDDEN"
-        },
-        { status: 403 }
-      );
-    }
   }
 
   return NextResponse.next();
-}
-
-function hostedSearchProviderFromHeaders(headers: Headers): string | null {
-  const raw = headers.get("x-pcbuildsage-config");
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as { searchProvider?: unknown };
-    return typeof parsed.searchProvider === "string" ? parsed.searchProvider : null;
-  } catch {
-    return null;
-  }
 }
 
 export const config = {
