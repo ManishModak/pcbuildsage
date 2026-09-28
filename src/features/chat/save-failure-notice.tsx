@@ -89,3 +89,32 @@ export function describeSaveFailure(error: unknown): string | null {
 
   return GENERIC_SAVE_FAILURE_NOTICE;
 }
+
+/**
+ * Whether the chat header should show "Not saved yet".
+ *
+ * Pure so the rule is unit-testable: the header itself is published through an
+ * effect (`setHeaderSuffix`), which no server-render test can observe. The
+ * view passes the live queue readings in; the rule stays here next to the
+ * other save-status wording.
+ *
+ * - `queueUnsaved`: the queue still holds something (`hasUnsaved`) - a snapshot
+ *   waiting behind an in-flight request, a conflict held back while streaming,
+ *   or a transient failure kept for retry.
+ * - `settledUnacknowledged`: the turn is over (`!streaming`) and the queue has
+ *   not acknowledged this transcript. While streaming the signature is
+ *   perpetually new, so this waits until the turn ends instead of flickering.
+ */
+export function shouldShowNotSavedYet(options: {
+  messageCount: number;
+  isLoading?: boolean;
+  saveFailureNotice: string | null;
+  queueUnsaved: boolean;
+  settledUnacknowledged: boolean;
+}): boolean {
+  return (
+    options.messageCount > 0 &&
+    !options.isLoading &&
+    (options.saveFailureNotice !== null || options.queueUnsaved || options.settledUnacknowledged)
+  );
+}

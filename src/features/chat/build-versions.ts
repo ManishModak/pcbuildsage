@@ -31,7 +31,32 @@ export type BuildVersion = {
   presentationId?: string;
   label: string;
   builds: DerivedBuild[];
+  /**
+   * What produced this version. The panel auto-opens only for `present`:
+   * a validated-only or text-scraped build is shown when the panel is already
+   * open, but it must not yank the panel open on its own.
+   */
+  kind?: "present" | "validated" | "text";
 };
+
+/**
+ * Whether this version is a presented build, by kind when known and by id
+ * shape otherwise (older callers construct versions without `kind`).
+ */
+export function isPresentedVersion(version: Pick<BuildVersion, "id" | "kind">): boolean {
+  if (version.kind) return version.kind === "present";
+  return version.id.includes(":present:");
+}
+
+/**
+ * Whether a freshly arrived version list should open the build panel. Only a
+ * presented build opens it: validated-only and text builds update the panel
+ * when it is open, but never summon it.
+ */
+export function shouldAutoOpenPanel(versions: readonly Pick<BuildVersion, "id" | "kind">[]): boolean {
+  const newest = versions.length > 0 ? versions[versions.length - 1] : undefined;
+  return newest ? isPresentedVersion(newest) : false;
+}
 
 export type BuildVersionOptions = {
   /**
@@ -135,7 +160,8 @@ export function findAllBuildVersions(
             messageIndex: i,
             presentationId: presentPart.toolCallId,
             label: `Version ${versionNum}`,
-            builds: enriched
+            builds: enriched,
+            kind: "present"
           });
         }
       }
@@ -155,7 +181,8 @@ export function findAllBuildVersions(
           version: versionNum,
           messageIndex: i,
           label: VALIDATED_VERSION_LABEL,
-          builds: validated
+          builds: validated,
+          kind: "validated"
         });
         continue;
       }
@@ -171,7 +198,8 @@ export function findAllBuildVersions(
         // Parsed out of prose, not computed by the rules engine: it must never
         // be offered as an ordinary "Version N" proposal.
         label: TEXT_BUILD_CAVEAT,
-        builds
+        builds,
+        kind: "text"
       });
     }
   }

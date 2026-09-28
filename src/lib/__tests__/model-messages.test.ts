@@ -309,4 +309,53 @@ describe("deriveBuildState", () => {
 
     expect(deriveBuildState(messages)).toBeNull();
   });
+
+  it("pairs a presentation with its own validation, never a later unpresented one", () => {
+    // Turn 1 validated build A and presented it; turn 2 validated a different
+    // build B but never presented it. Merging B's verdict into the presented
+    // build would resume from parts the verdict never checked.
+    const messages: UIMessage[] = [
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-validate_build",
+            toolCallId: "v1",
+            state: "output-available",
+            input: { label: "Shown", parts: { gpu: "rtx-4060" } },
+            output: { valid: true, issues: [] }
+          },
+          {
+            type: "tool-present_build",
+            toolCallId: "p1",
+            state: "output-available",
+            input: { builds: [{ label: "Shown", product_ids: ["gpu-a"] }] }
+          }
+        ]
+      },
+      {
+        id: "a2",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-validate_build",
+            toolCallId: "v2",
+            state: "output-available",
+            input: { label: "Unshown", parts: { gpu: "rtx-5090" } },
+            output: { valid: false, issues: [{ severity: "blocking" }] }
+          }
+        ]
+      }
+    ] as unknown as UIMessage[];
+
+    const state = deriveBuildState(messages);
+    expect(state?.source).toBe("present_build");
+    expect(state?.parts).toEqual(["gpu-a"]);
+    // The presented build keeps its own turn's validation...
+    expect(state?.verdict).toEqual({ valid: true, blocking: 0, issues: 0 });
+    // ...and the newer, never-presented validation is separate, not merged.
+    expect(state?.unpresentedValidation?.parts).toEqual({ gpu: "rtx-5090" });
+    expect(state?.unpresentedValidation?.verdict).toEqual({ valid: false, blocking: 1, issues: 1 });
+  });
 });

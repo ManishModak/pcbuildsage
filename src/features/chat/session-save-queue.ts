@@ -38,7 +38,27 @@ export type SessionSaveQueueOptions = {
   /** Backoff between transient retries. Keep it short: a tab can close at any time. */
   retryDelaysMs?: number[];
   sleep?: (ms: number) => Promise<void>;
+  /**
+   * True while this chat has a reply streaming in. A conflict resolved while a
+   * stream is live must not swap the transcript under it (`onConflictAdopted`
+   * replaces the messages the stream is appending to), so adoption is deferred
+   * until the stream ends - see `drainDeferredConflict`. The view supplies this
+   * late via `setHandlers`, reading its own streaming ref.
+   */
+  isStreaming?: () => boolean;
 };
+
+/** What `drainDeferredConflict` decided about a conflict held back while streaming. */
+export type DeferredConflictOutcome =
+  /** No conflict was held back, or there was nothing local left to decide with. */
+  | "none"
+  /** Nothing local changed while streaming, so the server copy was adopted. */
+  | "adopted"
+  /**
+   * The transcript moved while streaming, so the server revision was observed
+   * and the caller must re-save the local transcript on top of it.
+   */
+  | "needs-resave";
 
 const DEFAULT_RETRY_DELAYS_MS = [250, 1000, 4000];
 
@@ -54,6 +74,20 @@ export class SessionSaveQueue {
   private running: Promise<void> | null = null;
   private nextRevision: number;
   private acknowledgedSignature: string;
+  /**
+   * A conflict held back because a stream was live when it resolved. The
+   * transcript it carries is the server's; `localSignature` is what we failed
+   * to save, so the stream-end handler can tell "nothing changed, adopt" from
+   * "re-save on top".
+   */
+  private deferredConflict: { copy: ServerSessionCopy; localSignature: string } | null = null;
+  /**
+   * The newest snapshot that exhausted its retries on a transient failure
+   * (offline, 5xx). It stays unacknowledged, and it is kept here - not dropped -
+   * so an `online` event or an explicit retry can send it again. Only the
+   * newest such snapshot is kept: anything queued later supersedes it.
+   */
+  private unsavedAfterFailure: PendingSave | null = null;
   private onPersisted: () => void;
   private options: SessionSaveQueueOptions;
 
@@ -97,6 +131,65 @@ export class SessionSaveQueue {
   }
 
   /**
+   * True while there is a transcript on this device that no store holds: a
+   * snapshot waiting behind an in-flight request, a conflict held back while
+   * streaming, or a snapshot whose retries ran out on a transient failure. The
+   * chat header reads this as "Not saved yet". An in-flight request alone does
+   * not count: it is on its way, and flagging every 200ms flight would flicker.
+   */
+  hasUnsaved(): boolean {
+    return this.pending !== null || this.deferredConflict !== null || this.unsavedAfterFailure !== null;
+  }
+
+  /**
+   * Re-queue the snapshot that a transient failure left unsaved, if it is still
+   * newer than what is acknowledged. Returns false when there is nothing to
+   * retry. The view calls this on the `online` event and when the user asks to
+   * retry; the snapshot keeps its content but claims a fresh revision, like any
+   * other retry.
+   */
+  retryUnsaved(): boolean {
+    const unsaved = this.unsavedAfterFailure;
+    if (!unsaved || unsaved.signature === this.acknowledgedSignature) {
+      this.unsavedAfterFailure = null;
+      return false;
+    }
+    // A newer snapshot queued since supersedes the failed one.
+    if (this.pending && this.pending.signature !== unsaved.signature) {
+      this.unsavedAfterFailure = null;
+      return false;
+    }
+    this.unsavedAfterFailure = null;
+    const { revision: _claimed, ...snapshot } = unsaved.request;
+    void _claimed;
+    void this.enqueue(unsaved.signature, snapshot, unsaved.urgent ? { urgent: true } : undefined);
+    return true;
+  }
+
+  /**
+   * Resolve a conflict that was held back while a stream was live. Call when
+   * the stream ends with the transcript as it now stands:
+   *
+   * - same signature as the failed save: nothing local changed, so the server
+   *   copy is adopted (through `onConflictAdopted`, exactly as if it had
+   *   resolved after the stream).
+   * - different signature: the stream added turns on top of the failed save, so
+   *   the server revision is observed and the caller must re-save the local
+   *   transcript on top of it.
+   */
+  drainDeferredConflict(localSignature: string): DeferredConflictOutcome {
+    const deferred = this.deferredConflict;
+    if (!deferred) return "none";
+    this.deferredConflict = null;
+    if (localSignature === deferred.localSignature) {
+      this.adoptNow(deferred.copy);
+      return "adopted";
+    }
+    this.observeRevision(deferred.copy.revision);
+    return "needs-resave";
+  }
+
+  /**
    * A transcript just loaded from storage is already durable. Acknowledge it so
    * opening a chat does not write it straight back (which would bump its
    * revision and updated_at, and persist load-time repairs such as
@@ -132,6 +225,7 @@ export class SessionSaveQueue {
         const saved = await this.attempt(current);
         if (saved) {
           this.acknowledgedSignature = current.signature;
+          if (this.unsavedAfterFailure?.signature === current.signature) this.unsavedAfterFailure = null;
           this.onPersisted();
         }
       }
@@ -175,7 +269,10 @@ export class SessionSaveQueue {
         const verdict = await this.reconcileBeforeRebase(current, request);
         if (verdict !== "rebase") {
           // "acknowledged": our earlier attempt did land after all. The rest mean
-          // the snapshot was not written, so it stays unacknowledged.
+          // the snapshot was not written, so it stays unacknowledged - and an
+          // unknown server state keeps the snapshot for an explicit retry rather
+          // than dropping it silently.
+          if (verdict === "unresolved") this.keepUnsaved(current);
           return verdict === "acknowledged";
         }
 
@@ -209,11 +306,41 @@ export class SessionSaveQueue {
           if (!isKeepaliveOversize(error)) this.options.onPersistError?.(error);
           return false;
         }
+
+        // Offline is transient, but burning the whole backoff on it is pure
+        // waste: nothing will succeed until the browser is back. Keep the
+        // snapshot for the `online` retry instead of giving up silently.
+        if (isOffline()) {
+          this.keepUnsaved(current);
+          return false;
+        }
       }
     }
 
+    this.keepUnsaved(current);
     this.options.onPersistError?.(lastError);
     return false;
+  }
+
+  /**
+   * Remember a snapshot a transient failure left unsaved, so it can be retried
+   * (on `online`, or explicitly) instead of sitting unacknowledged with nobody
+   * told. Only the newest such snapshot is kept: anything enqueued later
+   * already contains it.
+   */
+  private keepUnsaved(current: PendingSave): void {
+    const fresh = this.pending;
+    if (fresh && fresh.signature !== current.signature) return;
+    this.unsavedAfterFailure = current;
+  }
+
+  /** Whether a reply is streaming in this chat right now, if the view said so. */
+  private streamingNow(): boolean {
+    try {
+      return this.options.isStreaming?.() === true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -235,7 +362,7 @@ export class SessionSaveQueue {
     if (copy === null) return this.options.loadServerCopy ? "unresolved" : "rebase";
     if (sessionSignature(copy.messages) === current.signature) return "acknowledged";
     if (copy.revision < attempt.revision) return "rebase";
-    this.adoptServerCopy(copy);
+    this.adoptServerCopy(current, copy);
     return "adopted";
   }
 
@@ -245,11 +372,19 @@ export class SessionSaveQueue {
    * which would silently discard their work.
    *
    * This never writes: the adopted copy is handed back to the view, and anything
-   * the user does next is re-enqueued through the normal queue path.
+   * the user does next is re-enqueued through the normal queue path. While a
+   * reply is streaming the adoption is held back instead (see
+   * `drainDeferredConflict`): swapping the transcript mid-stream would pull the
+   * messages the stream is appending to out from under it.
    */
   private async resolveConflict(current: PendingSave, attempt: SaveSessionRequest): Promise<boolean> {
     const copy = await this.readServerCopy();
-    if (!copy) return false;
+    if (!copy) {
+      // The conflict is left for a later edit/load to observe - and the snapshot
+      // is kept for an explicit retry, so this is not a silent drop.
+      this.keepUnsaved(current);
+      return false;
+    }
     // The server already holds exactly this transcript: an earlier attempt landed.
     if (sessionSignature(copy.messages) === current.signature) {
       this.observeRevision(copy.revision);
@@ -260,7 +395,7 @@ export class SessionSaveQueue {
     // is a real conflict too - not adopting it would let our next save, one
     // revision higher, overwrite the other tab's turn.
     if (copy.revision < attempt.revision) return false;
-    this.adoptServerCopy(copy);
+    this.adoptServerCopy(current, copy);
     // Our snapshot was not written, so it must not be acknowledged: the same
     // content enqueued later is still ours to save.
     return false;
@@ -283,8 +418,23 @@ export class SessionSaveQueue {
   /**
    * Hand the other tab's copy to the view and take its revision as the new high
    * water mark, so a later save lands above it instead of colliding with it.
+   *
+   * While a reply is streaming the handoff is held back instead: the view would
+   * replace the very messages the stream is appending to, and the next save -
+   * one revision higher - would then be built from a transcript that is neither
+   * ours nor theirs. The copy waits in `deferredConflict` (the revision is
+   * deliberately *not* observed yet) until `drainDeferredConflict` runs at
+   * stream end.
    */
-  private adoptServerCopy(copy: ServerSessionCopy): void {
+  private adoptServerCopy(current: PendingSave, copy: ServerSessionCopy): void {
+    if (this.streamingNow()) {
+      this.deferredConflict = { copy, localSignature: current.signature };
+      return;
+    }
+    this.adoptNow(copy);
+  }
+
+  private adoptNow(copy: ServerSessionCopy): void {
     this.nextRevision = Math.max(this.nextRevision, copy.revision);
     this.options.onConflictAdopted?.(copy);
   }
@@ -477,4 +627,18 @@ function isRecordConflict(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+/**
+ * Whether the browser reports itself as offline. A failed `fetch` while
+ * offline rejects with a `TypeError`, which is transient - but the queue treats
+ * an explicitly offline browser as "hold for the `online` event" rather than
+ * burning its backoff. Absent (non-browser tests, SSR) means "not offline".
+ */
+function isOffline(): boolean {
+  try {
+    return typeof navigator !== "undefined" && navigator.onLine === false;
+  } catch {
+    return false;
+  }
 }

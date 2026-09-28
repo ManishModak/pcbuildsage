@@ -24,12 +24,28 @@ export function isStuckToolState(state: unknown): boolean {
  * Every caller is a fresh read of a stored session, where nothing is streaming by
  * definition, so a stuck part is always a leftover. The live-stream case does not
  * reach here: a streaming transcript is in memory, not in storage.
+ *
+ * `streamingMessageId` is the one exception: a transcript saved mid-stream
+ * (the throttled mid-stream save, or a page-close flush) can be re-read while
+ * the same turn is still streaming - e.g. a sidebar refresh that re-renders
+ * from storage. That turn's in-flight parts are not abandoned, so they are
+ * left alone; only finished or abandoned turns are marked.
  */
-export function markInterruptedToolCalls(messages: readonly unknown[]): unknown[] {
+export function markInterruptedToolCalls(
+  messages: readonly unknown[],
+  options: { streamingMessageId?: string } = {}
+): unknown[] {
+  const { streamingMessageId } = options;
   let changed = false;
 
   const cleaned = messages.map((message) => {
     if (typeof message !== "object" || message === null) return message;
+    if (
+      streamingMessageId !== undefined &&
+      (message as { id?: unknown }).id === streamingMessageId
+    ) {
+      return message;
+    }
     const parts = (message as { parts?: unknown }).parts;
     if (!Array.isArray(parts)) return message;
 

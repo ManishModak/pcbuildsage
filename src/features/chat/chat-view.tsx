@@ -19,7 +19,7 @@ import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
 import { BuildCard } from "./build-card";
 import { BuildErrorBoundary } from "./build-error-boundary";
-import { buildHeaderSignature, buildsFingerprint, extractBuildsFromMessage, findAllBuildVersions, followNewestVersion, openedBuildsForSession, resolveBuildTotal, resolveSelectedVersion, type DerivedBuild, type BuildVersion } from "./build-derive";
+import { buildHeaderSignature, buildsFingerprint, extractBuildsFromMessage, findAllBuildVersions, followNewestVersion, openedBuildsForSession, resolveBuildTotal, resolveSelectedVersion, shouldAutoOpenPanel, type DerivedBuild, type BuildVersion } from "./build-derive";
 import { getFollowups } from "@/lib/followups";
 import { isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
@@ -41,7 +41,7 @@ import {
   type ServerSessionCopy,
   type SessionSaveQueue
 } from "./session-save-queue";
-import { CONFLICT_ADOPTED_NOTICE, describeSaveFailure, SaveAlert } from "./save-failure-notice";
+import { CONFLICT_ADOPTED_NOTICE, describeSaveFailure, SaveAlert, shouldShowNotSavedYet } from "./save-failure-notice";
 import { TranscriptMenu } from "./transcript-menu";
 import { ChatRecovery, isIncompleteChatFinish, prepareChatRecovery, isContextLimitError } from "./chat-recovery";
 import { getModelContextLimit, estimateTokens, shouldTriggerCompaction, TOOL_DEFINITIONS_TOKEN_OVERHEAD } from "@/lib/llm/context-budget";
@@ -173,8 +173,25 @@ export function ChatView({
     sessionIdRef.current = sessionId;
   });
 
+  // Bumped whenever the save queue's durability state may have changed, so the
+  // "Not saved yet" indicator re-reads it. The queue mutates outside React
+  // state; without this the header would keep a stale verdict.
+  const [, bumpSaveState] = useReducer((tick: number) => tick + 1, 0);
+
+  /** Set when a save could not be made durable anywhere on this device. */
+  const [saveFailureNotice, setSaveFailureNotice] = useState<string | null>(null);
+  /** Set when another tab's newer copy of this chat replaced the local one. */
+  const [conflictNotice, setConflictNotice] = useState<string | null>(null);
+
   useEffect(() => {
-    saveQueue.setOnPersisted(() => onPersisted?.());
+    saveQueue.setOnPersisted(() => {
+      // A save landed, so a previous failure notice no longer describes reality.
+      // (A conflict notice stays: adopting the other tab's copy is still worth
+      // knowing about even after later saves succeed.)
+      setSaveFailureNotice(null);
+      bumpSaveState();
+      onPersisted?.();
+    });
     return () => saveQueue.setOnPersisted(() => {});
   }, [saveQueue, onPersisted]);
 
@@ -245,10 +262,6 @@ export function ChatView({
   const [incompleteNotice, setIncompleteNotice] = useState<{ sessionId: string } | null>(null);
   const [isCompacting, setIsCompacting] = useState(false);
   const [contextExceededNotice, setContextExceededNotice] = useState<string | null>(null);
-  /** Set when a save could not be made durable anywhere on this device. */
-  const [saveFailureNotice, setSaveFailureNotice] = useState<string | null>(null);
-  /** Set when another tab's newer copy of this chat replaced the local one. */
-  const [conflictNotice, setConflictNotice] = useState<string | null>(null);
 
   const [prevSessionId, setPrevSessionId] = useState(sessionId);
   if (sessionId !== prevSessionId) {
@@ -304,16 +317,28 @@ export function ChatView({
     setMessagesRef.current = setMessages;
   });
 
+  const streaming = status === "streaming" || status === "submitted";
+
+  // Read by the save queue's conflict deferral (via setHandlers below) and by
+  // the page-close flush, both registered once and neither re-registered when
+  // the status flips.
+  const streamingRef = useRef(streaming);
+  useEffect(() => {
+    streamingRef.current = streaming;
+  }, [streaming]);
+
   // The save queue lives in the workspace, so the view late-binds the callbacks
   // that need its own state: surfacing a save that could not be made durable, and
   // adopting the winner of a revision conflict instead of overwriting it.
   useEffect(() => {
     saveQueue.setHandlers({
+      isStreaming: () => streamingRef.current,
       onPersistError: (error) => {
         // Each failure means something different, and only some of them are worth
         // interrupting the user for - a flush that could not fit through keepalive
         // describes no user-facing problem at all.
         setSaveFailureNotice(describeSaveFailure(error));
+        bumpSaveState();
       },
       onConflictAdopted: (copy: ServerSessionCopy) => {
         saveQueue.observeRevision(copy.revision);
@@ -324,6 +349,7 @@ export function ChatView({
         // describes the conversation.
         compactContextRef.current = (copy.compactContext as StoredCompactContext | null | undefined) ?? null;
         setConflictNotice(CONFLICT_ADOPTED_NOTICE);
+        bumpSaveState();
       }
     });
   }, [saveQueue]);
@@ -520,32 +546,27 @@ export function ChatView({
   useEffect(() => {
     const currentSig = buildsFingerprint(latestBuilds);
     if (latestBuilds && currentSig) {
+      // Only a presented build summons the panel: a validated-only or text
+      // build updates what the panel shows when it is open, but never opens it
+      // on its own.
+      const presented = shouldAutoOpenPanel(allBuildVersions);
       if (currentSig !== lastSigRef.current) {
         lastSigRef.current = currentSig;
         queueMicrotask(() => {
           setActiveBuilds(latestBuilds);
-          if (isActive && typeof window !== "undefined" && window.innerWidth >= 768) {
+          if (presented && isActive && typeof window !== "undefined" && window.innerWidth >= 768) {
             setSidePanelOpen(true);
             hasInitializedOpenRef.current = true;
           }
         });
-      } else if (isActive && !hasInitializedOpenRef.current && typeof window !== "undefined" && window.innerWidth >= 768) {
+      } else if (presented && isActive && !hasInitializedOpenRef.current && typeof window !== "undefined" && window.innerWidth >= 768) {
         hasInitializedOpenRef.current = true;
         queueMicrotask(() => {
           setSidePanelOpen(true);
         });
       }
     }
-  }, [latestBuilds, isActive, setActiveBuilds]);
-
-  const streaming = status === "streaming" || status === "submitted";
-
-  // Read by the page-close flush, which is registered once and must not need
-  // re-registering every time the status flips.
-  const streamingRef = useRef(streaming);
-  useEffect(() => {
-    streamingRef.current = streaming;
-  }, [streaming]);
+  }, [latestBuilds, allBuildVersions, isActive, setActiveBuilds]);
 
   // Tell the workspace whether this chat may be evicted. Unmounting a streaming
   // view kills its stream, so the pool must be allowed over its cap instead.
@@ -582,23 +603,35 @@ export function ChatView({
   // builds, publish again - until React gave up with "Maximum update depth
   // exceeded". The signature ends that cycle, and it is the whole header rather
   // than just the build so nothing goes stale behind the guard.
-  const headerSignature = buildHeaderSignature({
-    sessionId,
-    model: activeModel,
-    streaming,
-    compacting: activeIsCompacting,
-    sidePanelOpen,
+  // Whether the transcript on screen is known to be unsaved: a failure notice,
+  // something the queue still holds, or a settled transcript it has not
+  // acknowledged. While streaming the signature is perpetually new, so the
+  // settled check waits until the turn ends instead of flickering.
+  const notSavedYet = shouldShowNotSavedYet({
     messageCount: messages.length,
-    // The transcript menu copies and downloads the messages it closed over, so
-    // their content is part of what the header shows - a reply streaming in has
-    // to move this or the export goes out without it.
-    transcript: messagesSignature,
-    error: error ? getErrorMessage(error) : "",
-    currency: config.currency,
-    countryCode: config.countryCode,
-    buildPrice: headerBuildPrice,
-    builds: displayBuilds
+    isLoading,
+    saveFailureNotice,
+    queueUnsaved: saveQueue.hasUnsaved(),
+    settledUnacknowledged: !streaming && !saveQueue.isAcknowledged(messagesSignature)
   });
+  const headerSignature =
+    buildHeaderSignature({
+      sessionId,
+      model: activeModel,
+      streaming,
+      compacting: activeIsCompacting,
+      sidePanelOpen,
+      messageCount: messages.length,
+      // The transcript menu copies and downloads the messages it closed over, so
+      // their content is part of what the header shows - a reply streaming in has
+      // to move this or the export goes out without it.
+      transcript: messagesSignature,
+      error: error ? getErrorMessage(error) : "",
+      currency: config.currency,
+      countryCode: config.countryCode,
+      buildPrice: headerBuildPrice,
+      builds: displayBuilds
+    }) + (notSavedYet ? "\u0001unsaved" : "");
   const lastHeaderSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -615,6 +648,14 @@ export function ChatView({
       <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           <ModelStatus modelName={activeModel} streaming={streaming} isCompacting={activeIsCompacting} />
+          {notSavedYet ? (
+            <span
+              className="shrink-0 rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary"
+              title="This chat has changes that are not saved yet"
+            >
+              Not saved yet
+            </span>
+          ) : null}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {messages.length > 0 ? (
@@ -668,6 +709,7 @@ export function ChatView({
     isActive,
     setHeaderSuffix,
     headerSignature,
+    notSavedYet,
     activeModel,
     streaming,
     activeIsCompacting,
@@ -721,6 +763,7 @@ export function ChatView({
         },
         options
       );
+      bumpSaveState();
     },
     [saveQueue]
   );
@@ -728,8 +771,30 @@ export function ChatView({
   // Persist the full UIMessage[] to the sessions store after each completed or failed turn.
   useEffect(() => {
     if ((status !== "ready" && status !== "error") || messages.length === 0) return;
+    // A conflict that resolved while the reply was streaming waited until now.
+    // Adopting means the server copy replaced this transcript, so there is
+    // nothing local left to save; re-saving means the stream added turns, which
+    // the persist below writes on top of the observed server revision.
+    if (saveQueue.drainDeferredConflict(sessionSignature(messages)) === "adopted") return;
     persistSnapshot(messages);
-  }, [status, messages, persistSnapshot]);
+  }, [status, messages, persistSnapshot, saveQueue]);
+
+  // A save that failed transiently (offline, 5xx) waits here instead of being
+  // dropped. Retry it when the browser reports it is back.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOnline = () => {
+      if (!saveQueue.retryUnsaved()) {
+        const current = messagesRef.current;
+        if (current.length > 0 && !saveQueue.isAcknowledged(sessionSignature(current))) {
+          persistSnapshot(current);
+        }
+      }
+      bumpSaveState();
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [saveQueue, persistSnapshot]);
 
   // Persist *while* streaming, throttled. Without this, closing or reloading the
   // page mid-reply throws the whole partial answer away: the effect above only
