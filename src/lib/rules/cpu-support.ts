@@ -20,8 +20,15 @@
  *   CPU support list" message, never blocking. (GIGABYTE's statement that its
  *   A320 boards don't support the Ryzen 5 5500, press/news/1978, could not be
  *   re-fetched, so it isn't used as a blocking source.)
- * - B550/A520 with pre-Zen 3 CPUs (Ryzen 1000/2000, 3000G) is unverified
- *   until AMD's own support statement is cited; see B550_A520_PRE_ZEN3_STATUS.
+ * - B550/A520 boards do not support pre-Zen 3 CPUs (Ryzen 1000/2000 series and
+ *   Ryzen 2000G/3000G APUs with Radeon Graphics): AMD's official AM4 chipset
+ *   specifications matrix (https://www.amd.com/en/products/processors/chipsets/am4.html,
+ *   verified 2026-09-28) explicitly marks B550 and A520 as incompatible ("X")
+ *   with Athlon with Radeon Graphics, Ryzen 1000, Ryzen 2000 (standard and graphics),
+ *   and Ryzen 3000 with Radeon Graphics, starting support at Ryzen 3000 (standard non-G),
+ *   Ryzen 4000, and Ryzen 5000. Confirmed also by AMD press releases (June 16, 2020:
+ *   https://ir.amd.com/news-events/press-releases/detail/955/amd-offers-enthusiasts-more-choice-than-ever-before-with-new-ryzen-3000xt-processors ;
+ *   April 21, 2020: https://ir.amd.com/news-events/press-releases/detail/942/amd-expands-3rd-gen-amd-ryzen-desktop-processor-family-unleashing-powerful-zen-2-core-for-the-mainstream).
  *
  * Anything the rule cannot identify (unknown chipset, unparseable CPU
  * generation, cross-platform pairing) is left to the socket rule - this rule
@@ -31,8 +38,9 @@ import type { ResolvedSpec } from "../registry";
 import type { BuildIssue } from "../rules-engine";
 import { untrusted, type CheckRecorder } from "./shared";
 
-// Blocking once AMD's own support statement is cited in the header; see there.
-const B550_A520_PRE_ZEN3_STATUS: "failed" | "unverified" = "unverified";
+// AMD AM4 chipset specifications (https://www.amd.com/en/products/processors/chipsets/am4.html, verified 2026-09-28)
+// confirm B550 and A520 do not support Ryzen 1000, 2000, or 3000G/2000G APUs.
+const B550_A520_PRE_ZEN3_STATUS: "failed" | "unverified" = "failed";
 
 type CpuPlatform = "AM4" | "AM5" | "LGA1700" | "LGA1851";
 

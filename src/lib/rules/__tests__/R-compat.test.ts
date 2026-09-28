@@ -331,6 +331,33 @@ describe("R4: chipset x CPU generation support and BIOS", () => {
     expect(second.checks.find((c) => c.rule === "cpu_support")?.status).toBe("passed");
   });
 
+  it("fails B550 and A520 paired with pre-Zen 3 CPUs (Ryzen 1000/2000 and 3000G APUs)", () => {
+    const cpu2600 = cpu("ryzen-2600", "AMD Ryzen 5 2600");
+    const b550 = board("b550-board", "MSI B550 TOMAHAWK", { chipset: "B550" });
+    const res1 = validateBuild(
+      { cpu: cpu2600.key, motherboard: b550.key },
+      { resolve: resolveWith({ cpu: cpu2600, motherboard: b550 }) }
+    );
+    expect(res1.checks.find((c) => c.rule === "cpu_support")?.status).toBe("failed");
+    expect(res1.valid).toBe(false);
+
+    const cpu3400g = makeResolved("ryzen-3400g", "cpu", {
+      brand: "AMD",
+      model: "AMD Ryzen 5 3400G",
+      aliases: ["3400G"],
+      socket: "AM4",
+      tdp_w: 65,
+      igpu: true
+    });
+    const a520 = board("a520-board", "Gigabyte A520M S2H", { chipset: "A520" });
+    const res2 = validateBuild(
+      { cpu: cpu3400g.key, motherboard: a520.key },
+      { resolve: resolveWith({ cpu: cpu3400g, motherboard: a520 }) }
+    );
+    expect(res2.checks.find((c) => c.rule === "cpu_support")?.status).toBe("failed");
+    expect(res2.valid).toBe(false);
+  });
+
   it("reads generations off model names", () => {
     expect(inferCpuIdentity(cpu("a", "AMD Ryzen 5 5600"))).toMatchObject({ platform: "AM4" });
     expect(inferCpuIdentity(cpu("b", "AMD Ryzen 9 7950X"))).toMatchObject({ platform: "AM5" });

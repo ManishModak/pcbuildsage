@@ -41,8 +41,8 @@
       "Intel Core i9-14900KF"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236774/intel-core-i9-processor-14900kf-36m-cache-up-to-6-00-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i9-14900kf.c3261"
     ],
     "confidence": "medium",
     "researched_at": "2026-07-11T17:47:57Z",
@@ -65,8 +65,8 @@
       "i9-14900"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236787/intel-core-i9-processor-14900-36m-cache-up-to-5-80-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i9-14900.c3403"
     ],
     "confidence": "medium",
     "researched_at": "2026-07-11T17:47:57Z",
@@ -116,8 +116,8 @@
       "Intel Core i7-14700KF"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236782/intel-core-i7-processor-14700kf-33m-cache-up-to-5-60-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i7-14700kf.c3263"
     ],
     "confidence": "medium",
     "researched_at": "2026-07-11T17:47:57Z",
@@ -140,8 +140,8 @@
       "Core i7-14700"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236781/intel-core-i7-processor-14700-33m-cache-up-to-5-40-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i7-14700.c3404"
     ],
     "confidence": "medium",
     "researched_at": "2026-07-11T17:47:57Z",
@@ -191,8 +191,8 @@
       "Intel Core i5-14600KF"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236794/intel-core-i5-processor-14600kf-24m-cache-up-to-5-30-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-14600kf.c3265"
     ],
     "confidence": "medium",
     "researched_at": "2026-07-11T17:47:57Z",
@@ -215,8 +215,8 @@
       "Intel Core i5-14600"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236798/intel-core-i5-processor-14600-24m-cache-up-to-5-20-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-14600.c3405"
     ],
     "confidence": "medium",
     "researched_at": "2026-07-11T17:47:57Z",
@@ -239,8 +239,8 @@
       "14500"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236789/intel-core-i5-processor-14500-24m-cache-up-to-5-00-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i5-14500.c3406"
     ],
     "confidence": "medium",
     "researched_at": "2026-07-11T17:47:57Z",
@@ -264,7 +264,7 @@
       "i5-14400"
     ],
     "sources": [
-      "https://www.techpowerup.com",
+      "https://www.techpowerup.com/cpu-specs/core-i5-14400.c3407",
       "https://www.intel.com/content/www/us/en/products/sku/236788/intel-core-i5-processor-14400-20m-cache-up-to-4-70-ghz/specifications.html"
     ],
     "confidence": "medium",
@@ -315,8 +315,8 @@
       "14100"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/236799/intel-core-i3-processor-14100-12m-cache-up-to-4-70-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i3-14100.c3409"
     ],
     "confidence": "medium",
     "researched_at": "2026-07-11T17:47:57Z",
@@ -392,8 +392,8 @@
       "i9-13900KF"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/230497/intel-core-i9-13900kf-processor-36m-cache-up-to-5-80-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i9-13900kf.c2854"
     ],
     "confidence": "medium",
     "researched_at": "2026-07-11T17:47:57Z",
@@ -416,8 +416,8 @@
       "13900"
     ],
     "sources": [
-      "https://www.intel.com",
-      "https://www.techpowerup.com"
+      "https://www.intel.com/content/www/us/en/products/sku/230495/intel-core-i9-13900-processor-36m-cache-up-to-5-60-ghz/specifications.html",
+      "https://www.techpowerup.com/cpu-specs/core-i9-13900.c2968"
     ],
     "confidence": "medium",
     "researched_at": "2026-07-11T17:47:57Z",
@@ -1025,6 +1025,7 @@
     "model": "AMD Ryzen 9 9900X",
     "socket": "AM5",
     "tdp_w": 120,
+    "max_power_w": 162,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 12,
@@ -1038,16 +1039,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-9-9900x.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-9-9900x.c3642"
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-9900x.c3642",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-9800x3d": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 9800X3D",
     "socket": "AM5",
     "tdp_w": 120,
+    "max_power_w": 162,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 8,
@@ -1061,16 +1064,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-7-9800x3d.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-7-9800x3d.c3746"
+      "https://www.techpowerup.com/cpu-specs/ryzen-7-9800x3d.c3746",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-9700x": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 9700X",
     "socket": "AM5",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 8,
@@ -1084,16 +1089,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-7-9700x.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-7-9700x.c3643"
+      "https://www.techpowerup.com/cpu-specs/ryzen-7-9700x.c3643",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-5-9600x": {
     "brand": "AMD",
     "model": "AMD Ryzen 5 9600X",
     "socket": "AM5",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 6,
@@ -1107,16 +1114,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-5-9600x.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-5-9600x.c3644"
+      "https://www.techpowerup.com/cpu-specs/ryzen-5-9600x.c3644",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-9-7950x3d": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 7950X3D",
     "socket": "AM5",
     "tdp_w": 120,
+    "max_power_w": 162,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -1127,9 +1136,11 @@
       "AMD Ryzen 9 7950X3D"
     ],
     "sources": [
-      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7950x3d.html"
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7950x3d.html",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-9-7950x": {
     "brand": "AMD",
@@ -1161,6 +1172,7 @@
     "model": "AMD Ryzen 9 7900X3D",
     "socket": "AM5",
     "tdp_w": 120,
+    "max_power_w": 162,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -1171,15 +1183,18 @@
       "AMD Ryzen 9 7900X3D"
     ],
     "sources": [
-      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7900x3d.html"
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7900x3d.html",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-9-7900x": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 7900X",
     "socket": "AM5",
     "tdp_w": 170,
+    "max_power_w": 230,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 12,
@@ -1193,16 +1208,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7900x.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-9-7900x.c2857"
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-7900x.c2857",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-9-7900": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 7900",
     "socket": "AM5",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -1213,15 +1230,18 @@
       "7900"
     ],
     "sources": [
-      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7900.html"
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-9-7900.html",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-7800x3d": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 7800X3D",
     "socket": "AM5",
     "tdp_w": 120,
+    "max_power_w": 162,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 8,
@@ -1235,16 +1255,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7800x3d.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-7-7800x3d.c3022"
+      "https://www.techpowerup.com/cpu-specs/ryzen-7-7800x3d.c3022",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-7700x": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 7700X",
     "socket": "AM5",
     "tdp_w": 105,
+    "max_power_w": 142,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 8,
@@ -1258,16 +1280,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7700x.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-7-7700x.c2858"
+      "https://www.techpowerup.com/cpu-specs/ryzen-7-7700x.c2858",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-7700": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 7700",
     "socket": "AM5",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR5",
     "igpu": true,
     "aliases": [
@@ -1278,15 +1302,18 @@
       "AMD Ryzen 7 7700"
     ],
     "sources": [
-      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7700.html"
+      "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-7-7700.html",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-5-7600x": {
     "brand": "AMD",
     "model": "AMD Ryzen 5 7600X",
     "socket": "AM5",
     "tdp_w": 105,
+    "max_power_w": 142,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 6,
@@ -1300,16 +1327,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7600x.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7600x.c2859"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7600x.c2859",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-5-7600": {
     "brand": "AMD",
     "model": "AMD Ryzen 5 7600",
     "socket": "AM5",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 6,
@@ -1323,16 +1352,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7600.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7600.c2966"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7600.c2966",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-5-7500f": {
     "brand": "AMD",
     "model": "AMD Ryzen 5 7500F",
     "socket": "AM5",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR5",
     "igpu": false,
     "cores": 6,
@@ -1346,16 +1377,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7500f.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7500f.c3150"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7500f.c3150",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-9-5950x": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 5950X",
     "socket": "AM4",
     "tdp_w": 105,
+    "max_power_w": 142,
     "ddr": "DDR4",
     "igpu": false,
     "aliases": [
@@ -1367,16 +1400,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-9-5950x.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-9-5950x.c2364"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-9-5950x.c2364",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-9-5900x": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 5900X",
     "socket": "AM4",
     "tdp_w": 105,
+    "max_power_w": 142,
     "ddr": "DDR4",
     "igpu": false,
     "aliases": [
@@ -1388,16 +1423,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-9-5900x.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-9-5900x.c2373"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-9-5900x.c2373",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-9-5900": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 5900",
     "socket": "AM4",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": false,
     "aliases": [
@@ -1408,16 +1445,19 @@
       "9 5900"
     ],
     "sources": [
-      "https://www.techpowerup.com/cpu-specs/ryzen-9-5900.c2394"
+      "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-5000-series/amd-ryzen-9-5900.html",
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-5900.c2394",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-5800x3d": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 5800X3D",
     "socket": "AM4",
     "tdp_w": 105,
+    "max_power_w": 142,
     "ddr": "DDR4",
     "igpu": false,
     "cores": 8,
@@ -1431,16 +1471,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-7-5800x3d.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5800x3d.c2653"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5800x3d.c2653",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-5800x": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 5800X",
     "socket": "AM4",
     "tdp_w": 105,
+    "max_power_w": 142,
     "ddr": "DDR4",
     "igpu": false,
     "aliases": [
@@ -1452,16 +1494,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-7-5800x.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5800x.c2317"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5800x.c2317",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-5800": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 5800",
     "socket": "AM4",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": false,
     "aliases": [
@@ -1472,16 +1516,19 @@
       "5800"
     ],
     "sources": [
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5800.c2394"
+      "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-5000-series/amd-ryzen-7-5800.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5800.c2394",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-5700x": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 5700X",
     "socket": "AM4",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": false,
     "cores": 8,
@@ -1495,16 +1542,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-7-5700x.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5700x.c2677"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5700x.c2677",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-5700g": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 5700G",
     "socket": "AM4",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": true,
     "aliases": [
@@ -1515,16 +1564,19 @@
       "Ryzen 7 5700G"
     ],
     "sources": [
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5700g.c2409"
+      "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-5000-series/amd-ryzen-7-5700g.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5700g.c2409",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-5700": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 5700",
     "socket": "AM4",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": false,
     "aliases": [
@@ -1535,16 +1587,19 @@
       "Ryzen 7 5700"
     ],
     "sources": [
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5700.c3057"
+      "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-5000-series/amd-ryzen-7-5700.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-7-5700.c3057",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-5-5600x": {
     "brand": "AMD",
     "model": "AMD Ryzen 5 5600X",
     "socket": "AM4",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": false,
     "cores": 6,
@@ -1558,16 +1613,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5600x.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600x.c2357"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600x.c2357",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-5-5600": {
     "brand": "AMD",
     "model": "AMD Ryzen 5 5600",
     "socket": "AM4",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": false,
     "cores": 6,
@@ -1581,16 +1638,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5600.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600.c2678"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600.c2678",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-5-5600g": {
     "brand": "AMD",
     "model": "AMD Ryzen 5 5600G",
     "socket": "AM4",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": true,
     "aliases": [
@@ -1601,16 +1660,19 @@
       "AMD Ryzen 5 5600G"
     ],
     "sources": [
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600g.c2401"
+      "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-5000-series/amd-ryzen-5-5600g.html",
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600g.c2401",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-5-5500": {
     "brand": "AMD",
     "model": "AMD Ryzen 5 5500",
     "socket": "AM4",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": false,
     "cores": 6,
@@ -1624,16 +1686,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5500.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5500.c2658"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5500.c2658",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-3-5100": {
     "brand": "AMD",
     "model": "AMD Ryzen 3 5100",
     "socket": "AM4",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": false,
     "aliases": [
@@ -1644,17 +1708,20 @@
       "R3 5100"
     ],
     "sources": [
+      "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series.html",
       "https://videocardz.com/newz/unreleased-amd-ryzen-3-5100-quad-core-cpu-has-been-spotted-on-sale-in-china",
-      "https://www.cpu-benchmark.org/cpu/amd-ryzen-3-5100/"
+      "https://www.cpu-benchmark.org/cpu/amd-ryzen-3-5100/",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
     "confidence": "medium",
-    "researched_at": "2026-07-17T12:55:30Z"
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-9-9950x": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 9950X",
     "socket": "AM5",
     "tdp_w": 170,
+    "max_power_w": 230,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 16,
@@ -1668,16 +1735,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-9-9950x.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-9-9950x.c3641"
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-9950x.c3641",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-9-9950x3d": {
     "brand": "AMD",
     "model": "AMD Ryzen 9 9950X3D",
     "socket": "AM5",
     "tdp_w": 170,
+    "max_power_w": 230,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 16,
@@ -1691,16 +1760,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-9-9950x3d.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-9-9950x3d.c3747"
+      "https://www.techpowerup.com/cpu-specs/ryzen-9-9950x3d.c3747",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-8700g": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 8700G",
     "socket": "AM5",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 8,
@@ -1714,16 +1785,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/8000-series/amd-ryzen-7-8700g.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-7-8700g.c3427"
+      "https://www.techpowerup.com/cpu-specs/ryzen-7-8700g.c3427",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-5-8600g": {
     "brand": "AMD",
     "model": "AMD Ryzen 5 8600G",
     "socket": "AM5",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR5",
     "igpu": true,
     "cores": 6,
@@ -1737,16 +1810,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/8000-series/amd-ryzen-5-8600g.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-5-8600g.c3428"
+      "https://www.techpowerup.com/cpu-specs/ryzen-5-8600g.c3428",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-7-5700x3d": {
     "brand": "AMD",
     "model": "AMD Ryzen 7 5700X3D",
     "socket": "AM4",
     "tdp_w": 105,
+    "max_power_w": 142,
     "ddr": "DDR4",
     "igpu": false,
     "cores": 8,
@@ -1760,16 +1835,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-7-5700x3d.html",
-      "https://www.techpowerup.com/cpu-specs/ryzen-7-5700x3d.c3653"
+      "https://www.techpowerup.com/cpu-specs/ryzen-7-5700x3d.c3653",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-5-3600": {
     "brand": "AMD",
     "model": "AMD Ryzen 5 3600",
     "socket": "AM4",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": false,
     "cores": 6,
@@ -1783,16 +1860,18 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/3000-series/amd-ryzen-5-3600.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-3600.c2182"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-3600.c2182",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "amd-ryzen-5-4500": {
     "brand": "AMD",
     "model": "AMD Ryzen 5 4500",
     "socket": "AM4",
     "tdp_w": 65,
+    "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": false,
     "cores": 6,
@@ -1806,10 +1885,11 @@
     ],
     "sources": [
       "https://www.amd.com/en/products/processors/desktops/ryzen/4000-series/amd-ryzen-5-4500.html",
-      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-4500.c2659"
+      "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-4500.c2659",
+      "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
     ],
-    "confidence": "high",
-    "researched_at": "2026-08-16T10:05:00Z"
+    "confidence": "medium",
+    "researched_at": "2026-09-28T16:00:00Z"
   },
   "intel-core-ultra-9-285k": {
     "brand": "Intel",
