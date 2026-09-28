@@ -19,6 +19,7 @@ import {
   type PoolEntry
 } from "./session-selection";
 import { loadServerSessionCopy, SessionSaveQueue, sessionSignature } from "./session-save-queue";
+import { readPromptPrefill, stripPromptParam } from "./prompt-prefill";
 
 // Neutral hover for the header menu trigger (base shadcn ghost Button):
 // twMerge overrides the component's default green `hover:bg-accent`.
@@ -81,6 +82,17 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
       isStreaming: false
     };
   });
+
+  // `?prompt=` from a build guide: prefills the composer of the fresh session
+  // created on mount (never an existing chat), never sent automatically.
+  // First-time visitors reach this after the Wizard, which doesn't navigate,
+  // so the query is still there. Stripped once read so reload doesn't re-prefill.
+  const [initialPrompt] = useState(() =>
+    typeof window === "undefined" ? "" : readPromptPrefill(window.location.search)
+  );
+  useEffect(() => {
+    if (initialPrompt) stripPromptParam();
+  }, [initialPrompt]);
 
   const [activeSessions, setActiveSessions] = useState<ActiveSessionEntry[]>([initialEntry]);
   const [currentSessionId, setCurrentSessionId] = useState<string>(initialEntry.id);
@@ -344,6 +356,7 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
                 isActive={session.id === currentSessionId}
                 onStreamingChange={handleStreamingChange}
                 isLoading={session.isLoading === true}
+                initialPrompt={session.id === initialEntry.id ? initialPrompt : undefined}
               />
             </div>
           ))}
