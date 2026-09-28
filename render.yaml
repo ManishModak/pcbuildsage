@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: pcbuildsage
+    runtime: docker
+    plan: starter
+    region: oregon
+    healthCheckPath: /api/health
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PCBUILDSAGE_DEPLOYMENT_MODE
+        value: hosted-demo
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_READ_TOKEN
+        sync: false
+      # NOTE: do NOT set TURSO_INGEST_TOKEN on the web service.
+      # It is only used by the refresh-catalog GitHub Actions workflow.

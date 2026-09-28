@@ -8,7 +8,11 @@ import { getModelContextLimit } from "@/lib/llm/context-budget";
 import { deriveBuildState } from "@/lib/llm/messages";
 import { getSession, saveCompactContext, isSessionCompacting } from "@/lib/sessions";
 import type { BuildSnapshot } from "@/lib/catalog/build-snapshot";
-import { isHostedDemo } from "@/lib/config/deployment";
+import {
+  checkChatPayloadSize,
+  HOSTED_CHAT_MAX_BODY_BYTES,
+  isHostedDemo
+} from "@/lib/config/deployment";
 function isHosted(): boolean {
   return isHostedDemo();
 }
@@ -43,7 +47,22 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const body = compactRequestSchema.parse(await readJson(request));
+    const declaredLength = Number(request.headers.get("content-length") ?? "0");
+    if (Number.isFinite(declaredLength) && declaredLength > HOSTED_CHAT_MAX_BODY_BYTES) {
+      return Response.json(
+        { error: "payload_too_large", message: `Request body exceeds ${HOSTED_CHAT_MAX_BODY_BYTES} bytes.` },
+        { status: 413 }
+      );
+    }
+    const rawBody = await readJson(request);
+    const sizeCheck = checkChatPayloadSize(rawBody);
+    if (!sizeCheck.allowed) {
+      return Response.json(
+        { error: "payload_too_large", message: sizeCheck.reason ?? "Request body too large." },
+        { status: 413 }
+      );
+    }
+    const body = compactRequestSchema.parse(rawBody);
     const config = buildAppConfig(request.headers, body.config ?? {});
     const systemPrompt = buildSystemPrompt(config);
 

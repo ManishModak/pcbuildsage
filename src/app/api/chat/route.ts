@@ -5,6 +5,10 @@ import { compactChatMessages } from "@/lib/llm/messages";
 import { parseCompactContext, type StoredCompactContext } from "@/lib/sessions";
 import { buildAppConfig, UnsafeConfigError } from "../_lib/credentials";
 import { badRequest, readJson, serverError } from "../_lib/responses";
+import {
+  checkChatPayloadSize,
+  HOSTED_CHAT_MAX_BODY_BYTES
+} from "@/lib/config/deployment";
 
 export const runtime = "nodejs";
 
@@ -114,7 +118,22 @@ function sanitizeErrorMessage(error: unknown, headers?: Headers): string {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const body = chatRequestSchema.parse(await readJson(request));
+    const declaredLength = Number(request.headers.get("content-length") ?? "0");
+    if (Number.isFinite(declaredLength) && declaredLength > HOSTED_CHAT_MAX_BODY_BYTES) {
+      return Response.json(
+        { error: "payload_too_large", message: `Request body exceeds ${HOSTED_CHAT_MAX_BODY_BYTES} bytes.` },
+        { status: 413 }
+      );
+    }
+    const rawBody = await readJson(request);
+    const sizeCheck = checkChatPayloadSize(rawBody);
+    if (!sizeCheck.allowed) {
+      return Response.json(
+        { error: "payload_too_large", message: sizeCheck.reason ?? "Request body too large." },
+        { status: 413 }
+      );
+    }
+    const body = chatRequestSchema.parse(rawBody);
     const config = buildAppConfig(request.headers, body.config ?? {});
     const rawCompact =
       body.compactContext ??
