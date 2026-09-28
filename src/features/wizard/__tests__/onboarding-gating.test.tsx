@@ -290,10 +290,15 @@ describe("Track W: hosted missing-key prompt blocks sending", () => {
     expect(renderComposer()).not.toContain("byok-missing-prompt");
   });
 
-  it("blocks when the active provider lost its key", () => {
+  it("blocks only when no provider the chat could fall back to has a key", () => {
     setCachedDeploymentMode("hosted-demo");
-    expect(hostedSendBlocked({ activeProvider: "groq", hasKey: () => false })).toBe(true);
-    expect(hostedSendBlocked({ activeProvider: "groq", hasKey: () => true })).toBe(false);
+    expect(hostedSendBlocked({ activeProvider: "groq", storedProviders: [], hasKey: () => false })).toBe(true);
+    expect(hostedSendBlocked({ activeProvider: "groq", storedProviders: [], hasKey: () => true })).toBe(false);
+    // The active provider lost its key but Gemini still has one: the resolver
+    // sends the chat to Gemini, so the composer must not block it.
+    expect(
+      hostedSendBlocked({ activeProvider: "openrouter", storedProviders: [], hasKey: (p) => p === "gemini" })
+    ).toBe(false);
   });
 
   it("never blocks in local mode", () => {

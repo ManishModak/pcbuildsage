@@ -1,15 +1,18 @@
 /**
  * Builds the static sample-conversation fixture for the hosted empty screen.
  *
- * Runs validate_build against the current local catalog only: no LLM call, no
- * network, no API key. Re-run whenever the catalog changes so the example
- * stays backed by real listings:
+ * Runs validate_build against the real scraped catalog only: no LLM call, no
+ * network, no API key. Each category has a small search plan (a sensible
+ * mid-range 1080p build); the script validates combinations of the top
+ * in-stock matches and keeps the valid one with the fewest unverified specs,
+ * so it still works after a re-scrape. Re-run whenever the catalog changes:
  *
  *   npx tsx scripts/build-sample-fixture.ts [--db <path>] [--out <path>]
  *
- * DB resolution: --db, then PCBUILDSAGE_DB_PATH, then data/products.db, then
- * data/products-sample.db. Scope resolution: the market (country/currency)
- * with in-stock listings in every build category.
+ * DB resolution: --db, then PCBUILDSAGE_DB_PATH, then data/products.db. It
+ * never falls back to the 12-row products-sample.db: that is test data, and
+ * an example built from it would show parts nobody can buy. Scope: the
+ * market with the most in-stock listings that covers every category.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -21,20 +24,22 @@ import type { BuildSnapshot } from "../src/lib/catalog/build-snapshot";
 import type { ValidationResult } from "../src/lib/rules-engine";
 import { createValidateBuildTool } from "../src/lib/tools/validate-build";
 
-const CATEGORIES = [
-  "cpu",
-  "gpu",
-  "motherboard",
-  "ram",
-  "storage",
-  "psu",
-  "case",
-  "cooler"
-] as const;
+/** One search per category, cheapest first; the parts a sensible 1080p build would use. */
+const PLAN = {
+  cpu: { term: "Ryzen 5 5600" },
+  gpu: { term: "RTX 5060" },
+  motherboard: { term: "B550" },
+  ram: { ddr: "DDR4", min_capacity_gb: 16, modules: 2 },
+  storage: { interface: "nvme", min_capacity_gb: 1000 },
+  psu: { min_wattage: 650, term: "Bronze" },
+  case: { term: "ATX" },
+  cooler: { socket: "AM4", price_min: 1500 }
+} as const satisfies Record<string, Record<string, unknown>>;
 
+const CATEGORIES = Object.keys(PLAN) as Array<keyof typeof PLAN>;
 const CANDIDATES_PER_CATEGORY = 3;
-const MAX_COMBOS = 200;
-const LABEL = "Example 1440p Gaming";
+const MAX_COMBOS = 3000;
+const LABEL = "Example 1080p Gaming";
 
 function flagValue(name: string): string | undefined {
   const index = process.argv.indexOf(name);
@@ -45,8 +50,7 @@ function resolveDbPath(): string {
   const candidates = [
     flagValue("--db"),
     process.env.PCBUILDSAGE_DB_PATH,
-    path.join(process.cwd(), "data", "products.db"),
-    path.join(process.cwd(), "data", "products-sample.db")
+    path.join(process.cwd(), "data", "products.db")
   ].filter((candidate): candidate is string => Boolean(candidate));
   for (const candidate of candidates) {
     if (existsSync(candidate)) return path.resolve(candidate);
@@ -67,10 +71,10 @@ type Candidate = { id: string; name: string; price: number | null };
 async function inStockCandidates(
   repo: SqliteCatalogRepository,
   scope: CatalogScope,
-  category: string
+  category: keyof typeof PLAN
 ): Promise<Candidate[]> {
   const result = await repo.searchProducts(
-    { category, inStockOnly: true, limit: CANDIDATES_PER_CATEGORY, sort_by: "price", order: "asc" },
+    { ...PLAN[category], category, inStockOnly: true, limit: CANDIDATES_PER_CATEGORY, sort_by: "price", order: "asc" },
     scope
   );
   return result.results.map((product) => ({
@@ -140,7 +144,10 @@ async function main(): Promise<void> {
       NonNullable<typeof tool.execute>
     >[1];
 
+    // Keep the valid, fully priced build with the fewest unverified specs
+    // (issues that need research or verification), then the lowest total.
     let picked: { parts: Record<string, { product_id: string }>; validation: ValidationResult; snapshot: BuildSnapshot } | null = null;
+    let pickedScore = Number.POSITIVE_INFINITY;
     let attempts = 0;
     for (const combo of combos(perCategory)) {
       attempts += 1;
@@ -151,9 +158,13 @@ async function main(): Promise<void> {
       const output = (await tool.execute!({ builds: [{ label: LABEL, parts }] }, context)) as unknown as ToolOutput;
       const entry = output.builds?.[LABEL];
       const snapshot = entry?.snapshot;
-      if (entry && snapshot && entry.valid && snapshot.is_complete && typeof snapshot.total === "number") {
+      if (!entry || !snapshot || !entry.valid || !snapshot.is_complete || typeof snapshot.total !== "number") continue;
+      if (entry.issues.some((issue) => issue.severity === "blocking")) continue;
+      const unverified = entry.issues.filter((issue) => issue.severity === "needs_research" || issue.severity === "needs_verification").length;
+      const score = unverified * 1_000_000 + snapshot.total;
+      if (score < pickedScore) {
         picked = { parts, validation: entry, snapshot };
-        break;
+        pickedScore = score;
       }
     }
 
@@ -178,7 +189,7 @@ async function main(): Promise<void> {
       version: 1,
       example: true,
       generated_at: generatedAt,
-      source: { db: path.relative(process.cwd(), dbPath), scope },
+      source: { db: path.basename(dbPath), scope },
       prompt: "Show me an example gaming build.",
       answer:
         `Example answer: a validated "${LABEL}" build totalling ` +

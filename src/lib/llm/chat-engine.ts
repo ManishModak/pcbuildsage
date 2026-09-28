@@ -189,27 +189,32 @@ function unwrapToolOutput(output: unknown): unknown {
 }
 
 /**
- * True when a validate_build tool result executed successfully and returned
- * build data (a snapshot, a per-label builds record, or a validity verdict).
- * Transport or execution errors don't count.
+ * True when a validate_build result holds a build worth presenting: valid,
+ * no blocking issues, and a whole build (CPU and motherboard at least), not
+ * a spot check such as "will this GPU fit my case?". Invalid results and
+ * spot checks leave the model free to answer in text.
  */
-function isSuccessfulValidationOutput(output: unknown): boolean {
+function isPresentableValidationOutput(output: unknown): boolean {
   const val = unwrapToolOutput(output);
   if (!val || typeof val !== "object") return false;
   const obj = val as Record<string, unknown>;
-  if (obj.snapshot && typeof obj.snapshot === "object") return true;
-  if (typeof obj.valid === "boolean") return true;
-  const builds = obj.builds;
-  if (builds && typeof builds === "object") {
-    return Object.values(builds).some(
-      (b) => b && typeof b === "object" && ("snapshot" in b || "valid" in b)
-    );
-  }
-  return false;
+  const entries = obj.builds && typeof obj.builds === "object" ? Object.values(obj.builds) : [obj];
+  return entries.some(isPresentableBuild);
+}
+
+function isPresentableBuild(entry: unknown): boolean {
+  if (!entry || typeof entry !== "object") return false;
+  const build = entry as { valid?: unknown; issues?: unknown; snapshot?: { components?: unknown } };
+  if (build.valid !== true) return false;
+  const issues = Array.isArray(build.issues) ? build.issues : [];
+  if (issues.some((issue) => (issue as { severity?: unknown } | null)?.severity === "blocking")) return false;
+  const components = Array.isArray(build.snapshot?.components) ? build.snapshot.components : [];
+  const categories = new Set(components.map((c) => (c as { category?: unknown } | null)?.category));
+  return categories.has("cpu") && categories.has("motherboard");
 }
 
 /**
- * True once a validate_build call has succeeded in the current turn.
+ * True once a validate_build call in the current turn returned a presentable build.
  * Matches results by tool name, falling back to the tool-call IDs issued
  * earlier in the turn for providers that omit names on results.
  */
@@ -230,7 +235,7 @@ export function hasSuccessfulValidation(steps: StepLike[] | undefined | null): b
       if (!nameMatch && !idMatch) continue;
       if (res.error != null) continue;
       const raw = res.output ?? res.result;
-      if (isSuccessfulValidationOutput(raw)) return true;
+      if (isPresentableValidationOutput(raw)) return true;
     }
   }
   return false;
@@ -245,7 +250,7 @@ export function hasPresentedBuild(steps: StepLike[] | undefined | null): boolean
 
 /**
  * Per-step tool forcing so a validated turn can't end on a text reply:
- * after a successful validate_build the model must call another tool
+ * after validate_build returns a presentable build the model must call another tool
  * (toolChoice "required"), late-turn steps are restricted to validate_build
  * and present_build, and the final step forces present_build by name.
  * Returns {} (auto) when nothing is validated yet or after presenting, so

@@ -1,4 +1,5 @@
 import type { RegistrySpec } from "@/lib/registry";
+import { parseRamSpecs } from "@/lib/spec-parsers";
 import {
   canonicalizeFormFactor,
   canonicalizeMemory,
@@ -58,10 +59,10 @@ export function matchesDdr(spec: RegistrySpec | undefined, inputDdr: string): bo
 }
 
 /**
- * Resolves the RAM stick count for a listing, mirroring the patterns in
- * isSingleModuleRam (src/lib/rules/shared.ts): an explicit registry `modules`
- * number wins, otherwise the retail title is parsed for kit notation such as
- * "2x8GB" or "kit of 2". Returns undefined when neither source states a count.
+ * Resolves the RAM stick count for a listing: an explicit registry `modules`
+ * number wins, then kit notation in the retail title ("2x8GB", "16GBx2",
+ * "16GB x 1"), then registry names, "kit of 2" and dual/single-channel
+ * wording. Returns undefined when nothing states a count.
  */
 export function resolveRamModules(
   spec: RegistrySpec | undefined,
@@ -76,15 +77,25 @@ export function resolveRamModules(
     const parsed = Number(rawModules.trim());
     if (Number.isInteger(parsed) && parsed > 0) return parsed;
   }
+  // The retail title wins over registry names, which can be shared across kit
+  // variants. parseRamSpecs reads both "2x8GB" and "16GBx2" / "16GB x 1".
+  const parsed = productName ? parseRamSpecs(productName)?.modules : undefined;
+  const fromTitle = typeof parsed === "number" ? parsed : undefined;
+  if (isStickCount(fromTitle)) return fromTitle;
   const haystack = [registryKey ?? "", typeof spec?.model === "string" ? spec.model : "", productName ?? ""].join(" ");
-  const kitMatch = haystack.match(/(\d+)\s*x\s*\d+\s*gb/i) ?? haystack.match(/kit of (\d+)/i);
+  const kitMatch = haystack.match(/\b(\d+)\s*[x×]\s*\d+\s*gb/i) ?? haystack.match(/kit of (\d+)/i);
   if (kitMatch) {
     const count = Number.parseInt(kitMatch[1], 10);
-    if (Number.isInteger(count) && count > 0) return count;
+    if (isStickCount(count)) return count;
   }
   if (/\bdual[-\s]?channel\b/i.test(haystack)) return 2;
   if (/\bsingle[-\s]?(stick|channel)\b/i.test(haystack)) return 1;
   return undefined;
+}
+
+/** Desktop kits have 1–8 sticks; anything else is a misread number such as a speed ("3200 x 16GB"). */
+function isStickCount(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 8;
 }
 
 /**

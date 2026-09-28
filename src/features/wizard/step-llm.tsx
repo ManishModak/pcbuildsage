@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Info } from "lucide-react";
 import { useApp } from "@/components/app/app-provider";
 import type { ChainEntry, CredentialAvailability, EndpointPreset, SearchProvider } from "@/types/client";
@@ -18,6 +18,10 @@ export type EndpointLoadState =
  * configured AND its probe succeeds. Returns { enabled, reason } — reason is
  * the one-line explanation shown when defaulting to off.
  */
+// Survive StepLlm remounts within one wizard run (see the effect below).
+let researchDefaultApplied = false;
+let researchDefaultProbe: boolean | null = null;
+
 export function researchDefaultForSearch(
   searchProvider: SearchProvider,
   probeOk: boolean | null
@@ -67,34 +71,32 @@ export function StepLLM({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [credentials]);
 
-  // Default Tier 2 research from live search availability (once per mount —
-  // the user can still toggle afterwards). Web research runs only when
-  // search itself works.
-  const researchAutoSet = useRef(false);
-  const [searchProbeOk, setSearchProbeOk] = useState<boolean | null>(null);
+  // Default Tier 2 research from live search availability, once per page
+  // load: the wizard remounts this step on every step change, and the
+  // default must not override a toggle the user made since. Web research
+  // runs only when search itself works.
+  const [searchProbeOk, setSearchProbeOk] = useState<boolean | null>(researchDefaultProbe);
   useEffect(() => {
-    if (researchAutoSet.current) return;
-    researchAutoSet.current = true;
+    if (researchDefaultApplied) return;
+    researchDefaultApplied = true;
     const provider = config.searchProvider;
     if (provider === "none") {
       updateConfig({ tier2Enabled: false });
       return;
     }
+    const settle = (probeOk: boolean) => {
+      researchDefaultProbe = probeOk;
+      setSearchProbeOk(probeOk);
+      updateConfig({ tier2Enabled: probeOk });
+    };
     fetch("/api/search/probe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ provider })
     })
       .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
-      .then(({ ok, data }) => {
-        const probeOk = ok && Boolean((data as { ok?: boolean }).ok);
-        setSearchProbeOk(probeOk);
-        updateConfig({ tier2Enabled: probeOk });
-      })
-      .catch(() => {
-        setSearchProbeOk(false);
-        updateConfig({ tier2Enabled: false });
-      });
+      .then(({ ok, data }) => settle(ok && Boolean((data as { ok?: boolean }).ok)))
+      .catch(() => settle(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only auto-default
   }, []);
 

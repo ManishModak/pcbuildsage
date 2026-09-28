@@ -188,7 +188,10 @@ export function ByokSection({
         // eslint-disable-next-line react-hooks/set-state-in-effect -- one-way preselect from async discovery
         setSelectedModels((prev) => ({ ...prev, [p.id]: pick.id }));
         setByokModel(p.id, pick.id, persists[p.id]);
-        onModelChangeRef.current?.(p.id, pick.id, pick.contextLimit);
+        // Only the provider the chat will use drives the chain; a background
+        // provider finishing discovery must not switch the user's chat to it.
+        const active = getActiveByokProvider();
+        if (!active || active === p.id) onModelChangeRef.current?.(p.id, pick.id, pick.contextLimit);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-way preselect; selectedModels/persists read intentionally

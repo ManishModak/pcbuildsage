@@ -1,116 +1,100 @@
 {
   "version": 1,
   "example": true,
-  "generated_at": "2026-09-28T03:05:43.696Z",
+  "generated_at": "2026-09-28T04:26:41.390Z",
   "source": {
-    "db": "data/products-sample.db",
+    "db": "../../../../../../home/manishm/Projects/pcbuildsage-workspace/pcbuildsage/data/products.db",
     "scope": {
       "countryCode": "IN",
       "currency": "INR"
     }
   },
   "prompt": "Show me an example gaming build.",
-  "answer": "Example answer: a validated \"Example 1440p Gaming\" build totalling ₹2,61,500.00 across 8 catalog parts (prices observed 2026-09-28). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
-  "label": "Example 1440p Gaming",
+  "answer": "Example answer: a validated \"Example 1080p Gaming\" build totalling ₹87,509.00 across 8 catalog parts (prices observed 2026-09-28). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
+  "label": "Example 1080p Gaming",
   "validation": {
     "valid": true,
     "issues": [
       {
         "severity": "needs_verification",
-        "rule": "clearance",
+        "rule": "spec_resolution",
         "components": [
-          "a1f8c14e1a06377759be1c70e28f32230239c100",
-          "f6fdf69f6f06377759be1c70e28f32230239c600"
+          "e932a2bdc8f476b4ae189af5147b1ff0499ccbc4"
         ],
-        "detail": "GPU fit couldn’t be verified. Please check the card’s length against the case’s GPU clearance before buying."
+        "detail": "No case specs found in registry or research cache for 'Antec ST10M TG M-ATX Mini Tower Case'."
       }
     ],
     "resolved": {
       "cpu": {
-        "key": "da6670a41d06377759be1c70e28f32230239c099",
+        "key": "28e670955fc9dd82537e371db57a03a9745ed9da",
         "category": "cpu",
         "spec": {
-          "brand": "Intel",
-          "model": "Intel Core i9-14900K",
-          "socket": "LGA 1700",
-          "tdp_w": 125,
-          "ddr": "DDR5",
-          "igpu": true,
-          "cores": 24,
-          "boost_clock_ghz": 6,
+          "brand": "AMD",
+          "model": "AMD Ryzen 5 5600",
+          "socket": "AM4",
+          "tdp_w": 65,
+          "ddr": "DDR4",
+          "igpu": false,
+          "cores": 6,
+          "boost_clock_ghz": 4.4,
           "aliases": [
-            "Intel Core i9-14900K",
-            "Core i9-14900K",
-            "i9-14900K",
-            "14900K"
+            "AMD Ryzen 5 5600",
+            "Ryzen 5 5600",
+            "5600",
+            "R5 5600",
+            "5 5600"
           ],
           "sources": [
-            "https://www.intel.com/content/www/us/en/products/sku/236773/intel-core-i9-processor-14900k-36m-cache-up-to-6-00-ghz/specifications.html",
-            "https://www.techpowerup.com/cpu-specs/core-i9-14900k.c3260"
+            "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5600.html",
+            "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600.c2678"
           ],
           "confidence": "high",
-          "researched_at": "2026-08-16T10:05:00Z",
-          "supported_memory": [
-            "DDR4",
-            "DDR5"
-          ]
+          "researched_at": "2026-08-16T10:05:00Z"
         },
         "source": "registry",
         "confidence": "high"
       },
       "motherboard": {
-        "key": "b2f9d25f2b06377759be1c70e28f32230239c200",
+        "key": "b27312c888d03f570a5ea6a10fb50102de77d311",
         "category": "motherboard",
         "spec": {
-          "brand": "ASUS",
-          "model": "ASUS ROG Strix Z790-E Gaming WiFi",
-          "socket": "LGA 1700",
-          "chipset": "Z790",
-          "ddr": "DDR5",
-          "form_factor": "ATX",
-          "m2_slots": 5,
-          "sata_ports": 4,
-          "pcie_gen": 5,
+          "brand": "MSI",
+          "model": "MSI B550M-A Pro Motherboard",
           "aliases": [
-            "ASUS ROG Strix Z790-E Gaming WiFi",
-            "ROG Strix Z790-E Gaming WiFi",
-            "ASUS ROG Strix Z790-E",
-            "ROG Strix Z790-E",
-            "Strix Z790-E Gaming WiFi",
-            "ROG Strix Z790-E Gaming",
-            "ASUS Strix Z790-E Gaming WiFi"
+            "MSI B550M-A Pro Motherboard"
           ],
-          "sources": [
-            "https://rog.asus.com/motherboards/rog-strix/rog-strix-z790-e-gaming-wifi-model/"
-          ],
-          "confidence": "high",
-          "researched_at": "2026-07-11T23:07:04Z"
+          "socket": "AM4",
+          "ddr": "DDR4",
+          "chipset": "B550",
+          "form_factor": "Micro-ATX",
+          "m2_slots": 2,
+          "sata_ports": 4
         },
-        "source": "registry",
-        "confidence": "high"
+        "source": "derived",
+        "confidence": "medium"
       },
       "gpu": {
-        "key": "a1f8c14e1a06377759be1c70e28f32230239c100",
+        "key": "4633994a12229f87586da5299272924d25442508",
         "category": "gpu",
         "spec": {
           "brand": "NVIDIA",
-          "model": "NVIDIA GeForce RTX 5080",
+          "model": "NVIDIA GeForce RTX 5060",
           "aliases": [
-            "GeForce RTX 5080",
-            "RTX 5080",
-            "5080",
-            "NVIDIA RTX 5080",
-            "NVIDIA GeForce RTX 5080",
-            "RTX 5080 16GB",
-            "GeForce RTX 5080 16GB"
+            "GeForce RTX 5060",
+            "RTX 5060",
+            "5060",
+            "NVIDIA RTX 5060",
+            "NVIDIA GeForce RTX 5060",
+            "RTX 5060 8GB",
+            "GeForce RTX 5060 8GB"
           ],
-          "tdp_w": 360,
-          "recommended_psu_w": 850,
-          "vram_gb": 16,
+          "tdp_w": 145,
+          "recommended_psu_w": 550,
+          "vram_gb": 8,
           "segment": "gaming",
           "sources": [
-            "https://www.techpowerup.com/gpu-specs/geforce-rtx-5080.c4221",
-            "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5080/"
+            "https://www.techpowerup.com/gpu-specs/geforce-rtx-5060.c4226",
+            "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5060-family/"
           ],
           "confidence": "high",
           "researched_at": "2026-08-16T15:35:00Z"
@@ -119,357 +103,264 @@
         "confidence": "high"
       },
       "psu": {
-        "key": "9a8b7c6d5e4f3041928374657687980a1b2c3d4e",
+        "key": "83e29ceb5c13ec7be025597e9e39ffa0f33a6549",
         "category": "psu",
         "spec": {
-          "brand": "Corsair",
-          "model": "Corsair RM850x",
-          "wattage": 850,
-          "efficiency": "80+ Gold",
-          "form_factor": "ATX",
+          "brand": "Ant",
+          "model": "Ant Esports RX650 - 80 Plus Bronze Certified 650 Watt Non-Modular Power Supply",
           "aliases": [
-            "Corsair RM850x",
-            "RM850x",
-            "Corsair RM 850x",
-            "Corsair RM850x 850W",
-            "RM850x Gold",
-            "RM 850x"
+            "Ant Esports RX650 - 80 Plus Bronze Certified 650 Watt Non-Modular Power Supply"
           ],
-          "sources": [
-            "https://www.corsair.com/p/CP-9020180-NA"
-          ],
-          "confidence": "high",
-          "researched_at": "2026-08-16T15:34:56+05:30"
+          "wattage": 650,
+          "wattage_w": 650,
+          "form_factor": "ATX"
         },
-        "source": "registry",
-        "confidence": "high"
-      },
-      "case": {
-        "key": "f6fdf69f6f06377759be1c70e28f32230239c600",
-        "category": "case",
-        "spec": {
-          "brand": "Corsair",
-          "model": "Corsair 4000D AIRFLOW Mid Tower",
-          "max_gpu_length_mm": 360,
-          "max_cooler_height_mm": 170,
-          "form_factors": [
-            "E-ATX",
-            "ATX",
-            "Micro-ATX",
-            "Mini-ITX"
-          ],
-          "supported_radiators": [
-            120,
-            140,
-            240,
-            280,
-            360
-          ],
-          "supported_psu_form_factors": [
-            "ATX"
-          ],
-          "max_psu_length_mm": 220,
-          "aliases": [
-            "Corsair 4000D AIRFLOW",
-            "4000D AIRFLOW",
-            "Corsair 4000D",
-            "4000D",
-            "Corsair 4000D Airflow CC-9011200-WW"
-          ],
-          "sources": [
-            "https://www.corsair.com/p/CC-9011200-WW"
-          ],
-          "confidence": "high",
-          "researched_at": "2026-09-27T12:00:00Z"
-        },
-        "source": "registry",
-        "confidence": "high"
+        "source": "derived",
+        "confidence": "medium"
       },
       "cooler": {
-        "key": "d4fbf47f4d06377759be1c70e28f32230239c400",
+        "key": "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
         "category": "cooler",
         "spec": {
-          "brand": "Noctua",
-          "model": "Noctua NH-D15",
-          "height_mm": 165,
+          "brand": "Ant Esports",
+          "model": "Ant Esports ICE-C612 V2 ARGB",
+          "height_mm": 153,
           "sockets": [
             "AM4",
             "AM5",
             "LGA 1700",
+            "LGA 1851",
             "LGA 1200",
             "LGA 1151",
             "LGA 1150",
             "LGA 1155",
             "LGA 1156",
-            "LGA 1851",
+            "LGA 1366",
             "LGA 2011",
             "LGA 2066"
           ],
-          "tdp_rating_w": 250,
+          "tdp_rating_w": 180,
           "aliases": [
-            "Noctua NH-D15",
-            "Noctua D15",
-            "NH-D15",
-            "NH-D15 Cooler"
+            "Ant Esports ICE-C612",
+            "ICE-C612",
+            "Ant Esports ICE-C612 V2",
+            "ICE-C612 V2",
+            "Ant Esports ICE C612",
+            "ICE-C612 ARGB"
           ],
           "sources": [
-            "https://noctua.at/en/nh-d15",
-            "https://noctua.at/en/nh-d15/specification"
+            "https://antesports.com/product/ant-esports-ice-c612-v2-cpu-air-cooler/"
           ],
           "confidence": "high",
+          "researched_at": "2026-08-16T15:34:56+05:30",
           "cooler_type": "air"
         },
         "source": "registry",
         "confidence": "high"
       },
       "ram": {
-        "key": "c3fae36f3c06377759be1c70e28f32230239c300",
+        "key": "1ee22f4e68844a8440d5ef87693f8319fb21ba7b",
         "category": "ram",
         "spec": {
-          "brand": "Corsair",
-          "model": "Corsair Vengeance 32GB DDR5-6000 RAM Kit",
-          "ddr": "DDR5",
-          "speed": "6000MHz",
-          "capacity": "32GB",
+          "brand": "Teamgroup",
+          "model": "Teamgroup T-Force Delta RGB 16Gb (8Gbx2) White 3200MHz CL16 DDR4 Desktop RAM (TF4D416G3200HC16FDC01)",
           "aliases": [
-            "Corsair Vengeance 32GB DDR5-6000 RAM Kit"
+            "Teamgroup T-Force Delta RGB 16Gb (8Gbx2) White 3200MHz CL16 DDR4 Desktop RAM (TF4D416G3200HC16FDC01)"
           ],
-          "sources": [
-            "https://www.corsair.com/us/en/p/memory/cmk32gx5m2b6000c30/vengeance-32gb-2x16gb-ddr5-dram-6000mt-s-c30-memory-kit-black-cmk32gx5m2b6000c30"
-          ],
-          "confidence": "high",
-          "researched_at": "2026-08-16T15:34:56Z",
-          "capacity_gb": 32,
-          "speed_mhz": 6000
+          "ddr": "DDR4",
+          "capacity_gb": 16,
+          "speed_mhz": 3200,
+          "modules": 2
         },
-        "source": "registry",
-        "confidence": "high"
+        "source": "derived",
+        "confidence": "medium"
       },
       "storage": [
         {
-          "key": "07fef70f7a06377759be1c70e28f32230239c700",
+          "key": "9543837a198b70a5ca66ed1ce6c4e9f71126ad15",
           "category": "storage",
           "spec": {
-            "brand": "Samsung",
-            "model": "Samsung 990 PRO 2TB M.2 NVMe Gen4 SSD",
+            "brand": "Hikvision",
+            "model": "Hikvision G4000 1TB M.2 NVMe Gen4 7400MB/s Internal SSD",
+            "aliases": [
+              "Hikvision G4000 1TB M.2 NVMe Gen4 7400MB/s Internal SSD"
+            ],
+            "capacity_gb": 1000,
             "interface": "nvme",
             "form_factor": "m2-2280",
-            "capacity_gb": 2000,
-            "pcie_gen": 4,
-            "aliases": [
-              "Samsung 990 PRO 2TB",
-              "990 PRO 2TB",
-              "Samsung 990 Pro 2TB NVMe SSD",
-              "990 pro 2tb",
-              "990Pro 2TB",
-              "Samsung 990 PRO 2TB M.2 PCIe 4.0 SSD",
-              "MZ-V9P2T0B"
-            ],
-            "sources": [
-              "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/990-pro-pcie-4-0-nvme-m-2-ssd-2tb-mz-v9p2t0b-am/"
-            ],
-            "confidence": "high",
-            "researched_at": "2026-08-16T10:04:56Z"
+            "pcie_gen": 4
           },
-          "source": "registry",
-          "confidence": "high"
+          "source": "derived",
+          "confidence": "medium"
         }
       ]
     },
     "skipped_checks": [],
     "checks": [
       {
+        "rule": "spec_resolution",
+        "status": "unverified",
+        "components": [
+          "e932a2bdc8f476b4ae189af5147b1ff0499ccbc4"
+        ],
+        "message": "No case specs found in registry or research cache for 'Antec ST10M TG M-ATX Mini Tower Case'."
+      },
+      {
         "rule": "socket",
         "status": "passed",
         "components": [
-          "da6670a41d06377759be1c70e28f32230239c099",
-          "b2f9d25f2b06377759be1c70e28f32230239c200"
+          "28e670955fc9dd82537e371db57a03a9745ed9da",
+          "b27312c888d03f570a5ea6a10fb50102de77d311"
         ],
-        "message": "CPU socket LGA 1700 matches motherboard socket LGA 1700."
+        "message": "CPU socket AM4 matches motherboard socket AM4."
       },
       {
         "rule": "ddr",
         "status": "passed",
         "components": [
-          "da6670a41d06377759be1c70e28f32230239c099",
-          "b2f9d25f2b06377759be1c70e28f32230239c200",
-          "c3fae36f3c06377759be1c70e28f32230239c300"
+          "28e670955fc9dd82537e371db57a03a9745ed9da",
+          "b27312c888d03f570a5ea6a10fb50102de77d311",
+          "1ee22f4e68844a8440d5ef87693f8319fb21ba7b"
         ],
-        "message": "RAM (DDR5) matches motherboard and CPU memory support."
+        "message": "RAM (DDR4) matches motherboard and CPU memory support."
       },
       {
         "rule": "wattage",
         "status": "passed",
         "components": [
-          "da6670a41d06377759be1c70e28f32230239c099",
-          "a1f8c14e1a06377759be1c70e28f32230239c100",
-          "9a8b7c6d5e4f3041928374657687980a1b2c3d4e"
+          "28e670955fc9dd82537e371db57a03a9745ed9da",
+          "4633994a12229f87586da5299272924d25442508",
+          "83e29ceb5c13ec7be025597e9e39ffa0f33a6549"
         ],
-        "message": "PSU wattage (850W) covers estimated requirement (642W) and meets manufacturer recommendation (850W)."
+        "message": "PSU wattage (650W) covers estimated requirement (312W) and meets manufacturer recommendation (550W)."
       },
       {
         "rule": "display_output",
         "status": "passed",
         "components": [
-          "a1f8c14e1a06377759be1c70e28f32230239c100"
+          "4633994a12229f87586da5299272924d25442508"
         ],
         "message": "Discrete GPU provides display output."
-      },
-      {
-        "rule": "clearance",
-        "status": "unverified",
-        "components": [
-          "a1f8c14e1a06377759be1c70e28f32230239c100",
-          "f6fdf69f6f06377759be1c70e28f32230239c600"
-        ],
-        "message": "GPU fit couldn’t be verified. Please check the card’s length against the case’s GPU clearance before buying."
-      },
-      {
-        "rule": "clearance",
-        "status": "passed",
-        "components": [
-          "d4fbf47f4d06377759be1c70e28f32230239c400",
-          "f6fdf69f6f06377759be1c70e28f32230239c600"
-        ],
-        "message": "Cooler height fits: 165mm cooler / 170mm case clearance."
-      },
-      {
-        "rule": "clearance",
-        "status": "passed",
-        "components": [
-          "b2f9d25f2b06377759be1c70e28f32230239c200",
-          "f6fdf69f6f06377759be1c70e28f32230239c600"
-        ],
-        "message": "Motherboard form factor ATX fits case."
-      },
-      {
-        "rule": "clearance",
-        "status": "passed",
-        "components": [
-          "9a8b7c6d5e4f3041928374657687980a1b2c3d4e",
-          "f6fdf69f6f06377759be1c70e28f32230239c600"
-        ],
-        "message": "PSU form factor ATX fits case (supported: ATX)."
       },
       {
         "rule": "cooler",
         "status": "passed",
         "components": [
-          "da6670a41d06377759be1c70e28f32230239c099",
-          "d4fbf47f4d06377759be1c70e28f32230239c400"
+          "28e670955fc9dd82537e371db57a03a9745ed9da",
+          "9bfafde76d6fae32fd7b430391147b3bd6a2f133"
         ],
-        "message": "Cooler rating (250W) and socket (LGA 1700) match CPU (125W)."
+        "message": "Cooler rating (180W) and socket (AM4) match CPU (65W)."
       },
       {
         "rule": "storage",
         "status": "passed",
         "components": [
-          "b2f9d25f2b06377759be1c70e28f32230239c200",
-          "07fef70f7a06377759be1c70e28f32230239c700"
+          "b27312c888d03f570a5ea6a10fb50102de77d311",
+          "9543837a198b70a5ca66ed1ce6c4e9f71126ad15"
         ],
         "message": "Motherboard supports installed storage drives (1 NVMe)."
       }
     ],
     "summary": {
-      "passed": 9,
+      "passed": 6,
       "failed": 0,
       "unverified": 1,
-      "text": "9 checks passed · 1 unverified"
+      "text": "6 checks passed · 1 unverified"
     },
     "snapshot": {
-      "label": "Example 1440p Gaming",
+      "label": "Example 1080p Gaming",
       "components": [
         {
           "category": "gpu",
-          "product_id": "a1f8c14e1a06377759be1c70e28f32230239c100",
-          "name": "NVIDIA GeForce RTX 5080 Graphics Card",
-          "price": 105000,
+          "product_id": "4633994a12229f87586da5299272924d25442508",
+          "name": "MSI RTX 5060 Inspire 2X OC 8GB GDDR7",
+          "price": 33990,
           "currency": "INR",
-          "retailer": "MDComputers",
-          "url": "https://mdcomputers.in/nvidia-rtx-5080",
-          "observed_at": "2026-07-10T00:00:00Z",
+          "retailer": "Kryptronix",
+          "url": "https://kryptronix.in/product/msi-rtx-5060-inspire-2x-oc-8gb-gddr7-2/",
+          "observed_at": "2026-07-10T06:30:15Z",
           "included": false
         },
         {
           "category": "cpu",
-          "product_id": "da6670a41d06377759be1c70e28f32230239c099",
-          "name": "Intel Core i9-14900K Desktop Processor",
-          "price": 55000,
+          "product_id": "28e670955fc9dd82537e371db57a03a9745ed9da",
+          "name": "AMD Ryzen 5 5600 Processor",
+          "price": 12990,
           "currency": "INR",
-          "retailer": "MDComputers",
-          "url": "https://mdcomputers.in/intel-core-i9-14900k",
-          "observed_at": "2026-07-10T00:00:00Z",
+          "retailer": "Kryptronix",
+          "url": "https://kryptronix.in/product/amd-ryzen-5-5600-processor-2/",
+          "observed_at": "2026-08-16T08:32:00Z",
           "included": false
         },
         {
           "category": "motherboard",
-          "product_id": "b2f9d25f2b06377759be1c70e28f32230239c200",
-          "name": "ASUS ROG Strix Z790-E Gaming WiFi Motherboard",
-          "price": 45000,
+          "product_id": "b27312c888d03f570a5ea6a10fb50102de77d311",
+          "name": "MSI B550M-A Pro Motherboard",
+          "price": 6250,
           "currency": "INR",
-          "retailer": "Vedant Computers",
-          "url": "https://www.vedantcomputers.com/asus-rog-strix-z790-e-gaming-wifi",
-          "observed_at": "2026-07-10T00:00:00Z",
+          "retailer": "MDComputers",
+          "url": "https://mdcomputers.in/product/motherboard/msi-b550m-a-pro-motherboard",
+          "observed_at": "2026-08-16T08:32:01Z",
           "included": false
         },
         {
           "category": "ram",
-          "product_id": "c3fae36f3c06377759be1c70e28f32230239c300",
-          "name": "Corsair Vengeance 32GB DDR5-6000 RAM Kit",
-          "price": 12000,
+          "product_id": "1ee22f4e68844a8440d5ef87693f8319fb21ba7b",
+          "name": "Teamgroup T-Force Delta RGB 16Gb (8Gbx2) White 3200MHz CL16 DDR4 Desktop RAM (TF4D416G3200HC16FDC01)",
+          "price": 13500,
           "currency": "INR",
-          "retailer": "MDComputers",
-          "url": "https://mdcomputers.in/corsair-vengeance-32gb-ddr5-6000",
-          "observed_at": "2026-07-10T00:00:00Z",
+          "retailer": "PCStudio",
+          "url": "https://www.pcstudio.in/product/teamgroup-t-force-delta-rgb-16gb-8gbx2-white-3200mhz-cl16-ddr4-desktop-ram/",
+          "observed_at": "2026-08-16T08:32:05Z",
           "included": false
         },
         {
           "category": "storage",
-          "product_id": "07fef70f7a06377759be1c70e28f32230239c700",
-          "name": "Samsung 990 Pro 2TB NVMe SSD",
-          "price": 16000,
+          "product_id": "9543837a198b70a5ca66ed1ce6c4e9f71126ad15",
+          "name": "Hikvision G4000 1TB M.2 NVMe Gen4 7400MB/s Internal SSD",
+          "price": 13990,
           "currency": "INR",
-          "retailer": "MDComputers",
-          "url": "https://mdcomputers.in/samsung-990-pro-2tb",
-          "observed_at": "2026-07-10T00:00:00Z",
+          "retailer": "Kryptronix",
+          "url": "https://kryptronix.in/product/hikvision-g4000-1tb-m-2-nvme-gen4-7400mb-s-internal-ssd-2/",
+          "observed_at": "2026-08-16T08:32:43Z",
           "included": false
         },
         {
           "category": "psu",
-          "product_id": "9a8b7c6d5e4f3041928374657687980a1b2c3d4e",
-          "name": "Corsair RM850x 850W 80 Plus Gold PSU",
-          "price": 11500,
+          "product_id": "83e29ceb5c13ec7be025597e9e39ffa0f33a6549",
+          "name": "Ant Esports RX650 - 80 Plus Bronze Certified 650 Watt Non-Modular Power Supply",
+          "price": 3339,
           "currency": "INR",
-          "retailer": "Vedant Computers",
-          "url": "https://www.vedantcomputers.com/corsair-rm850x",
-          "observed_at": "2026-07-10T00:00:00Z",
+          "retailer": "VedantComputers",
+          "url": "https://www.vedantcomputers.com/pc-components/smps/ant-esports-rx-series-rx650-80plus-bronze-power-supply",
+          "observed_at": "2026-08-16T08:32:21Z",
           "included": false
         },
         {
           "category": "case",
-          "product_id": "f6fdf69f6f06377759be1c70e28f32230239c600",
-          "name": "Corsair 4000D Airflow ATX Case",
-          "price": 7500,
+          "product_id": "e932a2bdc8f476b4ae189af5147b1ff0499ccbc4",
+          "name": "Antec ST10M TG M-ATX Mini Tower Case",
+          "price": 1900,
           "currency": "INR",
-          "retailer": "Vedant Computers",
-          "url": "https://www.vedantcomputers.com/corsair-4000d-airflow",
-          "observed_at": "2026-07-10T00:00:00Z",
+          "retailer": "MDComputers",
+          "url": "https://mdcomputers.in/product/antec-st10m-tg-mini-tower-cabinet/cabinet",
+          "observed_at": "2026-08-16T08:32:20Z",
           "included": false
         },
         {
           "category": "cooler",
-          "product_id": "d4fbf47f4d06377759be1c70e28f32230239c400",
-          "name": "Noctua NH-D15 CPU Cooler",
-          "price": 9500,
+          "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
+          "name": "Ant Esports ICE-C612 V2 Rainbow LED CPU Air Cooler",
+          "price": 1550,
           "currency": "INR",
-          "retailer": "Vedant Computers",
-          "url": "https://www.vedantcomputers.com/noctua-nh-d15",
-          "observed_at": "2026-07-10T00:00:00Z",
+          "retailer": "VedantComputers",
+          "url": "https://www.vedantcomputers.com/pc-components/cpu-cooler/ant-esports-ice-c612-v2-cpu-cooler",
+          "observed_at": "2026-08-16T08:32:35Z",
           "included": false
         }
       ],
-      "total": 261500,
-      "subtotal": 261500,
+      "total": 87509,
+      "subtotal": 87509,
       "currency": "INR",
       "is_complete": true,
       "component_count": 8,
@@ -480,137 +371,137 @@
       ],
       "parts": {
         "cpu": {
-          "product_id": "da6670a41d06377759be1c70e28f32230239c099"
+          "product_id": "28e670955fc9dd82537e371db57a03a9745ed9da"
         },
         "gpu": {
-          "product_id": "a1f8c14e1a06377759be1c70e28f32230239c100"
+          "product_id": "4633994a12229f87586da5299272924d25442508"
         },
         "motherboard": {
-          "product_id": "b2f9d25f2b06377759be1c70e28f32230239c200"
+          "product_id": "b27312c888d03f570a5ea6a10fb50102de77d311"
         },
         "ram": {
-          "product_id": "c3fae36f3c06377759be1c70e28f32230239c300"
+          "product_id": "1ee22f4e68844a8440d5ef87693f8319fb21ba7b"
         },
         "storage": {
-          "product_id": "07fef70f7a06377759be1c70e28f32230239c700"
+          "product_id": "9543837a198b70a5ca66ed1ce6c4e9f71126ad15"
         },
         "psu": {
-          "product_id": "9a8b7c6d5e4f3041928374657687980a1b2c3d4e"
+          "product_id": "83e29ceb5c13ec7be025597e9e39ffa0f33a6549"
         },
         "case": {
-          "product_id": "f6fdf69f6f06377759be1c70e28f32230239c600"
+          "product_id": "e932a2bdc8f476b4ae189af5147b1ff0499ccbc4"
         },
         "cooler": {
-          "product_id": "d4fbf47f4d06377759be1c70e28f32230239c400"
+          "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133"
         }
       },
       "valid": true,
       "validation_summary": {
-        "passed": 9,
+        "passed": 6,
         "failed": 0,
         "unverified": 1,
         "skipped": 0,
         "issues": [
-          "GPU fit couldn’t be verified. Please check the card’s length against the case’s GPU clearance before buying."
+          "No case specs found in registry or research cache for 'Antec ST10M TG M-ATX Mini Tower Case'."
         ]
       },
-      "created_at": "2026-09-28T03:05:43.695Z"
+      "created_at": "2026-09-28T04:26:34.125Z"
     }
   },
   "snapshot": {
-    "label": "Example 1440p Gaming",
+    "label": "Example 1080p Gaming",
     "components": [
       {
         "category": "gpu",
-        "product_id": "a1f8c14e1a06377759be1c70e28f32230239c100",
-        "name": "NVIDIA GeForce RTX 5080 Graphics Card",
-        "price": 105000,
+        "product_id": "4633994a12229f87586da5299272924d25442508",
+        "name": "MSI RTX 5060 Inspire 2X OC 8GB GDDR7",
+        "price": 33990,
         "currency": "INR",
-        "retailer": "MDComputers",
-        "url": "https://mdcomputers.in/nvidia-rtx-5080",
-        "observed_at": "2026-07-10T00:00:00Z",
+        "retailer": "Kryptronix",
+        "url": "https://kryptronix.in/product/msi-rtx-5060-inspire-2x-oc-8gb-gddr7-2/",
+        "observed_at": "2026-07-10T06:30:15Z",
         "included": false
       },
       {
         "category": "cpu",
-        "product_id": "da6670a41d06377759be1c70e28f32230239c099",
-        "name": "Intel Core i9-14900K Desktop Processor",
-        "price": 55000,
+        "product_id": "28e670955fc9dd82537e371db57a03a9745ed9da",
+        "name": "AMD Ryzen 5 5600 Processor",
+        "price": 12990,
         "currency": "INR",
-        "retailer": "MDComputers",
-        "url": "https://mdcomputers.in/intel-core-i9-14900k",
-        "observed_at": "2026-07-10T00:00:00Z",
+        "retailer": "Kryptronix",
+        "url": "https://kryptronix.in/product/amd-ryzen-5-5600-processor-2/",
+        "observed_at": "2026-08-16T08:32:00Z",
         "included": false
       },
       {
         "category": "motherboard",
-        "product_id": "b2f9d25f2b06377759be1c70e28f32230239c200",
-        "name": "ASUS ROG Strix Z790-E Gaming WiFi Motherboard",
-        "price": 45000,
+        "product_id": "b27312c888d03f570a5ea6a10fb50102de77d311",
+        "name": "MSI B550M-A Pro Motherboard",
+        "price": 6250,
         "currency": "INR",
-        "retailer": "Vedant Computers",
-        "url": "https://www.vedantcomputers.com/asus-rog-strix-z790-e-gaming-wifi",
-        "observed_at": "2026-07-10T00:00:00Z",
+        "retailer": "MDComputers",
+        "url": "https://mdcomputers.in/product/motherboard/msi-b550m-a-pro-motherboard",
+        "observed_at": "2026-08-16T08:32:01Z",
         "included": false
       },
       {
         "category": "ram",
-        "product_id": "c3fae36f3c06377759be1c70e28f32230239c300",
-        "name": "Corsair Vengeance 32GB DDR5-6000 RAM Kit",
-        "price": 12000,
+        "product_id": "1ee22f4e68844a8440d5ef87693f8319fb21ba7b",
+        "name": "Teamgroup T-Force Delta RGB 16Gb (8Gbx2) White 3200MHz CL16 DDR4 Desktop RAM (TF4D416G3200HC16FDC01)",
+        "price": 13500,
         "currency": "INR",
-        "retailer": "MDComputers",
-        "url": "https://mdcomputers.in/corsair-vengeance-32gb-ddr5-6000",
-        "observed_at": "2026-07-10T00:00:00Z",
+        "retailer": "PCStudio",
+        "url": "https://www.pcstudio.in/product/teamgroup-t-force-delta-rgb-16gb-8gbx2-white-3200mhz-cl16-ddr4-desktop-ram/",
+        "observed_at": "2026-08-16T08:32:05Z",
         "included": false
       },
       {
         "category": "storage",
-        "product_id": "07fef70f7a06377759be1c70e28f32230239c700",
-        "name": "Samsung 990 Pro 2TB NVMe SSD",
-        "price": 16000,
+        "product_id": "9543837a198b70a5ca66ed1ce6c4e9f71126ad15",
+        "name": "Hikvision G4000 1TB M.2 NVMe Gen4 7400MB/s Internal SSD",
+        "price": 13990,
         "currency": "INR",
-        "retailer": "MDComputers",
-        "url": "https://mdcomputers.in/samsung-990-pro-2tb",
-        "observed_at": "2026-07-10T00:00:00Z",
+        "retailer": "Kryptronix",
+        "url": "https://kryptronix.in/product/hikvision-g4000-1tb-m-2-nvme-gen4-7400mb-s-internal-ssd-2/",
+        "observed_at": "2026-08-16T08:32:43Z",
         "included": false
       },
       {
         "category": "psu",
-        "product_id": "9a8b7c6d5e4f3041928374657687980a1b2c3d4e",
-        "name": "Corsair RM850x 850W 80 Plus Gold PSU",
-        "price": 11500,
+        "product_id": "83e29ceb5c13ec7be025597e9e39ffa0f33a6549",
+        "name": "Ant Esports RX650 - 80 Plus Bronze Certified 650 Watt Non-Modular Power Supply",
+        "price": 3339,
         "currency": "INR",
-        "retailer": "Vedant Computers",
-        "url": "https://www.vedantcomputers.com/corsair-rm850x",
-        "observed_at": "2026-07-10T00:00:00Z",
+        "retailer": "VedantComputers",
+        "url": "https://www.vedantcomputers.com/pc-components/smps/ant-esports-rx-series-rx650-80plus-bronze-power-supply",
+        "observed_at": "2026-08-16T08:32:21Z",
         "included": false
       },
       {
         "category": "case",
-        "product_id": "f6fdf69f6f06377759be1c70e28f32230239c600",
-        "name": "Corsair 4000D Airflow ATX Case",
-        "price": 7500,
+        "product_id": "e932a2bdc8f476b4ae189af5147b1ff0499ccbc4",
+        "name": "Antec ST10M TG M-ATX Mini Tower Case",
+        "price": 1900,
         "currency": "INR",
-        "retailer": "Vedant Computers",
-        "url": "https://www.vedantcomputers.com/corsair-4000d-airflow",
-        "observed_at": "2026-07-10T00:00:00Z",
+        "retailer": "MDComputers",
+        "url": "https://mdcomputers.in/product/antec-st10m-tg-mini-tower-cabinet/cabinet",
+        "observed_at": "2026-08-16T08:32:20Z",
         "included": false
       },
       {
         "category": "cooler",
-        "product_id": "d4fbf47f4d06377759be1c70e28f32230239c400",
-        "name": "Noctua NH-D15 CPU Cooler",
-        "price": 9500,
+        "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
+        "name": "Ant Esports ICE-C612 V2 Rainbow LED CPU Air Cooler",
+        "price": 1550,
         "currency": "INR",
-        "retailer": "Vedant Computers",
-        "url": "https://www.vedantcomputers.com/noctua-nh-d15",
-        "observed_at": "2026-07-10T00:00:00Z",
+        "retailer": "VedantComputers",
+        "url": "https://www.vedantcomputers.com/pc-components/cpu-cooler/ant-esports-ice-c612-v2-cpu-cooler",
+        "observed_at": "2026-08-16T08:32:35Z",
         "included": false
       }
     ],
-    "total": 261500,
-    "subtotal": 261500,
+    "total": 87509,
+    "subtotal": 87509,
     "currency": "INR",
     "is_complete": true,
     "component_count": 8,
@@ -621,40 +512,40 @@
     ],
     "parts": {
       "cpu": {
-        "product_id": "da6670a41d06377759be1c70e28f32230239c099"
+        "product_id": "28e670955fc9dd82537e371db57a03a9745ed9da"
       },
       "gpu": {
-        "product_id": "a1f8c14e1a06377759be1c70e28f32230239c100"
+        "product_id": "4633994a12229f87586da5299272924d25442508"
       },
       "motherboard": {
-        "product_id": "b2f9d25f2b06377759be1c70e28f32230239c200"
+        "product_id": "b27312c888d03f570a5ea6a10fb50102de77d311"
       },
       "ram": {
-        "product_id": "c3fae36f3c06377759be1c70e28f32230239c300"
+        "product_id": "1ee22f4e68844a8440d5ef87693f8319fb21ba7b"
       },
       "storage": {
-        "product_id": "07fef70f7a06377759be1c70e28f32230239c700"
+        "product_id": "9543837a198b70a5ca66ed1ce6c4e9f71126ad15"
       },
       "psu": {
-        "product_id": "9a8b7c6d5e4f3041928374657687980a1b2c3d4e"
+        "product_id": "83e29ceb5c13ec7be025597e9e39ffa0f33a6549"
       },
       "case": {
-        "product_id": "f6fdf69f6f06377759be1c70e28f32230239c600"
+        "product_id": "e932a2bdc8f476b4ae189af5147b1ff0499ccbc4"
       },
       "cooler": {
-        "product_id": "d4fbf47f4d06377759be1c70e28f32230239c400"
+        "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133"
       }
     },
     "valid": true,
     "validation_summary": {
-      "passed": 9,
+      "passed": 6,
       "failed": 0,
       "unverified": 1,
       "skipped": 0,
       "issues": [
-        "GPU fit couldn’t be verified. Please check the card’s length against the case’s GPU clearance before buying."
+        "No case specs found in registry or research cache for 'Antec ST10M TG M-ATX Mini Tower Case'."
       ]
     },
-    "created_at": "2026-09-28T03:05:43.695Z"
+    "created_at": "2026-09-28T04:26:34.125Z"
   }
 }

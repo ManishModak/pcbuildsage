@@ -102,6 +102,17 @@ describe("search filters: modules and order-as-sort-field", () => {
       expect(resolveRamModules(undefined, "Corsair Vengeance 16GB (1x16GB) DDR4")).toBe(1);
     });
 
+    it("parses capacity-first titles and ignores speed numbers", () => {
+      expect(resolveRamModules(undefined, "Teamgroup T-Force 32GB (16GBx2) DDR5 6000MHz")).toBe(2);
+      expect(resolveRamModules(undefined, "Kingston Fury Beast 16GB x 1 DDR4")).toBe(1);
+      // A speed next to a capacity is not a stick count.
+      expect(resolveRamModules(undefined, "Vengeance 3200 x 16GB DDR4")).toBeUndefined();
+    });
+
+    it("lets the retail title win over a registry name shared across kit variants", () => {
+      expect(resolveRamModules({ brand: "C", model: "Vengeance LPX 2x8GB", aliases: [] }, "Corsair Vengeance LPX 16GB (1x16GB)")).toBe(1);
+    });
+
     it("parses kit-of-N titles", () => {
       expect(resolveRamModules(undefined, "G.Skill Ripjaws 32GB kit of 2 DDR4")).toBe(2);
       expect(resolveRamModules(undefined, "Corsair Dominator Kit of 4 DDR5")).toBe(4);

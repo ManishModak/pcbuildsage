@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import Database from "better-sqlite3";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, describe, expect, it, vi } from "vitest";
@@ -8,40 +9,44 @@ import fixture from "../../../../data/fixtures/sample-conversation.json";
 
 interface SampleFixture {
   generated_at: string;
-  source: { scope: { countryCode: string; currency: string } };
-  snapshot: { components: Array<{ product_id?: string; price: number | null }> };
+  source: { db: string; scope: { countryCode: string; currency: string } };
+  snapshot: { components: Array<{ name: string; product_id?: string; price: number | null }> };
 }
 
 const fixtureData: SampleFixture = fixture as unknown as SampleFixture;
 
-function resolveCatalogDb(): string {
-  // The catalog the fixture was built from, recorded by the fixture script.
-  // A gitignored local data/products.db may exist with arbitrary content, so
-  // the recorded source wins over the existence-based fallback order.
-  const recorded = (fixtureData.source as { db?: unknown } | undefined)?.db;
-  if (typeof recorded === "string" && recorded.length > 0) {
-    const recordedPath = path.isAbsolute(recorded) ? recorded : path.join(process.cwd(), recorded);
-    if (existsSync(recordedPath)) return recordedPath;
+// The fixture must come from the real scraped catalog. That database is
+// gitignored, so CI can't check membership; dev machines with it do. The
+// 12-row products-sample.db never counts: an example built from test data
+// would show parts nobody can buy.
+const realCatalogDb = [process.env.PCBUILDSAGE_DB_PATH, path.join(process.cwd(), "data", "products.db")]
+  .filter((candidate): candidate is string => Boolean(candidate))
+  .find((candidate) => existsSync(candidate) && hasProducts(candidate));
+
+function hasProducts(dbPath: string): boolean {
+  try {
+    const db = new Database(dbPath, { readonly: true, fileMustExist: true });
+    try {
+      return (db.prepare("SELECT COUNT(*) AS n FROM products").get() as { n: number }).n > 0;
+    } finally {
+      db.close();
+    }
+  } catch {
+    return false;
   }
-  const candidates = [
-    process.env.PCBUILDSAGE_DB_PATH,
-    path.join(process.cwd(), "data", "products.db"),
-    path.join(process.cwd(), "data", "fixtures", "products-sample.db"),
-    path.join(process.cwd(), "data", "products-sample.db")
-  ].filter((candidate): candidate is string => Boolean(candidate));
-  const found = candidates.find((candidate) => existsSync(candidate));
-  if (!found) throw new Error(`No catalog database found. Tried: ${candidates.join(", ")}`);
-  return found;
 }
 
 describe("sample conversation", () => {
-  const dbPath = resolveCatalogDb();
-  const repo = new SqliteCatalogRepository(dbPath);
+  const repo = realCatalogDb ? new SqliteCatalogRepository(realCatalogDb) : null;
   afterAll(async () => {
-    await repo.close?.();
+    await repo?.close?.();
   });
 
-  it("references only product IDs that exist in the catalog", async () => {
+  it("was not built from the test-only sample database", () => {
+    expect(fixtureData.source.db).not.toMatch(/products-sample/);
+  });
+
+  it.skipIf(!repo)("references only product IDs that exist in the real catalog", async () => {
     const ids = fixtureData.snapshot.components
       .map((component) => component.product_id)
       .filter((id): id is string => Boolean(id));
@@ -51,7 +56,7 @@ describe("sample conversation", () => {
       countryCode: fixtureData.source.scope.countryCode,
       currency: fixtureData.source.scope.currency
     };
-    const resolved = await repo.searchProducts(
+    const resolved = await repo!.searchProducts(
       { product_ids: ids, inStockOnly: false, limit: ids.length },
       scope
     );
@@ -74,7 +79,7 @@ describe("sample conversation", () => {
       expect(markup).toContain("Nothing here was saved");
       // The real build card rendered from the snapshot.
       expect(markup).toContain("Proposed build");
-      expect(markup).toContain("Intel Core i9-14900K Desktop Processor");
+      expect(markup).toContain(fixtureData.snapshot.components[0].name);
     } finally {
       fetchSpy.mockRestore();
     }

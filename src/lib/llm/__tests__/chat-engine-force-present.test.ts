@@ -42,19 +42,14 @@ function validateCall(id: string) {
   return { toolCallId: id, toolName: "validate_build", input: {} };
 }
 
+const WHOLE_BUILD = [{ category: "cpu" }, { category: "motherboard" }, { category: "ram" }];
+
+function validateResult(id: string, build: Record<string, unknown>) {
+  return { toolCallId: id, toolName: "validate_build", output: { builds: { "Within budget": build } } };
+}
+
 function validateSuccess(id: string) {
-  return {
-    toolCallId: id,
-    toolName: "validate_build",
-    output: {
-      builds: {
-        "Within budget": {
-          valid: true,
-          snapshot: { label: "Within budget", components: [] }
-        }
-      }
-    }
-  };
+  return validateResult(id, { valid: true, issues: [], snapshot: { label: "Within budget", components: WHOLE_BUILD } });
 }
 
 function presentCall(id: string) {
@@ -97,6 +92,20 @@ describe("chat-engine force-present directives", () => {
     ] as never[];
     const result = await capturedPrepareStep!({ steps, stepNumber: 5, messages: [] });
     expect(result).toEqual({});
+  });
+
+  it("leaves the model free to answer when the validation is invalid or only a spot check", async () => {
+    const cases = [
+      // Incompatible build: the model should explain, not present it.
+      validateResult("v1", { valid: false, issues: [{ severity: "blocking" }], snapshot: { components: WHOLE_BUILD } }),
+      validateResult("v1", { valid: true, issues: [{ severity: "blocking" }], snapshot: { components: WHOLE_BUILD } }),
+      // "Will this GPU fit my case?" is a compatibility question, not a build.
+      validateResult("v1", { valid: true, issues: [], snapshot: { components: [{ category: "gpu" }, { category: "case" }] } })
+    ];
+    for (const result of cases) {
+      const steps = [{ toolCalls: [validateCall("v1")], toolResults: [result] }] as never[];
+      await expect(capturedPrepareStep!({ steps, stepNumber: 5, messages: [] })).resolves.toEqual({});
+    }
   });
 
   it("returns to auto after present_build so the model can explain", async () => {

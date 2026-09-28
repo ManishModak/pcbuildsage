@@ -9,8 +9,7 @@ import { getActiveByokProvider, hasByokKey, listStoredProviders } from "@/lib/ll
 
 /**
  * In hosted mode the chat needs a BYOK key. Returns true when sending must be
- * blocked: hosted with an active provider that has no key, or hosted with no
- * keys stored at all.
+ * blocked: hosted mode and no provider the chat could use has a key.
  */
 export function hostedSendBlocked(options?: {
   isHosted?: boolean;
@@ -22,10 +21,13 @@ export function hostedSendBlocked(options?: {
   if (!isHosted) return false;
   const hasKeyFn = options?.hasKey ?? hasByokKey;
   const active = options?.activeProvider !== undefined ? options.activeProvider : getActiveByokProvider();
-  if (active) return !hasKeyFn(active);
   const stored = options?.storedProviders ?? listStoredProviders();
-  return !stored.some((provider) => hasKeyFn(provider));
+  // Same fallback as resolveChatRequestBody: any provider with a key can serve the chat.
+  const candidates = [active, ...stored, ...HOSTED_FALLBACK_PROVIDERS].filter((p): p is string => Boolean(p));
+  return !candidates.some((provider) => hasKeyFn(provider));
 }
+
+const HOSTED_FALLBACK_PROVIDERS = ["gemini", "groq", "openrouter"];
 
 export function Composer({
   onSend,

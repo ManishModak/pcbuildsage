@@ -86,8 +86,11 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
   };
 
   // Skip the market step when a single market leaves nothing to choose.
+  // Once only: going Back to it afterwards must not bounce forward again.
+  const marketSkipDone = useRef(false);
   useEffect(() => {
-    if (!isHosted || step !== 0 || !markets || !shouldSkipMarketStep(markets)) return;
+    if (marketSkipDone.current || !isHosted || step !== 0 || !markets || !shouldSkipMarketStep(markets)) return;
+    marketSkipDone.current = true;
     const only = markets[0];
     const updated = setMarketPreference({
       countryCode: only.code,
@@ -95,7 +98,6 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
       locale: only.locale
     });
     updateConfig({ countryCode: updated.countryCode, currency: updated.currencyCode });
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-way auto-skip on first eligible paint
     setStep(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-way auto-skip on first eligible paint
   }, [isHosted, step, markets]);
@@ -228,6 +230,12 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
                   </header>
 
                   <ByokSection
+                    // Saving or clearing a key invalidates the probe: Continue
+                    // must re-lock until the current key passes again.
+                    onKeyChange={() => {
+                      setHostedProbe(null);
+                      setHostedProbedFor(null);
+                    }}
                     onModelChange={(provider, model, contextLimit) => {
                       setHostedProbe(null);
                       setHostedProbedFor(null);
