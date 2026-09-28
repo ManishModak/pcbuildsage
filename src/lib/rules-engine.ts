@@ -323,11 +323,11 @@ function checkWattage(
     );
     return;
   }
-  const cpuTdp = numberSpec(cpu, "tdp_w", issues);
+  const cpuPower = cpuPowerW(cpu, issues);
   const gpuTdp = hasGpu ? (gpu ? numberSpec(gpu, "tdp_w", issues) : undefined) : 0;
   const wattage = numberSpec(psu, "wattage", issues);
   const components = [cpu, gpu, psu].filter((component): component is ResolvedSpec => Boolean(component));
-  if (cpuTdp === undefined || gpuTdp === undefined || wattage === undefined) {
+  if (cpuPower === undefined || gpuTdp === undefined || wattage === undefined) {
     recordCheck(
       "wattage",
       "unverified",
@@ -336,7 +336,7 @@ function checkWattage(
     );
     return;
   }
-  const required = Math.ceil((cpuTdp + gpuTdp + 50) * 1.2);
+  const required = Math.ceil((cpuPower + gpuTdp + 50) * 1.2);
   if (required > wattage) {
     const msg = `Estimated ${required}W requirement exceeds PSU ${wattage}W.`;
     recordCheck("wattage", "failed", components.map((c) => c.key), msg);
@@ -345,22 +345,30 @@ function checkWattage(
   const recPsu = gpu && typeof gpu.spec.recommended_psu_w === "number" && Number.isFinite(gpu.spec.recommended_psu_w) && gpu.spec.recommended_psu_w > 0
     ? gpu.spec.recommended_psu_w
     : undefined;
-  let message = `PSU wattage (${wattage}W) covers estimated requirement (${required}W).`;
-  if (recPsu !== undefined) {
-    message = wattage < recPsu
-      ? `PSU wattage (${wattage}W) covers estimated requirement (${required}W), but is below GPU manufacturer recommendation (${recPsu}W).`
-      : `PSU wattage (${wattage}W) covers estimated requirement (${required}W) and meets manufacturer recommendation (${recPsu}W).`;
-  }
-  recordCheck("wattage", "passed", components.map((c) => c.key), message);
   if (recPsu !== undefined && wattage < recPsu) {
-    issues.push({
-      severity: "advisory",
-      rule: "wattage",
-      components: gpu ? [psu.key, gpu.key] : [psu.key],
-      detail: `PSU wattage (${wattage}W) meets estimated draw (${required}W) but is below GPU manufacturer recommendation of ${recPsu}W.`
-    });
+    const msg = `PSU wattage (${wattage}W) is below the GPU manufacturer recommendation (${recPsu}W) for ${gpu?.key}.`;
+    recordCheck("wattage", "failed", components.map((c) => c.key), msg);
+    return;
   }
+  const message = recPsu !== undefined
+    ? `PSU wattage (${wattage}W) covers estimated requirement (${required}W) and meets manufacturer recommendation (${recPsu}W).`
+    : `PSU wattage (${wattage}W) covers estimated requirement (${required}W).`;
+  recordCheck("wattage", "passed", components.map((c) => c.key), message);
   confidenceGate("wattage", components, issues, `Wattage pass uses low-confidence researched specs for ${lowNames(components)}.`);
+}
+
+/**
+ * Realistic sustained CPU power for PSU sizing: base TDP understates unlocked
+ * desktop chips under load (14900K: 125W base, 253W Maximum Turbo Power per
+ * Intel ARK). Curated max_power_w (Intel Maximum Turbo Power / AMD socket PPT)
+ * wins when present; otherwise base TDP.
+ */
+function cpuPowerW(cpu: ResolvedSpec, issues: BuildIssue[]): number | undefined {
+  const base = numberSpec(cpu, "tdp_w", issues);
+  if (base === undefined) return undefined;
+  const max = cpu.spec.max_power_w;
+  if (typeof max === "number" && Number.isFinite(max) && max > 0) return Math.max(max, base);
+  return base;
 }
 
 function checkDisplayOutput(

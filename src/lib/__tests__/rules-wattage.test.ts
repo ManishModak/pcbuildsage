@@ -55,7 +55,7 @@ describe("rule: wattage", () => {
         // (170 + 360 + 50) * 1.2 = 580 * 1.2 = 696W > 550W
         expect(wattageCheck?.message).toContain("Estimated 696W requirement exceeds PSU 550W");
       });
-      it("passes wattage check with advisory when PSU covers estimated draw but is below GPU recommended PSU", () => {
+      it("fails wattage check when PSU is below GPU recommended PSU even if estimated draw passes", () => {
         const cpu = makeResolved("cpu-mid", "cpu", {
           brand: "AMD",
           model: "Ryzen 5 7600",
@@ -81,16 +81,17 @@ describe("rule: wattage", () => {
           aliases: ["RM750e"]
         });
 
-        // (65 + 360 + 50) * 1.2 = 475 * 1.2 = 570W <= 750W
+        // (65 + 360 + 50) * 1.2 = 475 * 1.2 = 570W <= 750W, but the GPU
+        // manufacturer recommendation is 850W, so the PSU fails.
         const result = run({ cpu, gpu, psu });
         const wattageCheck = result.checks.find((c) => c.rule === "wattage");
-        expect(wattageCheck?.status).toBe("passed");
-        expect(wattageCheck?.message).toContain("below GPU manufacturer recommendation (850W)");
-        expect(result.valid).toBe(true);
+        expect(wattageCheck?.status).toBe("failed");
+        expect(wattageCheck?.message).toContain("below the GPU manufacturer recommendation (850W)");
+        expect(result.valid).toBe(false);
 
-        const advisory = result.issues.find((i) => i.severity === "advisory" && i.rule === "wattage");
-        expect(advisory).toBeDefined();
-        expect(advisory?.detail).toContain("below GPU manufacturer recommendation of 850W");
+        const blocking = result.issues.find((i) => i.severity === "blocking" && i.rule === "wattage");
+        expect(blocking).toBeDefined();
+        expect(blocking?.detail).toContain("below the GPU manufacturer recommendation (850W)");
       });
       it("passes cleanly without advisory when PSU satisfies both estimated draw and manufacturer recommended PSU", () => {
         const cpu = makeResolved("cpu-mid", "cpu", {
