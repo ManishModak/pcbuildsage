@@ -32,6 +32,7 @@ import {
   sanitizeDimension
 } from "@/lib/analytics/events";
 import {
+  ANALYTICS_WRITE_TIMEOUT_MS,
   flush,
   record,
   resetAnalyticsForTesting,
@@ -199,6 +200,69 @@ describe("analytics store resilience", () => {
     for (const stmt of statements) expect(stmt.sql).toBe(ANALYTICS_UPSERT_SQL);
     const chat = statements.find((s) => s.args[1] === "chat_started");
     expect(chat?.args[3]).toBe(2);
+    expect(snapshotBufferForTesting()).toHaveLength(0);
+  });
+});
+
+describe("flush concurrency and timeouts", () => {
+  function batchedCounts(): number[] {
+    return (mocks.batch.mock.calls as unknown[][]).flatMap((call) =>
+      (call[0] as Array<{ args: unknown[] }>).map((stmt) => Number(stmt.args[3]))
+    );
+  }
+
+  it("concurrent flushes share one write", async () => {
+    setEnv("hosted-demo", true);
+    setAnalyticsClientFactoryForTesting(() => fakeClient());
+    record("chat_started", "");
+    await Promise.all([flush({ force: true }), flush({ force: true }), flush()]);
+    expect(batchedCounts()).toEqual([1]);
+  });
+
+  it("a timed-out write is dropped, never re-sent (no double count)", async () => {
+    vi.useFakeTimers();
+    setEnv("hosted-demo", true);
+    let landLate: () => void = () => {};
+    let calls = 0;
+    setAnalyticsClientFactoryForTesting(() =>
+      fakeClient(() =>
+        calls++ === 0
+          ? new Promise((resolve) => (landLate = () => resolve({ rows: [] })))
+          : Promise.resolve({ rows: [] })
+      )
+    );
+    record("chat_started", "");
+    const pending = flush({ force: true });
+    await vi.advanceTimersByTimeAsync(ANALYTICS_WRITE_TIMEOUT_MS + 1);
+    await pending;
+    expect(snapshotBufferForTesting()).toHaveLength(0);
+    // The slow write lands afterwards; the next flush has nothing to resend.
+    landLate();
+    await vi.advanceTimersByTimeAsync(0);
+    record("build_presented", "");
+    await flush({ force: true });
+    const sent = (mocks.batch.mock.calls as unknown[][]).flatMap((call) =>
+      (call[0] as Array<{ args: unknown[] }>).map((stmt) => stmt.args[1])
+    );
+    expect(sent.filter((event) => event === "chat_started")).toHaveLength(1);
+  });
+
+  it("a rejected write keeps its rows, merged with newer counts", async () => {
+    setEnv("hosted-demo", true);
+    let fail = true;
+    setAnalyticsClientFactoryForTesting(() =>
+      fakeClient(async () => {
+        if (fail) throw new Error("BLOCKED");
+        return { rows: [] };
+      })
+    );
+    record("chat_started", "");
+    await flush({ force: true });
+    record("chat_started", "");
+    expect(snapshotBufferForTesting()).toMatchObject([{ event: "chat_started", count: 2 }]);
+    fail = false;
+    await flush({ force: true });
+    expect(batchedCounts()).toEqual([2]);
     expect(snapshotBufferForTesting()).toHaveLength(0);
   });
 });

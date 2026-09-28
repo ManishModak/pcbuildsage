@@ -24,6 +24,8 @@ import {
 export const ANALYTICS_FLUSH_INTERVAL_MS = 60_000;
 /** Bound the in-memory buffer so unconfigured hosts cannot grow it forever. */
 const MAX_BUFFERED_KEYS = 5_000;
+/** A Turso write slower than this is abandoned (see flush() for what happens to its rows). */
+export const ANALYTICS_WRITE_TIMEOUT_MS = 5_000;
 
 type BufferedRow = { day: string; event: string; dimension: string; count: number };
 
@@ -33,6 +35,9 @@ let flushTimer: NodeJS.Timeout | null = null;
 let shutdownHandlersInstalled = false;
 let clientInstance: Client | null = null;
 let clientFactoryForTesting: ((url: string, token: string) => Client) | null = null;
+let inFlight: Promise<void> | null = null;
+
+class WriteTimeoutError extends Error {}
 
 export function utcDay(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10);
@@ -42,15 +47,21 @@ function bufferKey(day: string, event: string, dimension: string): string {
   return `${day}|${event}|${dimension}`;
 }
 
+/**
+ * One last non-blocking flush on shutdown. `once` matters for beforeExit:
+ * the flush schedules async work, so the event loop empties again and
+ * beforeExit re-fires; with a persistent listener and an unreachable DB
+ * (rows re-buffered) a non-server process would retry forever.
+ */
 function installShutdownHandlers(): void {
   if (shutdownHandlersInstalled) return;
   shutdownHandlersInstalled = true;
   const shutdown = () => {
     void flush({ force: true }).catch(() => {});
   };
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
-  process.on("beforeExit", shutdown);
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
+  process.once("beforeExit", shutdown);
 }
 
 function ensureFlushScheduled(): void {
@@ -113,8 +124,27 @@ export const recordEvent = record;
 /**
  * Flush buffered counts to Turso. Throttled to once per minute unless
  * `force` is set (shutdown path). Never throws; never writes in local mode.
+ * Concurrent callers share the one in-flight flush; a forced flush (shutdown)
+ * then runs once more for rows recorded after that flush drained the buffer.
  */
-export async function flush(options: { force?: boolean } = {}): Promise<void> {
+export function flush(options: { force?: boolean } = {}): Promise<void> {
+  if (inFlight) return options.force ? inFlight.then(() => flush(options)) : inFlight;
+  inFlight = flushOnce(options).finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+/**
+ * Drain-then-write: the snapshot leaves the buffer BEFORE the write, so
+ * events recorded meanwhile start fresh counts and no row is ever sent twice.
+ * - Write rejected: the batch is one transaction that did not commit, so the
+ *   rows go back into the buffer for the next flush.
+ * - Write timed out (> ANALYTICS_WRITE_TIMEOUT_MS): its outcome is unknown and
+ *   it may still land, so the rows are dropped. Losing one slow minute of
+ *   counts is preferred over double counting.
+ */
+async function flushOnce(options: { force?: boolean }): Promise<void> {
   try {
     const now = Date.now();
     if (!options.force && now - lastFlushAt < ANALYTICS_FLUSH_INTERVAL_MS) return;
@@ -129,23 +159,47 @@ export async function flush(options: { force?: boolean } = {}): Promise<void> {
       if (!built) return;
       clientInstance = built;
     }
+    const client = clientInstance;
     const snapshot = [...buffer.values()];
-    await clientInstance.execute(DAILY_COUNTS_DDL);
-    await clientInstance.batch(
-      snapshot.map((row) => ({
-        sql: ANALYTICS_UPSERT_SQL,
-        args: [row.day, row.event, row.dimension, row.count] as Array<string | number>
-      }))
-    );
-    for (const row of snapshot) {
-      const key = bufferKey(row.day, row.event, row.dimension);
-      const current = buffer.get(key);
-      if (!current) continue;
-      if (current.count <= row.count) buffer.delete(key);
-      else current.count -= row.count;
+    buffer.clear();
+    try {
+      await withTimeout(writeRows(client, snapshot), ANALYTICS_WRITE_TIMEOUT_MS);
+    } catch (error) {
+      if (!(error instanceof WriteTimeoutError)) rebuffer(snapshot);
     }
   } catch {
     // Swallowed: analytics failures must never surface.
+  }
+}
+
+async function writeRows(client: Client, rows: BufferedRow[]): Promise<void> {
+  await client.execute(DAILY_COUNTS_DDL);
+  await client.batch(
+    rows.map((row) => ({
+      sql: ANALYTICS_UPSERT_SQL,
+      args: [row.day, row.event, row.dimension, row.count] as Array<string | number>
+    }))
+  );
+}
+
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new WriteTimeoutError()), ms);
+    timer.unref?.();
+  });
+  // A late rejection from abandoned work must not surface as unhandled.
+  work.catch(() => {});
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** Put failed rows back, merging with anything recorded since the drain. */
+function rebuffer(rows: BufferedRow[]): void {
+  for (const row of rows) {
+    const key = bufferKey(row.day, row.event, row.dimension);
+    const current = buffer.get(key);
+    if (current) current.count += row.count;
+    else if (buffer.size < MAX_BUFFERED_KEYS) buffer.set(key, { ...row });
   }
 }
 
@@ -165,6 +219,7 @@ export function resetAnalyticsForTesting(): void {
   }
   clientInstance = null;
   clientFactoryForTesting = null;
+  inFlight = null;
 }
 
 export function snapshotBufferForTesting(): BufferedRow[] {
