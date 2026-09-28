@@ -477,6 +477,9 @@ ${rows}
 `;
 }
 
+/** Google Search Console ownership tag for https://manishmodak.github.io/pcbuildsage/ (public by design). */
+const GOOGLE_SITE_VERIFICATION = "p2ClFoxRIxJLycgFXY0k1qsUJdNT4cAItdACO4FiOwg";
+
 function renderIndex(published: PublishedGuide[], generatedAt: string): string {
   const items = published
     .map(
@@ -489,6 +492,7 @@ function renderIndex(published: PublishedGuide[], generatedAt: string): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google-site-verification" content="${GOOGLE_SITE_VERIFICATION}">
 <title>Budget build guides — PCBuildSage</title>
 </head>
 <body>
