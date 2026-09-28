@@ -11,6 +11,8 @@ import {
   exceedsHostedChatBodyLimit,
   HOSTED_CHAT_MAX_BODY_BYTES
 } from "@/lib/config/deployment";
+import { classifyErrorType, sanitizeProviderDimension } from "@/lib/analytics/events";
+import { flushInBackground, record as recordAnalytics } from "@/lib/analytics/store";
 
 export const runtime = "nodejs";
 
@@ -154,6 +156,17 @@ export async function POST(request: Request): Promise<Response> {
       request.signal,
       clientCompactContext
     );
+    // Anonymous hosted-only counters; each call is total and fire-and-forget.
+    try {
+      recordAnalytics("chat_started", "");
+      recordAnalytics(
+        "provider_used",
+        sanitizeProviderDimension(result.provider, result.model)
+      );
+    } catch {
+      // Never break chat for analytics.
+    }
+    flushInBackground();
     return result.toUIMessageStreamResponse<UIMessage<{ provider: string; model: string; fallbackIndex: number; primaryError?: string; compactContext?: StoredCompactContext }>>({
       generateMessageId: () => result.responseMessageId,
       messageMetadata: () => ({
@@ -167,6 +180,12 @@ export async function POST(request: Request): Promise<Response> {
       }),
       onError: (error: unknown) => {
         const safeMsg = sanitizeErrorMessage(error, request.headers);
+        try {
+          recordAnalytics("error_type", classifyErrorType(error));
+        } catch {
+          // Never break chat for analytics.
+        }
+        flushInBackground();
         const requestSizeChars = JSON.stringify(body.messages).length;
         console.error(
           `POST /api/chat: Stream Error [model=${result.model ?? "unknown"}, provider=${result.provider ?? "unknown"}, messages=${body.messages.length}, requestSizeChars=${requestSizeChars}]:`,
@@ -177,6 +196,12 @@ export async function POST(request: Request): Promise<Response> {
     });
   } catch (error) {
     const safeMsg = sanitizeErrorMessage(error, request.headers);
+    try {
+      recordAnalytics("error_type", classifyErrorType(error));
+    } catch {
+      // Never break chat for analytics.
+    }
+    flushInBackground();
     console.error("POST /api/chat: Initialization Error:", safeMsg);
     if (
       error instanceof z.ZodError ||

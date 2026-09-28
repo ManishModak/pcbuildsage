@@ -1,0 +1,181 @@
+/**
+ * src/lib/analytics/store.ts
+ *
+ * Buffered anonymous counters for hosted free tiers. Local mode NEVER counts:
+ * record() is a no-op and flush() writes nothing unless the deployment mode
+ * is "hosted-demo" (see src/lib/config/deployment.ts).
+ *
+ * Writes go to a SEPARATE Turso database via ANALYTICS_TURSO_URL /
+ * ANALYTICS_TURSO_TOKEN only — never the catalog TURSO_* vars. All failures
+ * are swallowed so analytics can never break the chat path.
+ */
+
+import { createClient, type Client } from "@libsql/client";
+import { getDeploymentMode } from "@/lib/config/deployment";
+import {
+  ANALYTICS_UPSERT_SQL,
+  DAILY_COUNTS_DDL,
+  isAnalyticsEvent,
+  sanitizeDimension,
+  type AnalyticsEvent
+} from "./events";
+
+/** Flush at most once per minute; shutdown handlers force one last flush. */
+export const ANALYTICS_FLUSH_INTERVAL_MS = 60_000;
+/** Bound the in-memory buffer so unconfigured hosts cannot grow it forever. */
+const MAX_BUFFERED_KEYS = 5_000;
+
+type BufferedRow = { day: string; event: string; dimension: string; count: number };
+
+const buffer = new Map<string, BufferedRow>();
+let lastFlushAt = 0;
+let flushTimer: NodeJS.Timeout | null = null;
+let shutdownHandlersInstalled = false;
+let clientInstance: Client | null = null;
+let clientFactoryForTesting: ((url: string, token: string) => Client) | null = null;
+
+export function utcDay(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+function bufferKey(day: string, event: string, dimension: string): string {
+  return `${day}|${event}|${dimension}`;
+}
+
+function installShutdownHandlers(): void {
+  if (shutdownHandlersInstalled) return;
+  shutdownHandlersInstalled = true;
+  const shutdown = () => {
+    void flush({ force: true }).catch(() => {});
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+  process.on("beforeExit", shutdown);
+}
+
+function ensureFlushScheduled(): void {
+  if (flushTimer) return;
+  try {
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      void flush().catch(() => {});
+    }, ANALYTICS_FLUSH_INTERVAL_MS);
+    if (typeof flushTimer.unref === "function") flushTimer.unref();
+  } catch {
+    flushTimer = null;
+  }
+}
+
+function buildClient(): Client | null {
+  const url = process.env.ANALYTICS_TURSO_URL;
+  const token = process.env.ANALYTICS_TURSO_TOKEN;
+  if (!url || !token) return null;
+  try {
+    if (clientFactoryForTesting) return clientFactoryForTesting(url, token);
+    return createClient({ url, authToken: token });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Count one anonymous event. Total function: never throws, no-op in local
+ * mode, ignores events outside the allow-list.
+ */
+export function record(event: string, dimension: string = ""): void {
+  try {
+    if (!isAnalyticsEvent(event)) return;
+    if (getDeploymentMode() !== "hosted-demo") return;
+    const cleanDim = sanitizeDimension(dimension);
+    const day = utcDay();
+    const key = bufferKey(day, event, cleanDim);
+    const existing = buffer.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      if (buffer.size >= MAX_BUFFERED_KEYS) {
+        const oldest = buffer.keys().next().value;
+        if (oldest === undefined) return;
+        buffer.delete(oldest);
+      }
+      buffer.set(key, { day, event, dimension: cleanDim, count: 1 });
+    }
+    installShutdownHandlers();
+    ensureFlushScheduled();
+  } catch {
+    // Analytics must never break callers.
+  }
+}
+
+/** Alias with the name G1/G3 landing + onboarding call sites can share. */
+export const recordEvent = record;
+
+/**
+ * Flush buffered counts to Turso. Throttled to once per minute unless
+ * `force` is set (shutdown path). Never throws; never writes in local mode.
+ */
+export async function flush(options: { force?: boolean } = {}): Promise<void> {
+  try {
+    const now = Date.now();
+    if (!options.force && now - lastFlushAt < ANALYTICS_FLUSH_INTERVAL_MS) return;
+    lastFlushAt = now;
+    if (buffer.size === 0) return;
+    if (getDeploymentMode() !== "hosted-demo") {
+      buffer.clear();
+      return;
+    }
+    if (!clientInstance) {
+      const built = buildClient();
+      if (!built) return;
+      clientInstance = built;
+    }
+    const snapshot = [...buffer.values()];
+    await clientInstance.execute(DAILY_COUNTS_DDL);
+    await clientInstance.batch(
+      snapshot.map((row) => ({
+        sql: ANALYTICS_UPSERT_SQL,
+        args: [row.day, row.event, row.dimension, row.count] as Array<string | number>
+      }))
+    );
+    for (const row of snapshot) {
+      const key = bufferKey(row.day, row.event, row.dimension);
+      const current = buffer.get(key);
+      if (!current) continue;
+      if (current.count <= row.count) buffer.delete(key);
+      else current.count -= row.count;
+    }
+  } catch {
+    // Swallowed: analytics failures must never surface.
+  }
+}
+
+/** Fire-and-forget flush for request paths; never rejects. */
+export function flushInBackground(): void {
+  void flush().catch(() => {});
+}
+
+// --- Test hooks (not used in production paths) ---
+
+export function resetAnalyticsForTesting(): void {
+  buffer.clear();
+  lastFlushAt = 0;
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  clientInstance = null;
+  clientFactoryForTesting = null;
+}
+
+export function snapshotBufferForTesting(): BufferedRow[] {
+  return [...buffer.values()];
+}
+
+export function setAnalyticsClientFactoryForTesting(
+  factory: ((url: string, token: string) => Client) | null
+): void {
+  clientFactoryForTesting = factory;
+  clientInstance = null;
+}
+
+export type { AnalyticsEvent };
