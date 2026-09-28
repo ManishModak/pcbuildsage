@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Info } from "lucide-react";
 import { useApp } from "@/components/app/app-provider";
-import type { ChainEntry, CredentialAvailability, EndpointPreset } from "@/types/client";
+import type { ChainEntry, CredentialAvailability, EndpointPreset, SearchProvider } from "@/types/client";
 import { ChainBuilder, newEntry } from "@/features/llm/chain-builder";
 import { Icon } from "@/components/ui/icon";
 import { Button, Card, Toggle } from "@/components/ui/primitives";
@@ -12,6 +12,27 @@ export type EndpointLoadState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; endpoints: EndpointPreset[] };
+
+/**
+ * Default for "Tier 2 research subagents": on only when a search provider is
+ * configured AND its probe succeeds. Returns { enabled, reason } — reason is
+ * the one-line explanation shown when defaulting to off.
+ */
+export function researchDefaultForSearch(
+  searchProvider: SearchProvider,
+  probeOk: boolean | null
+): { enabled: boolean; reason: string | null } {
+  if (searchProvider === "none") {
+    return { enabled: false, reason: "Research is off: no search provider configured." };
+  }
+  if (probeOk === false) {
+    return { enabled: false, reason: "Research is off: the search probe failed — configure search first." };
+  }
+  if (probeOk === null) {
+    return { enabled: false, reason: "Research is off: search not verified yet." };
+  }
+  return { enabled: true, reason: null };
+}
 
 export function StepLLM({
   chain,
@@ -45,6 +66,41 @@ export function StepLLM({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [credentials]);
+
+  // Default Tier 2 research from live search availability (once per mount —
+  // the user can still toggle afterwards). Web research runs only when
+  // search itself works.
+  const researchAutoSet = useRef(false);
+  const [searchProbeOk, setSearchProbeOk] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (researchAutoSet.current) return;
+    researchAutoSet.current = true;
+    const provider = config.searchProvider;
+    if (provider === "none") {
+      updateConfig({ tier2Enabled: false });
+      return;
+    }
+    fetch("/api/search/probe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider })
+    })
+      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        const probeOk = ok && Boolean((data as { ok?: boolean }).ok);
+        setSearchProbeOk(probeOk);
+        updateConfig({ tier2Enabled: probeOk });
+      })
+      .catch(() => {
+        setSearchProbeOk(false);
+        updateConfig({ tier2Enabled: false });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only auto-default
+  }, []);
+
+  const researchOffReason = !config.tier2Enabled
+    ? researchDefaultForSearch(config.searchProvider, searchProbeOk).reason
+    : null;
 
   return (
     <section className="flex flex-col gap-6">
@@ -86,15 +142,27 @@ export function StepLLM({
           label="Tier 2 research subagents"
           description="Let the sage research unknown specs and run advisory build audits. Advisory only — never overrides Tier 1 blocks."
         />
+        {researchOffReason ? (
+          <p className="text-caption text-text-muted" data-testid="research-off-reason">
+            {researchOffReason}
+          </p>
+        ) : null}
       </div>
 
-      <div className="flex items-center justify-between border-t border-border pt-4">
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
         <Button variant="ghost" iconLeft={ArrowLeft} onClick={onBack}>
           Back
         </Button>
-        <Button iconRight={ArrowRight} onClick={onNext} disabled={!canAdvance}>
-          Continue
-        </Button>
+        <div className="flex items-center gap-3">
+          {!canAdvance ? (
+            <span className="text-caption text-text-muted" data-testid="llm-continue-reason">
+              Run &apos;Ping &amp; probe tools&apos; first: the model must be reachable and support tool calling.
+            </span>
+          ) : null}
+          <Button iconRight={ArrowRight} onClick={onNext} disabled={!canAdvance}>
+            Continue
+          </Button>
+        </div>
       </div>
     </section>
   );

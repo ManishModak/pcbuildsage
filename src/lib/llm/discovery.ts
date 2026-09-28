@@ -1,7 +1,18 @@
 import type { LLMChainEntry } from "@/types";
 import { keyEnv, normalizeBaseUrl, resolveApiKey } from "./client";
-
-export type DiscoveredModel = { id: string; name?: string; contextLimit?: number };
+import { isFreePricing } from "./model-recommend";export type DiscoveredModel = {
+  id: string;
+  name?: string;
+  contextLimit?: number;
+  /** Raw OpenRouter `supported_parameters` (e.g. includes "tools" when tool calling is supported). */
+  supportedParameters?: string[];
+  /** Raw OpenRouter `pricing` (per-token prices as strings, e.g. "0" for free models). */
+  pricing?: { prompt?: string | number; completion?: string | number };
+  /** True when prompt+completion pricing are both zero. */
+  free?: boolean;
+  /** True when discovery metadata confirms tool calling; undefined when unknown. */
+  toolCapable?: boolean;
+};
 
 export async function discoverModels(entry: LLMChainEntry, fetchImpl: typeof fetch = fetch): Promise<DiscoveredModel[]> {
   if (entry.provider === "gemini") {
@@ -55,17 +66,35 @@ export async function discoverModels(entry: LLMChainEntry, fetchImpl: typeof fet
       context_length?: number;
       context_window?: number;
       max_model_len?: number;
+      supported_parameters?: string[];
+      pricing?: { prompt?: string | number; completion?: string | number };
     }>;
   }>(`${base}/models`, fetchImpl, resolveApiKey(entry, keyEnv(entry.provider)));
   return (json.data ?? []).map((model) => {
     const rawLimit = model.context_length ?? model.context_window ?? model.max_model_len;
+    const supportedParameters = Array.isArray(model.supported_parameters) ? model.supported_parameters : undefined;
+    const toolCapable = supportedParameters
+      ? supportedParameters.some((param) => param.toLowerCase() === "tools")
+      : undefined;
+    const free = isFreePricing(model.pricing);
     return {
       id: model.id,
       name: model.name || model.id,
-      contextLimit: typeof rawLimit === "number" ? rawLimit : undefined
+      contextLimit: typeof rawLimit === "number" ? rawLimit : undefined,
+      ...(supportedParameters ? { supportedParameters } : {}),
+      ...(model.pricing ? { pricing: model.pricing } : {}),
+      ...(free !== undefined ? { free } : {}),
+      ...(toolCapable !== undefined ? { toolCapable } : {})
     };
   });
 }
+
+/**
+ * True when OpenRouter-style pricing reports zero prompt+completion cost
+ * (prices arrive as strings, e.g. "0" / "0.000000"). Returns undefined when
+ * no pricing metadata is present so callers can distinguish "unknown".
+ */
+export { isFreePricing, isToolCapableModel, isFreeModel, groupModelsForPicker, pickFreeToolCapableDefault } from "./model-recommend";
 
 /**
  * Parses the effective context limit from Ollama /api/show output.

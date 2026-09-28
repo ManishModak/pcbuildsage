@@ -1,8 +1,9 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useMemo } from "react";
 import { RefreshCw } from "lucide-react";
 import type { DiscoveredModel } from "@/types/client";
+import { groupModelsForPicker, isFreeModel } from "@/lib/llm/model-recommend";
 import { cn } from "./cn";
 import { IconButton, Input, Spinner, type FieldControlProps } from "./primitives";
 
@@ -28,8 +29,38 @@ export function ModelField({
   inputProps?: FieldControlProps;
 }) {
   const listId = useId();
+  // Tool-capable models first (free first), from discovery metadata only.
+  // Providers without tool metadata show no quick picks and keep today's list.
+  const recommended = useMemo(() => groupModelsForPicker(models).recommended.slice(0, 5), [models]);
   return (
     <div className="flex flex-col gap-1.5">
+      {recommended.length > 0 ? (
+        <div className="flex flex-col gap-1" data-testid="model-recommended">
+          <span className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
+            Recommended — tool-capable
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {recommended.map((model) => (
+              <button
+                key={model.id}
+                type="button"
+                onClick={() => onChange(model.id)}
+                disabled={disabled}
+                title={model.id}
+                className={cn(
+                  "rounded-pill border px-2 py-0.5 font-mono text-caption transition-colors duration-150 cursor-pointer",
+                  value === model.id
+                    ? "border-accent bg-accent/10 text-accent font-semibold"
+                    : "border-border bg-surface text-text-secondary hover:text-text hover:border-text-muted"
+                )}
+              >
+                {model.name && model.name !== model.id ? model.name : model.id}
+                {isFreeModel(model) ? " · Free" : ""}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Input
