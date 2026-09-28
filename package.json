@@ -38,6 +38,7 @@
     "init-db": "tsx scripts/init-db.ts",
     "generate-sample-db": "tsx scripts/generate-sample-db.ts",
     "validate:data": "node --import tsx scripts/validate-data.ts",
+    "analytics": "tsx scripts/analytics.ts",
     "export-research": "tsx scripts/export-research.ts",
     "publish-catalog": "tsx scripts/publish-catalog.ts"
   },

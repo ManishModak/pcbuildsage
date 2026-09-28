@@ -48,6 +48,7 @@ export const ALLOWED_HOSTED_ROUTES: readonly RouteAllowRule[] = [
   { path: "/api/markets" },
   { path: "/api/chat" },
   { path: "/api/chat/compact" },
+  { path: "/api/metrics", methods: ["POST"] },
   { path: "/api/config" },
   { path: "/api/models" },
   { path: "/api/themes" },

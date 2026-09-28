@@ -46,6 +46,7 @@ What you get:
 - **Bring your own key.** Use a free key from [Google AI Studio](https://aistudio.google.com/app/apikey) (Gemini) or [OpenRouter](https://openrouter.ai/keys), which has free models. The demo never uses server-side keys.
 - **Your key stays in your browser.** It's kept in this tab's session storage and sent with each request only to reach your provider. It's never written to disk, stored in a database, or logged on the server.
 - **Your chats stay in your browser** too (IndexedDB). The server keeps no sessions.
+- **Anonymous usage totals only:** the demo counts daily totals (chats started, builds presented) with no cookies, IPs, or IDs; local mode counts nothing.
 
 ---
 

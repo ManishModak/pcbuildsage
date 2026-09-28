@@ -16,6 +16,7 @@ import {
 import { compactConversation } from "./compaction";
 import type { BuildSnapshot } from "../catalog/build-snapshot";
 import { isHostedDemo } from "../config/deployment";
+import { record as recordAnalytics } from "../analytics/store";
 function isHosted(): boolean {
   return isHostedDemo();
 }
@@ -558,6 +559,14 @@ export async function streamChat(
       await Promise.all(promises);
     },
     onFinish: async (finish: OnFinishEvent<ToolSet>) => {
+      // Anonymous hosted-only counter: one build_presented per turn that
+      // actually presented a build. Zero behavior change to the turn itself.
+      try {
+        const steps = (finish as unknown as { steps?: StepLike[] }).steps;
+        if (hasPresentedBuild(steps)) recordAnalytics("build_presented", "");
+      } catch {
+        // Never break chat for analytics.
+      }
       if (compactBase && finish.text && finish.text.trim().length > 0) {
         latestCompactContext = {
           messages: [...compactBase, { role: "assistant", content: finish.text.trim() }],
