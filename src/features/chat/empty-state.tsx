@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { LeafMark } from "@/components/app/brand";
 import { formatStarterBudget } from "@/lib/format";
+import { SampleConversation } from "./sample-conversation";
 
 // Empty states teach: say what to do next, not just "No messages".
 export function ChatEmptyState({
@@ -9,6 +11,9 @@ export function ChatEmptyState({
   onPick: (prompt: string) => void;
   currency?: string;
 }) {
+  // Local-only toggle: the example below renders from a static fixture and is
+  // never sent through onPick, so it can never become a saved user session.
+  const [showExample, setShowExample] = useState(false);
   const budgetPrompt = `Best 1440p gaming build around ${formatStarterBudget(currency)}`;
   const prompts = [
     budgetPrompt,
@@ -37,6 +42,17 @@ export function ChatEmptyState({
             {prompt}
           </button>
         ))}
+      </div>
+      <div className="w-full max-w-lg">
+        <button
+          type="button"
+          onClick={() => setShowExample((visible) => !visible)}
+          aria-expanded={showExample}
+          className="text-sm font-medium text-accent hover:underline cursor-pointer"
+        >
+          {showExample ? "Hide example build" : "See an example build"}
+        </button>
+        {showExample ? <SampleConversation currency={currency} /> : null}
       </div>
     </div>
   );
