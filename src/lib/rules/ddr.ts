@@ -13,9 +13,18 @@ import {
   label,
   lowNames,
   stringSpec,
+  trustedNumber,
   untrusted,
   type CheckRecorder,
 } from "./shared";
+
+/** SO-DIMM (laptop) sticks are physically shorter and do not fit desktop DIMM slots. */
+function ramIsSodimm(ram: ResolvedSpec): boolean {
+  const ff = typeof ram.spec.form_factor === "string" ? ram.spec.form_factor.toLowerCase().replace(/[\s\-_]/g, "") : "";
+  if (ff === "sodimm") return true;
+  const text = [ram.key, typeof ram.spec.model === "string" ? ram.spec.model : "", ...((ram.spec.aliases ?? []) as unknown[])].join(" ");
+  return /\bSO[-\s]?DIMM\b/i.test(text) || /\bLAPTOP\b/i.test(text);
+}
 
 function getCpuSupportedMemory(cpu: ResolvedSpec, issues: BuildIssue[]): string[] | undefined {
   if (untrusted(cpu, issues)) return undefined;
@@ -37,6 +46,27 @@ export function checkDdr(
 ) {
   if (!motherboard) return;
   const boardDdr = stringSpec(motherboard, "ddr", issues);
+  if (ram && ramIsSodimm(ram)) {
+    recordCheck(
+      "ddr",
+      "failed",
+      [motherboard.key, ram.key],
+      `RAM ${ram.spec.model || ram.key} is SO-DIMM (laptop) memory and does not fit the DIMM slots on this desktop motherboard.`
+    );
+    return;
+  }
+  if (ram) {
+    const boardSlots = trustedNumber(motherboard, "ram_slots", issues);
+    const kitModules = typeof ram.spec.modules === "number" && Number.isFinite(ram.spec.modules) ? ram.spec.modules : undefined;
+    if (boardSlots !== undefined && kitModules !== undefined && kitModules > boardSlots) {
+      recordCheck(
+        "ddr",
+        "failed",
+        [motherboard.key, ram.key],
+        `RAM kit uses ${kitModules} modules but the motherboard has only ${boardSlots} memory slot(s).`
+      );
+    }
+  }
   if (!boardDdr) {
     recordCheck(
       "ddr",
