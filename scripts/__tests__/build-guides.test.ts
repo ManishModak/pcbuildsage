@@ -3,22 +3,32 @@
  *
  * Unit tests for the budget-picker/skip logic, totals, slugs, the
  * prefill-URL contract, and the no-network guarantee of
- * scripts/build-guides.ts. No catalog DB or scraping required.
+ * scripts/build-guides.ts. No scraping; the one end-to-end run uses a temp
+ * copy of the tiny data/products-sample.db, never the real catalog.
  */
 
-import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { describe, it, expect, vi } from "vitest";
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   BUDGET_TIERS,
+  CANDIDATES_PER_CATEGORY,
+  CATEGORIES,
+  MAX_COMBOS,
+  NO_FALLBACK_CATEGORIES,
   customiseUrl,
   describeFilters,
   escapeHtml,
+  formatIst,
   guideSlug,
   guideTitle,
   guideTotal,
   pickBuildForBudget,
-  renderHelpPage
+  renderHelpPage,
+  runBuildGuides,
+  samePartSet,
+  tierPlan
 } from "../build-guides";
 import {
   API_KEY_FAQS,
@@ -52,6 +62,68 @@ describe("budget tiers", () => {
       expect(Object.keys(tier.plan).sort()).toEqual(
         ["case", "cooler", "cpu", "gpu", "motherboard", "psu", "ram", "storage"].sort()
       );
+    }
+  });
+});
+
+describe("1440p tiers", () => {
+  it("use a different (one class up) GPU than 1080p at the same budget", () => {
+    for (const budget of [70000, 80000, 90000, 100000]) {
+      const p1080 = tierPlan(budget, "1080p");
+      const p1440 = tierPlan(budget, "1440p");
+      expect(p1440.gpu.term, `budget ${budget}`).not.toBe(p1080.gpu.term);
+    }
+    expect(tierPlan(80000, "1440p").gpu.term).toBe(tierPlan(90000, "1080p").gpu.term);
+    expect(tierPlan(90000, "1440p").gpu.term).toBe(tierPlan(100000, "1080p").gpu.term);
+  });
+
+  it("detects identical part sets regardless of order", () => {
+    expect(samePartSet(["a", "b"], ["b", "a"])).toBe(true);
+    expect(samePartSet(["a", "b"], ["a", "c"])).toBe(false);
+    expect(samePartSet(["a"], [])).toBe(false);
+  });
+});
+
+describe("candidate search", () => {
+  it("never falls back to the cheapest CPU or GPU, only commodity parts", () => {
+    expect([...NO_FALLBACK_CATEGORIES].sort()).toEqual(["cpu", "gpu"]);
+  });
+
+  it("tries the full combination space (fits under MAX_COMBOS)", () => {
+    const space = CATEGORIES.reduce((product, category) => product * CANDIDATES_PER_CATEGORY[category], 1);
+    expect(space).toBeLessThanOrEqual(MAX_COMBOS);
+    expect(CANDIDATES_PER_CATEGORY.cpu).toBe(3);
+    expect(CANDIDATES_PER_CATEGORY.gpu).toBe(3);
+  });
+});
+
+describe("formatIst", () => {
+  it("formats catalog scrape times in IST", () => {
+    expect(formatIst("2026-09-28T08:54:00Z")).toBe("28 Sep 2026, 2:24 pm IST");
+    expect(formatIst("2026-09-27T18:30:00Z")).toBe("28 Sep 2026, 12:00 am IST");
+    expect(formatIst("not a date")).toBe("not a date");
+  });
+});
+
+describe("runBuildGuides with no publishable tier", () => {
+  it("exits 1 and writes nothing, so Pages keeps the last good deploy", async () => {
+    // The tiny sample catalog has no AM4 CPU/GPU matching any tier term.
+    const dir = mkdtempSync(path.join(tmpdir(), "guides-"));
+    const db = path.join(dir, "catalog.db");
+    const out = path.join(dir, "site");
+    copyFileSync(path.join(process.cwd(), "data", "products-sample.db"), db);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const result = await runBuildGuides(["--db", db, "--out", out]);
+      expect(result.exitCode).toBe(1);
+      expect(result.published).toHaveLength(0);
+      expect(result.skipped).toHaveLength(BUDGET_TIERS.length);
+      expect(result.skipped.some((reason) => /no in-stock (cpu|gpu) matching/.test(reason))).toBe(true);
+      expect(existsSync(path.join(out, "index.html"))).toBe(false);
+    } finally {
+      vi.restoreAllMocks();
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });

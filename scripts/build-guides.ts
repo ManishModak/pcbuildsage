@@ -6,8 +6,10 @@
  * budget tier it validates combinations of the cheapest in-stock candidates
  * and keeps the valid, fully-priced, blocking-issue-free build that fits the
  * budget with the fewest unverified specs (needs_research/needs_verification),
- * then the lowest total. A budget with no such build is SKIPPED (logged,
- * exit 0, no page published). Nothing here is ever called "best".
+ * then the lowest total. A budget with no such build is SKIPPED (logged, no
+ * page published). If EVERY tier is skipped the script exits 1 and writes
+ * nothing, so the Pages deploy never runs and the last good site stays up.
+ * Nothing here is ever called "best".
  *
  *   npx tsx scripts/build-guides.ts [--db <path>] [--out <dir>]
  *
@@ -19,16 +21,15 @@
  * gitignored build artifact produced locally and in CI (see
  * .github/workflows/refresh-catalog.yml); it is never committed.
  *
- * PREFILL-URL CONTRACT (for M2/G1 to honor; NOT implemented here, src/
- * is untouched): each guide ends with a "Customise this build" link of the
- * form `<DEMO_URL>?prompt=<encodeURIComponent(request)>`, where `request`
- * is a plain-English build request naming the budget, resolution, and picked
- * parts. The demo app SHOULD read the `prompt` query param on load and
- * prefill the chat/compose box with it. If the app later adopts a different
- * param name, only customiseUrl() below needs to change.
+ * PREFILL-URL CONTRACT: each guide ends with a "Customise this build" link
+ * of the form `<DEMO_URL>?prompt=<encodeURIComponent(request)>`, where
+ * `request` is a plain-English build request naming the budget, resolution,
+ * and picked parts. The demo app reads it into a new chat's composer (see
+ * src/features/chat/prompt-prefill.ts, which caps its length).
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import type Database from "better-sqlite3";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatPrice } from "../src/lib/format";
@@ -72,26 +73,38 @@ export interface TierPlan {
  * validation has a chance everywhere), with the CPU/GPU search terms and
  * PSU/storage minimums stepping up with the budget. Terms are deliberately
  * model-family specific (not exact SKUs) so a re-scrape still matches.
+ *
+ * 1440p is GPU-bound, so its tiers take the GPU one class up and pay for it
+ * with the CPU one step down. RAM stays 16GB DDR4 at both resolutions: more
+ * capacity doesn't help 1440p gaming specifically.
  */
-function tierPlan(budget: number, resolution: "1080p" | "1440p"): TierPlan["plan"] {
-  const cpuTerm =
-    budget <= 30000 ? "Ryzen 3"
-    : budget <= 40000 ? "Ryzen 5 5500"
-    : budget <= 60000 ? "Ryzen 5 5600"
-    : budget <= 80000 ? "Ryzen 7 5700"
-    : "Ryzen 7 5800";
-  const gpuTerm =
-    budget <= 30000 ? "RX 6400"
+const CPU_LADDER = ["Ryzen 3", "Ryzen 5 5500", "Ryzen 5 5600", "Ryzen 7 5700", "Ryzen 7 5800"];
+
+function cpuStep(budget: number): number {
+  return budget <= 30000 ? 0 : budget <= 40000 ? 1 : budget <= 60000 ? 2 : budget <= 80000 ? 3 : 4;
+}
+
+function gpuTerm(budget: number, resolution: "1080p" | "1440p"): string {
+  if (resolution === "1440p") {
+    return budget <= 70000 ? "RTX 4060 Ti"
+      : budget <= 80000 ? "RTX 5060 Ti"
+      : budget <= 90000 ? "RTX 5070"
+      : "RX 9070";
+  }
+  return budget <= 30000 ? "RX 6400"
     : budget <= 40000 ? "RTX 3050"
     : budget <= 50000 ? "RX 6600"
-    : budget <= 60000 ? "RTX 4060"
-    : budget <= 70000 ? (resolution === "1440p" ? "RTX 4060 Ti" : "RTX 4060")
+    : budget <= 70000 ? "RTX 4060"
     : budget <= 80000 ? "RTX 5060"
     : budget <= 90000 ? "RTX 5060 Ti"
     : "RTX 5070";
+}
+
+export function tierPlan(budget: number, resolution: "1080p" | "1440p"): TierPlan["plan"] {
+  const step = cpuStep(budget) - (resolution === "1440p" ? 1 : 0);
   return {
-    cpu: { term: cpuTerm },
-    gpu: { term: gpuTerm },
+    cpu: { term: CPU_LADDER[Math.max(0, step)] },
+    gpu: { term: gpuTerm(budget, resolution) },
     motherboard: { term: "B550" },
     ram: { ddr: "DDR4", min_capacity_gb: 16, modules: 2 },
     storage: { interface: "nvme", min_capacity_gb: budget <= 40000 ? 500 : 1000 },
@@ -114,8 +127,54 @@ export const BUDGET_TIERS: TierPlan[] = [
   }))
 ];
 
-export const CANDIDATES_PER_CATEGORY = 3;
+/**
+ * Cheapest in-stock candidates tried per category. Big-ticket and
+ * compatibility-heavy parts get 3, commodity parts 2, so the full
+ * combination space (3^4 * 2^4 = 1296) fits under MAX_COMBOS and every
+ * candidate is actually tried.
+ */
+export const CANDIDATES_PER_CATEGORY: Record<GuideCategory, number> = {
+  cpu: 3,
+  gpu: 3,
+  motherboard: 3,
+  ram: 3,
+  storage: 2,
+  psu: 2,
+  case: 2,
+  cooler: 2
+};
 export const MAX_COMBOS = 3000;
+
+/**
+ * Categories whose search term defines the tier. If the term finds nothing
+ * the tier is skipped: falling back to the cheapest in-stock CPU/GPU would
+ * publish e.g. a "1440p under ₹1L" page with the cheapest GPU. Commodity
+ * categories may fall back to the cheapest in-stock part.
+ */
+export const NO_FALLBACK_CATEGORIES: readonly GuideCategory[] = ["cpu", "gpu"];
+
+/** True when two builds use exactly the same products (order-insensitive). */
+export function samePartSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((id) => set.has(id));
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+/** Formats an ISO timestamp in IST, e.g. "28 Sep 2026, 2:24 pm IST". */
+export function formatIst(iso: string): string {
+  const time = Date.parse(iso);
+  if (Number.isNaN(time)) return iso;
+  const ist = new Date(time + IST_OFFSET_MS);
+  const hours = ist.getUTCHours();
+  const minutes = String(ist.getUTCMinutes()).padStart(2, "0");
+  return (
+    `${ist.getUTCDate()} ${MONTHS[ist.getUTCMonth()]} ${ist.getUTCFullYear()}, ` +
+    `${hours % 12 || 12}:${minutes} ${hours < 12 ? "am" : "pm"} IST`
+  );
+}
 
 export function guideSlug(tier: Pick<TierPlan, "budget" | "resolution">): string {
   return `gaming-${tier.resolution}-under-${tier.budget}`;
@@ -242,14 +301,14 @@ async function inStockCandidates(
 ): Promise<{ candidates: Candidate[]; fallback: boolean }> {
   const search = async (input: SearchProductsInput) =>
     repo.searchProducts(
-      { ...input, category, inStockOnly: true, limit: CANDIDATES_PER_CATEGORY, sort_by: "price", order: "asc" },
+      { ...input, category, inStockOnly: true, limit: CANDIDATES_PER_CATEGORY[category], sort_by: "price", order: "asc" },
       scope
     );
   let result = await search(filters);
   let fallback = false;
-  if (result.results.length === 0) {
-    // Filters too narrow for this scrape: fall back to cheapest in-stock in
-    // the category and let validate_build decide compatibility.
+  if (result.results.length === 0 && !NO_FALLBACK_CATEGORIES.includes(category)) {
+    // Commodity filters too narrow for this scrape: fall back to cheapest
+    // in-stock in the category and let validate_build decide compatibility.
     result = await search({});
     fallback = result.results.length > 0;
   }
@@ -281,6 +340,17 @@ async function resolveScope(
     if (coverage.every((baseline) => baseline.in_stock_total > 0)) return scope;
   }
   throw new Error("No market has in-stock listings in every build category.");
+}
+
+/** Newest scrape time among the scope's in-stock listings, or null. */
+function latestScrape(db: Database.Database, scope: CatalogScope): string | null {
+  const row = db
+    .prepare(
+      `SELECT MAX(last_scraped) AS latest FROM products
+       WHERE in_stock = 1 AND country_code = ? AND currency = ?`
+    )
+    .get(scope.countryCode, scope.currency) as { latest: string | null } | undefined;
+  return row?.latest ?? null;
 }
 
 function* combos(lists: Candidate[][]): Generator<Candidate[]> {
@@ -471,12 +541,18 @@ export async function runBuildGuides(
 ): Promise<{ exitCode: number; published: PublishedGuide[]; skipped: string[] }> {
   const dbPath = resolveDbPath(args);
   const outDir = deps.outDir ?? resolveOutDir(args);
-  const generatedAt = (deps.now ?? new Date()).toISOString();
   const repo = deps.repo ?? new SqliteCatalogRepository(dbPath);
   const published: PublishedGuide[] = [];
   const skipped: string[] = [];
+  // Part IDs of each published 1080p page by budget, to skip a 1440p page
+  // that would be identical.
+  const picked1080 = new Map<number, string[]>();
   try {
     const scope = await resolveScope(repo, repo.getDatabase() as never);
+    // "Prices checked" = when the catalog was scraped, not when this ran.
+    const generatedAt = formatIst(
+      latestScrape(repo.getDatabase(), scope) ?? (deps.now ?? new Date()).toISOString()
+    );
     const tool = createValidateBuildTool(scope, repo);
     const context = { toolCallId: "build-guides", messages: [] } as unknown as Parameters<
       NonNullable<typeof tool.execute>
@@ -509,7 +585,10 @@ export async function runBuildGuides(
         }
       }
       if (missing) {
-        skipped.push(`${label} (no in-stock candidates for ${missing})`);
+        const reason = NO_FALLBACK_CATEGORIES.includes(missing)
+          ? `no in-stock ${missing} matching "${describeFilters(missing, tier.plan[missing])}"`
+          : `no in-stock candidates for ${missing}`;
+        skipped.push(`${label} (${reason})`);
         continue;
       }
 
@@ -562,6 +641,13 @@ export async function runBuildGuides(
         continue;
       }
 
+      if (tier.resolution === "1080p") {
+        picked1080.set(tier.budget, ids);
+      } else if (samePartSet(ids, picked1080.get(tier.budget) ?? [])) {
+        skipped.push(`${label} (same parts as the 1080p page at this budget)`);
+        continue;
+      }
+
       const ranks = new Map<string, { rank: number; of: number; term: string }>();
       for (const component of picked.value.snapshot.components) {
         const key = `${component.category}:${component.product_id}`;
@@ -588,6 +674,13 @@ export async function runBuildGuides(
       );
     }
 
+    for (const skip of skipped) console.log(`[build-guides] skipped ${skip}.`);
+    if (published.length === 0) {
+      // Fail so CI never deploys an empty site: Pages keeps the last good one.
+      console.error("[build-guides] every tier was skipped; nothing published.");
+      return { exitCode: 1, published, skipped };
+    }
+
     mkdirSync(outDir, { recursive: true });
     writeFileSync(path.join(outDir, "index.html"), renderIndex(published, generatedAt));
     writeFileSync(path.join(outDir, "sitemap.xml"), renderSitemap(published));
@@ -595,7 +688,6 @@ export async function runBuildGuides(
     const helpDir = path.join(outDir, "help", "api-key");
     mkdirSync(helpDir, { recursive: true });
     writeFileSync(path.join(helpDir, "index.html"), renderHelpPage());
-    for (const skip of skipped) console.log(`[build-guides] skipped ${skip}.`);
     console.log(`[build-guides] done: ${published.length} published, ${skipped.length} skipped.`);
     return { exitCode: 0, published, skipped };
   } finally {
