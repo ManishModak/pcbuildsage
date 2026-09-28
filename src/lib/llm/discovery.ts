@@ -1,6 +1,18 @@
 import type { LLMChainEntry } from "@/types";
 import { keyEnv, normalizeBaseUrl, resolveApiKey } from "./client";
-import { isFreePricing } from "./model-recommend";export type DiscoveredModel = {
+import { isFreePricing } from "./model-recommend";
+
+export const DISCOVERY_TIMEOUT_MS = 10_000;
+export const DISCOVERY_CONCURRENCY = 4;
+
+export function getDiscoveryTimeoutMs(): number {
+  const raw = process.env.PCBUILDSAGE_DISCOVERY_TIMEOUT_MS;
+  const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return DISCOVERY_TIMEOUT_MS;
+}
+
+export type DiscoveredModel = {
   id: string;
   name?: string;
   contextLimit?: number;
@@ -30,27 +42,27 @@ export async function discoverModels(entry: LLMChainEntry, fetchImpl: typeof fet
     const base = normalizeBaseUrl(entry.baseUrl ?? process.env.OLLAMA_BASE_URL ?? "http://localhost:11434", "ollama");
     const json = await getJson<{ models?: Array<{ name: string; model?: string }> }>(`${base}/api/tags`, fetchImpl);
     const models = json.models ?? [];
-    return Promise.all(
-      models.map(async (model) => {
-        const id = model.model ?? model.name;
-        let contextLimit: number | undefined;
-        try {
-          const showData = await postJson<{
-            modelfile?: string;
-            parameters?: string;
-            model_info?: Record<string, unknown>;
-          }>(`${base}/api/show`, { model: id }, fetchImpl);
-          contextLimit = parseOllamaModelContextLimit(showData);
-        } catch {
-          // If inspection fails or /api/show is unavailable, leave contextLimit undefined
-        }
-        return {
-          id,
-          name: model.name,
-          contextLimit
-        };
-      })
-    );
+    // Bound /api/show fan-out: large local libraries would otherwise open
+    // one connection per model. DISCOVERY_CONCURRENCY caps in-flight probes.
+    return mapWithConcurrency(models, DISCOVERY_CONCURRENCY, async (model) => {
+      const id = model.model ?? model.name;
+      let contextLimit: number | undefined;
+      try {
+        const showData = await postJson<{
+          modelfile?: string;
+          parameters?: string;
+          model_info?: Record<string, unknown>;
+        }>(`${base}/api/show`, { model: id }, fetchImpl);
+        contextLimit = parseOllamaModelContextLimit(showData);
+      } catch {
+        // If inspection fails or /api/show is unavailable, leave contextLimit undefined
+      }
+      return {
+        id,
+        name: model.name,
+        contextLimit
+      };
+    });
   }
   const defaultUrl =
     entry.provider === "openrouter"
@@ -138,7 +150,11 @@ export function parseOllamaModelContextLimit(showResponse: {
 }
 
 async function getJson<T>(url: string, fetchImpl: typeof fetch, apiKey?: string): Promise<T> {
-  const response = await fetchImpl(url, { headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined });
+  const timeout = getDiscoveryTimeoutMs();
+  const response = await fetchImpl(url, {
+    headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
+    signal: AbortSignal.timeout(timeout)
+  });
   if (!response.ok) throw new Error(`Model discovery failed with HTTP ${response.status}`);
   return (await response.json()) as T;
 }
@@ -150,12 +166,29 @@ async function postJson<T>(url: string, body: unknown, fetchImpl: typeof fetch, 
   if (apiKey) {
     headers["Authorization"] = `Bearer ${apiKey}`;
   }
+  const timeout = getDiscoveryTimeoutMs();
   const response = await fetchImpl(url, {
     method: "POST",
     headers,
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeout)
   });
   if (!response.ok) throw new Error(`Model inspection failed with HTTP ${response.status}`);
   return (await response.json()) as T;
+}
+
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const current = next;
+      next += 1;
+      if (current >= items.length) break;
+      results[current] = await fn(items[current] as T, current);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
