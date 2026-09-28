@@ -17,8 +17,16 @@ import {
   guideSlug,
   guideTitle,
   guideTotal,
-  pickBuildForBudget
+  pickBuildForBudget,
+  renderHelpPage
 } from "../build-guides";
+import {
+  API_KEY_FAQS,
+  API_KEY_FACTS,
+  API_KEY_GUIDES,
+  FREE_LIMIT_COPY,
+  KEY_REJECTED_COPY
+} from "../../src/content/api-key-help";
 
 describe("budget tiers", () => {
   it("covers 1080p from 30k to 1L in 10k steps plus 1440p from 70k", () => {
@@ -148,5 +156,26 @@ describe("no-network guarantee", () => {
     expect(source).not.toMatch(/XMLHttpRequest/);
     expect(source).not.toMatch(/\bfrom\s+["']node:https?["']/);
     expect(source).not.toMatch(/\bfrom\s+["'](axios|node-fetch|undici)["']/);
+  });
+});
+
+describe("M2: Pages /help/api-key mirror", () => {
+  it("renders every guide, fact, FAQ and error string from the shared content module", () => {
+    const html = renderHelpPage();
+    for (const guide of API_KEY_GUIDES) {
+      expect(html).toContain(escapeHtml(guide.title));
+      for (const step of guide.steps) expect(html).toContain(escapeHtml(step.text));
+    }
+    for (const fact of API_KEY_FACTS) {
+      expect(html).toContain(escapeHtml(fact.heading));
+      expect(html).toContain(escapeHtml(fact.text));
+    }
+    for (const faq of API_KEY_FAQS) {
+      expect(html).toContain(escapeHtml(faq.question));
+      expect(html).toContain(escapeHtml(faq.answer));
+    }
+    expect(html).toContain(escapeHtml(KEY_REJECTED_COPY));
+    expect(html).toContain(escapeHtml(FREE_LIMIT_COPY));
+    expect(html.toLowerCase()).not.toContain("best");
   });
 });

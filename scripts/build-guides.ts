@@ -13,7 +13,9 @@
  *
  * DB resolution: --db, then PCBUILDSAGE_DB_PATH, then data/products.db.
  * Output: <out>/index.html, <out>/gaming-<res>-under-<budget>.html per
- * published tier, and <out>/sitemap.xml for the Pages site. `site/` is a
+ * published tier, <out>/help/api-key/index.html (static mirror of the in-app
+ * /help/api-key page, rendered from G3's src/content/api-key-help.ts), and
+ * <out>/sitemap.xml for the Pages site. `site/` is a
  * gitignored build artifact produced locally and in CI (see
  * .github/workflows/refresh-catalog.yml); it is never committed.
  *
@@ -35,6 +37,13 @@ import type { CatalogScope, SearchProductsInput } from "../src/lib/catalog/repos
 import type { BuildSnapshot } from "../src/lib/catalog/build-snapshot";
 import type { ValidationResult } from "../src/lib/rules-engine";
 import { createValidateBuildTool } from "../src/lib/tools/validate-build";
+import {
+  API_KEY_FAQS,
+  API_KEY_FACTS,
+  API_KEY_GUIDES,
+  FREE_LIMIT_COPY,
+  KEY_REJECTED_COPY
+} from "../src/content/api-key-help";
 
 export const DEMO_URL = "https://pcbuildsage.onrender.com";
 export const PAGES_BASE_URL = "https://manishmodak.github.io/pcbuildsage/";
@@ -382,13 +391,77 @@ ${items}
 }
 
 function renderSitemap(published: PublishedGuide[]): string {
-  const urls = ["", ...published.map((guide) => `${guide.slug}.html`)]
+  const urls = ["", ...published.map((guide) => `${guide.slug}.html`), "help/api-key/"]
     .map((page) => `  <url><loc>${PAGES_BASE_URL}${page}</loc></url>`)
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls}
 </urlset>
+`;
+}
+
+/**
+ * M2: static mirror of the in-app /help/api-key page, rendered from the SAME
+ * content module G3 owns (src/content/api-key-help.ts) — no LLM calls, no
+ * copy-paste drift. The challenger test asserts every guide title, fact
+ * heading, FAQ question and error string from the module appears here.
+ */
+export function renderHelpPage(): string {
+  const guides = API_KEY_GUIDES.map(
+    (guide) => `<article>
+<h2>${escapeHtml(guide.title)}</h2>
+<ol>
+${guide.steps
+  .map(
+    (step, index) =>
+      `  <li>${escapeHtml(step.text)}${index === 0 ? ` <a href="${escapeHtml(guide.keyUrl)}">${escapeHtml(guide.keyUrlLabel)} ↗</a>` : ""}</li>`
+  )
+  .join("\n")}
+</ol>
+</article>`
+  ).join("\n");
+  const facts = API_KEY_FACTS.map(
+    (fact) => `<article>
+<h3>${escapeHtml(fact.heading)}</h3>
+<p>${escapeHtml(fact.text)}</p>
+</article>`
+  ).join("\n");
+  const faqs = API_KEY_FAQS.map(
+    (faq) => `<article>
+<h3>${escapeHtml(faq.question)}</h3>
+<p>${escapeHtml(faq.answer)}</p>
+</article>`
+  ).join("\n");
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get a free API key in 2 minutes — PCBuildSage Help</title>
+<meta name="description" content="Free Gemini and OpenRouter API key setup for PCBuildSage: steps, costs, safety, and error help.">
+</head>
+<body>
+<h1>Get a free API key in 2 minutes</h1>
+<p>PCBuildSage chats through your own provider key. Pick one option below — both have a free tier.</p>
+${guides}
+<h2>Good to know</h2>
+${facts}
+<h2>If chat shows an error</h2>
+<article>
+<h3>Key rejected</h3>
+<p>“${escapeHtml(KEY_REJECTED_COPY)}”</p>
+</article>
+<article>
+<h3>Free limit reached</h3>
+<p>“${escapeHtml(FREE_LIMIT_COPY)}”</p>
+</article>
+<h2>Questions</h2>
+${faqs}
+<p><a href="https://pcbuildsage.onrender.com/settings?tab=llm">Open Settings to paste your key →</a></p>
+<p><a href="../">All guides</a></p>
+</body>
+</html>
 `;
 }
 
@@ -518,6 +591,10 @@ export async function runBuildGuides(
     mkdirSync(outDir, { recursive: true });
     writeFileSync(path.join(outDir, "index.html"), renderIndex(published, generatedAt));
     writeFileSync(path.join(outDir, "sitemap.xml"), renderSitemap(published));
+    // M2: /help/api-key mirror (same G3 content module as the in-app page).
+    const helpDir = path.join(outDir, "help", "api-key");
+    mkdirSync(helpDir, { recursive: true });
+    writeFileSync(path.join(helpDir, "index.html"), renderHelpPage());
     for (const skip of skipped) console.log(`[build-guides] skipped ${skip}.`);
     console.log(`[build-guides] done: ${published.length} published, ${skipped.length} skipped.`);
     return { exitCode: 0, published, skipped };
