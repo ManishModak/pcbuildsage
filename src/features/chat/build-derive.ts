@@ -1328,9 +1328,12 @@ export function deriveBuildsFromToolParts(
       // A present_build still streaming carries a half-written input: entries
       // with no components are partial JSON, not real builds. The tool chip
       // already shows progress, so report nothing rather than flashing an
-      // "unavailable" card for a build that is still arriving.
+      // "unavailable" card for a build that is still arriving. A call that
+      // ended in an error is over too: its builds say "unavailable", not nothing.
       const finished =
-        presentPart.state === "output-available" || Boolean((presentPart as { output?: unknown }).output);
+        presentPart.state === "output-available" ||
+        presentPart.state === "output-error" ||
+        Boolean((presentPart as { output?: unknown }).output);
 
       const derived = input.builds.map((build) => {
         const isLegacy = Array.isArray(build.parts);

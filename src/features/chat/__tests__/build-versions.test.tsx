@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { findAllBuildVersions, isPresentedVersion, shouldAutoOpenPanel, TEXT_BUILD_CAVEAT, validationStrip } from "../build-derive";
+import { deriveBuildsFromToolParts, findAllBuildVersions, isPresentedVersion, shouldAutoOpenPanel, TEXT_BUILD_CAVEAT, validationStrip } from "../build-derive";
 import { VALIDATED_VERSION_LABEL } from "../build-versions";
 import { BuildCard } from "../build-card";
 import { MessageView, type ChatUIMessage } from "../message";
@@ -893,5 +893,42 @@ describe("only presented builds summon the panel, and unavailable builds keep th
     }
     const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
     expect(markup).not.toContain("AM5 CPUs require DDR5 memory");
+  });
+});
+
+describe("finished-but-failed and text-derived builds", () => {
+  it("shows a present_build that ended in an error as unavailable rather than nothing", () => {
+    const present = {
+      type: "tool-present_build",
+      toolCallId: "p1",
+      state: "output-error",
+      errorText: "tool failed",
+      input: { builds: [{ label: "Value", product_ids: ["cpu-1", "gpu-1"] }] }
+    };
+    const builds = deriveBuildsFromToolParts([present] as never, "INR", present as never);
+    expect(builds).toHaveLength(1);
+    expect(builds[0]).toMatchObject({ label: "Value", detailsUnavailable: true });
+  });
+
+  it("shows the text-build caveat once when there is no version picker", () => {
+    const messages: ChatUIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "suggest a build" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          {
+            type: "text",
+            text: ["Try this:", "", "| Component | Part | Price |", "|---|---|---|", "| CPU | Ryzen 5 7600 | ₹18,500 |", "| RAM | DDR5 16GB | ₹4,500 |"].join("\n")
+          }
+        ]
+      }
+    ];
+    const versions = findAllBuildVersions(messages, "INR");
+    expect(versions).toHaveLength(1);
+    expect(versions[0].builds[0].textDerived).toBe(true);
+    const markup = renderToStaticMarkup(<BuildCard versions={versions} inSidePanel />);
+    // Static markup escapes the apostrophe, so count the unescaped lead-in.
+    expect(markup.split(TEXT_BUILD_CAVEAT.split("'")[0]).length - 1).toBe(1);
   });
 });

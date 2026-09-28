@@ -1,8 +1,14 @@
-import { HttpError, type SaveSessionOptions, type SaveSessionRequest } from "@/lib/api-client";
+import { fetchSession, HttpError, type SaveSessionOptions, type SaveSessionRequest } from "@/lib/api-client";
+import { markInterruptedToolCalls } from "@/lib/sessions/interrupted-tools";
 import type { ChatUIMessage } from "./message";
 
 type SessionSnapshot = Omit<SaveSessionRequest, "revision">;
-type PendingSave = { signature: string; request: SaveSessionRequest; urgent: boolean };
+/**
+ * `whileStreaming` records that the snapshot was taken mid-reply: the stream kept
+ * going after it, so by the time a conflict on it resolves the local transcript
+ * has moved on and adopting the server copy would throw that newer content away.
+ */
+type PendingSave = { signature: string; request: SaveSessionRequest; urgent: boolean; whileStreaming: boolean };
 
 /** `urgent` marks a best-effort page-close flush; see `SaveSessionOptions`. */
 export type PersistOptions = SaveSessionOptions;
@@ -30,6 +36,11 @@ export type SessionSaveQueueOptions = {
    * Fetch the authoritative copy after a `stale_revision` conflict. The queue
    * compares revisions and only calls `onConflictAdopted` when the other copy is
    * actually newer, so a conflict never silently overwrites the other tab's work.
+   *
+   * Must return the messages exactly as stored, **without** the load-time
+   * "Interrupted" repair: a mid-stream save is compared against it byte for byte,
+   * and a repaired copy would never match the save that actually landed. The
+   * queue applies the repair itself when it hands an adopted copy to the view.
    */
   loadServerCopy?: () => Promise<ServerSessionCopy | null>;
   onConflictAdopted?: (copy: ServerSessionCopy) => void;
@@ -62,8 +73,6 @@ export type DeferredConflictOutcome =
 
 const DEFAULT_RETRY_DELAYS_MS = [250, 1000, 4000];
 
-const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
 /**
  * Serializes browser-owned session writes and keeps only the newest snapshot
  * waiting behind the in-flight request. A failed signature remains unacknowledged
@@ -88,6 +97,9 @@ export class SessionSaveQueue {
    * newest such snapshot is kept: anything queued later supersedes it.
    */
   private unsavedAfterFailure: PendingSave | null = null;
+  /** Backoff timers still waiting, so `dispose` can cancel them. */
+  private readonly timers = new Set<{ handle: ReturnType<typeof setTimeout>; resolve: () => void }>();
+  private disposed = false;
   private onPersisted: () => void;
   private options: SessionSaveQueueOptions;
 
@@ -142,6 +154,28 @@ export class SessionSaveQueue {
   }
 
   /**
+   * True while dropping this queue would lose or abandon a write: anything
+   * `hasUnsaved` counts, plus a request in flight (its retries and conflict
+   * handling still need the queue). The pool never evicts a chat while this holds.
+   */
+  hasPendingWork(): boolean {
+    return this.hasUnsaved() || this.running !== null;
+  }
+
+  /**
+   * Stop retrying: cancel any backoff timer and let an in-progress drain finish
+   * without another attempt. Called when the chat leaves the pool or is deleted.
+   */
+  dispose(): void {
+    this.disposed = true;
+    for (const timer of this.timers) {
+      clearTimeout(timer.handle);
+      timer.resolve();
+    }
+    this.timers.clear();
+  }
+
+  /**
    * Re-queue the snapshot that a transient failure left unsaved, if it is still
    * newer than what is acknowledged. Returns false when there is nothing to
    * retry. The view calls this on the `online` event and when the user asks to
@@ -163,6 +197,8 @@ export class SessionSaveQueue {
     const { revision: _claimed, ...snapshot } = unsaved.request;
     void _claimed;
     void this.enqueue(unsaved.signature, snapshot, unsaved.urgent ? { urgent: true } : undefined);
+    // A retried mid-stream snapshot is still one the stream moved past.
+    if (this.pending?.signature === unsaved.signature && unsaved.whileStreaming) this.pending.whileStreaming = true;
     return true;
   }
 
@@ -210,7 +246,8 @@ export class SessionSaveQueue {
       this.pending = {
         signature,
         request: { ...snapshot, revision: ++this.nextRevision },
-        urgent
+        urgent,
+        whileStreaming: this.streamingNow()
       };
     }
     if (!this.running) this.running = this.drain();
@@ -244,7 +281,7 @@ export class SessionSaveQueue {
    */
   private async attempt(current: PendingSave): Promise<boolean> {
     const delays = this.options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
-    const sleep = this.options.sleep ?? defaultSleep;
+    const sleep = this.options.sleep;
     // An urgent flush is the last attempt before the page unloads: waiting out a
     // backoff would mean the write never leaves, so try it once and give up.
     const maxAttempts = current.urgent ? 1 : delays.length + 1;
@@ -257,26 +294,34 @@ export class SessionSaveQueue {
     let lastError: unknown;
     for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex++) {
       if (attemptIndex > 0) {
-        const fresh = this.pending;
         // A newer snapshot is queued: it already contains this one, so drop the
         // stale retry instead of burning the queue's time on old data.
-        if (fresh && fresh.signature !== current.signature) return false;
+        if (this.hasNewerPending(current)) return false;
+
+        await this.sleep(sleep, delays[attemptIndex - 1] ?? delays[delays.length - 1] ?? 0);
+        if (this.disposed) {
+          this.keepUnsaved(current);
+          return false;
+        }
+        if (this.hasNewerPending(current)) return false;
 
         // Find out what the server actually holds before re-sending anything. A
         // bumped revision is by construction newer than whatever a competing tab
         // wrote, so rebasing blind is exactly how a retry destroys the other tab's
         // work - the thing the conflict rule exists to prevent.
         const verdict = await this.reconcileBeforeRebase(current, request);
-        if (verdict !== "rebase") {
-          // "acknowledged": our earlier attempt did land after all. The rest mean
-          // the snapshot was not written, so it stays unacknowledged - and an
-          // unknown server state keeps the snapshot for an explicit retry rather
-          // than dropping it silently.
-          if (verdict === "unresolved") this.keepUnsaved(current);
-          return verdict === "acknowledged";
+        if (verdict === "unresolved") {
+          // The server could not be asked. Writing would be a guess, so probe
+          // again after the next backoff; once the retries run out, keep the
+          // snapshot for an explicit retry rather than dropping it silently.
+          if (attemptIndex < maxAttempts - 1) continue;
+          this.keepUnsaved(current);
+          return false;
         }
+        // "acknowledged": our earlier attempt did land after all. "adopted": the
+        // snapshot was not written, so it stays unacknowledged.
+        if (verdict !== "rebase") return verdict === "acknowledged";
 
-        await sleep(delays[attemptIndex - 1] ?? delays[delays.length - 1] ?? 0);
         request = { ...request, revision: ++this.nextRevision };
       }
 
@@ -322,6 +367,27 @@ export class SessionSaveQueue {
     return false;
   }
 
+  /** Whether a different, newer snapshot is waiting behind `current`. */
+  private hasNewerPending(current: PendingSave): boolean {
+    return this.pending !== null && this.pending.signature !== current.signature;
+  }
+
+  /** Backoff wait, tracked so `dispose` can cancel it. An injected `sleep` is used as is. */
+  private sleep(injected: ((ms: number) => Promise<void>) | undefined, ms: number): Promise<void> {
+    if (injected) return injected(ms);
+    if (this.disposed) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      const timer = {
+        resolve,
+        handle: setTimeout(() => {
+          this.timers.delete(timer);
+          resolve();
+        }, ms)
+      };
+      this.timers.add(timer);
+    });
+  }
+
   /**
    * Remember a snapshot a transient failure left unsaved, so it can be retried
    * (on `online`, or explicitly) instead of sitting unacknowledged with nobody
@@ -348,10 +414,12 @@ export class SessionSaveQueue {
    *
    * - `acknowledged`: the server already holds exactly this transcript, so the
    *   earlier attempt landed and only its response was lost. Nothing to write.
-   * - `adopted`: another tab has since saved this session, and its copy wins.
-   * - `unresolved`: the server's state is unknown, so writing would be a guess.
-   * - `rebase`: the server is still behind this attempt, so re-sending with a
-   *   newer revision cannot destroy anyone's work.
+   * - `adopted`: another tab has since saved this session, and its copy wins
+   *   (or, when local work is newer, it was observed and a re-save queued).
+   * - `unresolved`: the server could not be asked, so writing would be a guess.
+   * - `rebase`: the server is still behind this attempt - or holds no copy at
+   *   all, e.g. a brand-new chat whose first save hit a 5xx - so re-sending with
+   *   a newer revision cannot destroy anyone's work.
    */
   private async reconcileBeforeRebase(
     current: PendingSave,
@@ -359,7 +427,7 @@ export class SessionSaveQueue {
   ): Promise<"acknowledged" | "adopted" | "unresolved" | "rebase"> {
     const copy = await this.readServerCopy();
     if (copy === undefined) return "unresolved";
-    if (copy === null) return this.options.loadServerCopy ? "unresolved" : "rebase";
+    if (copy === null) return "rebase";
     if (sessionSignature(copy.messages) === current.signature) return "acknowledged";
     if (copy.revision < attempt.revision) return "rebase";
     this.adoptServerCopy(current, copy);
@@ -431,13 +499,61 @@ export class SessionSaveQueue {
       this.deferredConflict = { copy, localSignature: current.signature };
       return;
     }
+    // Local content is newer than the conflicting save - the stream kept going
+    // after it, or a later snapshot is already queued. Adopting would replace
+    // that newer content (typically the reply that just finished), so keep it
+    // and re-save it on top of the server revision instead.
+    if (current.whileStreaming || this.hasNewerPending(current)) {
+      this.resaveOnTop(current, copy);
+      return;
+    }
     this.adoptNow(copy);
   }
 
-  private adoptNow(copy: ServerSessionCopy): void {
-    this.nextRevision = Math.max(this.nextRevision, copy.revision);
-    this.options.onConflictAdopted?.(copy);
+  /**
+   * Observe the server revision and queue the newest local snapshot (the one
+   * waiting, else the one that conflicted) at a revision above it. The re-save
+   * no longer counts as mid-stream, so a second conflict on it resolves normally
+   * instead of re-saving forever.
+   */
+  private resaveOnTop(current: PendingSave, copy: ServerSessionCopy): void {
+    this.observeRevision(copy.revision);
+    const base = this.pending ?? current;
+    this.pending = {
+      ...base,
+      request: { ...base.request, revision: ++this.nextRevision },
+      whileStreaming: false
+    };
   }
+
+  /**
+   * Hand the server copy to the view, repaired for display, and acknowledge it:
+   * it is what storage holds, so the view echoing it back must not re-save it.
+   */
+  private adoptNow(copy: ServerSessionCopy): void {
+    this.observeRevision(copy.revision);
+    const messages = markInterruptedToolCalls(copy.messages) as ChatUIMessage[];
+    this.acknowledgedSignature = sessionSignature(messages);
+    this.options.onConflictAdopted?.({ ...copy, messages });
+  }
+}
+
+/**
+ * The `loadServerCopy` every pooled chat uses: the stored session, unrepaired
+ * (see `SessionSaveQueueOptions.loadServerCopy`), or null when there is none.
+ */
+export async function loadServerSessionCopy(id: string): Promise<ServerSessionCopy | null> {
+  const session = await fetchSession(id, { markInterrupted: false });
+  return session
+    ? {
+        revision: session.revision,
+        messages: session.messages,
+        // Carried with the transcript: a compacted context summarises specific
+        // messages, so adopting the transcript alone would leave this tab saving
+        // a summary of the wrong conversation.
+        compactContext: session.compact_context ?? null
+      }
+    : null;
 }
 
 export function sessionSignature(messages: SaveSessionRequest["messages"]): string {

@@ -157,7 +157,8 @@ export function BuildCard({
       ) : (
         <div className="border-b border-border px-4 py-3">
           <span className="inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
-            {active.label ?? (active.textDerived ? TEXT_BUILD_CAVEAT : currentVersionObj?.label) ?? "Proposed build"}
+            {/* A text-derived build's caveat is shown once, in the body below. */}
+            {active.label ?? (active.textDerived ? undefined : currentVersionObj?.label) ?? "Proposed build"}
           </span>
         </div>
       )}

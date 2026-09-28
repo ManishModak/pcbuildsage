@@ -182,7 +182,7 @@ function parseStoredSession(raw: unknown): StoredClientSession | null {
   };
 }
 
-function toSessionDetail(record: StoredClientSession): SessionDetail {
+function toSessionDetail(record: StoredClientSession, markInterrupted = true): SessionDetail {
   return {
     id: record.id,
     revision: record.revision,
@@ -194,8 +194,8 @@ function toSessionDetail(record: StoredClientSession): SessionDetail {
     // Interrupted tool calls are repaired in memory on read; the stored
     // transcript keeps whatever state the stream was in when it stopped.
     messages: Array.isArray(record.messages)
-      ? (markInterruptedToolCalls(record.messages) as ChatUIMessage[]).map((m, idx) =>
-          normalizeUIMessage(m, idx)
+      ? ((markInterrupted ? markInterruptedToolCalls(record.messages) : record.messages) as ChatUIMessage[]).map(
+          (m, idx) => normalizeUIMessage(m, idx)
         )
       : [],
     build_state: record.build_state ?? null,
@@ -438,13 +438,18 @@ async function idbSaveChecked(req: SaveSessionRequest): Promise<void> {
     let tombstoned = false;
     const tombReq = tombstones.get(req.id);
     tombReq.onsuccess = () => {
-      tombstoned = tombReq.result !== undefined && tombReq.result !== null;
+      // The other tombstone layers are read synchronously, inside the transaction.
+      tombstoned = (tombReq.result !== undefined && tombReq.result !== null) || isTombstoned(req.id);
       const sessionReq = sessions.get(req.id);
       sessionReq.onsuccess = () => {
-        let existing: StoredClientSession | null = null;
-        if (sessionReq.result) {
-          existing = parseStoredSession(sessionReq.result);
-        }
+        // Check against the newest copy across layers - the one `getClientSession`
+        // reports - not the IndexedDB row alone. A newer revision can live only in
+        // localStorage (written while IndexedDB was failing), and the caller
+        // deletes that copy after this write, so passing a lower revision here
+        // would silently discard it. `lsGet` is synchronous, so the transaction
+        // stays open.
+        const idbCopy = sessionReq.result ? parseStoredSession(sessionReq.result) : null;
+        const existing = mergeNewestById([[idbCopy, lsGet(req.id)].filter((c): c is StoredClientSession => c !== null)])[0] ?? null;
         let record: StoredClientSession;
         try {
           record = checkAndBuildRecord(req, existing, tombstoned);
@@ -911,14 +916,18 @@ export async function listClientSessions(): Promise<SessionSummary[]> {
 /**
  * Retrieves a client session by ID, taking the newest copy across all readable
  * layers. Returns null if not found, if the stored session is corrupted, or if
- * the session was deleted (see the tombstone set).
+ * the session was deleted (see the tombstone set). `markInterrupted: false`
+ * skips the load-time "Interrupted" repair (see `fetchSession`).
  */
-export async function getClientSession(id: string): Promise<SessionDetail | null> {
+export async function getClientSession(
+  id: string,
+  options: { markInterrupted?: boolean } = {}
+): Promise<SessionDetail | null> {
   await loadTombstonesFromIdb();
   if (isTombstoned(id)) return null;
   const record = mergeNewestById([await readableSessionCopies(id)])[0];
   if (!record) return null;
-  return toSessionDetail(record);
+  return toSessionDetail(record, options.markInterrupted ?? true);
 }
 
 /**
@@ -936,6 +945,17 @@ export async function getClientSession(id: string): Promise<SessionDetail | null
 export async function saveClientSession(req: SaveSessionRequest): Promise<void> {
   await loadTombstonesFromIdb();
 
+  // Every tombstone layer is checked before any write path. The IndexedDB
+  // tombstone is best-effort (see `addTombstoneDurable`), so a delete may live
+  // only in localStorage/memory - and the IndexedDB path must honour it too.
+  if (isTombstoned(req.id)) {
+    throw new SessionConflictError(
+      "session_deleted",
+      null,
+      `Session ${req.id} was deleted, so this save cannot recreate it.`
+    );
+  }
+
   const type = await getEffectiveStorageType();
 
   if (type === "indexeddb") {
@@ -952,14 +972,6 @@ export async function saveClientSession(req: SaveSessionRequest): Promise<void> 
       if (error instanceof SessionConflictError) throw error;
       // IndexedDB write failed (aborted, blocked, over quota). Try localStorage.
     }
-  }
-
-  if (isTombstoned(req.id)) {
-    throw new SessionConflictError(
-      "session_deleted",
-      null,
-      `Session ${req.id} was deleted, so this save cannot recreate it.`
-    );
   }
 
   const existing = await getClientSession(req.id);

@@ -5,7 +5,13 @@ import {
   saveClientSession,
   _setStorageDriverForTesting
 } from "@/lib/sessions/client-store";
-import { SessionSaveQueue, sessionSignature, type ServerSessionCopy } from "@/features/chat/session-save-queue";
+import {
+  loadServerSessionCopy,
+  SessionSaveQueue,
+  sessionSignature,
+  type ServerSessionCopy
+} from "@/features/chat/session-save-queue";
+import { resetCachedDeploymentMode, setCachedDeploymentMode } from "@/lib/api-client";
 import { SessionConflictError } from "@/lib/sessions/client-store";
 import type { ChatUIMessage } from "@/features/chat/message";
 
@@ -224,5 +230,44 @@ describe("compacted context rides along on queue-driven saves", () => {
     // The copy the view adopts carries the context that describes *its* messages.
     const context = adopted[0].compactContext as { messages: { content: string }[] } | null;
     expect(context?.messages[0].content).toBe("THEIR summary");
+  });
+
+  it("recognises its own landed mid-stream save instead of adopting it as a conflict", async () => {
+    // A mid-stream snapshot carries a tool call that is still running. Its write
+    // lands but the response is lost, so the retry probes the store. The probe
+    // must see the transcript as stored - not with that live tool call rewritten
+    // to "Interrupted" - or the save that landed looks like another tab's copy.
+    setCachedDeploymentMode("hosted-demo");
+    try {
+      const midStream = [
+        userMessage("find me a GPU"),
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [{ type: "tool-searchCatalog", toolCallId: "t1", state: "input-available", input: { q: "gpu" } }]
+        } as unknown as ChatUIMessage
+      ];
+      const persist = vi.fn(async (request) => {
+        await saveClientSession(request);
+        if (persist.mock.calls.length === 1) throw new TypeError("connection reset after the write");
+      });
+      const onConflictAdopted = vi.fn();
+      const queue = new SessionSaveQueue(persist, sessionSignature([]), 0, () => {}, {
+        sleep: () => Promise.resolve(),
+        loadServerCopy: () => loadServerSessionCopy("session-hosted"),
+        onConflictAdopted
+      });
+
+      await queue.enqueue(sessionSignature(midStream), snapshot(midStream));
+
+      expect(onConflictAdopted).not.toHaveBeenCalled();
+      expect(persist).toHaveBeenCalledTimes(1);
+      expect(queue.isAcknowledged(sessionSignature(midStream))).toBe(true);
+      // Opening the chat later still shows the abandoned call as interrupted.
+      const reopened = await getClientSession("session-hosted");
+      expect((reopened?.messages[1].parts[0] as { state: string }).state).toBe("output-error");
+    } finally {
+      resetCachedDeploymentMode();
+    }
   });
 });

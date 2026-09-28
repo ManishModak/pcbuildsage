@@ -813,3 +813,64 @@ describe("ClientStore", () => {
     });
   });
 });
+
+describe("IndexedDB save path honours the other layers", () => {
+  afterEach(() => {
+    resetClientStoreState();
+    vi.unstubAllGlobals();
+  });
+
+  it("refuses to resurrect a chat whose tombstone only reached localStorage", async () => {
+    resetClientStoreState();
+    const idb = createMockIndexedDB();
+    const ls = createMockLocalStorage();
+    vi.stubGlobal("indexedDB", idb);
+    vi.stubGlobal("localStorage", ls);
+    await saveClientSession({ id: "z", revision: 1, title: "A", messages: [] });
+
+    // A delete whose IndexedDB tombstone write failed: the tombstone lives only
+    // in localStorage, and the IndexedDB row may still be there.
+    ls.setItem("pcbuildsage:session_tombstones", JSON.stringify(["z"]));
+    resetClientStoreState();
+
+    await expect(saveClientSession({ id: "z", revision: 2, title: "Resurrected", messages: [] })).rejects.toMatchObject({
+      reason: "session_deleted"
+    });
+  });
+
+  it("checks the revision against a newer copy that lives only in localStorage", async () => {
+    resetClientStoreState();
+    const idb = createMockIndexedDB();
+    const ls = createMockLocalStorage();
+    vi.stubGlobal("indexedDB", idb);
+    vi.stubGlobal("localStorage", ls);
+    await saveClientSession({ id: "y", revision: 1, title: "idb1", messages: [] });
+    // Revision 4 was written to localStorage while IndexedDB was failing.
+    ls.setItem(
+      "pcbuildsage:session:y",
+      JSON.stringify({
+        id: "y",
+        revision: 4,
+        title: "ls4",
+        created_at: "2026-09-01T00:00:00.000Z",
+        updated_at: "2026-09-01T00:00:00.000Z",
+        country_code: null,
+        currency: null,
+        messages: [],
+        build_state: null
+      })
+    );
+    expect((await getClientSession("y"))?.revision).toBe(4);
+
+    await expect(saveClientSession({ id: "y", revision: 2, title: "stale", messages: [] })).rejects.toMatchObject({
+      reason: "stale_revision",
+      revision: 4
+    });
+    expect((await getClientSession("y"))?.title).toBe("ls4");
+
+    // A revision above it wins and replaces both copies.
+    await saveClientSession({ id: "y", revision: 5, title: "idb5", messages: [] });
+    expect(await getClientSession("y")).toMatchObject({ revision: 5, title: "idb5" });
+    expect(ls.getItem("pcbuildsage:session:y")).toBeNull();
+  });
+});

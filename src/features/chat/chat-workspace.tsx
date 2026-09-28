@@ -18,7 +18,7 @@ import {
   shrinkSessionPool,
   type PoolEntry
 } from "./session-selection";
-import { SessionSaveQueue, sessionSignature } from "./session-save-queue";
+import { loadServerSessionCopy, SessionSaveQueue, sessionSignature } from "./session-save-queue";
 
 // Neutral hover for the header menu trigger (base shadcn ghost Button):
 // twMerge overrides the component's default green `hover:bg-accent`.
@@ -39,9 +39,13 @@ function HeaderSidebarTrigger() {
 /**
  * One open chat tab. `isStreaming` is reported by `ChatView`: a streaming entry
  * is never evicted, because dropping it would unmount the view and kill the reply
- * mid-flight. `isLoading` is true while its messages are still being fetched.
+ * mid-flight; nor is one whose queue still has unsaved work (`hasUnsavedWork`).
+ * `isLoading` is true while its messages are still being fetched.
  */
 type ActiveSessionEntry = PoolEntry<SessionSaveQueue>;
+
+/** A chat whose queue still holds unsaved or in-flight work must stay in the pool. */
+const hasUnsavedWork = (entry: ActiveSessionEntry) => entry.queue.hasPendingWork();
 
 /**
  * Build the save queue for a session. Every queue can resolve a revision
@@ -55,19 +59,7 @@ function createSaveQueue(
   onPersisted: () => void
 ): SessionSaveQueue {
   return new SessionSaveQueue(saveSession, sessionSignature(messages), revision, onPersisted, {
-    loadServerCopy: async () => {
-      const session = await fetchSession(id);
-      return session
-        ? {
-            revision: session.revision,
-            messages: session.messages,
-            // Carried with the transcript: a compacted context summarises specific
-            // messages, so adopting the transcript alone would leave this tab saving
-            // a summary of the wrong conversation.
-            compactContext: session.compact_context ?? null
-          }
-        : null;
-    }
+    loadServerCopy: () => loadServerSessionCopy(id)
   });
 }
 
@@ -148,7 +140,8 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
           loaded,
           messages,
           pendingLoad,
-          newEntry: { id, queue, isStreaming: false, lastActiveAt: Date.now() }
+          newEntry: { id, queue, isStreaming: false, lastActiveAt: Date.now() },
+          isBusy: hasUnsavedWork
         });
         if (selection.evictedId) releasedIdsRef.current.add(selection.evictedId);
         return selection.pool;
@@ -169,39 +162,62 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
    * Eight evicted queues that are never released would pin that memory until a
    * reload, so an evicted id drops its queue.
    *
-   * `chooseEvictionIndex` only ever evicts an idle entry, so this can never yank a
-   * live stream's queue: a streaming chat stays in the pool until it finishes.
+   * `chooseEvictionIndex` only ever evicts an idle entry with no unsaved work, so
+   * this can never yank a live stream's queue or a save still on its way.
    */
   useEffect(() => {
     if (releasedIdsRef.current.size === 0) return;
     for (const id of releasedIdsRef.current) {
+      saveQueuesRef.current.get(id)?.dispose();
       saveQueuesRef.current.delete(id);
     }
     releasedIdsRef.current.clear();
   }, [activeSessions]);
 
-  const handleStreamingChange = useCallback((id: string, isStreaming: boolean) => {
-    setActiveSessions((prev) => {
-      const index = prev.findIndex((s) => s.id === id);
-      if (index === -1) return prev;
-      let updated = prev;
-      if (prev[index].isStreaming !== isStreaming) {
-        updated = [...prev];
-        updated[index] = { ...updated[index], isStreaming };
-      }
-      // A stream just ended while the pool was over its cap: the grace that let
-      // it grow (never evict a live stream) no longer applies, so shrink back
-      // to idle entries. The shrink only ever evicts idle, non-current entries.
-      if (updated.length > MAX_ACTIVE_SESSIONS) {
-        const shrunk = shrinkSessionPool({ pool: updated, currentSessionId: currentSessionIdRef.current });
-        if (shrunk.evictedIds.length > 0) {
-          for (const evictedId of shrunk.evictedIds) releasedIdsRef.current.add(evictedId);
-          return shrunk.pool;
-        }
-      }
-      return updated;
+  /**
+   * Trim a pool that grew past its cap (live streams or unsaved work held it
+   * open). Deferred a microtask so it sees the queue's state after the current
+   * turn: the stream-end save is enqueued by an effect that runs after the
+   * streaming change, and a landed save only clears `running` once
+   * `onPersisted` returns.
+   */
+  const shrinkPoolSoon = useCallback(() => {
+    queueMicrotask(() => {
+      setActiveSessions((prev) => {
+        if (prev.length <= MAX_ACTIVE_SESSIONS) return prev;
+        const shrunk = shrinkSessionPool({
+          pool: prev,
+          currentSessionId: currentSessionIdRef.current,
+          isBusy: hasUnsavedWork
+        });
+        if (shrunk.evictedIds.length === 0) return prev;
+        for (const evictedId of shrunk.evictedIds) releasedIdsRef.current.add(evictedId);
+        return shrunk.pool;
+      });
     });
   }, []);
+
+  /** A save landed: refresh the sidebar, and let the pool shrink if it was held open. */
+  const handlePersisted = useCallback(() => {
+    refresh();
+    shrinkPoolSoon();
+  }, [refresh, shrinkPoolSoon]);
+
+  const handleStreamingChange = useCallback(
+    (id: string, isStreaming: boolean) => {
+      setActiveSessions((prev) => {
+        const index = prev.findIndex((s) => s.id === id);
+        if (index === -1 || prev[index].isStreaming === isStreaming) return prev;
+        const updated = [...prev];
+        updated[index] = { ...updated[index], isStreaming };
+        return updated;
+      });
+      // A stream just ended: the grace that let the pool grow (never evict a live
+      // stream) no longer applies. Chats with unsaved work still stay.
+      if (!isStreaming) shrinkPoolSoon();
+    },
+    [shrinkPoolSoon]
+  );
 
   const handleNew = useCallback(() => {
     invalidateSessionSelection(selectionGuardRef.current);
@@ -259,6 +275,7 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
         return;
       }
       invalidateSessionSelection(selectionGuardRef.current);
+      saveQueuesRef.current.get(id)?.dispose();
       saveQueuesRef.current.delete(id);
 
       setActiveSessions((prev) => {
@@ -323,7 +340,7 @@ export function ChatWorkspace({ config }: { config: ClientConfig }) {
                 sessionId={session.id}
                 initialMessages={session.messages}
                 saveQueue={session.queue}
-                onPersisted={refresh}
+                onPersisted={handlePersisted}
                 isActive={session.id === currentSessionId}
                 onStreamingChange={handleStreamingChange}
                 isLoading={session.isLoading === true}
