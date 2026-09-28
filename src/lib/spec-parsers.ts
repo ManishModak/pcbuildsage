@@ -114,20 +114,44 @@ export function parseMotherboardSpecs(name: string): RegistrySpec | undefined {
 
   if (!socket) return undefined;
 
-  const isItx = /\b(MINI[- ]?ITX|ITX)\b/.test(norm);
-  const isMatx = /\b(MICRO[- ]?ATX|MATX|M-ATX)\b/.test(norm) || /\b[A-Z]\d{3}M\b/.test(norm) || /\b[A-Z]\d{3}M-/.test(norm);
-  const form_factor = isItx ? "Mini-ITX" : isMatx ? "Micro-ATX" : "ATX";
+  // Only record a memory generation the title actually states. AM4 is DDR4-only
+  // and AM5 / LGA 1851 / LGA 1200 each take a single generation, so the socket
+  // implies it; LGA 1700 boards ship in both DDR4 and DDR5 variants (Intel ARK
+  // lists both memory types for LGA 1700 CPUs), so an LGA 1700 title without an
+  // explicit DDR4/DDR5 (or D4/D5 suffix) token leaves ddr unknown - downstream
+  // rules then report unverified instead of passing on a guessed generation.
+  if (socket === "LGA 1700") {
+    const saysDdr5 = /\bDDR5\b/.test(norm) || /(?:^|[\s\-/])D5\b/.test(norm);
+    const saysDdr4 = /\bDDR4\b/.test(norm) || /(?:^|[\s\-/])D4\b/.test(norm);
+    ddr = saysDdr5 && !saysDdr4 ? "DDR5" : saysDdr4 && !saysDdr5 ? "DDR4" : undefined;
+  }
 
+  // Only record a form factor the title actually states. A bare chipset+model
+  // title (e.g. "B650M Pro RS" with no ATX/M-ATX/ITX token) leaves form_factor
+  // unknown so board-fit reports unverified. ASUS-style "-I" suffixes
+  // (B650E-I, Z790-I) denote Mini-ITX boards.
+  const isItx = /\bMINI[-\s]?ITX\b/.test(norm) || /\bITX\b/.test(norm) || /\b[A-Z]+\d+[A-Z]*-I\b/.test(norm);
+  const isEatx = /\bE[-\s]?ATX\b/.test(norm);
+  const isMatx =
+    /\bMICRO[-\s]?ATX\b/.test(norm) ||
+    /\bM[-\s]?ATX\b/.test(norm) ||
+    /\bU[-\s]?ATX\b/.test(norm) ||
+    /\b[A-Z]\d{3}M\b/.test(norm) ||
+    /\b[A-Z]\d{3}M-/.test(norm);
+  const form_factor = isItx ? "Mini-ITX" : isEatx ? "E-ATX" : isMatx ? "Micro-ATX" : /\bATX\b/.test(norm) ? "ATX" : undefined;
+
+  // m2_slots and sata_ports are deliberately NOT defaulted: same-name boards
+  // disagree (B450 boards commonly have 1 M.2 slot, not 2), and an invented
+  // count would let the storage rule pass on fiction. Unknown counts surface
+  // as unverified and route to consult.
   return {
     brand: name.trim().split(/\s+/)[0] ?? "",
     model: name.trim(),
     aliases: [name.trim()],
     socket,
-    ddr,
-    chipset,
-    form_factor,
-    m2_slots: /A520|H610|H410|A320/.test(chipset ?? "") ? 1 : 2,
-    sata_ports: 4
+    ...(ddr ? { ddr } : {}),
+    ...(chipset ? { chipset } : {}),
+    ...(form_factor ? { form_factor } : {})
   };
 }
 
@@ -177,6 +201,12 @@ export function parseRamSpecs(name: string): RegistrySpec | undefined {
 
   if (!ddr && !capacity_gb) return undefined;
 
+  // Physical stick type is only recorded when the title states it. Laptop /
+  // notebook SO-DIMM sticks do not fit desktop DIMM slots, so carrying this
+  // signal lets the DDR rule block them instead of passing on generation alone.
+  const isSodimm = /\bSO[-\s]?DIMM\b/i.test(name) || /\bLAPTOP\b/i.test(name) || /\bNOTEBOOK\b/i.test(name);
+  const isDesktopDimm = /\bUDIMM\b/i.test(name) || /\bDESKTOP\b/i.test(name);
+
   return {
     brand: name.trim().split(/\s+/)[0] ?? "",
     model: name.trim(),
@@ -184,7 +214,8 @@ export function parseRamSpecs(name: string): RegistrySpec | undefined {
     ...(ddr ? { ddr } : {}),
     ...(capacity_gb ? { capacity_gb } : {}),
     ...(speed_mhz ? { speed_mhz } : {}),
-    ...(modules && perModule ? { modules } : {})
+    ...(modules && perModule ? { modules } : {}),
+    ...(isSodimm ? { form_factor: "sodimm" } : isDesktopDimm ? { form_factor: "dimm" } : {})
   };
 }
 
