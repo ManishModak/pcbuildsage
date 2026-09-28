@@ -198,7 +198,7 @@ describe("getErrorMessageText", () => {
 
   it("identifies rate limit and quota exhaustion errors", () => {
     const res = getErrorMessageText("[HTTP 429] Rate limit reached for model nex-n2.5-pro:free");
-    expect(res).toContain("Rate limit or quota reached (HTTP 429)");
+    expect(res).toContain("You've hit the free limit. Wait a bit or pick another free model.");
     expect(res).toContain("nex-n2.5-pro:free");
   });
 

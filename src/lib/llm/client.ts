@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { LLMChainEntry, LLMProvider, LLMRole } from "@/types";
 import { isHostedDemo } from "../config/deployment";
 import { envKeyAllowed } from "./env-key-scope";
+import { FREE_LIMIT_COPY, KEY_REJECTED_COPY } from "@/content/api-key-help";
 
 /** Generous first-token timeout for the main chat stream (local models load slowly). */
 export const DEFAULT_FIRST_TOKEN_TIMEOUT_MS = 120_000;
@@ -308,10 +309,10 @@ function describeProbeRequestFailure(error: unknown, signal: AbortSignal | undef
     return { error: `The tool test didn't finish in time (${detail}).`, remedies: ["Try again; slow or reasoning models can take a while to answer.", "Pick a faster model."] };
   }
   if (status === 429 || /rate limit|too many requests|quota/i.test(detail)) {
-    return { error: `The provider is rate-limiting requests right now (${detail}).`, remedies: ["Wait a minute and test again, or pick a different model."] };
+    return { error: `${FREE_LIMIT_COPY} (${detail})`, remedies: ["Wait a bit and test again, or pick another free model."] };
   }
   if (status === 401 || status === 403) {
-    return { error: `The provider rejected the API key (${detail}).`, remedies: ["Check the API key for this provider."] };
+    return { error: `${KEY_REJECTED_COPY} (${detail})`, remedies: ["Check you copied the full key into Settings, then test again."] };
   }
   return { error: `The tool test request failed (${detail}).`, remedies: ["Check the endpoint and try again."] };
 }

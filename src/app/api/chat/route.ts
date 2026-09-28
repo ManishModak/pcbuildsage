@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import { z } from "zod";
 import { streamChat } from "@/lib/llm/chat-engine";
 import { compactChatMessages } from "@/lib/llm/messages";
+import { mapProviderErrorToPlainLanguage } from "@/content/api-key-help";
 import { parseCompactContext, type StoredCompactContext } from "@/lib/sessions";
 import { buildAppConfig, UnsafeConfigError } from "../_lib/credentials";
 import { badRequest, readJson, serverError } from "../_lib/responses";
@@ -111,10 +112,15 @@ function sanitizeErrorMessage(error: unknown, headers?: Headers): string {
       }
     }
   }
-  return msg
+  const redacted = msg
     .replace(/\bAIza[0-9A-Za-z-_]{20,}\b/g, "[REDACTED]")
     .replace(/\bsk-(?:or-v1-)?[0-9A-Za-z-_]{15,}\b/g, "[REDACTED]")
     .replace(/([?&](?:api[_-]?key|key)=)[^&\s]+/gi, "$1[REDACTED]");
+  // Lead with plain language for rejected keys / exhausted free quotas so the
+  // chat UI can show it even before client-side formatting runs. Redaction
+  // above runs first so secrets never reach the appended detail.
+  const plain = mapProviderErrorToPlainLanguage({ message: redacted });
+  return plain && !redacted.startsWith(plain) ? `${plain} ${redacted}` : redacted;
 }
 
 export async function POST(request: Request): Promise<Response> {
