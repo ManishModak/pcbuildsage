@@ -145,6 +145,16 @@ describe("tool results against a catalog", () => {
     expect(out.builds["Pro"].vs_cheapest).toEqual({ cheapest_label: "Within budget", more_by: 10000 });
     expect(out.builds["Pro"].price_summary).toBe("Total ₹40,000; ₹5,000 under the ₹45,000 budget; ₹10,000 more than 'Within budget'");
   });
+
+  it("validate_build names the core parts a partial build left out", async () => {
+    const tool = createValidateBuildTool(scope, repo);
+    const out = (await tool.execute!(
+      { builds: [{ label: "Partial", parts: { gpu: { product_id: "g1" } } }] },
+      ctx
+    )) as { builds: Record<string, { missing_parts?: string[]; missing_parts_note?: string }> };
+    expect(out.builds["Partial"].missing_parts).toEqual(["cpu", "motherboard", "ram", "storage", "psu", "case"]);
+    expect(out.builds["Partial"].missing_parts_note).toContain("keeps no parts between calls");
+  });
 });
 
 describe("addPriceFigures", () => {

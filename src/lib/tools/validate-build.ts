@@ -39,7 +39,7 @@ export const singleBuildValidationSchema = z.object({
       case: partSchema.optional().describe("Selected case."),
       cooler: partSchema.optional().describe("Selected CPU cooler.")
     })
-    .describe("Current build parts keyed by component category.")
+    .describe("Every part of this build, keyed by component category. The tool keeps no state between calls: pass the full build each time.")
 });
 
 export const validateBuildInputSchema = z.object({
@@ -115,6 +115,17 @@ export function addPriceFigures(results: Record<string, PricedResult>, budget?: 
     }
     if (parts.length > 1) result.price_summary = parts.join("; ");
   }
+}
+
+/**
+ * Core categories a complete desktop build needs. GPU and cooler are left out:
+ * an iGPU or a boxed stock cooler can cover them.
+ */
+const CORE_PARTS = ["cpu", "motherboard", "ram", "storage", "psu", "case"] as const;
+
+/** Core categories absent from a build's parts, reported so a partial build isn't mistaken for a full one. */
+export function missingCoreParts(parts: BuildParts | undefined): string[] {
+  return CORE_PARTS.filter((category) => !parts?.[category]);
 }
 
 /** Prefix lookup against the catalog for short IDs the model passes back. */
@@ -429,7 +440,17 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
         failAmbiguousParts(validation, normalizedParts, (pid, category) => ambiguityMessage(pid, category));
 
         const snapshot = createBuildSnapshot({ label: b.label, parts: normalizedParts, validation, productsById: byId, scope });
-        results[b.label] = { ...validation, snapshot };
+        const missing = missingCoreParts(b.parts);
+        results[b.label] = {
+          ...validation,
+          snapshot,
+          ...(missing.length
+            ? {
+                missing_parts: missing,
+                missing_parts_note: `Only the parts passed in this call were validated; the tool keeps no parts between calls. Not included: ${missing.join(", ")}. Pass every part of the build in one call unless the user already owns the missing ones.`
+              }
+            : {})
+        };
         recordValidation(turnStore, b.label, results[b.label]);
       }
 
