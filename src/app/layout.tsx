@@ -16,9 +16,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PCBuildSage — Build Consultant",
+  title: "PCBuildSage — AI PC build planner for India",
   description:
-    "A calm expert at a well-lit workbench: local-first PC hardware aggregator and conversational build consultant with verifiable compatibility checks.",
+    "Describe your budget and needs in plain language and get PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source.",
   applicationName: "PCBuildSage"
 };
 
