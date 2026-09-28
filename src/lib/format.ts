@@ -1,6 +1,8 @@
 // Formatting helpers. Prices are integer minor units everywhere in the API;
 // these render them for display. Kept framework-agnostic and unit-tested.
 
+import { FREE_LIMIT_COPY, KEY_REJECTED_COPY, mapProviderErrorToPlainLanguage } from "@/content/api-key-help";
+
 const CURRENCY_MINOR_DIGITS: Record<string, number> = {
   INR: 2,
   USD: 2,
@@ -178,22 +180,20 @@ export function getErrorMessageText(msg: string): string {
     const detail = extracted !== msg ? extracted : (msg.length < 120 ? msg : "");
     const resetMatch = msg.match(/(?:resets?|retry)(?:\s+(?:at|in|-after))?\s+([^,;.)]+)/i);
     const timingInfo = resetMatch ? ` (${resetMatch[0].trim()})` : "";
-    return `The provider reports that its daily free-model quota is exhausted. Try again after it resets${timingInfo}, or check your provider settings.${detail ? ` Details: ${detail}` : ""}`;
+    return `${FREE_LIMIT_COPY} The provider reports that its daily free-model quota is exhausted. Try again after it resets${timingInfo}, or check your provider settings.${detail ? ` Details: ${detail}` : ""}`;
   }
 
-  if (
-    combined.includes("429") ||
-    combined.includes("rate limit") ||
-    combined.includes("rate_limit") ||
-    combined.includes("too many requests") ||
-    combined.includes("resource_exhausted") ||
-    combined.includes("quota exceeded") ||
-    combined.includes("tokens per minute") ||
-    combined.includes("requests per minute") ||
-    combined.includes("free-tier limit")
-  ) {
-    const detail = extracted !== msg ? extracted : (msg.length < 120 ? msg : "");
-    return `Rate limit or quota reached (HTTP 429). The model provider temporarily rejected the request because token or request limits were exceeded. Please wait a moment before trying again, or configure an alternative provider/key in Settings.${detail ? ` Details: ${detail}` : ""}`;
+  // Rejected keys and exhausted free quotas speak plain language first; the
+  // provider detail (if any) follows for debugging. Detection lives in the
+  // shared api-key-help module so chat, probe, and API surfaces agree.
+  const plainCopy = mapProviderErrorToPlainLanguage({ message: combined });
+  const shortDetail = extracted !== msg ? extracted : (msg.length < 120 ? msg : "");
+  if (plainCopy === KEY_REJECTED_COPY) {
+    return `${KEY_REJECTED_COPY}${shortDetail ? ` Details: ${shortDetail}` : ""}`;
+  }
+
+  if (plainCopy === FREE_LIMIT_COPY) {
+    return `${FREE_LIMIT_COPY}${shortDetail ? ` Details: ${shortDetail}` : ""}`;
   }
 
   if (
