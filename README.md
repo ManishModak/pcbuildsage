@@ -62,6 +62,8 @@ npm run dev
 
 Open `http://localhost:3000` — the wizard walks you through onboarding, scraping, and building.
 
+Local mode has no login and holds your `.env` keys, so it only listens on `127.0.0.1` and its API refuses requests from other websites or other host names. To use it from another device on your network on purpose, run `npx next dev --webpack -H 0.0.0.0` and list the host names you'll use in `PCBUILDSAGE_ALLOWED_HOSTS` (comma-separated, e.g. `192.168.1.20,desk.lan`). Anyone on that network can then use it.
+
 ### Terminal (CLI)
 
 ```bash
@@ -89,7 +91,7 @@ The container runs in hosted-demo mode by default and listens on port 10000. To 
 
 ```bash
 docker build -t pcbuildsage .
-docker run -d -p 3000:10000 -e PCBUILDSAGE_DEPLOYMENT_MODE=local pcbuildsage
+docker run -d -p 127.0.0.1:3000:10000 -e PCBUILDSAGE_DEPLOYMENT_MODE=local pcbuildsage
 ```
 
 Then open http://localhost:3000.

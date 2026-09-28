@@ -4,6 +4,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { z } from "zod";
 import type { LLMChainEntry, LLMProvider, LLMRole } from "@/types";
 import { isHostedDemo } from "../config/deployment";
+import { envKeyAllowed } from "./env-key-scope";
 
 export type ServedText<T = unknown> = T & {
   provider: LLMProvider;
@@ -205,7 +206,7 @@ function statusFromError(error: unknown): number | undefined {
 export function resolveApiKey(entry: LLMChainEntry, envKey: string): string | undefined {
   if (entry.keySource === "none") return undefined;
   if (isHostedDemo()) return entry.apiKey;
-  return entry.apiKey ?? process.env[envKey];
+  return entry.apiKey ?? (envKeyAllowed(entry) ? process.env[envKey] : undefined);
 }
 
 export function keyEnv(provider: LLMProvider): string {

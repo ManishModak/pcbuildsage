@@ -2,6 +2,7 @@ import { z } from "zod";
 import { resolveConfig } from "@/lib/config";
 import { getDeploymentMode, validateChatProviderUrl, validateSearchBaseUrl, type DeploymentMode } from "@/lib/config/deployment";
 import type { AppConfig, ConfigInput, LLMChainEntry, LLMProvider, SearchProvider } from "@/types";
+import { envKeyAllowed } from "@/lib/llm/env-key-scope";
 import { resolveSandboxedPath } from "./paths";
 
 export class UnsafeConfigError extends Error {
@@ -173,7 +174,12 @@ function hydrateEntryCredential(entry: LLMChainEntry, headers: Headers, mode: De
     return { ...entry, apiKey };
   }
   if (entry.apiKey) return entry;
-  const apiKey = entry.keySource === "ui" ? headerApiKey(headers, entry.provider) : process.env[providerEnvKey(entry.provider)];
+  const apiKey =
+    entry.keySource === "ui"
+      ? headerApiKey(headers, entry.provider)
+      : envKeyAllowed(entry)
+        ? process.env[providerEnvKey(entry.provider)]
+        : undefined;
   return apiKey ? { ...entry, apiKey } : entry;
 }
 
