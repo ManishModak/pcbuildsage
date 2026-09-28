@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { AppProvider } from "../components/app/app-provider";
+import { SITE_URL } from "../lib/seo";
 import "./globals.css";
 
 const inter = Inter({
@@ -16,10 +17,28 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  alternates: {
+    canonical: "/"
+  },
   title: "PCBuildSage — AI PC build planner for India",
   description:
     "Describe your budget and needs in plain language and get PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source.",
-  applicationName: "PCBuildSage"
+  applicationName: "PCBuildSage",
+  openGraph: {
+    type: "website",
+    siteName: "PCBuildSage",
+    url: "/",
+    title: "PCBuildSage — AI PC build planner for India",
+    description:
+      "PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source."
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PCBuildSage — AI PC build planner for India",
+    description:
+      "PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source."
+  }
 };
 
 export const viewport: Viewport = {

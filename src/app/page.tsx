@@ -1,29 +1,10 @@
-"use client";
+import { HomeClient } from "@/components/app/home-client";
+import { LandingContent } from "@/components/app/landing-content";
 
-import { useApp } from "@/components/app/app-provider";
-import { AppShell } from "@/components/app/app-shell";
-import { ChatWorkspace } from "@/features/chat/chat-workspace";
-import { Wizard } from "@/features/wizard/wizard";
-import { Spinner } from "@/components/ui/primitives";
-
+// Server component: the landing section below is always in the HTML so
+// crawlers see real content. HomeClient swaps in the Wizard (first-time
+// visitors) or ChatWorkspace (returning users) after client hydration,
+// with their props and behavior unchanged.
 export default function Home() {
-  const { config, ready } = useApp();
-
-  if (!ready) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-bg">
-        <Spinner size={32} />
-      </div>
-    );
-  }
-
-  if (!config.onboarded) {
-    return (
-      <AppShell showSettings={false}>
-        <Wizard onComplete={() => {}} />
-      </AppShell>
-    );
-  }
-
-  return <ChatWorkspace config={config} />;
+  return <HomeClient landing={<LandingContent />} />;
 }
