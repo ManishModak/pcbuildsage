@@ -112,13 +112,24 @@ function installFakeIndexedDb(): void {
             return { createIndex() {} };
           },
           close() {},
-          transaction(name: string) {
-            const map = fakeStores.get(name) ?? new Map();
-            fakeStores.set(name, map);
+          transaction(names: string | string[]) {
+            // Real IndexedDB scopes a transaction over one store or a list;
+            // the atomic save opens its revision-check transaction over both
+            // the session and tombstone stores, so the fake must resolve each
+            // objectStore() call to its own named map.
+            const scope = Array.isArray(names) ? names : [names];
+            const maps = new Map<string, Map<string, unknown>>();
+            for (const name of scope) {
+              const map = fakeStores.get(name) ?? new Map<string, unknown>();
+              fakeStores.set(name, map);
+              maps.set(name, map);
+            }
             const tx: Record<string, unknown> = { oncomplete: null, onerror: null, onabort: null };
             // The commit notification is delivered after the request, never before.
             const commit = () => queueMicrotask(() => (tx.oncomplete as (() => void) | null)?.());
-            const objectStore = () => ({
+            const objectStore = (name?: string) => {
+              const map = (name !== undefined ? maps.get(name) : undefined) ?? maps.get(scope[0]) ?? new Map<string, unknown>();
+              return {
               get(key: string) {
                 const r = newRequest() as Record<string, unknown> & { onsuccess?: () => void };
                 queueMicrotask(() => {
@@ -164,7 +175,8 @@ function installFakeIndexedDb(): void {
                 });
                 return r;
               }
-            });
+              };
+            };
             (tx as { objectStore: () => unknown }).objectStore = objectStore;
             return tx;
           }

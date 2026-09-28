@@ -15,6 +15,14 @@ interface SampleFixture {
 const fixtureData: SampleFixture = fixture as unknown as SampleFixture;
 
 function resolveCatalogDb(): string {
+  // The catalog the fixture was built from, recorded by the fixture script.
+  // A gitignored local data/products.db may exist with arbitrary content, so
+  // the recorded source wins over the existence-based fallback order.
+  const recorded = (fixtureData.source as { db?: unknown } | undefined)?.db;
+  if (typeof recorded === "string" && recorded.length > 0) {
+    const recordedPath = path.isAbsolute(recorded) ? recorded : path.join(process.cwd(), recorded);
+    if (existsSync(recordedPath)) return recordedPath;
+  }
   const candidates = [
     process.env.PCBUILDSAGE_DB_PATH,
     path.join(process.cwd(), "data", "products.db"),
