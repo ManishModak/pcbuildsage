@@ -9,7 +9,10 @@ import {
 
 export const listModelsInputSchema = z.object({
   category: z
-    .enum(["gpu", "cpu", "motherboard", "ram", "storage", "psu", "case", "cooler"])
+    .string()
+    .trim()
+    .toLowerCase()
+    .pipe(z.enum(["gpu", "cpu", "motherboard", "ram", "storage", "psu", "case", "cooler"]))
     .optional()
     .describe("Component category to list models for (gpu, cpu, motherboard, ram, storage, psu, case, cooler)."),
   price_min: z
@@ -64,7 +67,7 @@ export const listModelsInputSchema = z.object({
     .positive()
     .default(20)
     .describe("Maximum number of models to return. Defaults to 20.")
-});
+}).strict();
 
 export type ListModelsInput = z.input<typeof listModelsInputSchema>;
 
@@ -106,9 +109,14 @@ export async function listModels(
         country_code: effectiveScope.countryCode ?? "US",
         currency: effectiveScope.currency ?? "USD"
       },
-      error: `Unknown filter(s): ${unknown.join(", ")}`
+      error: `Unknown filter(s): ${unknown.join(", ")}. Valid filters: ${validListModelsFilters.join(", ")}.`
     };
   }
+
+  const category =
+    typeof input.category === "string" && input.category.trim()
+      ? (input.category.trim().toLowerCase() as ListModelsInput["category"])
+      : undefined;
 
   const repo = repository ?? scope.repository ?? getCatalogRepository();
   // Coerce `modules` for direct (unparsed) calls; schema-parsed calls arrive numeric.
@@ -129,10 +137,10 @@ export async function listModels(
           country_code: effectiveScope.countryCode ?? "US",
           currency: effectiveScope.currency ?? "USD"
         },
-        error: "Invalid modules filter: expected a positive integer stick count (e.g. 2 for dual-channel kits)."
+        error: `Invalid modules filter: expected a positive integer stick count (e.g. 2 for dual-channel kits). Valid filters: ${validListModelsFilters.join(", ")}.`
       };
     }
     modules = coerced;
   }
-  return repo.listModels({ ...input, modules }, scope);
+  return repo.listModels({ ...input, ...(category !== undefined ? { category } : {}), modules }, scope);
 }

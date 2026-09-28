@@ -161,6 +161,45 @@ export function toCompactProductItem(
 }
 
 /**
+ * Model-only view of a product row: short 10-char ID, no url/currency/
+ * country_code, subcategory only when set, in_stock only when false, and
+ * category only when the search did not already filter by it.
+ */
+export function toModelProductItem(
+  item: CompactProductItem,
+  opts?: { dropCategory?: boolean }
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    id: typeof item.id === "string" ? item.id.slice(0, 10) : item.id,
+    name: item.name,
+    price: item.price,
+    retailer: item.retailer
+  };
+  if (!opts?.dropCategory) out.category = item.category;
+  if (item.subcategory != null) out.subcategory = item.subcategory;
+  if (item.in_stock !== true) out.in_stock = item.in_stock;
+  if (item.registry_key != null) out.registry_key = item.registry_key;
+  if (item.specs != null) out.specs = item.specs;
+  return out;
+}
+
+/**
+ * Model-only view of a search result: trimmed rows, full metadata kept.
+ * UI and MCP keep the full compact result; only the chat model sees this.
+ */
+export function toModelSearchResult(
+  result: CompactSearchProductsResult,
+  input?: { category?: string }
+): Record<string, unknown> {
+  const dropCategory = Boolean(
+    typeof input?.category === "string" && input.category.trim().length > 0
+  );
+  return {
+    ...result,
+    results: result.results.map((item) => toModelProductItem(item, { dropCategory }))
+  };
+}
+/**
  * Pure compaction of a search result object (used by both live tools and conversation replay).
  * Drops duplicate `items` array and strips non-functional overhead while preserving
  * all results and complete contract metadata (scope, hints, price ranges, errors).

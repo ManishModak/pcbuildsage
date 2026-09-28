@@ -607,7 +607,9 @@ export class SqlCatalogRepository implements CatalogRepository {
       }
 
       if (baseline) {
-        let hint = `${baseline.in_stock_total} of ${baseline.total} ${sliceName} products are in stock but none match these filters. In-stock prices range ${baseline.min_price}-${baseline.max_price} in standard major units (e.g. Rupees/Dollars).`;
+        let hint = searchTerm
+          ? `No products match '${searchTerm}'. Say so plainly and use list_models to discover what exists. ${baseline.in_stock_total} of ${baseline.total} ${sliceName} products are in stock; in-stock prices range ${baseline.min_price}-${baseline.max_price} in standard major units (e.g. Rupees/Dollars).`
+          : `${baseline.in_stock_total} of ${baseline.total} ${sliceName} products are in stock but none match these filters. In-stock prices range ${baseline.min_price}-${baseline.max_price} in standard major units (e.g. Rupees/Dollars).`;
 
         if (nearestBelow && nearestAbove) {
           hint += ` Nearest cheaper option is ${nearestBelow.name} at ${nearestBelow.price}; nearest higher option is ${nearestAbove.name} at ${nearestAbove.price}.`;
@@ -642,7 +644,9 @@ export class SqlCatalogRepository implements CatalogRepository {
         ...(nearestAbove ? { nearest_above: nearestAbove } : {}),
         ...(nearestBelow ? { nearest_below: nearestBelow } : {}),
         scope: { country_code: countryCode, currency },
-        hint: `No matching ${sliceName} products found with the given filters. Try relaxing brand, retailer, or specification constraints.`
+        hint: searchTerm
+          ? `No products match '${searchTerm}'. Say so plainly and use list_models to discover what exists before retrying search_products.`
+          : `No matching ${sliceName} products found with the given filters. Try relaxing brand, retailer, or specification constraints, or use list_models to discover what exists.`
       };
     }
 
