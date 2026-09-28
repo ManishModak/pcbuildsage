@@ -1,10 +1,29 @@
-import { generateText, streamText, tool, type AsyncIterableStream, type LanguageModel, type ModelMessage, type StopCondition, type StreamTextResult, type TextStreamPart, type ToolSet, type OnFinishEvent, type OnStepFinishEvent } from "ai";
+import { generateText, streamText, tool, hasToolCall, type AsyncIterableStream, type LanguageModel, type ModelMessage, type StopCondition, type StreamTextResult, type TextStreamPart, type ToolSet, type OnFinishEvent, type OnStepFinishEvent } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { z } from "zod";
 import type { LLMChainEntry, LLMProvider, LLMRole } from "@/types";
 import { isHostedDemo } from "../config/deployment";
 import { envKeyAllowed } from "./env-key-scope";
+
+/** Generous first-token timeout for the main chat stream (local models load slowly). */
+export const DEFAULT_FIRST_TOKEN_TIMEOUT_MS = 120_000;
+/** Per-entry timeout for single-shot generate calls (subagents). */
+export const DEFAULT_ENTRY_TIMEOUT_MS = 60_000;
+
+export function getFirstTokenTimeoutMs(): number {
+  const raw = process.env.PCBUILDSAGE_FIRST_TOKEN_TIMEOUT_MS;
+  const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return DEFAULT_FIRST_TOKEN_TIMEOUT_MS;
+}
+
+export function getEntryTimeoutMs(): number {
+  const raw = process.env.PCBUILDSAGE_ENTRY_TIMEOUT_MS;
+  const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return DEFAULT_ENTRY_TIMEOUT_MS;
+}
 
 export type ServedText<T = unknown> = T & {
   provider: LLMProvider;
@@ -84,9 +103,18 @@ export async function generateTextWithFallback(args: {
   tools?: ToolSet;
   stopWhen?: Parameters<typeof generateText>[0]["stopWhen"];
   abortSignal?: AbortSignal;
+  /** Per-entry timeout in ms (each fallback entry gets its own budget). */
+  timeoutMsPerEntry?: number;
 }) {
   const errors: unknown[] = [];
+  const entryTimeout = args.timeoutMsPerEntry ?? getEntryTimeoutMs();
   for (const [index, entry] of args.chain.entries()) {
+    if (args.abortSignal?.aborted) {
+      const abortErr = new Error("Aborted by user.");
+      abortErr.name = "AbortError";
+      throw abortErr;
+    }
+    const { signal, cancel } = combineWithTimeout(args.abortSignal, entryTimeout);
     try {
       const prompt = args.messages
         ? { messages: args.messages }
@@ -97,17 +125,24 @@ export async function generateTextWithFallback(args: {
         system: args.system,
         tools: args.tools,
         stopWhen: args.stopWhen,
-        abortSignal: args.abortSignal,
+        abortSignal: signal,
         ...(entry.reasoningEffort ? { reasoning: entry.reasoningEffort } : {}),
-        maxRetries: 0
+        // Retry each step once with SDK exponential backoff (2s initial,
+        // honours Retry-After). 429/5xx on step 2+ resume without failing
+        // the turn; step-1 failures still fall through to the next entry.
+        maxRetries: 1
       });
+      cancel();
       return Object.assign(result, { provider: entry.provider, model: entry.model, fallbackIndex: index }) as ServedText<typeof result>;
     } catch (error) {
-      if (!isFallbackable(error)) throw error;
-      errors.push(error);
+      cancel();
+      if (args.abortSignal?.aborted || (error instanceof Error && error.name === "AbortError" && args.abortSignal?.aborted)) throw error;
+      const next = args.chain[index + 1];
+      if (!isFallbackable(error, entry, next)) throw error;
+      errors.push(annotateChainError(error, entry, index, args.chain.length));
     }
   }
-  throw new AggregateError(errors, "All fallback LLM providers failed.");
+  throw new AggregateError(errors, `All fallback LLM providers failed (${describeChain(args.chain)}).`);
 }
 
 export async function streamTextWithFallback(args: {
@@ -119,34 +154,57 @@ export async function streamTextWithFallback(args: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   stopWhen?: StopCondition<any> | Array<StopCondition<any>>;
   abortSignal?: AbortSignal;
+  /** Generous first-token budget per entry; local models load slowly. */
+  firstTokenTimeoutMs?: number;
   onStepFinish?: (event: OnStepFinishEvent<ToolSet>) => void | Promise<void>;
   onFinish?: (event: OnFinishEvent<ToolSet>) => void | Promise<void>;
   prepareStep?: Parameters<typeof streamText>[0]["prepareStep"];
 }) {
   if (!args.chain.length) throw new Error("LLM chain is empty.");
   const errors: unknown[] = [];
+  const firstTokenTimeout = args.firstTokenTimeoutMs ?? getFirstTokenTimeoutMs();
   for (const [index, entry] of args.chain.entries()) {
+    if (args.abortSignal?.aborted) {
+      const abortErr = new Error("Aborted by user.");
+      abortErr.name = "AbortError";
+      throw abortErr;
+    }
+    // Each fallback entry gets its own first-token budget combined with the
+    // user Stop signal. A hung server aborts this entry and falls through.
+    const entryController = new AbortController();
+    const onUserAbort = () => entryController.abort();
+    args.abortSignal?.addEventListener("abort", onUserAbort, { once: true });
+    const timer = setTimeout(() => entryController.abort(new Error(`First token timeout after ${firstTokenTimeout}ms`)), firstTokenTimeout);
     try {
       const result = streamText({
         ...args,
         model: createLanguageModel(entry),
         ...(entry.reasoningEffort ? { reasoning: entry.reasoningEffort } : {}),
-        maxRetries: 0,
-        abortSignal: args.abortSignal
+        // Per-step retry with SDK exponential backoff: 429/5xx on step 2+
+        // retries that step once instead of failing the turn.
+        maxRetries: 1,
+        abortSignal: entryController.signal
       });
-      const started = await probeStarted(result);
+      const started = await probeStarted(result, firstTokenTimeout, args.abortSignal);
+      clearTimeout(timer);
+      args.abortSignal?.removeEventListener("abort", onUserAbort);
       return withServedStreams(result, started.fullStream, entry, index, errors);
     } catch (error) {
-      if (!isFallbackable(error)) throw error;
-      errors.push(error);
+      clearTimeout(timer);
+      args.abortSignal?.removeEventListener("abort", onUserAbort);
+      if (args.abortSignal?.aborted) throw error;
+      const next = args.chain[index + 1];
+      if (!isFallbackable(error, entry, next)) throw error;
+      errors.push(annotateChainError(error, entry, index, args.chain.length));
     }
   }
-  throw new AggregateError(errors, "All fallback LLM providers failed before streaming content.");
+  throw new AggregateError(errors, `All fallback LLM providers failed before streaming content (${describeChain(args.chain)}).`);
 }
 
-export async function probeToolCapability(entry: LLMChainEntry): Promise<{ ok: boolean; remedies?: string[]; error?: string }> {
+export async function probeToolCapability(entry: LLMChainEntry, options?: { timeoutMs?: number; abortSignal?: AbortSignal }): Promise<{ ok: boolean; remedies?: string[]; error?: string }> {
+  const { signal, cancel } = combineWithTimeout(options?.abortSignal, options?.timeoutMs ?? 20_000);
   try {
-    await generateText({
+    const result = await generateText({
       model: createLanguageModel(entry),
       prompt: "Call the ping tool once.",
       tools: {
@@ -156,9 +214,27 @@ export async function probeToolCapability(entry: LLMChainEntry): Promise<{ ok: b
           execute: async ({ value }) => ({ value })
         })
       },
-      stopWhen: ({ steps }) => steps.length >= 2,
-      maxRetries: 0
+      // Prove tool calling: stop when ping fires (or after 2 steps max).
+      // hasToolCall is the AI SDK v7 stop condition for this; isStepCount
+      // caps the probe so a non-tool model cannot loop.
+      stopWhen: [hasToolCall("ping")],
+      maxRetries: 0,
+      abortSignal: signal
     });
+    // The generate call succeeding is not enough: require proof the model
+    // actually invoked ping (some endpoints return text instead of a tool
+    // call when tool_choice is ignored, e.g. unconfigured local servers).
+    const steps = await result.steps;
+    const calledPing = steps.some((step) =>
+      (step.toolCalls ?? []).some((call) => (call as { toolName?: unknown }).toolName === "ping")
+    );
+    if (!calledPing) {
+      return {
+        ok: false,
+        error: "Endpoint replied without calling the ping tool.",
+        remedies: ["Enable tool calling on the backend launch flags or model template.", "Switch to a model that supports native tool calling."]
+      };
+    }
     return { ok: true };
   } catch (error) {
     return {
@@ -166,14 +242,26 @@ export async function probeToolCapability(entry: LLMChainEntry): Promise<{ ok: b
       error: error instanceof Error ? error.message : String(error),
       remedies: ["Enable tool calling on the backend launch flags or model template.", "Switch to a model that supports native tool calling."]
     };
+  } finally {
+    cancel();
   }
 }
 
-export function isFallbackable(error: unknown): boolean {
+export function isFallbackable(error: unknown, currentEntry?: LLMChainEntry, nextEntry?: LLMChainEntry): boolean {
   const status = statusFromError(error);
-  if (status === 401 || status === 403) return false;
-  if (status === 429 || (status !== undefined && status >= 500)) return true;
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  // 401/403: credentials for this provider are wrong. Stay on the same
+  // provider would just repeat the failure, but a different next provider
+  // gets its own chance (e.g. bad OpenRouter key -> local Ollama).
+  if (status === 401 || status === 403 || message.includes("unauthorized") || message.includes("forbidden")) {
+    if (currentEntry && nextEntry && nextEntry.provider !== currentEntry.provider) return true;
+    return false;
+  }
+  // 404: model not found on this endpoint -> try next entry.
+  if (status === 404 || message.includes("404") || message.includes("not found") || message.includes("no such model") || message.includes("model not found")) return true;
+  if (isContextExceededError(message, status)) return true;
+  if (isToolsUnsupportedError(message, status)) return true;
+  if (status === 429 || (status !== undefined && status >= 500)) return true;
   return [
     "abort",
     "aborted",
@@ -196,11 +284,94 @@ export function isFallbackable(error: unknown): boolean {
 
 function statusFromError(error: unknown): number | undefined {
   if (typeof error === "object" && error) {
-    const maybe = error as { statusCode?: unknown; status?: unknown; response?: { status?: unknown } };
-    const status = maybe.statusCode ?? maybe.status ?? maybe.response?.status;
-    if (typeof status === "number") return status;
+    const maybe = error as {
+      statusCode?: unknown;
+      status?: unknown;
+      response?: { status?: unknown };
+      lastError?: unknown;
+      cause?: unknown;
+    };
+    const direct = maybe.statusCode ?? maybe.status ?? maybe.response?.status;
+    if (typeof direct === "number") return direct;
+    // AI SDK wraps provider failures (RetryError/APICallError chains).
+    for (const nested of [maybe.lastError, maybe.cause]) {
+      if (typeof nested === "object" && nested) {
+        const inner = nested as { statusCode?: unknown; status?: unknown; response?: { status?: unknown } };
+        const s = inner.statusCode ?? inner.status ?? inner.response?.status;
+        if (typeof s === "number") return s;
+      }
+    }
+    const msg = error instanceof Error ? error.message : String(error ?? "");
+    const match = msg.match(/\[HTTP\s+(\d{3})\]/i) ?? msg.match(/\bHTTP\s+(\d{3})\b/i);
+    if (match?.[1]) return Number.parseInt(match[1], 10);
   }
   return undefined;
+}
+
+export function isContextExceededError(messageLower: string, status?: number): boolean {
+  const msg = messageLower.toLowerCase();
+  void status;
+  return [
+    "context length",
+    "context_length",
+    "maximum context",
+    "input too long",
+    "too many tokens",
+    "token limit",
+    "max_tokens",
+    "context window",
+    "context exceeded",
+    "prompt too long",
+    "input exceeds"
+  ].some((needle) => msg.includes(needle));
+}
+
+export function isToolsUnsupportedError(messageLower: string, status?: number): boolean {
+  const msg = messageLower.toLowerCase();
+  void status;
+  return [
+    "function calling",
+    "function_call",
+    "tool_choice",
+    "tool-call",
+    "tool call",
+    "does not support tools",
+    "tools not supported",
+    "unsupported tool",
+    "no tool support",
+    "tool use",
+    "tool_use"
+  ].some((needle) => msg.includes(needle));
+}
+
+function describeChain(chain: LLMChainEntry[]): string {
+  return chain.map((entry, index) => `${index + 1}/${chain.length} ${entry.provider}:${entry.model}`).join(", ");
+}
+
+function annotateChainError(error: unknown, entry: LLMChainEntry, index: number, total: number): unknown {
+  const prefix = `[chain ${index + 1}/${total} ${entry.provider}:${entry.model}]`;
+  if (error instanceof Error) {
+    const annotated = new Error(`${prefix} ${error.message}`);
+    annotated.name = error.name;
+    (annotated as { cause?: unknown }).cause = error;
+    return annotated;
+  }
+  return new Error(`${prefix} ${String(error)}`);
+}
+
+function combineWithTimeout(userSignal: AbortSignal | undefined, timeoutMs: number): { signal: AbortSignal | undefined; cancel: () => void } {
+  if (userSignal?.aborted) return { signal: userSignal, cancel: () => {} };
+  const controller = new AbortController();
+  const onAbort = () => controller.abort(userSignal?.reason ?? new Error("Aborted by user."));
+  userSignal?.addEventListener("abort", onAbort, { once: true });
+  const timer = setTimeout(() => controller.abort(new Error(`LLM entry timeout after ${timeoutMs}ms`)), timeoutMs);
+  return {
+    signal: controller.signal,
+    cancel: () => {
+      clearTimeout(timer);
+      userSignal?.removeEventListener("abort", onAbort);
+    }
+  };
 }
 
 export function resolveApiKey(entry: LLMChainEntry, envKey: string): string | undefined {
@@ -225,32 +396,49 @@ function defaultBaseUrl(provider: LLMProvider): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function probeStarted(result: StreamTextResult<ToolSet, any, any>): Promise<{ fullStream: AsyncIterableStream<TextStreamPart<ToolSet>> }> {
+async function probeStarted(result: StreamTextResult<ToolSet, any, any>, firstTokenTimeoutMs: number, userSignal?: AbortSignal): Promise<{ fullStream: AsyncIterableStream<TextStreamPart<ToolSet>> }> {
   const iterator = result.fullStream[Symbol.asyncIterator]();
   const buffer: TextStreamPart<ToolSet>[] = [];
+  let timer: NodeJS.Timeout | undefined;
 
-  while (true) {
-    const next = await iterator.next();
-    if (next.done) {
-      break;
-    }
-    const part = next.value;
-    buffer.push(part);
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      void iterator.return?.().catch(() => {});
+      const err = new Error(`First token timeout after ${firstTokenTimeoutMs}ms`);
+      err.name = "TimeoutError";
+      reject(err);
+    }, firstTokenTimeoutMs);
+    userSignal?.addEventListener("abort", () => {
+      if (timer) clearTimeout(timer);
+    }, { once: true });
+  });
 
-    if (part.type === "error") {
-      throw part.error;
-    }
+  try {
+    while (true) {
+      const next = await Promise.race([iterator.next(), timeoutPromise]);
+      if (next.done) {
+        break;
+      }
+      const part = next.value;
+      buffer.push(part);
 
-    if (
-      part.type === "text-delta" ||
-      part.type === "tool-call" ||
-      part.type === "reasoning-delta" ||
-      part.type === "finish" ||
-      part.type === "finish-step" ||
-      part.type === "tool-result"
-    ) {
-      break;
+      if (part.type === "error") {
+        throw part.error;
+      }
+
+      if (
+        part.type === "text-delta" ||
+        part.type === "tool-call" ||
+        part.type === "reasoning-delta" ||
+        part.type === "finish" ||
+        part.type === "finish-step" ||
+        part.type === "tool-result"
+      ) {
+        break;
+      }
     }
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 
   return {
@@ -277,16 +465,12 @@ function withServedStreams(
   fallbackIndex: number,
   errors?: unknown[]
 ) {
-  const [fullForResult, fullForText] = fullStream.tee();
-  const textStream = fullForText.pipeThrough(new TransformStream<TextStreamPart<ToolSet>, string>({
-    transform(part, controller) {
-      if (part.type === "text-delta") controller.enqueue(part.text);
-    }
-  })) as AsyncIterableStream<string>;
+  // Only fullStream needs rebuilding: probeStarted partially consumed it.
+  // textStream was never read, so the original stays valid — the previous
+  // tee()+pipeThrough rebuild was dead weight (and broke CLI text consumers).
   const served = Object.create(result) as ServedText<typeof result>;
   Object.defineProperties(served, {
-    fullStream: { value: fullForResult as AsyncIterableStream<TextStreamPart<ToolSet>>, enumerable: true },
-    textStream: { value: textStream, enumerable: true },
+    fullStream: { value: fullStream as AsyncIterableStream<TextStreamPart<ToolSet>>, enumerable: true },
     provider: { value: entry.provider, enumerable: true },
     model: { value: entry.model, enumerable: true },
     fallbackIndex: { value: fallbackIndex, enumerable: true },
