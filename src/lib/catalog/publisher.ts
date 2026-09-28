@@ -31,6 +31,13 @@ export interface PublishOptions {
   validatorOptions?: SnapshotValidationOptions;
   client?: Client;
   throwOnError?: boolean;
+  /**
+   * In-stock rows of a scope that isn't marked complete (partial, failed or
+   * unrecorded) are kept, unless no scrape has seen them for this many days.
+   * Without this, a category that never completes (e.g. more pages than its
+   * page limit) would keep showing sold-out listings forever. Default 7.
+   */
+  staleAfterDays?: number;
 }
 
 export interface PublishResult {
@@ -311,6 +318,22 @@ export async function publishCatalogSnapshot(
             staleIds.push(id);
           }
         }
+      }
+    }
+
+    // g2. Safety net for scopes that never complete: retire in-stock rows of the
+    //     snapshot's countries that no scrape has seen for staleAfterDays.
+    const snapshotCountries = [...new Set(rows.map((r) => String(r.country_code ?? "").trim()).filter(Boolean))];
+    if (snapshotCountries.length > 0) {
+      const cutoff = new Date(Date.now() - (options.staleAfterDays ?? 7) * 86_400_000).toISOString();
+      const expired = await client.execute({
+        sql: `SELECT id FROM products WHERE in_stock = 1 AND last_scraped < ? AND country_code IN (${snapshotCountries.map(() => "?").join(", ")})`,
+        args: [cutoff, ...snapshotCountries]
+      });
+      const already = new Set(staleIds);
+      for (const row of expired.rows) {
+        const id = String(row.id);
+        if (!candidateIds.has(id) && !already.has(id)) staleIds.push(id);
       }
     }
 

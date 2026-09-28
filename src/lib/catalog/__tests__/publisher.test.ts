@@ -957,6 +957,37 @@ describe("Publisher Engine & Turso Schema", () => {
       cleanup();
     });
 
+    it("retires rows of a never-complete scope once no scrape has seen them for a week", async () => {
+      const client = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(client);
+
+      const now = new Date().toISOString();
+      const eightDaysAgo = new Date(Date.now() - 8 * 86_400_000).toISOString();
+      await client.execute({
+        sql: `INSERT INTO products (id, name, currency, country_code, retailer, url, in_stock, category, first_seen, last_scraped)
+              VALUES ('gpu-recent', 'GPU Recent', 'INR', 'IN', 'Shop', 'https://shop.in/gpu-recent', 1, 'gpu', ?, ?),
+                     ('gpu-old', 'GPU Old', 'INR', 'IN', 'Shop', 'https://shop.in/gpu-old', 1, 'gpu', ?, ?)`,
+        args: [now, now, eightDaysAgo, eightDaysAgo]
+      });
+
+      const base = { currency: "INR", country_code: "IN", retailer: "Shop" };
+      const { dbPath, cleanup } = createCandidateDatabase(
+        [{ ...base, id: "gpu-seen", category: "gpu" }],
+        { jobs: [{ country_code: "IN", retailer: "Shop", category: "gpu", status: "partial" }] }
+      );
+
+      const result = await publishCatalogSnapshot({ dbPath, client, validatorOptions: { minProducts: 1 } });
+
+      expect(result.success).toBe(true);
+      const stock = Object.fromEntries(
+        (await client.execute("SELECT id, in_stock FROM products")).rows.map((r) => [String(r.id), Number(r.in_stock)])
+      );
+      expect(stock["gpu-recent"]).toBe(1); // partial scope, seen recently: kept
+      expect(stock["gpu-old"]).toBe(0); // partial scope, unseen for 8 days: retired
+
+      cleanup();
+    });
+
     it("marks nothing out of stock when the snapshot has no scrape_jobs table", async () => {
       const client = createClient({ url: "file::memory:" });
       await ensureTursoSchema(client);
