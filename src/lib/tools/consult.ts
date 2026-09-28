@@ -10,8 +10,11 @@ import {
   checkCrawlerReadiness,
   assertCrawlUrlAllowed,
   CRAWLED_PAGE_CAP_CHARS,
+  CRAWL_TIMEOUT_MS,
+  CRAWL_PREFLIGHT_TIMEOUT_MS,
   type CrawlerReadiness,
   type CrawlRunner,
+  type CrawlPreflight,
   type SearchClient,
   type SearchResponse,
   type SearchResult
@@ -54,6 +57,8 @@ export type ConsultDeps = {
   generateText?: typeof generateTextWithFallback;
   checkCrawlerReadiness?: () => Promise<CrawlerReadiness>;
   crawlRunner?: CrawlRunner;
+  /** Crawl SSRF pre-flight override (tests); defaults to DNS + redirect checks. */
+  crawlPreflight?: CrawlPreflight;
   logPath?: string;
   now?: () => Date;
   /** User Stop signal for the chat turn; aborts subagent + crawl. */
@@ -71,6 +76,15 @@ export const MAX_SUBAGENT_SEARCH_CALLS = 8;
 export const MAX_SUBAGENT_CRAWL_CALLS = 4;
 /** Chat-facing source snippet budget: facts + citations, not raw pages. */
 export const CHAT_SOURCE_SNIPPET_CAP = 500;
+
+/**
+ * Per-entry budget for the research subagent: one entry runs a whole tool
+ * loop, so with crawling on it must also cover the worst case of every
+ * crawl (pre-flight + Crawl4AI) running back to back.
+ */
+export function subagentEntryTimeoutMs(crawlEnabled: boolean, base = getEntryTimeoutMs()): number {
+  return crawlEnabled ? base + MAX_SUBAGENT_CRAWL_CALLS * (CRAWL_PREFLIGHT_TIMEOUT_MS + CRAWL_TIMEOUT_MS) : base;
+}
 
 export function registryKey(category: string, name: string): string {
   return `${slugifyComponent(category)}:${slugifyComponent(name)}`;
@@ -135,7 +149,8 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
   const crawlEnabled = Boolean(config.search.crawlEnabled);
   const search = deps.searchClient ?? createSearchClient(config.search, {
     checkCrawlerReadiness: deps.checkCrawlerReadiness,
-    runPythonModule: deps.crawlRunner
+    runPythonModule: deps.crawlRunner,
+    crawlPreflight: deps.crawlPreflight
   });
   const db = getDb(config.dbPath);
   const now = deps.now ?? (() => new Date());
@@ -173,7 +188,7 @@ export async function consult(input: ConsultInput, config: AppConfig, deps: Cons
       await logConsult(input, llm.result, { provider: llm.provider, model: llm.model, logPath: deps.logPath });
       return llm.result;
     }
-    const confidence = scoreResearchConfidence(grounded, llm.data.sources);
+    const confidence = scoreResearchConfidence(grounded, llm.data.sources, crawledUrls(llm.actions));
     const specs = { ...llm.data.specs, aliases: Array.from(new Set([input.name, ...(llm.data.specs.aliases ?? [])])) };
     // Sources actually used: the URLs the subagent cited, resolved against
     // grounding titles/snippets (truncated for chat). Raw crawled page text
@@ -305,7 +320,7 @@ function createSubagentTools(
   onAction?: (action: SubagentAction) => void,
   crawlerChecker?: () => Promise<CrawlerReadiness>,
   crawlEnabled = false,
-  options?: { abortSignal?: AbortSignal; searchCalls?: { count: number }; crawlCalls?: { count: number } }
+  options?: { abortSignal?: AbortSignal; searchCalls?: { count: number }; crawlCalls?: { count: number }; crawlPreflight?: CrawlPreflight }
 ): ToolSet {
   const searchCalls = options?.searchCalls ?? { count: 0 };
   const crawlCalls = options?.crawlCalls ?? { count: 0 };
@@ -352,7 +367,8 @@ function createSubagentTools(
           onAction?.({ tool: "crawl_page", url, error: errorMsg });
           return { error: errorMsg };
         }
-        // Allow only http/https; block private/loopback incl. redirect targets.
+        // Allow only http/https; block private/loopback. crawlPage adds the
+        // DNS + redirect-chain pre-flight.
         try {
           assertCrawlUrlAllowed(url);
         } catch (err) {
@@ -375,7 +391,7 @@ function createSubagentTools(
         crawlCalls.count += 1;
         try {
           const runner = crawlRunner ?? runPythonModule;
-          const content = await crawlPage(url, runner, { signal });
+          const content = await crawlPage(url, runner, { signal, preflight: options?.crawlPreflight });
           onAction?.({ tool: "crawl_page", url });
           // Capped at CRAWLED_PAGE_CAP_CHARS before the subagent sees it.
           return { content: content.slice(0, CRAWLED_PAGE_CAP_CHARS) };
@@ -541,7 +557,8 @@ async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
   const generate = args.deps.generateText ?? generateTextWithFallback;
   const search = args.deps.searchClient ?? createSearchClient(args.config.search, {
     checkCrawlerReadiness: args.deps.checkCrawlerReadiness,
-    runPythonModule: args.crawlRunner
+    runPythonModule: args.crawlRunner,
+    crawlPreflight: args.deps.crawlPreflight
   });
   const actions: SubagentAction[] = [];
   // Per-turn tool budgets: the chat model gets facts, not unlimited browsing.
@@ -552,27 +569,19 @@ async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
     (act) => actions.push(act),
     args.deps.checkCrawlerReadiness,
     Boolean(args.config.search.crawlEnabled),
-    { abortSignal: args.deps.abortSignal, searchCalls: budgets.search, crawlCalls: budgets.crawl }
+    { abortSignal: args.deps.abortSignal, searchCalls: budgets.search, crawlCalls: budgets.crawl, crawlPreflight: args.deps.crawlPreflight }
   );
   let provider = "unknown";
   let model = "unknown";
   let lastError = "Model did not return valid JSON.";
   let lastDetail: string | undefined;
   let lastGeneratedText: string | undefined;
-  // Each fallback entry gets its own timeout; the user Stop signal aborts all.
-  // A timeout signal is always passed so injected generate mocks (and the
-  // real fallback client) see an abortable signal even without user Stop.
-  const entryTimeout = args.deps.timeoutMsPerEntry ?? getEntryTimeoutMs();
-  const subagentSignal = (attemptTimeout: number): AbortSignal | undefined => {
-    const timeoutSignal = AbortSignal.timeout(attemptTimeout);
-    if (!args.deps.abortSignal) return timeoutSignal;
-    if (args.deps.abortSignal.aborted) return args.deps.abortSignal;
-    try {
-      return AbortSignal.any([args.deps.abortSignal, timeoutSignal]);
-    } catch {
-      return args.deps.abortSignal;
-    }
-  };
+  // Timing is per fallback entry (timeoutMsPerEntry): each chain entry gets
+  // its full budget. Only the user Stop signal is passed as abortSignal —
+  // a chain-wide timeout signal would make the client treat an entry
+  // timeout as user Stop and skip the fallback entries.
+  const entryTimeout = args.deps.timeoutMsPerEntry ?? subagentEntryTimeoutMs(Boolean(args.config.search.crawlEnabled));
+  const repairTimeout = Math.min(args.deps.timeoutMsPerEntry ?? getEntryTimeoutMs(), 15_000);
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (args.deps.abortSignal?.aborted) {
@@ -587,7 +596,7 @@ async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
           prompt: args.prompt,
           tools,
           stopWhen: isStepCount(5),
-          abortSignal: subagentSignal(entryTimeout),
+          abortSignal: args.deps.abortSignal,
           timeoutMsPerEntry: entryTimeout
         });
         provider = response.provider;
@@ -607,8 +616,8 @@ async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
           system: "You are an isolated PCBuildSage Tier 2 research subagent. Your task is strictly JSON repair. Output only valid JSON matching the requested schema without markdown wrapper.",
           prompt: repairPrompt,
           stopWhen: isStepCount(2),
-          abortSignal: subagentSignal(Math.min(entryTimeout, 15_000)),
-          timeoutMsPerEntry: Math.min(entryTimeout, 15_000)
+          abortSignal: args.deps.abortSignal,
+          timeoutMsPerEntry: repairTimeout
         });
         provider = response.provider;
         model = response.model;
@@ -636,6 +645,11 @@ async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
   return { ok: false, provider, model, result: { mode: args.input.mode, error: lastError, detail: lastDetail, retryable: false, label: "unverified", actions } };
 }
 
+/** URLs the subagent crawled successfully (a crawl action without an error). */
+function crawledUrls(actions: SubagentAction[]): string[] {
+  return actions.flatMap((action) => (action.tool === "crawl_page" && action.url && !action.error ? [action.url] : []));
+}
+
 export function isRegistryStale(researchedAt: string | undefined, nowMs: number): boolean {
   // Legacy rows without a timestamp stay a hit (backward compatible with
   // existing caches and test fixtures); new rows carry researched_at for TTL.
@@ -647,11 +661,14 @@ export function isRegistryStale(researchedAt: string | undefined, nowMs: number)
 
 /**
  * Confidence from source quality, not just presence: high needs multiple
- * grounding hits plus a cited source, medium needs grounding, else low.
+ * grounding hits plus a cited source we can verify (it appears in the
+ * grounding results or was actually crawled), medium needs grounding, else
+ * low. Model-cited URLs we never saw do not count.
  */
-export function scoreResearchConfidence(grounded: SearchResponse, citedUrls: string[]): "high" | "medium" | "low" {
-  const cited = new Set((citedUrls ?? []).map((url) => url.trim()).filter(Boolean));
-  if (grounded.grounded && grounded.results.length >= 2 && cited.size >= 1) return "high";
+export function scoreResearchConfidence(grounded: SearchResponse, citedUrls: string[], crawled: string[] = []): "high" | "medium" | "low" {
+  const known = new Set([...grounded.results.map((result) => result.url.trim()), ...crawled.map((url) => url.trim())]);
+  const verified = (citedUrls ?? []).map((url) => url.trim()).filter((url) => url && known.has(url));
+  if (grounded.grounded && grounded.results.length >= 2 && verified.length >= 1) return "high";
   if (grounded.grounded && grounded.results.length >= 1) return "medium";
   return "low";
 }

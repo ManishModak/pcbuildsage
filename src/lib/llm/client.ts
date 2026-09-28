@@ -8,8 +8,12 @@ import { envKeyAllowed } from "./env-key-scope";
 
 /** Generous first-token timeout for the main chat stream (local models load slowly). */
 export const DEFAULT_FIRST_TOKEN_TIMEOUT_MS = 120_000;
-/** Per-entry timeout for single-shot generate calls (subagents). */
-export const DEFAULT_ENTRY_TIMEOUT_MS = 60_000;
+/**
+ * Per-entry timeout for generateTextWithFallback. It bounds a whole call,
+ * including multi-step subagent tool loops (searches + crawls) and history
+ * compaction on slow local models, so it is deliberately generous.
+ */
+export const DEFAULT_ENTRY_TIMEOUT_MS = 180_000;
 
 export function getFirstTokenTimeoutMs(): number {
   const raw = process.env.PCBUILDSAGE_FIRST_TOKEN_TIMEOUT_MS;
@@ -169,12 +173,12 @@ export async function streamTextWithFallback(args: {
       abortErr.name = "AbortError";
       throw abortErr;
     }
-    // Each fallback entry gets its own first-token budget combined with the
-    // user Stop signal. A hung server aborts this entry and falls through.
+    // Each fallback entry gets its own first-token budget. The SDK sees the
+    // user Stop signal for the whole stream (not just until the first token)
+    // combined with this entry's first-token timeout.
     const entryController = new AbortController();
-    const onUserAbort = () => entryController.abort();
-    args.abortSignal?.addEventListener("abort", onUserAbort, { once: true });
     const timer = setTimeout(() => entryController.abort(new Error(`First token timeout after ${firstTokenTimeout}ms`)), firstTokenTimeout);
+    const abortSignal = args.abortSignal ? AbortSignal.any([args.abortSignal, entryController.signal]) : entryController.signal;
     try {
       const result = streamText({
         ...args,
@@ -183,15 +187,13 @@ export async function streamTextWithFallback(args: {
         // Per-step retry with SDK exponential backoff: 429/5xx on step 2+
         // retries that step once instead of failing the turn.
         maxRetries: 1,
-        abortSignal: entryController.signal
+        abortSignal
       });
-      const started = await probeStarted(result, firstTokenTimeout, args.abortSignal);
+      const started = await probeStarted(result, firstTokenTimeout);
       clearTimeout(timer);
-      args.abortSignal?.removeEventListener("abort", onUserAbort);
       return withServedStreams(result, started.fullStream, entry, index, errors);
     } catch (error) {
       clearTimeout(timer);
-      args.abortSignal?.removeEventListener("abort", onUserAbort);
       if (args.abortSignal?.aborted) throw error;
       const next = args.chain[index + 1];
       if (!isFallbackable(error, entry, next)) throw error;
@@ -201,50 +203,117 @@ export async function streamTextWithFallback(args: {
   throw new AggregateError(errors, `All fallback LLM providers failed before streaming content (${describeChain(args.chain)}).`);
 }
 
-export async function probeToolCapability(entry: LLMChainEntry, options?: { timeoutMs?: number; abortSignal?: AbortSignal }): Promise<{ ok: boolean; remedies?: string[]; error?: string }> {
-  const { signal, cancel } = combineWithTimeout(options?.abortSignal, options?.timeoutMs ?? 20_000);
+/** Probe budget: slow reasoning models can take tens of seconds to call ping. */
+export const PROBE_TIMEOUT_MS = 45_000;
+/** Longest Retry-After the probe waits out before its single retry. */
+export const PROBE_MAX_RETRY_WAIT_MS = 10_000;
+const PROBE_DEFAULT_RETRY_WAIT_MS = 2_000;
+
+/**
+ * Why a tool probe failed, so the UI can explain it:
+ * - "no_tool_call": the model answered, but in text, without calling the tool.
+ * - "request_failed": the request itself failed (network, auth, rate limit, timeout).
+ */
+export type ToolProbeFailure = "no_tool_call" | "request_failed";
+
+export type ToolProbeResult = { ok: boolean; reason?: ToolProbeFailure; remedies?: string[]; error?: string };
+
+/**
+ * Onboarding gate: proves the entry can make a real tool call by asking it to
+ * call a `ping` tool. One retry on 429/5xx (waiting out Retry-After up to
+ * PROBE_MAX_RETRY_WAIT_MS) so a single free-tier rate limit does not fail setup.
+ */
+export async function probeToolCapability(
+  entry: LLMChainEntry,
+  options?: { timeoutMs?: number; abortSignal?: AbortSignal; sleep?: (ms: number) => Promise<void> }
+): Promise<ToolProbeResult> {
+  const { signal, cancel } = combineWithTimeout(options?.abortSignal, options?.timeoutMs ?? PROBE_TIMEOUT_MS);
+  const sleep = options?.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   try {
-    const result = await generateText({
-      model: createLanguageModel(entry),
-      prompt: "Call the ping tool once.",
-      tools: {
-        ping: tool({
-          description: "Small setup probe. Use when asked to call it.",
-          inputSchema: z.object({ value: z.string().describe("Any short value to echo.") }),
-          execute: async ({ value }) => ({ value })
-        })
-      },
-      // Prove tool calling: stop when ping fires (or after 2 steps max).
-      // hasToolCall is the AI SDK v7 stop condition for this; isStepCount
-      // caps the probe so a non-tool model cannot loop.
-      stopWhen: [hasToolCall("ping")],
-      maxRetries: 0,
-      abortSignal: signal
-    });
-    // The generate call succeeding is not enough: require proof the model
-    // actually invoked ping (some endpoints return text instead of a tool
-    // call when tool_choice is ignored, e.g. unconfigured local servers).
-    const steps = await result.steps;
-    const calledPing = steps.some((step) =>
-      (step.toolCalls ?? []).some((call) => (call as { toolName?: unknown }).toolName === "ping")
-    );
-    if (!calledPing) {
-      return {
-        ok: false,
-        error: "Endpoint replied without calling the ping tool.",
-        remedies: ["Enable tool calling on the backend launch flags or model template.", "Switch to a model that supports native tool calling."]
-      };
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        const result = await generateText({
+          model: createLanguageModel(entry),
+          prompt: "Call the ping tool once.",
+          tools: {
+            ping: tool({
+              description: "Small setup probe. Use when asked to call it.",
+              inputSchema: z.object({ value: z.string().describe("Any short value to echo.") }),
+              execute: async ({ value }) => ({ value })
+            })
+          },
+          // Stop as soon as ping fires. A text-only reply has no tool calls,
+          // so the SDK loop ends after that one step on its own.
+          stopWhen: [hasToolCall("ping")],
+          // Retries are handled below so Retry-After can be capped.
+          maxRetries: 0,
+          abortSignal: signal
+        });
+        // The generate call succeeding is not enough: require proof the model
+        // actually invoked ping (some endpoints return text instead of a tool
+        // call when tool_choice is ignored, e.g. unconfigured local servers).
+        const steps = await result.steps;
+        const calledPing = steps.some((step) =>
+          (step.toolCalls ?? []).some((call) => (call as { toolName?: unknown }).toolName === "ping")
+        );
+        if (!calledPing) {
+          return {
+            ok: false,
+            reason: "no_tool_call",
+            error: "The model replied in plain text instead of calling the test tool, so it can't use PCBuildSage's tools.",
+            remedies: ["Enable tool calling on the backend launch flags or model template.", "Switch to a model that supports native tool calling."]
+          };
+        }
+        return { ok: true };
+      } catch (error) {
+        const wait = attempt === 0 && !signal?.aborted ? probeRetryDelayMs(error) : undefined;
+        if (wait === undefined) throw error;
+        await sleep(wait);
+      }
     }
-    return { ok: true };
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-      remedies: ["Enable tool calling on the backend launch flags or model template.", "Switch to a model that supports native tool calling."]
-    };
+    return { ok: false, reason: "request_failed", ...describeProbeRequestFailure(error, signal) };
   } finally {
     cancel();
   }
+}
+
+/** Delay before the probe's single retry, or undefined when it should not retry. */
+function probeRetryDelayMs(error: unknown): number | undefined {
+  const status = statusFromError(error);
+  if (status !== 429 && !(status !== undefined && status >= 500)) return undefined;
+  const retryAfterMs = retryAfterFromError(error);
+  if (retryAfterMs === undefined) return PROBE_DEFAULT_RETRY_WAIT_MS;
+  return retryAfterMs <= PROBE_MAX_RETRY_WAIT_MS ? retryAfterMs : undefined;
+}
+
+function retryAfterFromError(error: unknown): number | undefined {
+  const headers = (error as { responseHeaders?: Record<string, string> } | undefined)?.responseHeaders
+    ?? (error as { cause?: { responseHeaders?: Record<string, string> } } | undefined)?.cause?.responseHeaders;
+  if (!headers) return undefined;
+  const ms = Number.parseFloat(headers["retry-after-ms"] ?? "");
+  if (Number.isFinite(ms) && ms >= 0) return ms;
+  const raw = headers["retry-after"];
+  if (!raw) return undefined;
+  const seconds = Number.parseFloat(raw);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const date = Date.parse(raw) - Date.now();
+  return Number.isFinite(date) ? Math.max(0, date) : undefined;
+}
+
+function describeProbeRequestFailure(error: unknown, signal: AbortSignal | undefined): { error: string; remedies: string[] } {
+  const detail = error instanceof Error ? error.message : String(error);
+  const status = statusFromError(error);
+  if (signal?.aborted || /timeout|timed out|aborted/i.test(detail)) {
+    return { error: `The tool test didn't finish in time (${detail}).`, remedies: ["Try again; slow or reasoning models can take a while to answer.", "Pick a faster model."] };
+  }
+  if (status === 429 || /rate limit|too many requests|quota/i.test(detail)) {
+    return { error: `The provider is rate-limiting requests right now (${detail}).`, remedies: ["Wait a minute and test again, or pick a different model."] };
+  }
+  if (status === 401 || status === 403) {
+    return { error: `The provider rejected the API key (${detail}).`, remedies: ["Check the API key for this provider."] };
+  }
+  return { error: `The tool test request failed (${detail}).`, remedies: ["Check the endpoint and try again."] };
 }
 
 export function isFallbackable(error: unknown, currentEntry?: LLMChainEntry, nextEntry?: LLMChainEntry): boolean {
@@ -395,27 +464,37 @@ function defaultBaseUrl(provider: LLMProvider): string {
   return process.env.OPENAI_COMPATIBLE_BASE_URL ?? "http://localhost:8000/v1";
 }
 
+/**
+ * Stream parts that do NOT prove the provider is responding: the SDK emits
+ * `start`/`start-step` itself, and `raw` is opt-in transport noise. Anything
+ * else (text/reasoning/tool-input starts and deltas, tool calls, sources,
+ * files, step finish) means the model is producing output.
+ */
+const NON_OUTPUT_PART_TYPES = new Set<string>(["start", "start-step", "raw"]);
+
+/**
+ * Waits for the first part that proves the entry is producing output (or a
+ * timeout / error, which rejects so the caller can fall back), then returns a
+ * fullStream that replays the buffered parts and continues the original.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function probeStarted(result: StreamTextResult<ToolSet, any, any>, firstTokenTimeoutMs: number, userSignal?: AbortSignal): Promise<{ fullStream: AsyncIterableStream<TextStreamPart<ToolSet>> }> {
-  const iterator = result.fullStream[Symbol.asyncIterator]();
+async function probeStarted(result: StreamTextResult<ToolSet, any, any>, firstTokenTimeoutMs: number): Promise<{ fullStream: AsyncIterableStream<TextStreamPart<ToolSet>> }> {
+  const source = openPartSource(result.fullStream);
   const buffer: TextStreamPart<ToolSet>[] = [];
   let timer: NodeJS.Timeout | undefined;
 
   const timeoutPromise = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      void iterator.return?.().catch(() => {});
+      void source.cancel().catch(() => {});
       const err = new Error(`First token timeout after ${firstTokenTimeoutMs}ms`);
       err.name = "TimeoutError";
       reject(err);
     }, firstTokenTimeoutMs);
-    userSignal?.addEventListener("abort", () => {
-      if (timer) clearTimeout(timer);
-    }, { once: true });
   });
 
   try {
     while (true) {
-      const next = await Promise.race([iterator.next(), timeoutPromise]);
+      const next = await Promise.race([source.next(), timeoutPromise]);
       if (next.done) {
         break;
       }
@@ -443,14 +522,7 @@ async function probeStarted(result: StreamTextResult<ToolSet, any, any>, firstTo
             );
       }
 
-      if (
-        part.type === "text-delta" ||
-        part.type === "tool-call" ||
-        part.type === "reasoning-delta" ||
-        part.type === "finish" ||
-        part.type === "finish-step" ||
-        part.type === "tool-result"
-      ) {
+      if (!NON_OUTPUT_PART_TYPES.has(part.type)) {
         break;
       }
     }
@@ -458,20 +530,53 @@ async function probeStarted(result: StreamTextResult<ToolSet, any, any>, firstTo
     if (timer) clearTimeout(timer);
   }
 
-  return {
-    fullStream: iterableToStream(async function* () {
-      for (const item of buffer) {
-        yield item;
+  return { fullStream: replayThenContinue(buffer, source) };
+}
+
+type PartSource<T> = { next(): Promise<IteratorResult<T>>; cancel(): Promise<void> };
+
+/**
+ * Reads the SDK fullStream through a ReadableStream reader when available:
+ * reader.cancel() takes effect even while a read is pending, whereas an
+ * async iterator's return() waits for that read. Plain async iterables
+ * (test doubles) fall back to the iterator protocol.
+ */
+function openPartSource<T>(stream: AsyncIterable<T>): PartSource<T> {
+  if (stream instanceof ReadableStream) {
+    const reader = (stream as ReadableStream<T>).getReader();
+    return {
+      next: async () => {
+        const { done, value } = await reader.read();
+        return done ? { done: true, value: undefined } : { done: false, value: value as T };
+      },
+      cancel: () => reader.cancel()
+    };
+  }
+  const iterator = stream[Symbol.asyncIterator]();
+  return { next: () => iterator.next(), cancel: async () => { await iterator.return?.(); } };
+}
+
+/**
+ * Pull-based stream: replays the buffered parts, then continues the source.
+ * An `error` part becomes a stream error; cancel() releases the SDK stream.
+ */
+function replayThenContinue(buffer: TextStreamPart<ToolSet>[], source: PartSource<TextStreamPart<ToolSet>>): AsyncIterableStream<TextStreamPart<ToolSet>> {
+  const pending = [...buffer];
+  return new ReadableStream<TextStreamPart<ToolSet>>({
+    async pull(controller) {
+      try {
+        const part = pending.length ? pending.shift()! : await source.next().then((next) => (next.done ? undefined : next.value));
+        if (!part) controller.close();
+        else if (part.type === "error") controller.error(part.error);
+        else controller.enqueue(part);
+      } catch (error) {
+        controller.error(error);
       }
-      while (true) {
-        const next = await iterator.next();
-        if (next.done) break;
-        const part = next.value;
-        if (part.type === "error") throw part.error;
-        yield part;
-      }
-    })
-  };
+    },
+    async cancel() {
+      await source.cancel();
+    }
+  }) as AsyncIterableStream<TextStreamPart<ToolSet>>;
 }
 
 function withServedStreams(
@@ -494,19 +599,4 @@ function withServedStreams(
     errors: { value: errors, enumerable: true }
   });
   return served;
-}
-
-function iterableToStream<T>(factory: () => AsyncIterable<T>): AsyncIterableStream<T> {
-  return new ReadableStream<T>({
-    async start(controller) {
-      try {
-        for await (const item of factory()) {
-          controller.enqueue(item);
-        }
-        controller.close();
-      } catch (error) {
-        controller.error(error);
-      }
-    }
-  }) as AsyncIterableStream<T>;
 }

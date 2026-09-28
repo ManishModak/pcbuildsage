@@ -36,6 +36,8 @@ import {
   generateTextWithFallback,
   streamTextWithFallback,
   probeToolCapability,
+  getEntryTimeoutMs,
+  PROBE_TIMEOUT_MS,
 } from "@/lib/llm/client";
 
 beforeEach(() => {
@@ -260,12 +262,95 @@ describe("first-token timeout config", () => {
   });
 });
 
+describe("served fullStream cancellation", () => {
+  it("cancel() releases the SDK stream even while a read is pending", async () => {
+    let cancelled = false;
+    aiState.streamImpl = () => ({
+      fullStream: new ReadableStream({
+        start(controller) {
+          controller.enqueue({ type: "text-delta", text: "hi" });
+          // then stays open, like a provider mid-answer
+        },
+        cancel() {
+          cancelled = true;
+        }
+      })
+    });
+    const chain = [{ provider: "ollama", model: "m", keySource: "none" }] as never[];
+    const result = await streamTextWithFallback({ chain, messages: [{ role: "user", content: "hi" }], firstTokenTimeoutMs: 1000 });
+    const reader = result.fullStream.getReader();
+    expect((await reader.read()).value).toMatchObject({ type: "text-delta" });
+    const pending = reader.read();
+    await reader.cancel();
+    await pending;
+    expect(cancelled).toBe(true);
+  });
+});
+
+describe("generate entry timeout default", () => {
+  it("is generous enough for compaction and subagent loops, env still overrides", () => {
+    expect(getEntryTimeoutMs()).toBe(180_000);
+    vi.stubEnv("PCBUILDSAGE_ENTRY_TIMEOUT_MS", "7000");
+    expect(getEntryTimeoutMs()).toBe(7000);
+  });
+});
+
 describe("probeToolCapability proves tool calling", () => {
-  it("fails when the model replies without calling ping", async () => {
+  const entry = { provider: "ollama", model: "m", keySource: "none" } as never;
+  const noSleep = async () => {};
+
+  it("fails with no_tool_call when the model replies in text without calling ping", async () => {
     aiState.generateImpl = async () => ({ steps: [{ toolCalls: [] }] });
-    const result = await probeToolCapability({ provider: "ollama", model: "no-tools", keySource: "none" } as never);
-    expect(result.ok).toBe(false);
-    expect(result.error).toMatch(/without calling the ping tool/);
+    const result = await probeToolCapability(entry);
+    expect(result).toMatchObject({ ok: false, reason: "no_tool_call" });
+    expect(result.error).toMatch(/plain text instead of calling the test tool/);
+  });
+
+  it("reports request_failed (not no_tool_call) when the request errors", async () => {
+    aiState.generateImpl = async () => {
+      throw Object.assign(new Error("Unauthorized"), { statusCode: 401 });
+    };
+    const result = await probeToolCapability(entry, { sleep: noSleep });
+    expect(result).toMatchObject({ ok: false, reason: "request_failed" });
+    expect(result.error).toMatch(/rejected the API key/);
+  });
+
+  it("retries once on 429, waiting out a short Retry-After", async () => {
+    const waits: number[] = [];
+    let calls = 0;
+    aiState.generateImpl = async () => {
+      calls += 1;
+      if (calls === 1) throw Object.assign(new Error("Too Many Requests"), { statusCode: 429, responseHeaders: { "retry-after": "3" } });
+      return { steps: [{ toolCalls: [{ toolName: "ping" }] }] };
+    };
+    const result = await probeToolCapability(entry, { sleep: async (ms) => { waits.push(ms); } });
+    expect(result.ok).toBe(true);
+    expect(calls).toBe(2);
+    expect(waits).toEqual([3000]);
+  });
+
+  it("does not retry when Retry-After exceeds the cap, and retries only once", async () => {
+    let calls = 0;
+    aiState.generateImpl = async () => {
+      calls += 1;
+      throw Object.assign(new Error("Too Many Requests"), { statusCode: 429, responseHeaders: { "retry-after": "60" } });
+    };
+    const long = await probeToolCapability(entry, { sleep: noSleep });
+    expect(calls).toBe(1);
+    expect(long).toMatchObject({ ok: false, reason: "request_failed" });
+    expect(long.error).toMatch(/rate-limiting/);
+
+    calls = 0;
+    aiState.generateImpl = async () => {
+      calls += 1;
+      throw Object.assign(new Error("Service Unavailable"), { statusCode: 503 });
+    };
+    await probeToolCapability(entry, { sleep: noSleep });
+    expect(calls).toBe(2);
+  });
+
+  it("uses a 45s default budget", async () => {
+    expect(PROBE_TIMEOUT_MS).toBe(45_000);
   });
 
   it("passes when ping is actually invoked", async () => {

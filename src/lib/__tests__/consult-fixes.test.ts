@@ -113,6 +113,13 @@ describe("confidence from source quality", () => {
     expect(scoreResearchConfidence({ results: [{ title: "a", url: "https://a.example", snippet: "x" }], provider: "tavily", grounded: true } as never, [])).toBe("medium");
     expect(scoreResearchConfidence({ results: [], provider: "none", grounded: false } as never, [])).toBe("low");
   });
+
+  it("gives high only when a cited URL was seen in grounding or crawled", () => {
+    const grounded = { results: [{ title: "a", url: "https://a.example", snippet: "x" }, { title: "b", url: "https://b.example", snippet: "y" }], provider: "tavily", grounded: true } as never;
+    // A URL the model made up (never searched or crawled) does not count.
+    expect(scoreResearchConfidence(grounded, ["https://invented.example/specs"])).toBe("medium");
+    expect(scoreResearchConfidence(grounded, ["https://invented.example/specs"], ["https://invented.example/specs"])).toBe("high");
+  });
 });
 
 describe("sources actually used", () => {
@@ -218,6 +225,7 @@ describe("subagent abort + budgets", () => {
       logPath: "/tmp/pcbuildsage-test-budget.jsonl",
       checkCrawlerReadiness: async () => ({ ready: true }),
       crawlRunner: async () => ({ code: 0, signal: null, stdout: "spec text", stderr: "" }),
+      crawlPreflight: async () => {},
       generateText: (async (opts: { tools?: Record<string, { execute: (input: unknown) => Promise<unknown> }> }) => {
         const crawl = opts.tools?.crawl_page;
         if (!crawl) throw new Error("crawl_page tool missing");
