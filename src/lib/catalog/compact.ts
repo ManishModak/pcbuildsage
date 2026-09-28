@@ -161,9 +161,29 @@ export function toCompactProductItem(
 }
 
 /**
+ * Model-only view of a product's specs: functional keys only.
+ * Drops the `confidence` provenance string kept in the full compact output
+ * (MCP/UI keep it) and returns undefined when nothing functional remains,
+ * so the row omits `specs` instead of sending an empty/metadata-only object.
+ */
+export function toModelProductSpecs(
+  specs: Record<string, unknown> | null | undefined
+): Record<string, unknown> | undefined {
+  if (!specs || typeof specs !== "object") return undefined;
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(specs)) {
+    if (key === "confidence") continue;
+    cleaned[key] = value;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
+
+/**
  * Model-only view of a product row: short 10-char ID, no url/currency/
- * country_code, subcategory only when set, in_stock only when false, and
- * category only when the search did not already filter by it.
+ * country_code/registry_key, no specs confidence, subcategory only when set,
+ * in_stock only when false, and category only when the search did not
+ * already filter by it. Retailer, name, price, and functional specs stay —
+ * they are what the model needs to compare and pick parts.
  */
 export function toModelProductItem(
   item: CompactProductItem,
@@ -178,8 +198,8 @@ export function toModelProductItem(
   if (!opts?.dropCategory) out.category = item.category;
   if (item.subcategory != null) out.subcategory = item.subcategory;
   if (item.in_stock !== true) out.in_stock = item.in_stock;
-  if (item.registry_key != null) out.registry_key = item.registry_key;
-  if (item.specs != null) out.specs = item.specs;
+  const specs = toModelProductSpecs(item.specs);
+  if (specs !== undefined) out.specs = specs;
   return out;
 }
 

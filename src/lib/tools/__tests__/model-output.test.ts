@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toModelProductItem, toModelSearchResult, type CompactSearchProductsResult } from "@/lib/catalog/compact";
+import { toModelProductItem, toModelProductSpecs, toModelSearchResult, type CompactSearchProductsResult } from "@/lib/catalog/compact";
 import { createSearchProductsTool, validFilters } from "../search-products";
 import { toModelValidateOutput } from "../validate-build";
 
@@ -59,10 +59,105 @@ describe("model-only trimming via toModelOutput", () => {
     expect(model.results[0]).toHaveProperty("subcategory", "internal");
   });
 
-  it("toModelProductItem keeps specs and registry_key", () => {
+  it("toModelProductItem drops registry_key + confidence, keeps functional specs", () => {
     const row = toModelProductItem(full.results[0], { dropCategory: false });
+    // Functional specs stay (what the model picks parts with)
     expect(row.specs).toEqual({ socket: "LGA 1700" });
-    expect(row.registry_key).toBe("intel-core-i9-14900k");
+    // Model-only trims: registry_key (list_models remains the source for
+    // model_id follow-ups) and confidence provenance (kept in full output)
+    expect(row).not.toHaveProperty("registry_key");
+    expect(row.specs).not.toHaveProperty("confidence");
+    // Decision signals stay
+    expect(row).toHaveProperty("retailer", "R");
+    expect(row).toHaveProperty("name", "Intel Core i9-14900K");
+    expect(row).toHaveProperty("price", 55000);
+    // Full output (MCP/UI) keeps everything
+    expect(full.results[0].registry_key).toBe("intel-core-i9-14900k");
+    expect(full.results[0].specs).toEqual({ socket: "LGA 1700" });
+  });
+
+  it("toModelProductSpecs drops confidence-only specs entirely", () => {
+    expect(toModelProductSpecs({ confidence: "high" })).toBeUndefined();
+    expect(toModelProductSpecs(null)).toBeUndefined();
+    expect(toModelProductSpecs({ socket: "AM5", confidence: "low" })).toEqual({ socket: "AM5" });
+    const row = toModelProductItem(
+      { ...full.results[0], specs: { confidence: "high" } },
+      { dropCategory: false }
+    );
+    expect(row).not.toHaveProperty("specs");
+  });
+
+  it("model search view drops >=35% bytes on realistic rows", () => {
+    const rows = [
+      {
+        id: "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+        name: "NVIDIA GeForce RTX 5080 Graphics Card",
+        category: "gpu",
+        subcategory: null,
+        price: 118500,
+        currency: "INR",
+        country_code: "IN",
+        retailer: "MDComputers",
+        url: "https://example.com/rtx5080",
+        in_stock: true,
+        registry_key: "nvidia-rtx-5080",
+        specs: { brand: "NVIDIA", model: "NVIDIA GeForce RTX 5080", tdp_w: 360, recommended_psu_w: 850, vram_gb: 16, segment: "gaming", confidence: "high" }
+      },
+      {
+        id: "b2c3d4e5f60718293a4b5c6d7e8f901234567890",
+        name: "Intel Core i9-14900K Desktop Processor",
+        category: "cpu",
+        subcategory: null,
+        price: 55000,
+        currency: "INR",
+        country_code: "IN",
+        retailer: "MDComputers",
+        url: "https://example.com/14900k",
+        in_stock: true,
+        registry_key: "intel-core-i9-14900k",
+        specs: { brand: "Intel", model: "Intel Core i9-14900K", socket: "LGA 1700", tdp_w: 125, ddr: "DDR5", igpu: true, cores: 24, boost_clock_ghz: 6, confidence: "high" }
+      },
+      {
+        id: "c3d4e5f60718293a4b5c6d7e8f90123456789012",
+        name: "ASUS ROG Strix Z790-E Gaming WiFi Motherboard",
+        category: "motherboard",
+        subcategory: null,
+        price: 38500,
+        currency: "INR",
+        country_code: "IN",
+        retailer: "Vedant Computers",
+        url: "https://example.com/z790e",
+        in_stock: true,
+        registry_key: "asus-rog-strix-z790-e-gaming-wifi",
+        specs: { brand: "ASUS", model: "ASUS ROG Strix Z790-E Gaming WiFi", socket: "LGA 1700", chipset: "Z790", ddr: "DDR5", form_factor: "ATX", m2_slots: 5, sata_ports: 4, pcie_gen: 5, confidence: "high" }
+      },
+      {
+        id: "d4e5f60718293a4b5c6d7e8f9012345678901234",
+        name: "Samsung 990 Pro 2TB NVMe SSD",
+        category: "storage",
+        subcategory: "internal",
+        price: 16500,
+        currency: "INR",
+        country_code: "IN",
+        retailer: "MDComputers",
+        url: "https://example.com/990pro",
+        in_stock: true,
+        registry_key: "samsung-990-pro-2tb",
+        specs: { brand: "Samsung", model: "Samsung 990 PRO 2TB M.2 NVMe Gen4 SSD", interface: "nvme", form_factor: "m2-2280", capacity_gb: 2000, pcie_gen: 4, confidence: "high" }
+      }
+    ];
+    const realistic: CompactSearchProductsResult = {
+      results: rows,
+      total_matching: 4,
+      totalCount: 4,
+      returned: 4,
+      has_more: false,
+      scope: { country_code: "IN", currency: "INR" }
+    };
+    const model = toModelSearchResult(realistic, {});
+    const before = Buffer.byteLength(JSON.stringify(realistic));
+    const after = Buffer.byteLength(JSON.stringify(model));
+    expect(after / before).toBeLessThanOrEqual(0.65);
   });
 
   it("validate model output is only {builds}, no duplicate top-level copies", () => {
