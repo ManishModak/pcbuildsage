@@ -397,6 +397,23 @@ export interface PublishedGuide {
   partsSummary: string;
 }
 
+/** Public-page wording for an unverified check: part names, not internal ids or engine text. */
+function plainUnverified(issue: ValidationResult["issues"][number], snapshot: BuildSnapshot): string {
+  const names = issue.components
+    .map((id) => snapshot.components.find((c) => c.product_id === id)?.name)
+    .filter((name): name is string => Boolean(name));
+  const parts = names.length ? ` (${names.join(", ")})` : "";
+  if (issue.rule === "clearance") return `that the graphics card and cooler fit inside the case${parts}`;
+  if (issue.rule === "storage") return `that the motherboard has a free slot for the storage drive${parts}`;
+  if (issue.rule === "spec_resolution") return `specs we could not source for${parts || " some parts"}`;
+  return issue.detail;
+}
+
+/** formatPrice without a trailing ".00": guide prices are whole rupees. */
+function wholePrice(amount: number, currency: string): string {
+  return formatPrice(amount, currency).replace(/\.00$/, "");
+}
+
 function renderGuidePage(args: {
   tier: Pick<TierPlan, "budget" | "resolution">;
   snapshot: BuildSnapshot;
@@ -411,10 +428,12 @@ function renderGuidePage(args: {
   const rows = snapshot.components
     .map((component) => {
       const rank = rankByCategory.get(String(component.category));
+      // The case search term is a form factor ("ATX" also matches M-ATX), so name the category instead.
+      const termLabel = rank && component.category === "case" ? "case" : rank?.term;
       const reason = rank
-        ? `Cheapest in-stock ${escapeHtml(rank.term)} in this tier (#${rank.rank} of ${rank.of}); compatibility checks passed (${passed}/${totalChecks}).`
-        : `Compatibility checks passed (${passed}/${totalChecks}).`;
-      const price = component.price === null ? "—" : escapeHtml(formatPrice(component.price, snapshot.currency));
+        ? `Cheapest in-stock ${escapeHtml(termLabel ?? "")} in this tier (#${rank.rank} of ${rank.of}).`
+        : "";
+      const price = component.price === null ? "—" : escapeHtml(wholePrice(component.price, snapshot.currency));
       const name = escapeHtml(component.name);
       const buy = component.url
         ? `<a href="${escapeHtml(component.url)}">Buy</a>`
@@ -424,7 +443,15 @@ function renderGuidePage(args: {
     .join("\n");
   const partsSummary = snapshot.components.map((c) => `${c.category}: ${c.name}`).join("; ");
   const customise = customiseUrl(tier, partsSummary);
-  const total = snapshot.total === null ? "—" : escapeHtml(formatPrice(snapshot.total, snapshot.currency));
+  const total = snapshot.total === null ? "—" : escapeHtml(wholePrice(snapshot.total, snapshot.currency));
+  const unverified = validation.issues.filter(
+    (issue) => issue.severity === "needs_verification" || issue.severity === "needs_research"
+  );
+  const checksLine =
+    `Compatibility: ${passed} of ${totalChecks} checks passed by code.` +
+    (unverified.length
+      ? ` Not verified, please check before buying: ${[...new Set(unverified.map((issue) => plainUnverified(issue, snapshot)))].join("; ")}.`
+      : "");
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -436,6 +463,7 @@ function renderGuidePage(args: {
 <body>
 <h1>${escapeHtml(title)}</h1>
 <p><strong>Total: ${total}</strong> (budget ₹${tier.budget.toLocaleString("en-IN")}) · prices checked ${escapeHtml(generatedAt)}</p>
+<p>${escapeHtml(checksLine)}</p>
 <table>
 <thead><tr><th>Part</th><th>Name</th><th>Price</th><th>Retailer</th><th>Buy</th><th>Why this pick</th></tr></thead>
 <tbody>
