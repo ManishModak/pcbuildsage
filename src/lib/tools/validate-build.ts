@@ -6,6 +6,7 @@ import { getCatalogRepository, type CatalogRepository, type CatalogScope } from 
 import { validateBuild, type BuildParts, type BuildPart, type ValidationResult } from "../rules-engine";
 import { createBuildSnapshot, type BuildSnapshot } from "../catalog/build-snapshot";
 import { createTurnValidationStore, recordValidation, type TurnValidationStore } from "./turn-state";
+import { formatPrice } from "./lenient-input";
 import { distinguishingPrefix, MIN_PREFIX_LEN, resolveIdPrefix, shortId } from "./product-ids";
 
 const componentCategorySchema = z.enum(["cpu", "gpu", "motherboard", "ram", "storage", "psu", "case", "cooler"]);
@@ -50,10 +51,71 @@ export const validateBuildInputSchema = z.object({
     .refine((builds) => new Set(builds.map((b) => b.label.trim().toLowerCase())).size === builds.length, {
       message: "Each build needs a unique label."
     })
-    .describe("One to five complete build proposals to validate side by side, each with a unique label.")
+    .describe("One to five complete build proposals to validate side by side, each with a unique label."),
+  budget: z
+    .number()
+    .positive()
+    .optional()
+    .describe(
+      "The user's whole-build budget in the active currency's standard major units (e.g. 45000). When given, each build gets code-computed budget figures (over_by/under_by) to quote instead of calculating them."
+    )
 });
 
 export type ValidateBuildInput = z.infer<typeof validateBuildInputSchema>;
+
+/** Budget figures for one build; over_by and under_by are non-negative and at most one is non-zero. */
+export interface BuildBudgetFigures {
+  target: number;
+  total: number;
+  over_by: number;
+  under_by: number;
+}
+
+/** How much more a build costs than the cheapest build in the same call (0 for the cheapest). */
+export interface VsCheapest {
+  cheapest_label: string;
+  more_by: number;
+}
+
+type PricedResult = { snapshot: BuildSnapshot; budget?: BuildBudgetFigures; vs_cheapest?: VsCheapest; price_summary?: string };
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Adds code-computed price figures to each build result, in place, so the
+ * model quotes them instead of doing arithmetic in prose: `budget` when a
+ * budget was given, `vs_cheapest` when 2+ builds have totals, and a one-line
+ * `price_summary`. Builds without a snapshot total are left unchanged.
+ */
+export function addPriceFigures(results: Record<string, PricedResult>, budget?: number): void {
+  const priced = Object.entries(results).filter(([, r]) => typeof r.snapshot?.total === "number");
+  const cheapest = priced.length >= 2
+    ? priced.reduce((min, entry) => ((entry[1].snapshot.total as number) < (min[1].snapshot.total as number) ? entry : min))
+    : undefined;
+
+  for (const [label, result] of priced) {
+    const total = result.snapshot.total as number;
+    const currency = result.snapshot.currency;
+    const parts = [`Total ${formatPrice(total, currency)}`];
+    if (budget !== undefined) {
+      const diff = round2(total - budget);
+      result.budget = { target: budget, total, over_by: Math.max(0, diff), under_by: Math.max(0, -diff) };
+      parts.push(
+        diff > 0
+          ? `${formatPrice(diff, currency)} over the ${formatPrice(budget, currency)} budget`
+          : diff < 0
+            ? `${formatPrice(-diff, currency)} under the ${formatPrice(budget, currency)} budget`
+            : `exactly the ${formatPrice(budget, currency)} budget`
+      );
+    }
+    if (cheapest) {
+      const moreBy = round2(total - (cheapest[1].snapshot.total as number));
+      result.vs_cheapest = { cheapest_label: cheapest[0], more_by: moreBy };
+      if (label !== cheapest[0]) parts.push(`${formatPrice(moreBy, currency)} more than '${cheapest[0]}'`);
+    }
+    if (parts.length > 1) result.price_summary = parts.join("; ");
+  }
+}
 
 /** Prefix lookup against the catalog for short IDs the model passes back. */
 async function findIdsByPrefix(
@@ -184,12 +246,13 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
   const turnStore = store ?? createTurnValidationStore();
   return tool({
     description:
-      "Use validate_build to validate 1 to 5 proposed PC builds side by side in a single call before presenting them. Each build must have a short label naming its tradeoff (e.g. 'Within budget', 'Small upgrade', 'Max Performance') and its component parts. Returns compatibility results and authoritative code-calculated build snapshots with catalog prices, product IDs, and totals keyed by label. Preferred parts format uses catalog product ID prefixes from search_products (first 10 chars, min 8): {\"builds\":[{\"label\":\"Within budget\",\"parts\":{\"cpu\":{\"product_id\":\"da6670a41d\"},\"gpu\":{\"product_id\":\"a1f8c14e1a\"}}}]}.",
+      "Use validate_build to validate 1 to 5 proposed PC builds side by side in a single call before presenting them. Each build must have a short label naming its tradeoff (e.g. 'Within budget', 'Small upgrade', 'Max Performance') and its component parts. Returns compatibility results and authoritative code-calculated build snapshots with catalog prices, product IDs, and totals keyed by label. Pass the user's budget to get code-computed budget.over_by/under_by per build, and vs_cheapest when comparing 2+ builds; quote these figures and each price_summary rather than calculating differences yourself. Preferred parts format uses catalog product ID prefixes from search_products (first 10 chars, min 8): {\"budget\":45000,\"builds\":[{\"label\":\"Within budget\",\"parts\":{\"cpu\":{\"product_id\":\"da6670a41d\"},\"gpu\":{\"product_id\":\"a1f8c14e1a\"}}}]}.",
     inputSchema: validateBuildInputSchema,
     toModelOutput: async ({ output }) => ({ type: "json", value: toModelValidateOutput(output) }) as never,
     execute: async (rawInput: unknown) => {
       const input = (rawInput ?? {}) as {
         builds?: Array<{ label: string; parts: BuildParts }>;
+        budget?: number;
         label?: string;
         parts?: BuildParts;
       };
@@ -283,7 +346,7 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
         return trimmed;
       };
 
-      const results: Record<string, ValidationResult & { snapshot: BuildSnapshot }> = {};
+      const results: Record<string, ValidationResult & PricedResult> = {};
 
       for (const b of buildList) {
         // Narrow server-side normalization:
@@ -369,6 +432,8 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
         results[b.label] = { ...validation, snapshot };
         recordValidation(turnStore, b.label, results[b.label]);
       }
+
+      addPriceFigures(results, typeof input.budget === "number" && input.budget > 0 ? input.budget : undefined);
 
       const isLegacySingle = !(rawInput && typeof rawInput === "object" && "builds" in rawInput) && Boolean((rawInput as { parts?: unknown })?.parts);
       const firstResult = Object.values(results)[0];

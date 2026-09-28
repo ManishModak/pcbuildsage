@@ -391,10 +391,13 @@ describe("list_models tool & repository implementation", () => {
       expect(resDdr.models[0].model_id).toBe("msi-b650m-mortar");
     });
 
-    it("returns error on unknown filter", async () => {
-      const res = await listModels({ bad_param: 123 } as unknown as Parameters<typeof listModels>[0], scope, repo);
-      expect(res.models).toEqual([]);
-      expect(res.error).toContain("Unknown filter(s): bad_param");
+    it("ignores and reports an unknown filter instead of failing the call", async () => {
+      insertProduct(db, { id: "mobo-x", name: "MSI B650M Mortar", registry_key: "msi-b650m-mortar", category: "motherboard" });
+      const res = await listModels({ category: "motherboard", bad_param: 123 } as unknown as Parameters<typeof listModels>[0], scope, repo);
+      expect(res.error).toBeUndefined();
+      expect(res.models.length).toBeGreaterThan(0);
+      expect(res.ignored_fields).toEqual(["bad_param"]);
+      expect(res.hint).toContain("Ignored unknown field(s): bad_param");
     });
   });
 

@@ -13,22 +13,25 @@ describe("list_models consistency", () => {
     if (parsed.success) expect(parsed.data.category).toBe("gpu");
   });
 
-  it("direct listModels rejects unknown filters in one line with valid filters", async () => {
+  it("direct listModels drops unknown filters and reports them in one line", async () => {
     const out = await listModels(
       { bogus_filter: 1 } as never,
       { countryCode: "US", currency: "USD" },
       {
-        getCatalog: async () => ({ categories: [], scope: { country_code: "US", currency: "USD" } }),
-        searchProducts: async () => ({ results: [], total_matching: 0 }),
-        listModels: async () => {
-          throw new Error("should not reach repository");
-        },
-        getCategoryBaseline: async () => ({ total: 0, in_stock_total: 0, min_price: null, max_price: null })
+        listModels: async () => ({
+          models: [],
+          total_matching_models: 0,
+          returned_models: 0,
+          truncated: false,
+          scope: { country_code: "US", currency: "USD" }
+        })
       } as never
     );
-    expect(out.error).toContain("bogus_filter");
-    expect(out.error).toContain("Valid filters:");
-    expect(out.error).not.toContain("\n");
+    expect(out.error).toBeUndefined();
+    expect(out.ignored_fields).toEqual(["bogus_filter"]);
+    expect(out.hint).toContain("Ignored unknown field(s): bogus_filter");
+    expect(out.hint).toContain("Valid filters:");
+    expect(out.hint).not.toContain("\n");
     expect(validListModelsFilters).toContain("category");
   });
 });

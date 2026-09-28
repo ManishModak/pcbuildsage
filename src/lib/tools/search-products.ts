@@ -6,8 +6,10 @@ import {
   type CatalogScope,
   toCompactSearchResult,
   toModelSearchResult,
-  type CompactSearchProductsResult
+  type CompactSearchProductsResult,
+  type SearchProductsInput as RepoSearchInput
 } from "@/lib/catalog";
+import { formatPrice, ignoredFieldsNote, lenientToolSchema, splitUnknownFields } from "./lenient-input";
 
 export const sortFieldSchema = z.enum(["price", "name", "retailer", "last_scraped"]);
 
@@ -87,6 +89,25 @@ export const searchProductsInputSchema = z.object({
 
 export type SearchProductsInput = z.input<typeof searchProductsInputSchema>;
 
+/** Cheapest in-stock listing for the same filters once the price bounds are dropped. */
+export interface SearchNearestMatch {
+  id: string;
+  name: string;
+  price: number;
+  retailer: string;
+}
+
+/**
+ * search_products output: the compact catalog result plus tool-level extras.
+ * `nearest_match` / `matches_without_price_limit` appear only when a priced
+ * query found nothing; `ignored_fields` only when unknown fields were dropped.
+ */
+export type SearchProductsToolResult = CompactSearchProductsResult & {
+  nearest_match?: SearchNearestMatch;
+  matches_without_price_limit?: number;
+  ignored_fields?: string[];
+};
+
 export type SearchProductsScope = CatalogScope & {
   repository?: CatalogRepository;
 };
@@ -100,9 +121,14 @@ export function createSearchProductsTool(
   return tool({
     description:
       "Use search_products to find purchasable PC parts from the local catalog. Use it for component candidates and price comparisons; do not use it for compatibility verdicts or web research. Results are in-stock only unless you pass in_stock: false. Example: {\"category\":\"case\",\"min_gpu_clearance_mm\":320}.",
-    inputSchema: searchProductsInputSchema,
-    toModelOutput: async ({ input, output }) =>
-      ({ type: "json", value: toModelSearchResult(output as CompactSearchProductsResult, input as { category?: string }) }) as never,
+    inputSchema: lenientToolSchema(searchProductsInputSchema, "search_products"),
+    toModelOutput: async ({ input, output }) => {
+      const value = toModelSearchResult(output as CompactSearchProductsResult, input as { category?: string });
+      const nearest = (output as SearchProductsToolResult)?.nearest_match;
+      // Same 10-char ID prefix the result rows use.
+      if (nearest) value.nearest_match = { ...nearest, id: nearest.id.slice(0, 10) };
+      return { type: "json", value } as never;
+    },
     execute: async (input) => searchProducts(input, scope, repository ?? scope.repository)
   });
 }
@@ -111,11 +137,31 @@ function oneLineValidFilters(): string {
   return `Valid filters: ${validFilters.join(", ")}.`;
 }
 
+/**
+ * search_products entry point for the chat tool and direct callers. Unknown
+ * fields are dropped and reported (ignored_fields + a hint line) rather than
+ * failing the call.
+ */
 export async function searchProducts(
+  rawInput: SearchProductsInput,
+  scope: SearchProductsScope,
+  repository?: CatalogRepository
+): Promise<SearchProductsToolResult> {
+  const { known: input, ignored } = splitUnknownFields(rawInput, validFilters);
+  const result: SearchProductsToolResult = await runSearch(input, scope, repository);
+  if (ignored.length > 0) {
+    const note = ignoredFieldsNote(ignored, validFilters);
+    result.ignored_fields = ignored;
+    result.hint = result.hint ? `${note} ${result.hint}` : note;
+  }
+  return result;
+}
+
+async function runSearch(
   input: SearchProductsInput,
   scope: SearchProductsScope,
   repository?: CatalogRepository
-): Promise<CompactSearchProductsResult> {
+): Promise<SearchProductsToolResult> {
   // [r9] Normalize category at the tool boundary: trim and lowercase before category guards and repository search
   const category = input.category ? (input.category.trim().toLowerCase() as SearchProductsInput["category"]) : undefined;
 
@@ -193,7 +239,11 @@ export async function searchProducts(
 
   const repo = repository ?? scope.repository ?? getCatalogRepository();
   const rawResult = await repo.searchProducts(normalizedInput, scope);
-  const compactResult = toCompactSearchResult(rawResult);
+  const compactResult: SearchProductsToolResult = toCompactSearchResult(rawResult);
+
+  if (compactResult.results.length === 0 && !compactResult.error) {
+    await addNearestMatch(compactResult, normalizedInput, scope, repo);
+  }
 
   if (wasOverLimit) {
     const limitGuidance = "Showing up to 12 results—the maximum per search.";
@@ -206,3 +256,50 @@ export async function searchProducts(
   return compactResult;
 }
 
+
+/**
+ * When a priced query finds nothing, re-runs it once without price bounds
+ * (other filters kept, in stock only) and reports the cheapest listing and
+ * how many exist, so the model can correct its bounds in one step instead
+ * of guessing from the whole-category price range.
+ */
+async function addNearestMatch(
+  result: SearchProductsToolResult,
+  input: RepoSearchInput,
+  scope: SearchProductsScope,
+  repo: CatalogRepository
+): Promise<void> {
+  const { price_min: min, price_max: max } = input;
+  if (min === undefined && max === undefined) return;
+  if (min !== undefined && max !== undefined && min > max) return;
+  if (result.category_total === 0 || result.in_stock_total === 0) return;
+
+  // 50 is the repository cap; the count is exact unless more remain.
+  const unbounded = toCompactSearchResult(
+    await repo.searchProducts(
+      { ...input, price_min: undefined, price_max: undefined, in_stock: true, sort_by: "price", order: "asc", limit: 50 },
+      scope
+    )
+  );
+  const cheapest = unbounded.results.find((item) => typeof item.price === "number");
+  if (!cheapest || typeof cheapest.price !== "number") return;
+
+  const count = unbounded.total_matching ?? unbounded.results.length;
+  const exact = unbounded.total_matching !== undefined || !unbounded.has_more;
+  const currency = unbounded.scope?.currency ?? scope.currency ?? "USD";
+  const fmt = (n: number) => formatPrice(n, currency);
+  const band =
+    min !== undefined && max !== undefined
+      ? `between ${fmt(min)} and ${fmt(max)}`
+      : max !== undefined
+        ? `at or under ${fmt(max)}`
+        : `at or above ${fmt(min as number)}`;
+
+  result.nearest_match = { id: cheapest.id, name: cheapest.name, price: cheapest.price, retailer: cheapest.retailer };
+  result.matches_without_price_limit = count;
+  // Leads the repository hint, which keeps the nearest above/below detail.
+  const lead =
+    `No matches ${band}. Cheapest in-stock match for these filters: ${cheapest.name} at ${fmt(cheapest.price)} from ${cheapest.retailer} ` +
+    `(${exact ? "" : "at least "}${count} match${count === 1 ? "" : "es"} without the price limit).`;
+  result.hint = result.hint ? `${lead} ${result.hint}` : lead;
+}
