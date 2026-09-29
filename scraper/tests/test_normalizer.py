@@ -102,6 +102,17 @@ def test_reclassify_category_gt_710_not_ram() -> None:
     assert reclassify_category("GT 710 DDR5 Graphics Card", "storage") == "storage"
 
 
+def test_reclassify_category_gpu_on_cooler_shelf() -> None:
+    assert reclassify_category("Gigabyte RTX 5050 Windforce OC 8GB GDDR6 Graphics Card", "cooler") == "gpu"
+    assert reclassify_category("ASUS Prime RX 9060 XT OC Edition 16GB GDDR6 Graphics Card", "cooler") == "gpu"
+
+
+def test_reclassify_category_real_coolers_stay() -> None:
+    # "RX" in a cooler's product line is not a Radeon model.
+    assert reclassify_category("Corsair iCUE LINK Titan 360 RX LCD White CPU Cooler", "cooler") == "cooler"
+    assert reclassify_category("EK Quantum Vector RTX 4090 Water Block for Graphics Card", "cooler") == "cooler"
+
+
 def test_parse_cpu_package_clues() -> None:
     assert parse_cpu_package("AMD Ryzen 5 5600 with Wraith Stealth Cooler") == {
         "cooler_included": "included",
