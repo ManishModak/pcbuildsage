@@ -99,7 +99,7 @@ describe("SqliteCatalogRepository", () => {
   });
 
   it("excludes mislinked 8GB cards from 16GB searches and exposes the conflict", async () => {
-    insertProduct(db, { id: "eight", category: "gpu", name: "ASRock RX 9060 XT Steel Legend 8GB OC", registry_key: "amd-rx-9060-xt-16gb" });
+    insertProduct(db, { id: "eight", category: "gpu", name: "XFX Speedster RX 9060 XT 8GB OC", registry_key: "amd-rx-9060-xt-16gb" });
     const all = await repo.searchProducts({ category: "gpu" }, scopeUS);
     expect(all.results[0].specs).toMatchObject({ vram_gb: 8, spec_conflict: expect.any(String) });
     expect(all.results[0].registry_key).toBe("amd-rx-9060-xt-8gb");

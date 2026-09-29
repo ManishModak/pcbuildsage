@@ -2200,26 +2200,21 @@
   },
   "asus-dual-rx-7600-oc-8gb": {
     "brand": "ASUS",
-    "model": "ASUS Dual Radeon RX 7600 EVO OC Edition 8GB",
+    "model": "ASUS Dual Radeon RX 7600 OC Edition 8GB",
     "aliases": [
       "ASUS Dual RX 7600 OC Edition 8GB Graphics Card",
-      "Asus Dual RX 7600 OC Edition 8GB Graphics Card DUAL-RX7600-O8G-EVO",
-      "Asus Dual Radeon RX 7600 EVO OC Edition 8GB GDDR6",
-      "ASUS Dual RX 7600 EVO OC 8GB GDDR6 Graphics Card",
-      "ASUS Dual RX 7600 EVO OC 8GB GDDR6 Graphics Card (DUAL-RX7600-O8G-EVO)",
-      "ASUS Dual Radeon RX 7600 EVO OC Edition 8GB",
+      "ASUS Dual Radeon RX 7600 OC Edition 8GB",
       "ASUS Dual RX 7600 OC 8GB",
-      "DUAL-RX7600-O8G-EVO",
       "DUAL-RX7600-O8G"
     ],
-    "length_mm": 229,
+    "length_mm": 245,
     "slot_width": 2.5,
     "tdp_w": 165,
     "recommended_psu_w": 550,
     "vram_gb": 8,
     "segment": "gaming",
     "sources": [
-      "https://www.asus.com/hr/motherboards-components/graphics-cards/dual/dual-rx7600-o8g-evo/techspec/"
+      "https://www.asus.com/hr/motherboards-components/graphics-cards/dual/dual-rx7600-o8g/techspec/"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -2802,6 +2797,30 @@
     "segment": "gaming",
     "sources": [
       "https://www.gigabyte.com/Graphics-Card/GV-N5070WF3-12GD/sp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "asus-dual-rx-7600-evo-oc-8gb": {
+    "brand": "ASUS",
+    "model": "ASUS Dual Radeon RX 7600 EVO OC Edition 8GB",
+    "aliases": [
+      "Asus Dual RX 7600 OC Edition 8GB Graphics Card DUAL-RX7600-O8G-EVO",
+      "Asus Dual Radeon RX 7600 EVO OC Edition 8GB GDDR6",
+      "ASUS Dual RX 7600 EVO OC 8GB GDDR6 Graphics Card",
+      "ASUS Dual RX 7600 EVO OC 8GB GDDR6 Graphics Card (DUAL-RX7600-O8G-EVO)",
+      "ASUS Dual Radeon RX 7600 EVO OC Edition 8GB",
+      "ASUS Dual RX 7600 EVO OC 8GB",
+      "DUAL-RX7600-O8G-EVO"
+    ],
+    "length_mm": 229,
+    "slot_width": 2.5,
+    "tdp_w": 165,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.asus.com/hr/motherboards-components/graphics-cards/dual/dual-rx7600-o8g-evo/techspec/"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"

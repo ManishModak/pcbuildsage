@@ -49,14 +49,15 @@ describe("GPU Clearance Honesty (Issue 01 & 02)", () => {
     ddr: "DDR5"
   });
 
-  it("ensures all 86 GPU family entries in registry have no generic length_mm or slot_width", () => {
+  it("ensures all GPU family entries in registry have no generic length_mm or slot_width", () => {
     const registryPath = path.join(process.cwd(), "data", "registry", "gpus.json");
     const data = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
 
-    const exactCards = new Set(["sapphire-pure-rx-7700-xt"]);
+    const chipMakers = new Set(["AMD", "NVIDIA", "Intel"]);
     for (const [key, entry] of Object.entries(data)) {
-      if (key.startsWith("$") || exactCards.has(key)) continue;
+      if (key.startsWith("$")) continue;
       const gpu = entry as Record<string, unknown>;
+      if (!chipMakers.has(gpu.brand as string)) continue;
       expect(gpu.length_mm, `Family ${key} should not have generic length_mm`).toBeUndefined();
       expect(gpu.slot_width, `Family ${key} should not have generic slot_width`).toBeUndefined();
     }
