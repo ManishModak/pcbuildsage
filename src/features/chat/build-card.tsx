@@ -1,14 +1,21 @@
 "use client";
 
 import { useState, useId } from "react";
-import { AlertCircle, ExternalLink, FlaskConical } from "lucide-react";
+import { AlertCircle, ExternalLink, FlaskConical, RefreshCw } from "lucide-react";
 import { formatPrice } from "@/lib/format";
 import { Icon } from "@/components/ui/icon";
 import { PillTabs } from "@/components/ui/pill-tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/components/ui/cn";
 import type { DerivedBuild, BuildVersion } from "./build-derive";
-import { resolveBuildTotal, validationStrip, TEXT_BUILD_CAVEAT, type StripBadge } from "./build-derive";
+import {
+  priceAge,
+  recheckPricesPrompt,
+  resolveBuildTotal,
+  validationStrip,
+  TEXT_BUILD_CAVEAT,
+  type StripBadge
+} from "./build-derive";
 
 export interface BuildCardProps {
   builds?: DerivedBuild[];
@@ -23,6 +30,11 @@ export interface BuildCardProps {
   selectedAlternativeIndex?: number;
   onAlternativeChange?: (index: number) => void;
   inSidePanel?: boolean;
+  /**
+   * Sends a chat message asking to reprice the build. Offered only when its
+   * prices are stale; omit it (e.g. while a reply streams) to show the note alone.
+   */
+  onRecheckPrices?: (prompt: string) => void;
 }
 
 // The flagship artifact. One card per proposed build, presented as pill tabs
@@ -35,7 +47,8 @@ export function BuildCard({
   onVersionChange,
   selectedAlternativeIndex,
   onAlternativeChange,
-  inSidePanel = false
+  inSidePanel = false,
+  onRecheckPrices
 }: BuildCardProps) {
   const selectId = useId();
 
@@ -175,7 +188,7 @@ export function BuildCard({
                 {TEXT_BUILD_CAVEAT}
               </p>
             ) : null}
-            <BuildComponentsList active={active} total={total} strip={strip} />
+            <BuildComponentsList active={active} total={total} strip={strip} onRecheckPrices={onRecheckPrices} />
           </>
         )}
       </div>
@@ -191,12 +204,15 @@ export function BuildCard({
 function BuildComponentsList({
   active,
   total,
-  strip
+  strip,
+  onRecheckPrices
 }: {
   active: DerivedBuild;
   total: number | null;
   strip: StripBadge[];
+  onRecheckPrices?: (prompt: string) => void;
 }) {
+  const age = priceAge(active.pricesAsOf);
   return (
     <>
       <ul className="flex flex-col">
@@ -270,6 +286,24 @@ function BuildComponentsList({
           <span className="text-caption font-medium uppercase tracking-wide text-text-secondary">Total</span>
           <span className="font-mono text-[22px] leading-none text-text">{formatPrice(total, active.currency)}</span>
         </div>
+
+        {age ? (
+          age.stale && onRecheckPrices ? (
+            <button
+              type="button"
+              onClick={() => onRecheckPrices(recheckPricesPrompt(active))}
+              className="mt-2 inline-flex cursor-pointer items-center gap-1 text-caption hover:underline"
+              style={{ color: "var(--warn)" }}
+            >
+              <Icon icon={RefreshCw} size={12} />
+              {`${age.label} \u2014 recheck prices`}
+            </button>
+          ) : (
+            <p className="mt-2 text-caption" style={age.stale ? { color: "var(--warn)" } : undefined}>
+              <span className={age.stale ? undefined : "text-text-muted"}>{age.label}</span>
+            </p>
+          )
+        ) : null}
 
         {strip.length ? (
           <div className="mt-4 flex flex-wrap gap-2">

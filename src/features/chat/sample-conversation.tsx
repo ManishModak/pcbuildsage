@@ -25,12 +25,11 @@ const data = fixture as unknown as SampleConversationFixture;
 // with `npx tsx scripts/build-sample-fixture.ts` when the catalog changes.
 export function SampleConversation({ currency }: { currency?: string }) {
   const build = useMemo(
-    () =>
-      derivedBuildFromSnapshot(
-        data.snapshot,
-        data.validation,
-        currency ?? data.snapshot.currency
-      ),
+    () => ({
+      ...derivedBuildFromSnapshot(data.snapshot, data.validation, currency ?? data.snapshot.currency),
+      // The caption below dates the example; a "days old" note would read as a fault.
+      pricesAsOf: undefined
+    }),
     [currency]
   );
 
