@@ -127,6 +127,34 @@ describe("CPU support review", () => {
     expect(support("AMD Ryzen 5 5500", "A320").status).toBe("unverified");
   });
 
+  it("follows AMD's AM4 matrix: X on 500-series fails, X elsewhere and beta BIOS are unverified", () => {
+    const cases: [string, string, string][] = [
+      ["AMD Ryzen 5 1600", "X570", "failed"],
+      ["AMD Ryzen 5 2400G", "X570", "failed"],
+      ["AMD Ryzen 5 2600", "X570", "passed"],
+      ["AMD Ryzen 5 3400G", "X570", "passed"],
+      ["AMD Ryzen 5 2600", "B550", "failed"],
+      ["AMD Ryzen 5 3400G", "A520", "failed"],
+      ["AMD Athlon 3000G", "B550", "failed"],
+      ["AMD Ryzen 5 1600", "B450", "unverified"],
+      ["AMD Athlon 200GE", "B350", "unverified"],
+      ["AMD Ryzen 5 3600", "A320", "unverified"],
+      ["AMD Ryzen 5 3600", "B350", "unverified"],
+      ["AMD Ryzen 5 4600G", "A320", "unverified"],
+      ["AMD Ryzen 5 3600", "B450", "passed"],
+      ["AMD Ryzen 5 1600", "X470", "passed"],
+      ["AMD Athlon 3000G", "A320", "passed"]
+    ];
+    for (const [model, chipset, status] of cases) {
+      expect(support(model, chipset).status, `${model} + ${chipset}`).toBe(status);
+    }
+    expect(support("AMD Ryzen 5 1600", "X570").message).toMatch(/Pick a Ryzen 2000, 3000G, 3000, 4000 or 5000 CPU instead/);
+  });
+
+  it("stays silent on AM4 chipsets missing from AMD's matrix", () => {
+    expect(support("AMD Ryzen 5 1600", "B550A").status).toBeUndefined();
+  });
+
   it("turns routine BIOS notes into a passed check with an advisory", () => {
     for (const [model, chipset] of [
       ["AMD Ryzen 5 5600", "B450"],
