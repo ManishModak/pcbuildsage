@@ -1932,5 +1932,878 @@
     ],
     "confidence": "high",
     "researched_at": "2026-09-13T00:00:00Z"
+  },
+  "msi-rtx-3050-ventus-2x-oc-6gb": {
+    "brand": "MSI",
+    "model": "MSI GeForce RTX 3050 VENTUS 2X 6G OC",
+    "aliases": [
+      "MSI RTX 3050 Ventus 2X OC 6GB",
+      "MSI RTX 3050 Ventus 2X OC 6GB Graphics Card",
+      "Msi Rtx 3050 Ventus 2X Oc 6Gb Graphics Card (RTX-3050-VENTUS-2X-6G-OC)",
+      "MSI GeForce RTX 3050 VENTUS 2X 6G OC",
+      "MSI RTX 3050 VENTUS 2X 6G OC",
+      "MSI RTX 3050 Ventus 2X 6GB"
+    ],
+    "length_mm": 189,
+    "slot_width": 2,
+    "tdp_w": 70,
+    "recommended_psu_w": 300,
+    "vram_gb": 6,
+    "segment": "gaming",
+    "sources": [
+      "https://www.msi.com/Graphics-Card/GeForce-RTX-3050-VENTUS-2X-6G-OC/Specification",
+      "https://www.techpowerup.com/gpu-specs/msi-rtx-3050-ventus-2x-oc-6-gb.b11699"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "gigabyte-rtx-3050-windforce-oc-6gb": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte GeForce RTX 3050 WINDFORCE OC 6G",
+    "aliases": [
+      "Gigabyte RTX 3050 Windforce OC 6GB",
+      "Gigabyte RTX 3050 Windforce OC 6GB GDDR6 Graphics Card",
+      "Gigabyte GeForce RTX 3050 WINDFORCE OC 6G",
+      "Gigabyte RTX 3050 WINDFORCE OC 6G",
+      "GV-N3050WF2OC-6GD"
+    ],
+    "length_mm": 191,
+    "slot_width": 2,
+    "tdp_w": 70,
+    "recommended_psu_w": 300,
+    "vram_gb": 6,
+    "segment": "gaming",
+    "sources": [
+      "https://www.gigabyte.com/Graphics-Card/GV-N3050WF2OC-6GD/sp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "zotac-rtx-3050-twin-edge-oc-6gb": {
+    "brand": "Zotac",
+    "model": "ZOTAC GAMING GeForce RTX 3050 6GB Twin Edge OC",
+    "aliases": [
+      "Zotac RTX 3050 Twin Edge OC 6GB",
+      "Zotac RTX 3050 Twin Edge OC 6GB GDDR6 Graphics Card",
+      "Zotac Gaming GeForce RTX 3050 Twin Edge OC 6GB GDDR6",
+      "ZOTAC GAMING GeForce RTX 3050 6GB Twin Edge OC",
+      "ZT-A30510H-10L"
+    ],
+    "length_mm": 161.9,
+    "slot_width": 2,
+    "tdp_w": 70,
+    "recommended_psu_w": 300,
+    "vram_gb": 6,
+    "segment": "gaming",
+    "sources": [
+      "https://www.zotac.com/product/graphics_card/zotac-gaming-geforce-rtx-3050-6gb-gddr6-twin-edge-oc"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "gigabyte-rtx-3050-windforce-oc-v2-6gb": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte GeForce RTX 3050 WINDFORCE OC V2 6G",
+    "aliases": [
+      "Gigabyte GeForce RTX 3050 WindForce OC V2 6GB GDDR6",
+      "Gigabyte RTX 3050 Windforce OC V2 6GB Graphics Card",
+      "Gigabyte RTX 3050 Windforce OC V2 6GB",
+      "Gigabyte GeForce RTX 3050 WINDFORCE OC V2 6G",
+      "GV-N3050WF2OCV2-6GD"
+    ],
+    "length_mm": 191,
+    "slot_width": 2,
+    "tdp_w": 70,
+    "recommended_psu_w": 300,
+    "vram_gb": 6,
+    "segment": "gaming",
+    "sources": [
+      "https://www.gigabyte.com/Graphics-Card/GV-N3050WF2OCV2-6GD/sp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "inno3d-rtx-3050-twin-x2-v2-6gb": {
+    "brand": "INNO3D",
+    "model": "INNO3D GeForce RTX 3050 6GB Twin X2 V2",
+    "aliases": [
+      "INNO3D GeForce RTX 3050 Twin X2 V2 6GB Graphics Card",
+      "INNO3D RTX 3050 Twin X2 V2 6GB",
+      "INNO3D GeForce RTX 3050 6GB Twin X2 V2",
+      "N30502-06D6-1880VA60"
+    ],
+    "length_mm": 222,
+    "slot_width": 2,
+    "tdp_w": 70,
+    "recommended_psu_w": 300,
+    "vram_gb": 6,
+    "segment": "gaming",
+    "sources": [
+      "https://www.inno3d.com/product/inno3d-geforce-rtx-3050-6gb-twin-x2-v2"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "asus-dual-rtx-3050-oc-6gb": {
+    "brand": "ASUS",
+    "model": "ASUS Dual GeForce RTX 3050 OC Edition 6GB",
+    "aliases": [
+      "Asus Dual RTX 3050 OC Edition 6GB Gaming Graphics Card DUAL-RTX3050-O6G",
+      "Asus Dual RTX 3050 OC Edition 6GB Gaming Graphics Card",
+      "Asus Dual Rtx 3050 Oc Edition 6Gb Gaming Graphics Card (DUAL-RTX3050-O6G)",
+      "ASUS Dual RTX 3050 OC Edition 6GB",
+      "ASUS Dual GeForce RTX 3050 6GB OC Edition",
+      "DUAL-RTX3050-O6G"
+    ],
+    "length_mm": 201,
+    "slot_width": 2,
+    "tdp_w": 70,
+    "recommended_psu_w": 300,
+    "vram_gb": 6,
+    "segment": "gaming",
+    "sources": [
+      "https://www.asus.com/in/motherboards-components/graphics-cards/dual/dual-rtx3050-o6g/techspec/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "inno3d-rtx-5050-twin-x2": {
+    "brand": "INNO3D",
+    "model": "INNO3D GeForce RTX 5050 Twin X2",
+    "aliases": [
+      "Inno3D RTX 5050 Twin X2 GDDR6 Graphics Card",
+      "INNO3D RTX 5050 Twin X2 8GB",
+      "INNO3D GeForce RTX 5050 Twin X2",
+      "INNO3D RTX 5050 Twin X2"
+    ],
+    "length_mm": 225,
+    "slot_width": 2,
+    "tdp_w": 130,
+    "recommended_psu_w": 450,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.inno3d.com/product/inno3d-geforce-rtx-5050-twin-x2",
+      "https://www.techpowerup.com/gpu-specs/inno3d-rtx-5050-twin-x2-oc.b12701"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "colorful-rtx-5050-battle-ax-duo-8gb": {
+    "brand": "Colorful",
+    "model": "Colorful GeForce RTX 5050 Battle AX DUO 8GB",
+    "aliases": [
+      "Colorful RTX 5050 Battle AX DUO 8GB GDDR6 Graphics Card",
+      "Colorful RTX 5050 Battle AX DUO 8GB GDDR6",
+      "Colorful GeForce RTX 5050 Battle AX DUO 8GB",
+      "Colorful Battle Axe RTX 5050 DUO",
+      "Colorful RTX 5050 Battle AX DUO 8GB-V"
+    ],
+    "length_mm": 231,
+    "slot_width": 2.5,
+    "tdp_w": 130,
+    "recommended_psu_w": 450,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/colorful-battle-axe-rtx-5050-duo.b12700"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "msi-rtx-5050-shadow-2x-oc-8gb": {
+    "brand": "MSI",
+    "model": "MSI GeForce RTX 5050 8G SHADOW 2X OC",
+    "aliases": [
+      "MSI RTX 5050 Shadow 2X OC 8GB GDDR6 Graphics Card",
+      "MSI RTX 5050 Shadow 2X OC 8GB GDDR6 Graphics Card (G5050-8S2C)",
+      "MSI GeForce RTX 5050 8G SHADOW 2X OC",
+      "MSI RTX 5050 Shadow 2X OC 8GB",
+      "G5050-8S2C"
+    ],
+    "length_mm": 197,
+    "slot_width": 2,
+    "tdp_w": 130,
+    "recommended_psu_w": 450,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.msi.com/Graphics-Card/GeForce-RTX-5050-8G-SHADOW-2X-OC/Specification"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "msi-rtx-5050-ventus-2x-oc-8gb": {
+    "brand": "MSI",
+    "model": "MSI GeForce RTX 5050 8G VENTUS 2X OC",
+    "aliases": [
+      "MSI RTX 5050 Ventus 2X OC 8GB GDDR6 Graphics Card",
+      "MSI RTX 5050 Ventus 2X OC 8GB GDDR6 Graphics Card (G5050-8V2C)",
+      "MSI GeForce RTX 5050 8G VENTUS 2X OC",
+      "MSI RTX 5050 Ventus 2X OC 8GB",
+      "G5050-8V2C"
+    ],
+    "length_mm": 197,
+    "slot_width": 2,
+    "tdp_w": 130,
+    "recommended_psu_w": 450,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.msi.com/Graphics-Card/GeForce-RTX-5050-8G-VENTUS-2X-oc/Specification"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "gigabyte-rtx-5050-windforce-oc-8gb": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte GeForce RTX 5050 WINDFORCE OC 8G",
+    "aliases": [
+      "Gigabyte RTX 5050 Windforce OC 8GB GDDR6 Graphics Card",
+      "Gigabyte GeForce RTX 5050 WINDFORCE OC 8G",
+      "Gigabyte RTX 5050 Windforce OC 8GB",
+      "GV-N5050WF2OC-8GD"
+    ],
+    "length_mm": 199,
+    "slot_width": 2,
+    "tdp_w": 130,
+    "recommended_psu_w": 450,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.gigabyte.com/Graphics-Card/GV-N5050WF2OC-8GD/sp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "asus-dual-rtx-5050-oc-8gb": {
+    "brand": "ASUS",
+    "model": "ASUS Dual GeForce RTX 5050 OC Edition 8GB",
+    "aliases": [
+      "ASUS Dual RTX 5050 OC Edition 8GB GDDR6 Graphics Card",
+      "ASUS Dual RTX 5050 OC Edition 8GB GDDR6",
+      "ASUS Dual GeForce RTX 5050 8GB GDDR6 OC Edition Graphics Card DUAL-RTX5050-O8G",
+      "ASUS Dual RTX 5050 OC Edition 8GB",
+      "DUAL-RTX5050-O8G"
+    ],
+    "length_mm": 203,
+    "slot_width": 2,
+    "tdp_w": 130,
+    "recommended_psu_w": 450,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.asus.com/motherboards-components/graphics-cards/dual/dual-rtx5050-o8g/techspec/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "asus-dual-rx-7600-oc-8gb": {
+    "brand": "ASUS",
+    "model": "ASUS Dual Radeon RX 7600 EVO OC Edition 8GB",
+    "aliases": [
+      "ASUS Dual RX 7600 OC Edition 8GB Graphics Card",
+      "Asus Dual RX 7600 OC Edition 8GB Graphics Card DUAL-RX7600-O8G-EVO",
+      "Asus Dual Radeon RX 7600 EVO OC Edition 8GB GDDR6",
+      "ASUS Dual RX 7600 EVO OC 8GB GDDR6 Graphics Card",
+      "ASUS Dual RX 7600 EVO OC 8GB GDDR6 Graphics Card (DUAL-RX7600-O8G-EVO)",
+      "ASUS Dual Radeon RX 7600 EVO OC Edition 8GB",
+      "ASUS Dual RX 7600 OC 8GB",
+      "DUAL-RX7600-O8G-EVO",
+      "DUAL-RX7600-O8G"
+    ],
+    "length_mm": 229,
+    "slot_width": 2.5,
+    "tdp_w": 165,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.asus.com/hr/motherboards-components/graphics-cards/dual/dual-rx7600-o8g-evo/techspec/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "gigabyte-rx-7600-oc-8gb": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte Radeon RX 7600 GAMING OC 8G",
+    "aliases": [
+      "Gigabyte RX 7600 Gaming OC 8GB Graphics Card",
+      "Gigabyte Radeon RX 7600 Gaming OC 8GB GDDR6",
+      "Gigabyte Radeon RX 7600 GAMING OC 8G",
+      "Gigabyte RX 7600 Gaming OC 8GB",
+      "GV-R76GAMING OC-8GD"
+    ],
+    "length_mm": 282,
+    "slot_width": 2.5,
+    "tdp_w": 165,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.gigabyte.com/Graphics-Card/GV-R76GAMING-OC-8GD-rev-10-11/SP"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "asrock-amd-rx-7600-challenger-oc-8gb": {
+    "brand": "ASRock",
+    "model": "ASRock AMD Radeon RX 7600 Challenger 8GB OC",
+    "aliases": [
+      "Asrock AMD Radeon RX 7600 Challenger OC 8GB Graphic Card RX7600 CL 8GO",
+      "ASRock AMD Radeon RX 7600 Challenger OC 8GB GDDR6",
+      "ASRock AMD Radeon RX 7600 Challenger 8GB OC",
+      "ASRock RX 7600 Challenger OC 8GB",
+      "RX7600 CL 8GO"
+    ],
+    "length_mm": 269.2,
+    "slot_width": 2,
+    "tdp_w": 165,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.asrock.com/Graphics-Card/AMD/Radeon%20RX%207600%20Challenger%208GB%20OC/index.asp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "msi-rtx-5060-inspire-2x-oc-8gb": {
+    "brand": "MSI",
+    "model": "MSI GeForce RTX 5060 8G INSPIRE 2X OC",
+    "aliases": [
+      "MSI RTX 5060 Inspire 2X OC 8GB GDDR7",
+      "MSI GeForce RTX 5060 8G INSPIRE 2X OC",
+      "MSI RTX 5060 Inspire 2X OC 8GB",
+      "MSI GeForce RTX 5060 INSPIRE 2X OC"
+    ],
+    "length_mm": 204,
+    "slot_width": 2,
+    "tdp_w": 145,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://storage-asset.msi.com/datasheet/vga/in/GeForce-RTX-5060-8G-INSPIRE-2X-OC.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "inno3d-rtx-5060-twin-x2-8gb": {
+    "brand": "INNO3D",
+    "model": "INNO3D GeForce RTX 5060 Twin X2 8GB",
+    "aliases": [
+      "Inno3D RTX 5060 Twin X2 8GB GDDR7 Graphics Card",
+      "INNO3D GeForce RTX 5060 Twin X2 8GB",
+      "INNO3D RTX 5060 Twin X2 8GB"
+    ],
+    "length_mm": 225,
+    "slot_width": 2,
+    "tdp_w": 145,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.inno3d.com/product/inno3d-geforce-rtx-5060-twin-x2"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "inno3d-rtx-5060-twin-x2-oc-8gb": {
+    "brand": "INNO3D",
+    "model": "INNO3D GeForce RTX 5060 Twin X2 OC 8GB",
+    "aliases": [
+      "Inno3D RTX 5060 Twin X2 OC 8GB GDDR7 Graphics Card",
+      "INNO3D RTX 5060 Twin X2 OC 8Gb GDDR7 Graphics Card (N50602-08D7X-195070N)",
+      "INNO3D RTX 5060 Twin X2 OC White 8Gb GDDR7 Graphics Card (N50602-08D7X-195070W)",
+      "INNO3D GeForce RTX 5060 Twin X2 OC 8GB",
+      "INNO3D RTX 5060 Twin X2 OC 8GB",
+      "INNO3D RTX 5060 Twin X2 OC White 8GB",
+      "N50602-08D7X-195070N",
+      "N50602-08D7X-195070W"
+    ],
+    "length_mm": 225,
+    "slot_width": 2,
+    "tdp_w": 145,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.inno3d.com/product/inno3d-geforce-rtx-5060-twin-x2"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "pny-rtx-5060-dual-fan-8gb": {
+    "brand": "PNY",
+    "model": "PNY GeForce RTX 5060 8GB Dual Fan",
+    "aliases": [
+      "PNY RTX 5060 8GB Dual Fan GDDR7 Graphics Card",
+      "PNY GeForce RTX 5060 8GB Dual Fan",
+      "PNY RTX 5060 8GB Dual Fan",
+      "VCG50608DFXPB1",
+      "VCG50608DFXPB1-O"
+    ],
+    "length_mm": 200,
+    "slot_width": 2,
+    "tdp_w": 145,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/pny-rtx-5060-oc.b12446"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "colorful-rtx-5060-duo-8gb": {
+    "brand": "Colorful",
+    "model": "Colorful GeForce RTX 5060 Gaming DUO 8GB",
+    "aliases": [
+      "Colorful RTX 5060 Gaming DUO 8GB GDDR7 Graphics Card",
+      "Colorful GeForce RTX 5060 Gaming DUO 8GB",
+      "Colorful Battle Axe RTX 5060 DUO",
+      "Colorful RTX 5060 Gaming DUO 8GB"
+    ],
+    "length_mm": 231,
+    "slot_width": 2.5,
+    "tdp_w": 145,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/colorful-battle-axe-rtx-5060-duo.b12579"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "gigabyte-rtx-5060-eagle-oc-ice-8gb": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte GeForce RTX 5060 EAGLE OC ICE 8G",
+    "aliases": [
+      "Gigabyte RTX 5060 Eagle OC ICE 8GB GDDR7 Graphics Card (White)",
+      "Gigabyte RTX 5060 Eagle OC ICE 8GB GDDR7 (WHITE) Graphics Card",
+      "Gigabyte GeForce RTX 5060 EAGLE OC ICE 8G",
+      "Gigabyte RTX 5060 Eagle OC ICE 8GB",
+      "GV-N5060EAGLEOC ICE-8GD"
+    ],
+    "length_mm": 208,
+    "slot_width": 2,
+    "tdp_w": 145,
+    "recommended_psu_w": 550,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.gigabyte.com/Graphics-Card/GV-N5060EAGLEOC-ICE-8GD/sp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "msi-rtx-5060-ti-shadow-2x-oc-plus-8gb": {
+    "brand": "MSI",
+    "model": "MSI GeForce RTX 5060 Ti 8G SHADOW 2X OC PLUS",
+    "aliases": [
+      "MSI RTX 5060 Ti Shadow 2X OC Plus 8GB GDDR7 Graphics Card",
+      "MSI RTX 5060 Ti Shadow 2X OC Plus 8GB Graphics Card",
+      "MSI GeForce RTX 5060 Ti 8G SHADOW 2X OC PLUS",
+      "MSI RTX 5060 Ti Shadow 2X OC Plus 8GB",
+      "G506T-8S2CP"
+    ],
+    "length_mm": 226,
+    "slot_width": 2,
+    "tdp_w": 180,
+    "recommended_psu_w": 600,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://storage-asset.msi.com/datasheet/vga/hk/GeForce-RTX-5060-Ti-8G-SHADOW-2X-OC-PLUS.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "gigabyte-rtx-5060-ti-windforce-max-oc-8gb": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte GeForce RTX 5060 Ti WINDFORCE MAX OC 8G",
+    "aliases": [
+      "Gigabyte RTX 5060 Ti Windforce Max OC 8GB GDDR7 Graphics Card",
+      "Gigabyte GeForce RTX 5060 Ti WINDFORCE MAX OC 8G",
+      "Gigabyte RTX 5060 Ti Windforce Max OC 8GB",
+      "GV-N506TWF2MAX-OC-8GD",
+      "GV-N506TWF2MAX OC-8GD"
+    ],
+    "length_mm": 208,
+    "slot_width": 2,
+    "tdp_w": 180,
+    "recommended_psu_w": 600,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.gigabyte.com/Graphics-Card/GV-N506TWF2MAX-OC-8GD/sp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "colorful-rtx-5060-ti-duo-8gb": {
+    "brand": "Colorful",
+    "model": "Colorful GeForce RTX 5060 Ti Gaming DUO 8GB",
+    "aliases": [
+      "Colorful RTX 5060 Ti Gaming DUO 8GB GDDR7",
+      "Colorful GeForce RTX 5060 Ti Gaming DUO 8GB",
+      "Colorful Battle Axe RTX 5060 Ti DUO",
+      "Colorful RTX 5060 Ti Gaming DUO 8GB"
+    ],
+    "length_mm": 231,
+    "slot_width": 2.5,
+    "tdp_w": 180,
+    "recommended_psu_w": 600,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/colorful-battle-axe-rtx-5060-ti-duo.b12985"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "asus-prime-rtx-5060-ti-oc-16gb": {
+    "brand": "ASUS",
+    "model": "ASUS Prime GeForce RTX 5060 Ti OC Edition 16GB",
+    "aliases": [
+      "ASUS Prime RTX 5060 Ti OC Edition 16GB GDDR7",
+      "ASUS Prime GeForce RTX 5060 Ti OC Edition 16GB",
+      "ASUS Prime RTX 5060 Ti OC 16GB",
+      "PRIME-RTX5060TI-O16G"
+    ],
+    "length_mm": 304,
+    "slot_width": 2.5,
+    "tdp_w": 180,
+    "recommended_psu_w": 600,
+    "vram_gb": 16,
+    "segment": "gaming",
+    "sources": [
+      "https://www.asus.com/motherboards-components/graphics-cards/prime/prime-rtx5060ti-o16g/techspec/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "pny-rtx-5060-ti-oc-8gb": {
+    "brand": "PNY",
+    "model": "PNY GeForce RTX 5060 Ti 8GB EPIC-X RGB Triple Fan OC",
+    "aliases": [
+      "PNY GeForce RTX 5060 Ti OC 8GB GDDR7",
+      "PNY GeForce RTX 5060 Ti 8GB EPIC-X RGB Triple Fan OC",
+      "PNY RTX 5060 Ti OC 8GB",
+      "VCG5060T8TFXXPB1-O"
+    ],
+    "length_mm": 299,
+    "slot_width": 2,
+    "tdp_w": 180,
+    "recommended_psu_w": 600,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.pny.com/en-eu/geforce-rtx-5060-ti-8gb-models"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "colorful-rtx-5060-ti-duo-16gb": {
+    "brand": "Colorful",
+    "model": "Colorful GeForce RTX 5060 Ti Gaming DUO 16GB",
+    "aliases": [
+      "Colorful RTX 5060 Ti Gaming DUO 16GB GDDR7 Graphics Card",
+      "Colorful GeForce RTX 5060 Ti Gaming DUO 16GB",
+      "Colorful Battle Axe RTX 5060 Ti DUO 16 GB",
+      "Colorful RTX 5060 Ti Gaming DUO 16GB"
+    ],
+    "length_mm": 231,
+    "slot_width": 2.5,
+    "tdp_w": 180,
+    "recommended_psu_w": 600,
+    "vram_gb": 16,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/colorful-battle-axe-rtx-5060-ti-duo-16-gb.b12506"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "sapphire-pulse-rx-9060-xt-oc-8gb": {
+    "brand": "Sapphire",
+    "model": "Sapphire PULSE AMD Radeon RX 9060 XT Gaming OC 8GB",
+    "aliases": [
+      "Sapphire PULSE RX 9060 XT Gaming OC 8GB GDDR6 Graphics Card",
+      "Sapphire PULSE AMD Radeon RX 9060 XT Gaming OC 8GB",
+      "Sapphire PULSE RX 9060 XT Gaming OC 8GB",
+      "Sapphire PULSE Radeon RX 9060 XT 8GB"
+    ],
+    "length_mm": 240,
+    "slot_width": 2.3,
+    "tdp_w": 160,
+    "recommended_psu_w": 500,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.sapphiretech.com/en/consumer/pulse-radeon-rx-9060-xt-16g-gddr6",
+      "https://www.techpowerup.com/gpu-specs/sapphire-pulse-rx-9060-xt-gaming-oc-8-gb.b12661"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "asus-dual-rx-9060-xt-8gb": {
+    "brand": "ASUS",
+    "model": "ASUS Dual Radeon RX 9060 XT 8GB",
+    "aliases": [
+      "ASUS Dual RX 9060 XT 8GB GDDR6 Graphics Card",
+      "ASUS Dual Radeon RX 9060 XT 8GB",
+      "ASUS Dual RX 9060 XT 8GB",
+      "DUAL-RX9060XT-8G",
+      "DUAL-RX9060XT-O8G"
+    ],
+    "length_mm": 202,
+    "slot_width": 2.5,
+    "tdp_w": 160,
+    "recommended_psu_w": 500,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://eshop.asus.com/us/90yv0mi1-mvaa00-asus-dual-radeontm-rx9060xt-8g-gddr6.html",
+      "https://www.asus.com/motherboards-components/graphics-cards/dual/dual-rx9060xt-8g/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "asrock-rx-9060-xt-steel-legend-oc-8gb": {
+    "brand": "ASRock",
+    "model": "ASRock AMD Radeon RX 9060 XT Steel Legend 8GB OC",
+    "aliases": [
+      "ASRock RX 9060 XT Steel Legend 8GB OC GDDR6 Graphics Card",
+      "ASRock AMD Radeon RX 9060 XT Steel Legend 8GB OC",
+      "ASRock RX 9060 XT Steel Legend 8GB OC",
+      "RX9060XT SL 8GO"
+    ],
+    "length_mm": 298,
+    "slot_width": 2.5,
+    "tdp_w": 160,
+    "recommended_psu_w": 500,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/asrock-rx-9060-xt-steel-legend-oc-8-gb.b12663"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "gigabyte-rx-9060-xt-oc-8gb": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte Radeon RX 9060 XT GAMING OC 8G",
+    "aliases": [
+      "Gigabyte RX 9060 XT Gaming OC 8GB GDDR6 Graphics Card",
+      "Gigabyte Radeon RX 9060 XT GAMING OC 8G",
+      "Gigabyte RX 9060 XT Gaming OC 8GB",
+      "GV-R9060XTGAMING OC-8GD"
+    ],
+    "length_mm": 281,
+    "slot_width": 2,
+    "tdp_w": 160,
+    "recommended_psu_w": 500,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.gigabyte.com/Graphics-Card/GV-R9060XTGAMING-OC-8GD/sp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "powercolor-reaper-rx-9060-xt-8gb": {
+    "brand": "PowerColor",
+    "model": "PowerColor Reaper AMD Radeon RX 9060 XT 8GB",
+    "aliases": [
+      "PowerColor Reaper RX 9060 XT 8GB GDDR6 Graphics Card (RX9060XT 8G-A)",
+      "PowerColor Reaper AMD Radeon RX 9060 XT 8GB",
+      "PowerColor Reaper RX 9060 XT 8GB",
+      "RX9060XT 8G-A"
+    ],
+    "length_mm": 220,
+    "slot_width": 2,
+    "tdp_w": 160,
+    "recommended_psu_w": 500,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.techpowerup.com/gpu-specs/powercolor-reaper-rx-9060-xt.b12686"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "asus-prime-rx-9060-xt-oc-8gb": {
+    "brand": "ASUS",
+    "model": "ASUS Prime Radeon RX 9060 XT OC Edition 8GB",
+    "aliases": [
+      "Asus Prime Radeon RX 9060 XT OC Edition 8GB GDDR6",
+      "ASUS Prime RX 9060 XT OC Edition 8GB GDDR6 Graphics Card",
+      "ASUS Prime Radeon RX 9060 XT 8GB GDDR6 OC Edition Graphic Card PRIME-RX9060XT-08G",
+      "ASUS Prime Radeon RX 9060 XT OC Edition 8GB",
+      "ASUS Prime RX 9060 XT OC 8GB",
+      "PRIME-RX9060XT-O8G",
+      "PRIME-RX9060XT-08G"
+    ],
+    "length_mm": 304,
+    "slot_width": 2.5,
+    "tdp_w": 160,
+    "recommended_psu_w": 500,
+    "vram_gb": 8,
+    "segment": "gaming",
+    "sources": [
+      "https://www.asus.com/in/motherboards-components/graphics-cards/prime/prime-rx9060xt-o8g/techspec/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "sapphire-nitro-plus-amd-rx-7700-xt-12gb": {
+    "brand": "Sapphire",
+    "model": "Sapphire NITRO+ AMD Radeon RX 7700 XT Gaming 12GB",
+    "aliases": [
+      "Sapphire NITRO Plus AMD Radeon RX 7700 XT 12GB Graphic Card 11335-02-20G",
+      "Sapphire NITRO+ AMD Radeon RX 7700 XT Gaming 12GB",
+      "Sapphire NITRO+ RX 7700 XT 12GB",
+      "Sapphire NITRO+ Radeon RX 7700 XT",
+      "11335-02-20G"
+    ],
+    "length_mm": 320,
+    "slot_width": 3,
+    "tdp_w": 245,
+    "recommended_psu_w": 700,
+    "vram_gb": 12,
+    "segment": "gaming",
+    "sources": [
+      "https://www.sapphiretech.com/en/consumer/nitro-radeon-rx-7700-xt-12g-gddr6"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "inno3d-rtx-5070-twin-x2-12gb": {
+    "brand": "INNO3D",
+    "model": "INNO3D GeForce RTX 5070 Twin X2 12GB",
+    "aliases": [
+      "Inno3D RTX 5070 Twin X2 12GB GDDR7 Graphics Card",
+      "INNO3D GeForce RTX 5070 Twin X2 12GB",
+      "INNO3D RTX 5070 Twin X2 12GB"
+    ],
+    "length_mm": 250,
+    "slot_width": 2,
+    "tdp_w": 250,
+    "recommended_psu_w": 650,
+    "vram_gb": 12,
+    "segment": "gaming",
+    "sources": [
+      "https://www.inno3d.com/product/inno3d-geforce-rtx-5070-twin-x2"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "inno3d-rtx-5070-twin-x2-oc-12gb": {
+    "brand": "INNO3D",
+    "model": "INNO3D GeForce RTX 5070 Twin X2 OC 12GB",
+    "aliases": [
+      "Inno3D RTX 5070 Twin X2 OC 12GB GDDR7 Graphics Card",
+      "INNO3D GeForce RTX 5070 Twin X2 OC 12GB",
+      "INNO3D RTX 5070 Twin X2 OC 12GB"
+    ],
+    "length_mm": 250,
+    "slot_width": 2,
+    "tdp_w": 250,
+    "recommended_psu_w": 650,
+    "vram_gb": 12,
+    "segment": "gaming",
+    "sources": [
+      "https://www.inno3d.com/product/inno3d-geforce-rtx-5070-twin-x2"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "msi-rtx-5070-inspire-3x-oc-12gb": {
+    "brand": "MSI",
+    "model": "MSI GeForce RTX 5070 12G INSPIRE 3X OC",
+    "aliases": [
+      "MSI RTX 5070 Inspire 3X OC 12GB GDDR7 Graphics Card",
+      "MSI GeForce RTX 5070 12G INSPIRE 3X OC",
+      "MSI RTX 5070 Inspire 3X OC 12GB",
+      "MSI GeForce RTX 5070 INSPIRE 3X OC"
+    ],
+    "length_mm": 288,
+    "slot_width": 2.5,
+    "tdp_w": 250,
+    "recommended_psu_w": 650,
+    "vram_gb": 12,
+    "segment": "gaming",
+    "sources": [
+      "https://storage-asset.msi.com/datasheet/vga/us/GeForce-RTX-5070-12G-INSPIRE-3X-OC.pdf"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "asus-dual-rtx-5070-oc-12gb": {
+    "brand": "ASUS",
+    "model": "ASUS Dual GeForce RTX 5070 OC Edition 12GB",
+    "aliases": [
+      "ASUS Dual RTX 5070 OC Edition 12GB GDDR7 Graphics Card",
+      "ASUS Dual GeForce RTX 5070 OC Edition 12GB",
+      "ASUS Dual RTX 5070 OC Edition 12GB",
+      "DUAL-RTX5070-O12G"
+    ],
+    "length_mm": 249,
+    "slot_width": 2.5,
+    "tdp_w": 250,
+    "recommended_psu_w": 650,
+    "vram_gb": 12,
+    "segment": "gaming",
+    "sources": [
+      "https://www.asus.com/motherboards-components/graphics-cards/dual/dual-rtx5070-o12g/techspec/"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "msi-rtx-5070-shadow-2x-oc-12gb": {
+    "brand": "MSI",
+    "model": "MSI GeForce RTX 5070 12G SHADOW 2X OC",
+    "aliases": [
+      "MSI RTX 5070 Shadow 2X OC 12GB GDDR7 Graphics Card",
+      "MSI GeForce RTX 5070 12G SHADOW 2X OC",
+      "MSI RTX 5070 Shadow 2X OC 12GB",
+      "G5070-12S2C"
+    ],
+    "length_mm": 231,
+    "slot_width": 2.5,
+    "tdp_w": 250,
+    "recommended_psu_w": 650,
+    "vram_gb": 12,
+    "segment": "gaming",
+    "sources": [
+      "https://www.msi.com/Graphics-Card/GeForce-RTX-5070-12G-SHADOW-2X-OC/Specification"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "gigabyte-rtx-5070-windforce-oc-sff-12g": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte GeForce RTX 5070 WINDFORCE OC SFF 12G",
+    "aliases": [
+      "Gigabyte RTX 5070 Windforce OC SFF 12G GDDR7 Graphics Card",
+      "Gigabyte GeForce RTX 5070 WINDFORCE OC SFF 12G",
+      "Gigabyte RTX 5070 Windforce OC SFF 12G",
+      "GV-N5070WF3-12GD",
+      "GV-N5070WF3OC-12GD"
+    ],
+    "length_mm": 282,
+    "slot_width": 2.5,
+    "tdp_w": 250,
+    "recommended_psu_w": 650,
+    "vram_gb": 12,
+    "segment": "gaming",
+    "sources": [
+      "https://www.gigabyte.com/Graphics-Card/GV-N5070WF3-12GD/sp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
   }
 }
