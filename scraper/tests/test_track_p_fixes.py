@@ -406,6 +406,9 @@ def test_fetch_http_decodes_deflate_and_page_charset(monkeypatch) -> None:
         def read(self) -> bytes:
             return compressed
 
+        def geturl(self) -> str:
+            return "https://example.com/p"
+
         def info(self) -> _Info:
             return _Info()
 
@@ -462,6 +465,9 @@ def test_gzip_still_decodes(monkeypatch) -> None:
 
         def read(self) -> bytes:
             return compressed
+
+        def geturl(self) -> str:
+            return "https://example.com/p"
 
         def info(self) -> _Info:
             return _Info()
