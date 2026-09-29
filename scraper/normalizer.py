@@ -6,6 +6,7 @@ import re
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from .config import REPO_ROOT
 
@@ -111,6 +112,23 @@ def classify_subcategory(name: str, category: str) -> str | None:
     if _ACCESSORY.search(name):
         return "accessory"
     return BUILD_SUBCATEGORY
+
+
+def strip_listing_context(url: str, listing_path: str) -> str:
+    """Drop the listing a product link was found on, keeping the product page.
+
+    MDComputers links name the listing and page: /product/<slug>/cabinet?page=3
+    (older links: /product/cabinet/<slug>). Both serve rel=canonical
+    /product/<slug>, but as raw ids the same product becomes a new row whenever
+    it moves page. Removes the query, the fragment, and the path segment equal to
+    the listing path's last segment, as long as two segments remain.
+    """
+    parts = urlsplit(url)
+    listing_segment = listing_path.strip("/").rsplit("/", 1)[-1]
+    segments = [s for s in parts.path.split("/") if s]
+    if listing_segment in segments and len(segments) > 2:
+        segments.remove(listing_segment)
+    return urlunsplit((parts.scheme, parts.netloc, "/" + "/".join(segments), "", ""))
 
 
 def product_id(url: str) -> str:

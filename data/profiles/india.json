@@ -73,6 +73,7 @@
       "base_url": "https://mdcomputers.in/",
       "scraping_type": "category",
       "engine": "http",
+      "strip_listing_context": true,
       "browser_config": {
         "headless": true,
         "js_rendering": true,
