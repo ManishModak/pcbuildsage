@@ -1166,6 +1166,7 @@ export function ChatView({
                   selectedAlternativeIndex={safeAlternativeIndex}
                   onAlternativeChange={setSelectedAlternativeIndex}
                   inSidePanel
+                  onRecheckPrices={streaming || isLoading ? undefined : send}
                 />
               </BuildErrorBoundary>
             </div>
@@ -1216,6 +1217,15 @@ export function ChatView({
                   selectedAlternativeIndex={safeAlternativeIndex}
                   onAlternativeChange={setSelectedAlternativeIndex}
                   inSidePanel
+                  onRecheckPrices={
+                    streaming || isLoading
+                      ? undefined
+                      : (prompt) => {
+                          // Close the sheet so the reply is visible.
+                          setSidePanelOpen(false);
+                          send(prompt);
+                        }
+                  }
                 />
               </BuildErrorBoundary>
             )}

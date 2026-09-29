@@ -98,7 +98,46 @@ export type DerivedBuild = {
    * says so instead of presenting it as a validated proposal.
    */
   textDerived?: boolean;
+  /**
+   * When the oldest priced part was scraped (ISO). Saved chats keep the
+   * prices they were built with, so the card says how old they are.
+   */
+  pricesAsOf?: string;
 };
+
+/** Prices this many days old are called out, with an offer to recheck. */
+export const STALE_PRICE_DAYS = 7;
+
+export type PriceAge = { label: string; stale: boolean };
+
+/** The note under a build's total: "Prices as of 28 Sep", or how stale they are. */
+export function priceAge(pricesAsOf: string | undefined, now: number = Date.now()): PriceAge | null {
+  if (!pricesAsOf) return null;
+  const then = new Date(pricesAsOf).getTime();
+  if (Number.isNaN(then)) return null;
+  const days = Math.floor((now - then) / 86_400_000);
+  if (days >= STALE_PRICE_DAYS) return { label: `Prices are ${days} days old`, stale: true };
+  const date = new Date(then).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return { label: `Prices as of ${date}`, stale: false };
+}
+
+/** The chat message the card's "recheck prices" action sends. */
+export function recheckPricesPrompt(build: Pick<DerivedBuild, "label">): string {
+  const which = build.label ? `the "${build.label}" build` : "this build";
+  return `Recheck current prices and stock for ${which}.`;
+}
+
+/** Oldest valid observed_at among priced parts; undefined when none carry one. */
+function oldestObservedAt(components: BuildSnapshotComponent[]): string | undefined {
+  let oldest: { iso: string; time: number } | undefined;
+  for (const c of components) {
+    if (typeof c?.price !== "number" || typeof c.observed_at !== "string") continue;
+    const time = new Date(c.observed_at).getTime();
+    if (Number.isNaN(time)) continue;
+    if (!oldest || time < oldest.time) oldest = { iso: c.observed_at, time };
+  }
+  return oldest?.iso;
+}
 
 type PartIdentity = { product_id?: string; key?: string; name: string };
 
@@ -985,7 +1024,8 @@ export function derivedBuildFromSnapshot(
     // The snapshot total is null unless every part is priced in its own
     // currency — better an honest "—" than a sum that is quietly too low.
     total: typeof snapshot.total === "number" ? snapshot.total : null,
-    isLegacy: false
+    isLegacy: false,
+    pricesAsOf: oldestObservedAt(rawComponents as BuildSnapshotComponent[])
   };
 }
 
