@@ -1387,5 +1387,1124 @@
     ],
     "confidence": "high",
     "researched_at": "2026-09-27T12:00:00Z"
+  },
+  "antec-st10m": {
+    "brand": "Antec",
+    "model": "Antec ST10M Mini Tower",
+    "max_gpu_length_mm": 265,
+    "max_cooler_height_mm": 150,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "max_psu_length_mm": 250,
+    "aliases": [
+      "Antec ST10M",
+      "ST10M",
+      "Antec ST10M M-ATX Mini Tower Cabinet (ST10M-BLACK)",
+      "Antec ST10M M-ATX Mini Tower Cabinet",
+      "ST10M-BLACK"
+    ],
+    "sources": [
+      "https://www.pcstudio.in/product/antec-st10m-m-atx-mini-tower-cabinet/"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-si11": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports Si11 Mini Tower",
+    "max_gpu_length_mm": 270,
+    "max_cooler_height_mm": 155,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports Si11",
+      "Si11",
+      "Ant Esports Si11 M-Atx Mini Tower Cabinet (Black) (SI11-BLACK)",
+      "Ant Esports Si11 M-ATX Mini Tower Case",
+      "SI11-BLACK"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-esports-chassis-si11"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-si26": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports Si26 Mid Tower",
+    "max_gpu_length_mm": 300,
+    "max_cooler_height_mm": 150,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports Si26",
+      "Si26",
+      "Ant Esports Si26 Atx Mid Tower Cabinet (Black) (SI26-BLACK)",
+      "Ant Esports Si26 ATX Mid Tower Case",
+      "SI26-BLACK"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-esports-chassis-si26"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-si15": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports SI15 Mini Tower",
+    "max_gpu_length_mm": 270,
+    "max_cooler_height_mm": 145,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports SI15",
+      "SI15",
+      "Ant Esports SI15 M-ATX Mini Tower Case",
+      "Ant Esports SI15 M-ATX Mini Tower Black"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-esports-chassis-si15-black"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-si27": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports Si27 Mid Tower",
+    "max_gpu_length_mm": 330,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports Si27",
+      "Si27",
+      "Ant Esports Si27 ATX Mid Tower Case",
+      "Ant Esports Si27 Atx Mid Tower Cabinet (Black) (SI27-BLACK)",
+      "SI27-BLACK"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-esports-chassis-si27-black"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-value-vm10": {
+    "brand": "Ant Value",
+    "model": "Ant Value VM10 Micro-ATX Mid Tower",
+    "max_gpu_length_mm": 256,
+    "max_cooler_height_mm": 152,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Value VM10",
+      "VM10",
+      "Ant Value VM10 Micro-ATX Mid-Tower Gaming Cabinet (VM10)",
+      "Ant Value VM10 Gaming Cabinet"
+    ],
+    "sources": [
+      "https://www.pcstudio.in/product/ant-value-vm10-micro-atx-mid-tower-gaming-cabinet/"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-si12": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports Si12 Mini Tower",
+    "max_gpu_length_mm": 275,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports Si12",
+      "Si12",
+      "Ant Esports Si12 M-ATX Mini Tower Case",
+      "Ant Esports Si12 M-ATX Mini Tower Cabinet"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-esports-chassis-si12"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-si14": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports Si14 Mini Tower",
+    "max_gpu_length_mm": 260,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports Si14",
+      "Si14",
+      "Ant Esports Si14 M-ATX Mini Tower Case",
+      "Ant Esports Si14 M-ATX Mini Tower Cabinet Black"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-esports-chassis-si14-black"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-si30": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports SI30 Mid Tower",
+    "max_gpu_length_mm": 350,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports SI30",
+      "SI30",
+      "Ant Esports SI30 Mid Tower ATX Cabinet Black (AESP0368)",
+      "AESP0368"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-esports-chassis-si30-black"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "coco-sports-nova-x770": {
+    "brand": "Coco Sports",
+    "model": "Coco Sports Nova X770 Mini Tower",
+    "max_gpu_length_mm": 280,
+    "max_cooler_height_mm": 160,
+    "max_psu_length_mm": 140,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      140,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Coco Sports Nova X770",
+      "Nova X770",
+      "Coco Sports Nova X770 ARGB M-ATX Mini Tower Case",
+      "Coco Sports Nova X770 White ARGB M-ATX Mini Tower Case",
+      "Coconut Nova X770"
+    ],
+    "sources": [
+      "https://mdcomputers.in/product/cabinet/coconut-nova-x770-argb-mini-tower-cabinet"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "deepcool-cc310": {
+    "brand": "DeepCool",
+    "model": "DeepCool CC310 Mid Tower",
+    "max_gpu_length_mm": 280,
+    "max_cooler_height_mm": 160,
+    "max_psu_length_mm": 160,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Deepcool CC310",
+      "CC310",
+      "Deepcool CC310 Mid Tower Cabinet",
+      "R-CC310-BKNNM0-G"
+    ],
+    "sources": [
+      "https://www.vedantcomputers.com/pc-components/cabinet/deepcool-r-cc310-bknnm0-g"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-value-vm45": {
+    "brand": "Ant Value",
+    "model": "Ant Value VM45 Mini Tower",
+    "max_gpu_length_mm": 280,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Value VM45",
+      "VM45",
+      "Ant Value VM45 M-ATX Mini Tower Case",
+      "Ant Value Chassis VM45"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-value-chassis-vm45-aesp0389"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-value-vm40": {
+    "brand": "Ant Value",
+    "model": "Ant Value VM40 Mid Tower",
+    "max_gpu_length_mm": 335,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Value VM40",
+      "VM40",
+      "Ant Value VM40 Mid-Tower Gaming Cabinet",
+      "Ant Value VM40 (Black) Cabinet"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-value-chassis-vm40-black-avlc0006"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-value-cv100": {
+    "brand": "Ant Value",
+    "model": "Ant Value CV100 Mid Tower",
+    "max_gpu_length_mm": 320,
+    "max_cooler_height_mm": 165,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Value CV100",
+      "CV100",
+      "Ant Value CV100 (Black) Cabinet",
+      "Ant Value CV100 Mid-Tower Gaming Cabinet \u2013 Black",
+      "Ant Value CV100 ATX Mid Tower Cabinet Black (CV100-BLACK)",
+      "Ant Value CV100 Mid-Tower Gaming Cabinet \u2013 White",
+      "Ant Value CV100 ATX Mid Tower Case",
+      "Ant Value CV100 (White) Cabinet",
+      "Ant Value CV100 (ATX) Mid Tower Cabinet (White) (CV100-WHITE)",
+      "Ant Value CV100 White ATX Mid Tower PC Case"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-value-chassis-cv100-black-avlc0003"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "tag-gamerz-eva-3-fans": {
+    "brand": "TAG",
+    "model": "TAG Gamerz EVA Mid Tower",
+    "max_gpu_length_mm": 425,
+    "max_cooler_height_mm": 170,
+    "max_psu_length_mm": 250,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "TAG Gamerz EVA",
+      "TAG Gamerz EVA, 3 ARGB Fans, M-ATX Cabinet (White)",
+      "TAG Gamerz EVA 3 ARGB Fans",
+      "TAG EVA"
+    ],
+    "sources": [
+      "https://technologyandgadgets.com/",
+      "https://computechstore.in/product/tag-gamerz-eva-cabinet-black/"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-value-cv200": {
+    "brand": "Ant Value",
+    "model": "Ant Value CV200 Mini Tower",
+    "max_gpu_length_mm": 345,
+    "max_cooler_height_mm": 165,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Value CV200",
+      "CV200",
+      "Ant Value CV200 Cabinet (Black)",
+      "Ant Value CV200 Mini-Tower Gaming Cabinet Black (CV200-BLACK)",
+      "Ant Value CV200 Cabinet (White)",
+      "Ant Value CV200 Mini-Tower Gaming Cabinet White (CV200-WHITE)"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-value-chassis-cv200-black-avlc0008"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "coco-sports-nova-x880": {
+    "brand": "Coco Sports",
+    "model": "Coco Sports Nova X880 Mini Tower",
+    "max_gpu_length_mm": 286,
+    "max_cooler_height_mm": 165,
+    "max_psu_length_mm": 160,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      140,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Coco Sports Nova X880",
+      "Nova X880",
+      "Coco Sports Nova X880 ARGB M-ATX Mini Tower Case",
+      "Coco Sports Nova X880 White ARGB M-ATX Mini Tower Case",
+      "Coconut Nova X880"
+    ],
+    "sources": [
+      "https://mdcomputers.in/product/cabinet/coconut-nova-x880-argb-mini-tower-cabinet"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-1200": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports Elite 1200 Mid Tower",
+    "max_gpu_length_mm": 335,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports Elite 1200",
+      "Elite 1200",
+      "Ant Esports Elite 1200 Gaming Cabinet",
+      "Ant Esports Elite 1200 Gaming Cabinet - White"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-esports-chassis-elite-1200-black"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "deepcool-cc310-itx": {
+    "brand": "DeepCool",
+    "model": "DeepCool CC310 ITX Mid Tower",
+    "max_gpu_length_mm": 280,
+    "max_cooler_height_mm": 160,
+    "max_psu_length_mm": 160,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Deepcool CC310 ITX",
+      "Deepcool CC310 ITX Mid Tower Cabinet"
+    ],
+    "sources": [
+      "https://www.pcstudio.in/product/deepcool-cc310-itx-mid-tower-cabinet/"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "cooler-master-310c": {
+    "brand": "Cooler Master",
+    "model": "Cooler Master Elite 310C Mid Tower",
+    "max_gpu_length_mm": 283,
+    "max_cooler_height_mm": 158,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Cooler Master Elite 310C",
+      "Elite 310C",
+      "Cooler Master Elite 310C Black Mid-Tower Cabinet",
+      "Cooler Master 310C ATX Mid Tower Case",
+      "RC-310C-KKN3-U3"
+    ],
+    "sources": [
+      "https://www.pcstudio.in/product/cooler-master-elite-310c-atx-mid-tower-cabinet-black/",
+      "https://mdcomputers.in/product/cabinet/cooler-master-elite-mid-tower-cabinet-rc-310c-kkn3-u3"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "antec-st5m-with-4-fans": {
+    "brand": "Antec",
+    "model": "Antec ST5M ARGB Mini Tower",
+    "max_gpu_length_mm": 245,
+    "max_cooler_height_mm": 145,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Antec ST5M",
+      "ST5M",
+      "Antec ST5M ARGB with 4 Fans M-ATX Cabinet (Black)",
+      "Antec ST5M ARGB",
+      "Antec ST5M Cabinet"
+    ],
+    "sources": [
+      "https://varietyinfotech.com/product/antec-st5m-cabinet/",
+      "https://kryptronix.in/product/antec-st5m-argb-with-4-fans-m-atx-cabinet-black-2/"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "msi-pro-forge-m050a": {
+    "brand": "MSI",
+    "model": "MSI PRO Forge M050A Mini Tower",
+    "max_gpu_length_mm": 300,
+    "max_cooler_height_mm": 160,
+    "max_psu_length_mm": 170,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "MSI PRO Forge M050A",
+      "PRO Forge M050A",
+      "MSI PRO Forge M050A (Black) Cabinets",
+      "MSI PRO Forge M050A Black"
+    ],
+    "sources": [
+      "https://www.msi.com/PC-Case/PRO-FORGE-M050A"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "dawg-v-210": {
+    "brand": "Dawg",
+    "model": "Dawg V 210 Mid Tower",
+    "max_gpu_length_mm": 325,
+    "max_cooler_height_mm": 170,
+    "max_psu_length_mm": 140,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Dawg V 210",
+      "Dawg V210",
+      "Dawg V 210 White ATX Mid Tower Case"
+    ],
+    "sources": [
+      "https://mdcomputers.in/product/cabinet/dawg-v210-white-mid-tower-cabinet"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "coco-sports-nova-550": {
+    "brand": "Coco Sports",
+    "model": "Coco Sports Nova 550 Mid Tower",
+    "max_gpu_length_mm": 325,
+    "max_cooler_height_mm": 160,
+    "max_psu_length_mm": 175,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      140,
+      180,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Coco Sports Nova 550",
+      "Nova 550",
+      "Coco Sports Nova 550 ARGB ATX Mid Tower Case",
+      "Coconut Nova 550"
+    ],
+    "sources": [
+      "https://mdcomputers.in/product/cabinet/coconut-nova-550-argb-mid-tower-cabinet"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "coco-sports-nova-x220": {
+    "brand": "Coco Sports",
+    "model": "Coco Sports Nova X220 Mid Tower",
+    "max_gpu_length_mm": 325,
+    "max_cooler_height_mm": 160,
+    "max_psu_length_mm": 175,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Coco Sports Nova X220",
+      "Nova X220",
+      "Coco Sports Nova X220 ARGB ATX Mid Tower Case",
+      "Coco Sports Nova X220 White ARGB ATX Mid Tower Case",
+      "Coconut Nova X220"
+    ],
+    "sources": [
+      "https://mdcomputers.in/product/cabinet/coconut-nova-x220-argb-mid-tower-cabinet"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "coco-sports-nova-x110": {
+    "brand": "Coco Sports",
+    "model": "Coco Sports Nova X110 Mid Tower",
+    "max_gpu_length_mm": 325,
+    "max_cooler_height_mm": 160,
+    "max_psu_length_mm": 175,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Coco Sports Nova X110",
+      "Nova X110",
+      "Coco Sports Nova X110 ARGB ATX Mid Tower Case",
+      "Coconut Nova X110"
+    ],
+    "sources": [
+      "https://mdcomputers.in/product/cabinet/coconut-nova-x110-argb-mid-tower-cabinet"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "coco-sports-nova-x660": {
+    "brand": "Coco Sports",
+    "model": "Coco Sports Nova X660 Mid Tower",
+    "max_gpu_length_mm": 300,
+    "max_cooler_height_mm": 165,
+    "max_psu_length_mm": 150,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Coco Sports Nova X660",
+      "Nova X660",
+      "Coco Sports Nova X660 ARGB ATX Mid Tower Case",
+      "Coconut Nova X660"
+    ],
+    "sources": [
+      "https://mdcomputers.in/product/cabinet/coconut-nova-x660-argb-mid-tower-cabinet"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "antec-ax20-frgb": {
+    "brand": "Antec",
+    "model": "Antec AX20 Elite FRGB Mid Tower",
+    "max_gpu_length_mm": 270,
+    "max_cooler_height_mm": 155,
+    "max_psu_length_mm": 170,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      140,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Antec AX20 Elite",
+      "AX20 Elite",
+      "Antec AX20 Elite FRGB Atx Mid Tower Cabinet Black (AX20-ELITE-BLACK)",
+      "AX20-ELITE-BLACK",
+      "Antec AX20"
+    ],
+    "sources": [
+      "https://www.antec.com/product/case/ax20"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-value-vm7p-with-smps": {
+    "brand": "Ant Value",
+    "model": "Ant Value VM7P Mini Tower",
+    "max_gpu_length_mm": 195,
+    "max_cooler_height_mm": 110,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Value VM7P",
+      "VM7P",
+      "Ant Value VM7P M-ATX Mini Tower Case with Smps",
+      "Ant Value VM7P With ECO 500s"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-value-chassis-vm7p-with-eco-500s-power-supply-black-avlc0021"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "antec-vx310": {
+    "brand": "Antec",
+    "model": "Antec VX310 ARGB Mid Tower",
+    "max_gpu_length_mm": 320,
+    "max_cooler_height_mm": 165,
+    "max_psu_length_mm": 160,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Antec VX310",
+      "VX310",
+      "Antec VX310 ARGB ATX Mid Tower Cabinet (VX310-ARGB-BLACK)",
+      "VX310-ARGB-BLACK",
+      "Antec VX310 ARGB"
+    ],
+    "sources": [
+      "https://www.pcstudio.in/product/antec-vx310-argb-mid-tower-cabinet/"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-300-air-mini": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports 300 Air Mini Mid Tower",
+    "max_gpu_length_mm": 300,
+    "max_cooler_height_mm": 185,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports 300 Air Mini",
+      "300 Air Mini",
+      "Ant Esports 300 Air Mini Mid-Tower Micro Atx Gaming Cabinet Black (300-AIR-MINI-BLACK)",
+      "Ant Esports 300 Air Mini Mid-Tower Gaming Cabinet \u2013 Black",
+      "300-AIR-MINI-BLACK"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-esports-chassis-300-air-mini-black"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-205-mini-6f": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports 205 Mini 6F Mini Tower",
+    "max_gpu_length_mm": 285,
+    "max_cooler_height_mm": 160,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports 205 Mini 6F",
+      "205 Mini 6F",
+      "Ant Esports 205 Mini 6F ARGB (Black)",
+      "Ant Esports 205 Mini 6F ARGB M-ATX Case",
+      "Ant Esports 205 Mini"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-esports-chassis-205-mini-6f-black"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-crystal-z2": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports Crystal Z2 Mid Tower",
+    "max_gpu_length_mm": 330,
+    "max_cooler_height_mm": 155,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports Crystal Z2",
+      "Crystal Z2",
+      "Ant Esports Crystal Z2 ARGB Mid Tower Gaming Cabinet Black (CRYSTAL-Z2-BLACK)",
+      "CRYSTAL-Z2-BLACK"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-esports-chassis-crystal-z2-black"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "msi-pro-forge-m051a": {
+    "brand": "MSI",
+    "model": "MSI PRO FORGE M051A Mini Tower",
+    "max_gpu_length_mm": 300,
+    "max_cooler_height_mm": 160,
+    "max_psu_length_mm": 170,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "MSI PRO FORGE M051A",
+      "PRO FORGE M051A",
+      "MSI PRO FORGE M051A Auto RGB M-ATX Mini Tower Case",
+      "MSI Pro Forge M051A Cabinet"
+    ],
+    "sources": [
+      "https://www.msi.com/PC-Case/PRO-FORGE-M051A"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "gigabyte-c103-glass": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte C103 Glass Mid Tower",
+    "max_gpu_length_mm": 355,
+    "max_cooler_height_mm": 165,
+    "max_psu_length_mm": 210,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Gigabyte C103 Glass",
+      "C103 Glass",
+      "Gigabyte C103 Glass ARGB ATX Mid Tower Cabinet (Black)",
+      "GB-C103G"
+    ],
+    "sources": [
+      "https://www.gigabyte.com/PC-Case/GB-C103G/sp#sp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-300-air": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports 300 Air M-ATX Mini Tower",
+    "max_gpu_length_mm": 300,
+    "max_cooler_height_mm": 185,
+    "form_factors": [
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports 300 Air",
+      "300 Air",
+      "Ant Esports 300 Air ARGB M-ATX (Black) Cabinet",
+      "Ant Esports 300 Air ARGB"
+    ],
+    "sources": [
+      "https://antesports.com/products/ant-esports-chassis-300-air-mini-black",
+      "https://kryptronix.in/product/ant-esports-300-air-argb-m-atx-black-cabinet-2/"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "gigabyte-c200-glass-with-tempered-side-panel-gb-c200g": {
+    "brand": "Gigabyte",
+    "model": "Gigabyte C200 Glass Mid Tower",
+    "max_gpu_length_mm": 330,
+    "max_cooler_height_mm": 165,
+    "max_psu_length_mm": 170,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240,
+      280
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Gigabyte C200 Glass",
+      "C200 Glass",
+      "Gigabyte C200 Glass ATX Mid Tower Black Cabinet With Tempered Glass Side Panel GB-C200G",
+      "GB-C200G"
+    ],
+    "sources": [
+      "https://www.gigabyte.com/PC-Case/GB-C200G/sp#sp"
+    ],
+    "confidence": "high",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "deepcool-cc550-4f": {
+    "brand": "DeepCool",
+    "model": "DeepCool CC550 4F Mid Tower",
+    "max_gpu_length_mm": 317,
+    "max_cooler_height_mm": 163,
+    "max_psu_length_mm": 180,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Deepcool CC550 4F",
+      "CC550 4F",
+      "Deepcool CC550 4F Mid-Tower Gaming Cabinet",
+      "Deepcool CC550 4F ARGB ATX Mid Tower Cabinet (R-CC550BKANA4-G)",
+      "Deepcool CC550 4F ARGB ATX Mid-Tower Cabinet",
+      "R-CC550BKANA4-G"
+    ],
+    "sources": [
+      "https://www.pcstudio.in/product/deepcool-cc550-4f-argb-atx-mid-tower-cabinet/"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
+  },
+  "ant-esports-211-air": {
+    "brand": "Ant Esports",
+    "model": "Ant Esports 211 Air Mid Tower",
+    "max_gpu_length_mm": 310,
+    "max_cooler_height_mm": 175,
+    "max_psu_length_mm": 180,
+    "form_factors": [
+      "ATX",
+      "Micro-ATX",
+      "Mini-ITX"
+    ],
+    "supported_radiators": [
+      120,
+      240,
+      360
+    ],
+    "supported_psu_form_factors": [
+      "ATX"
+    ],
+    "aliases": [
+      "Ant Esports 211 Air",
+      "211 Air",
+      "Ant Esports 211 Air ARGB (White) Cabinet",
+      "Ant Esports 211 Air ARGB Cabinet (White)",
+      "Ant Esports 211 Air ARGB"
+    ],
+    "sources": [
+      "https://mdcomputers.in/ant-esports-211-air-white.html"
+    ],
+    "confidence": "medium",
+    "researched_at": "2026-09-29T17:00:00Z"
   }
 }
