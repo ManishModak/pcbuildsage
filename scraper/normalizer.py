@@ -54,15 +54,39 @@ _INTERNAL = re.compile(
 _ACCESSORY = re.compile(r"\bnas\b|rail\s*kit|\bcaddy\b|\bbracket\b", re.IGNORECASE)
 
 
+# A card needs the "graphics card" phrase AND a GPU model number: Corsair's
+# "Titan 360 RX LCD" is a CPU cooler, and an "RTX 4090 Water Block" is a cooling
+# part. Anything naming a cooling part stays put.
+_GRAPHICS_CARD = re.compile(r"\bgraphics?\s+card\b|\bvideo\s+card\b", re.IGNORECASE)
+_GPU_MODEL = re.compile(r"\b(?:rtx|gtx|rx)\s*\d{3,4}\b|\barc\s*[abs]\d{3}\b", re.IGNORECASE)
+_COOLING_PART = re.compile(
+    r"cooler|cooling|water\s*block|\bbackplate\b|\bbracket\b|\bholder\b|\bsupport\b|\briser\b"
+    r"|thermal",
+    re.IGNORECASE,
+)
+
+
 def reclassify_category(name: str, category: str) -> str:
     """Correct a retailer's shelf category when the title says otherwise.
 
-    Only RAM-in-storage is corrected today; that is the one misfiling observed in
-    the live catalog, and it is what made the assistant tell a user "RAM is
-    unavailable" while three DDR5 sticks sat in the storage aisle.
+    Two misfilings observed in the live catalog are corrected:
+    - RAM in storage: made the assistant tell a user "RAM is unavailable" while
+      three DDR5 sticks sat in the storage aisle.
+    - Graphics cards in cooler: MDComputers' cooler path redirected to its
+      homepage, whose promo carousels (mostly GPUs) were saved as coolers and
+      hidden from GPU searches.
+    Rules are deliberately narrow; a missed correction is cheaper than moving a
+    real part off its shelf.
     """
     if category == "storage" and _DDR.search(name) and _RAM_CONFIRM.search(name):
         return "ram"
+    if (
+        category == "cooler"
+        and _GRAPHICS_CARD.search(name)
+        and _GPU_MODEL.search(name)
+        and not _COOLING_PART.search(name)
+    ):
+        return "gpu"
     return category
 
 
