@@ -65,6 +65,27 @@ class HttpStatusError(CrawlError):
         return self.status in NOT_FOUND_STATUSES
 
 
+class RedirectedToHomeError(CrawlError):
+    """A listing URL redirected to the site homepage (the category moved).
+
+    Definitive like a 404: the other engine follows the same redirect, and the
+    homepage's promo carousels would otherwise be saved as this category.
+    """
+
+    def __init__(self, url: str, final_url: str) -> None:
+        super().__init__(f"{url} redirected to homepage {final_url}; category path is stale")
+        self.url = url
+        self.final_url = final_url
+
+
+def _check_not_redirected_home(url: str, final_url: str | None) -> None:
+    """Raise when a non-root URL landed on the site root (query ignored)."""
+    if not final_url:
+        return
+    if urlparse(url).path.strip("/") and not urlparse(final_url).path.strip("/"):
+        raise RedirectedToHomeError(url, final_url)
+
+
 def _validate_http_url(url: str) -> None:
     """Allow only http/https fetch targets (mirrors Node url-guard)."""
     try:
@@ -310,6 +331,8 @@ class Crawl4AIFetcher:
         def _sync_http_get() -> str:
             req = urllib.request.Request(url, headers=DEFAULT_HTTP_HEADERS)
             with urllib.request.urlopen(req, timeout=15) as resp:
+                # urlopen follows redirects silently; geturl() is where we landed.
+                _check_not_redirected_home(url, resp.geturl())
                 data = resp.read()
                 content_encoding = (resp.info().get("Content-Encoding", "") or "").lower()
                 if "gzip" in content_encoding:
@@ -331,6 +354,8 @@ class Crawl4AIFetcher:
                 html = await asyncio.to_thread(_sync_http_get)
                 if html:
                     return html
+            except RedirectedToHomeError:
+                raise
             except urllib.error.HTTPError as http_err:
                 last_error = http_err
                 if http_err.code in NOT_FOUND_STATUSES:
@@ -392,6 +417,7 @@ class Crawl4AIFetcher:
                 status_code = getattr(result, "status_code", 200) or 200
                 if status_code in NOT_FOUND_STATUSES:
                     raise HttpStatusError(url, status_code)
+                _check_not_redirected_home(url, getattr(result, "redirected_url", None))
                 if success and status_code < 400:
                     html = getattr(result, "html", None) or getattr(result, "cleaned_html", "")
                     if html:
@@ -406,7 +432,7 @@ class Crawl4AIFetcher:
                     err_msg,
                     extra={"component": "scraper"},
                 )
-            except HttpStatusError:
+            except (HttpStatusError, RedirectedToHomeError):
                 raise
             except Exception as exc:
                 last_error = exc
@@ -429,14 +455,14 @@ class Crawl4AIFetcher:
         if engine == "http":
             try:
                 return await self.fetch_http(url, site, retries=retries)
-            except HttpStatusError:
+            except (HttpStatusError, RedirectedToHomeError):
                 raise
             except Exception:
                 return await self.fetch_browser(url, site, retries=retries)
         else:
             try:
                 return await self.fetch_browser(url, site, retries=retries)
-            except HttpStatusError:
+            except (HttpStatusError, RedirectedToHomeError):
                 raise
             except Exception:
                 return await self.fetch_http(url, site, retries=retries)
@@ -617,6 +643,9 @@ class ScraperCrawler:
         products. Any other page-2+ fetch/validation failure (timeout, 5xx,
         WAF) raises CrawlError: callers mark the job partial and skip the
         stale sweep so good pages already scraped are kept.
+
+        A redirect to the homepage raises RedirectedToHomeError on any page
+        without trying the other engine or the LLM: page 1 fails the job.
         """
         _validate_http_url(url)
         has_dual = hasattr(self.fetcher, "fetch_http") and hasattr(self.fetcher, "fetch_browser")
@@ -651,6 +680,8 @@ class ScraperCrawler:
                 extracted = extract_products(fetched_html, site.selectors, site.base_url)
                 is_valid, reason = validate_extracted_products(extracted, fetched_html, site, is_first_page=(page == 1))
                 return fetched_html, extracted, is_valid, reason
+            except RedirectedToHomeError:
+                raise
             except HttpStatusError as exc:
                 if page > 1 and exc.not_found:
                     end_of_listing = True
