@@ -2531,7 +2531,7 @@
     "model": "MSI PRO H610M-S",
     "socket": "LGA 1700",
     "chipset": "H610",
-    "ddr": "DDR4",
+    "ddr": "DDR5",
     "form_factor": "Micro-ATX",
     "m2_slots": 1,
     "sata_ports": 2,
@@ -2542,10 +2542,11 @@
       "MSI MSI PRO H610M-S",
       "MSI PRO H610M-S M-ATX Motherboard",
       "msi-pro-h610m-s-m-atx-motherboard",
-      "PRO H610M-S"
+      "PRO H610M-S",
+      "MSI PRO H610M-S DDR5"
     ],
     "sources": [
-      "https://www.msi.com/Motherboard/PRO-H610M-S-DDR4/Specification"
+      "https://www.msi.com/Motherboard/PRO-H610M-S/Specification"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -2567,7 +2568,8 @@
       "MSI Pro H610M-S DDR4 Motherboard",
       "msi-pro-h610m-s-ddr4-motherboard",
       "Pro H610M-S DDR4",
-      "MSI PRO H610M-S WIFI DDR4 Motherboard"
+      "MSI PRO H610M-S WIFI DDR4 Motherboard",
+      "MSI PRO H610M-S D4"
     ],
     "sources": [
       "https://www.msi.com/Motherboard/PRO-H610M-S-DDR4/Specification"
