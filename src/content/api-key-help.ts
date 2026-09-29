@@ -164,6 +164,20 @@ export const API_KEY_FACTS: ApiKeyHelpFact[] = [
   }
 ];
 
+/** Plain-language copy for rejected credentials (HTTP 401). */
+export const KEY_REJECTED_COPY = "Your key was rejected. Check you copied all of it.";
+
+/** Plain-language copy for a provider refusing access (HTTP 403): the key was accepted but not allowed here. */
+export const ACCESS_BLOCKED_COPY =
+  "The provider blocked access (HTTP 403), for example the model isn't available to this key or in your region. Try another model or provider.";
+
+/** Plain-language copy for exhausted free quotas (HTTP 429). */
+export const FREE_LIMIT_COPY = "You've hit the free limit. Wait a bit or pick another free model.";
+
+/** Our own hosted-demo rate limiter (src/middleware.ts), not the provider's. */
+export const DEMO_RATE_LIMIT_CODE = "HOSTED_RATE_LIMITED";
+export const DEMO_RATE_LIMIT_COPY = "Too many requests from you on the demo; wait a minute.";
+
 export const API_KEY_FAQS: ApiKeyHelpFaq[] = [
   {
     question: "What is an API key?",
@@ -195,17 +209,27 @@ export const API_KEY_FAQS: ApiKeyHelpFaq[] = [
   {
     question: "My key was rejected. What do I do?",
     answer:
-      "“Your key was rejected. Check you copied all of it.” Re-open the provider page, copy the whole key again (no missing or extra characters), and replace it in Settings.",
+      `“${KEY_REJECTED_COPY}” Re-open the provider page, copy the whole key again (no missing or extra characters), and replace it in Settings.`,
     sources: [{ url: "src/features/settings/byok-section.tsx", checkedOn: API_KEY_HELP_CHECKED_ON }]
   },
   {
     question: "It says I hit the free limit. What now?",
     answer:
-      "“You've hit the free limit. Wait a bit or pick another free model.” Free quotas reset over time (Gemini daily quotas reset at midnight Pacific), or switch to another free model in Settings.",
+      `“${FREE_LIMIT_COPY}” Free quotas reset over time (Gemini daily quotas reset at midnight Pacific), or switch to another free model in Settings.`,
     sources: [
       { url: "https://ai.google.dev/gemini-api/docs/rate-limits", checkedOn: API_KEY_HELP_CHECKED_ON },
       { url: "https://openrouter.ai/docs/faq", checkedOn: API_KEY_HELP_CHECKED_ON }
     ]
+  },
+  {
+    question: "It says the provider blocked access. What now?",
+    answer: `“${ACCESS_BLOCKED_COPY}” Your key works, but the provider won't serve this model to it. Pick a different model, or add a key for the other provider in Settings.`,
+    sources: [{ url: "src/lib/llm/client.ts", checkedOn: API_KEY_HELP_CHECKED_ON }]
+  },
+  {
+    question: "It says too many requests on the demo. What now?",
+    answer: `“${DEMO_RATE_LIMIT_COPY}” This is the demo's own limit per visitor, not your provider's quota, so your key is fine. Wait a minute and send your message again.`,
+    sources: [{ url: "src/middleware.ts", checkedOn: API_KEY_HELP_CHECKED_ON }]
   },
   {
     question: "How do I remove my key?",
@@ -213,20 +237,6 @@ export const API_KEY_FAQS: ApiKeyHelpFaq[] = [
     sources: [{ url: "src/features/settings/byok-provider-card.tsx", checkedOn: API_KEY_HELP_CHECKED_ON }]
   }
 ];
-
-/** Plain-language copy for rejected credentials (HTTP 401). */
-export const KEY_REJECTED_COPY = "Your key was rejected. Check you copied all of it.";
-
-/** Plain-language copy for a provider refusing access (HTTP 403): the key was accepted but not allowed here. */
-export const ACCESS_BLOCKED_COPY =
-  "The provider blocked access (HTTP 403), for example the model isn't available to this key or in your region. Try another model or provider.";
-
-/** Plain-language copy for exhausted free quotas (HTTP 429). */
-export const FREE_LIMIT_COPY = "You've hit the free limit. Wait a bit or pick another free model.";
-
-/** Our own hosted-demo rate limiter (src/middleware.ts), not the provider's. */
-export const DEMO_RATE_LIMIT_CODE = "HOSTED_RATE_LIMITED";
-export const DEMO_RATE_LIMIT_COPY = "Too many requests from you on the demo; wait a minute.";
 
 const PLAIN_COPIES = [KEY_REJECTED_COPY, ACCESS_BLOCKED_COPY, FREE_LIMIT_COPY, DEMO_RATE_LIMIT_COPY];
 
