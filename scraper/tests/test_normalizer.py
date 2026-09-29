@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from scraper.__main__ import make_product
+from scraper.config import load_profile
 from scraper.models import BrowserConfig, RawProduct, SiteConfig
 from scraper.normalizer import (
     RegistryMatcher,
@@ -14,6 +15,7 @@ from scraper.normalizer import (
     parse_price,
     product_id,
     reclassify_category,
+    strip_listing_context,
 )
 
 
@@ -233,3 +235,37 @@ def test_make_product_gpu_specs_length(tmp_path: Path) -> None:
 
 
 
+
+
+def test_strip_listing_context_handles_both_mdcomputers_link_shapes() -> None:
+    canonical = "https://mdcomputers.in/product/asus-dual-rtx5060ti-16g"
+    # Current links put the listing after the slug; older ones before it.
+    assert strip_listing_context(f"{canonical}/graphics-card?page=3", "catalog/graphics-card") == canonical
+    assert strip_listing_context(f"{canonical}/graphics-card", "catalog/graphics-card") == canonical
+    assert (
+        strip_listing_context("https://mdcomputers.in/product/cabinet/nzxt-h5", "catalog/cabinet")
+        == "https://mdcomputers.in/product/nzxt-h5"
+    )
+
+
+def test_strip_listing_context_keeps_slug_that_matches_listing() -> None:
+    # Only the query goes when removing the segment would leave /product alone.
+    assert (
+        strip_listing_context("https://mdcomputers.in/product/storage?page=2", "catalog/storage")
+        == "https://mdcomputers.in/product/storage"
+    )
+
+
+def test_make_product_gives_one_id_per_mdcomputers_product(tmp_path: Path) -> None:
+    site = next(s for s in load_profile("india").sites if s.site_name == "MDComputers")
+    matcher = RegistryMatcher(tmp_path)
+
+    def row(url: str):
+        raw = RawProduct(title="NZXT H5 Flow", price_text="₹8,500", url=url, image_url=None, in_stock=True)
+        return make_product(raw, site, "case", matcher, "2026-09-30T00:00:00Z")
+
+    page_1 = row("https://mdcomputers.in/product/nzxt-h5-flow/cabinet")
+    page_4 = row("https://mdcomputers.in/product/nzxt-h5-flow/cabinet?page=4")
+
+    assert page_1.url == page_4.url == "https://mdcomputers.in/product/nzxt-h5-flow"
+    assert page_1.id == page_4.id == product_id("https://mdcomputers.in/product/nzxt-h5-flow")

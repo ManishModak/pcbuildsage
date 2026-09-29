@@ -63,6 +63,8 @@ def _validate_profile(raw: dict[str, Any]) -> None:
             raise ProfileError(f"{site['site_name']}: browser_config.timeout_ms must be >= 1000")
         if "wait_for_selector" in browser and browser["wait_for_selector"] is not None and not isinstance(browser["wait_for_selector"], str):
             raise ProfileError(f"{site['site_name']}: browser_config.wait_for_selector must be a string")
+        if "strip_listing_context" in site and not isinstance(site["strip_listing_context"], bool):
+            raise ProfileError(f"{site['site_name']}: strip_listing_context must be boolean")
         if "scroll_down" in browser and not isinstance(browser["scroll_down"], bool):
             raise ProfileError(f"{site['site_name']}: browser_config.scroll_down must be boolean")
         for category_name, category in site["categories"].items():
@@ -132,6 +134,7 @@ def load_profile(profile: str | Path, profiles_dir: Path = DEFAULT_PROFILES_DIR)
                 currency=raw["default_currency"],
                 engine=raw_site.get("engine", "browser"),
                 max_llm_calls_per_site=raw_site.get("max_llm_calls_per_site"),
+                strip_listing_context=raw_site.get("strip_listing_context", False),
             )
         )
     return ProfileConfig(

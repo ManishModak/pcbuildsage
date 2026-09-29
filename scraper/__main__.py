@@ -21,6 +21,7 @@ from .normalizer import (
     parse_gpu_specs,
     parse_price,
     product_id,
+    strip_listing_context,
 )
 from .output import EventEmitter, configure_logging
 
@@ -207,8 +208,11 @@ def make_product(raw: RawProduct, site: SiteConfig, category: str, matcher: Regi
         if gpu_specs:
             specs.update(gpu_specs)
     normalized = normalize_title(raw.title)
+    url = raw.url
+    if site.strip_listing_context and category in site.categories:
+        url = strip_listing_context(url, site.categories[category].path)
     return ScrapedProduct(
-        id=product_id(raw.url),
+        id=product_id(url),
         name=raw.title,
         normalized_name=normalized,
         registry_key=matcher.match(normalized),
@@ -216,7 +220,7 @@ def make_product(raw: RawProduct, site: SiteConfig, category: str, matcher: Regi
         currency=site.currency,
         country_code=site.country_code,
         retailer=site.site_name,
-        url=raw.url,
+        url=url,
         image_url=raw.image_url,
         in_stock=raw.in_stock,
         category=category,
