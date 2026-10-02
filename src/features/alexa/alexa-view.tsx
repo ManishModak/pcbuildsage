@@ -319,7 +319,10 @@ function AlexaConversation({
         {streaming ? (
           <button
             type="button"
-            onClick={() => interrupt()}
+            onClick={() => {
+              speech.stop();
+              interrupt();
+            }}
             aria-label="Stop generating"
             className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-btn border border-border text-text-secondary hover:text-text"
           >

@@ -41,6 +41,15 @@ export function useSpeechRecognition(options?: { lang?: string }) {
 
   useEffect(() => teardown, [teardown]);
 
+  // Surface "unsupported" on first paint (not only after the first mic tap).
+  // Effect, not an initializer, so server and client render the same HTML.
+  useEffect(() => {
+    if (!getSpeechRecognitionCtor()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-only support probe is safe
+      setStatus("unsupported");
+    }
+  }, []);
+
   const start = useCallback(() => {
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) {

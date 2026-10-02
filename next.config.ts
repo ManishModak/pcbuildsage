@@ -22,17 +22,6 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Own lines (Track C): voice input needs the mic on this page only.
-        // Every other route keeps microphone=() via the global rule below.
-        source: "/alexa",
-        headers: [
-          {
-            key: "Permissions-Policy",
-            value: "camera=(), microphone=(self), geolocation=()"
-          }
-        ]
-      },
-      {
         source: "/:path*",
         headers: [
           {
@@ -54,6 +43,19 @@ const nextConfig: NextConfig = {
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()"
+          }
+        ]
+      },
+      {
+        // Own lines (Track C): voice input needs the mic on this page only.
+        // This MUST stay AFTER the global rule above: Next dedupes the
+        // duplicate Permissions-Policy key and the later match wins — listed
+        // first, /:path* shadows it and the mic is denied on /alexa.
+        source: "/alexa",
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(self), geolocation=()"
           }
         ]
       }
