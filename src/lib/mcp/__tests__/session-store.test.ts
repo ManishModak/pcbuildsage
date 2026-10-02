@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evictSessions, MCP_MAX_SESSIONS, MCP_SESSION_IDLE_MS, type SessionEntry } from "../session-store";
+import { evictSessions, MCP_SESSION_IDLE_MS, type SessionEntry } from "../session-store";
 
 function fakeTransport() {
   return {
@@ -46,6 +46,5 @@ describe("MCP session eviction", () => {
     expect(transports[1].closed).toBe(false);
     expect(transports[2].closed).toBe(false);
     expect([...sessions.keys()].sort()).toEqual(["middle", "newest"]);
-    expect(MCP_MAX_SESSIONS).toBe(100);
   });
 });

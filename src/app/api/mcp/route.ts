@@ -24,8 +24,7 @@ function ensureSweepTimer(): void {
   sweepTimer = setInterval(() => {
     void evictSessions(sessions);
   }, 60_000);
-  const unref = (sweepTimer as unknown as { unref?: () => void }).unref;
-  if (typeof unref === "function") unref.call(sweepTimer);
+  sweepTimer.unref?.();
 }
 
 async function handle(request: Request): Promise<Response> {
