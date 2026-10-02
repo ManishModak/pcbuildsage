@@ -581,7 +581,7 @@ async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
   // a chain-wide timeout signal would make the client treat an entry
   // timeout as user Stop and skip the fallback entries.
   const entryTimeout = args.deps.timeoutMsPerEntry ?? subagentEntryTimeoutMs(Boolean(args.config.search.crawlEnabled));
-  const repairTimeout = Math.min(args.deps.timeoutMsPerEntry ?? getEntryTimeoutMs(), 15_000);
+  const repairTimeout = args.deps.timeoutMsPerEntry ?? Math.max(getEntryTimeoutMs(), 60_000);
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (args.deps.abortSignal?.aborted) {
@@ -731,14 +731,39 @@ export function mergeAuditFindings(findings: unknown, pair: string, grounded?: S
   return { pair, severity: top.severity, detail, sources };
 }
 
-function parseJsonObject(text: string): unknown {
+export function parseJsonObject(text: string): unknown {
+  const cleaned = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<think>[\s\S]*$/gi, "")
+    .trim();
+
   try {
-    return JSON.parse(text);
+    return JSON.parse(cleaned);
   } catch {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("No JSON object found in model response.");
-    return JSON.parse(match[0]);
+    // Continue
   }
+
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim());
+    } catch {
+      // Continue
+    }
+  }
+
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = cleaned.slice(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // Continue
+    }
+  }
+
+  throw new Error("No JSON object found in model response.");
 }
 
 function sanitizeAuditFinding(finding: unknown, pair: string) {
