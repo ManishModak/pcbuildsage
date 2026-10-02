@@ -141,3 +141,39 @@ describe("crawlPage cap", () => {
     await expect(crawlPage("https://example.com/x", runner, { signal: controller.signal })).rejects.toThrow(/cancelled/);
   });
 });
+
+describe("crawl domain deny list & robots.txt", () => {
+  it("blocks forbidden domains in assertCrawlUrlAllowed", () => {
+    for (const host of ["tomshardware.com", "sub.tomshardware.com", "techpowerup.com", "3dcenter.org", "techradar.com"]) {
+      expect(() => assertCrawlUrlAllowed(`https://${host}/reviews`)).toThrow(/forbidden by terms or anti-scraping policy/);
+    }
+    expect(() => assertCrawlUrlAllowed("https://amd.com/en/products")).not.toThrow();
+  });
+
+  it("filters out denied domains from search results", async () => {
+    const { filterAllowedSearchResults } = await import("@/lib/web-search");
+    const results = [
+      { title: "Tom's Hardware Review", url: "https://www.tomshardware.com/reviews/test", snippet: "..." },
+      { title: "AMD Specs", url: "https://www.amd.com/specs", snippet: "..." },
+      { title: "TechPowerUp GPU", url: "https://www.techpowerup.com/gpu-specs", snippet: "..." }
+    ];
+    const filtered = filterAllowedSearchResults(results);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0]?.url).toBe("https://www.amd.com/specs");
+  });
+
+  it("evaluates robots.txt path restrictions accurately", async () => {
+    const { isPathDisallowedByRobotsTxt } = await import("@/lib/web-search");
+    const robots = `
+User-agent: Googlebot
+Disallow: /admin
+
+User-agent: *
+Disallow: /private/
+Disallow: /api/secret
+`;
+    expect(isPathDisallowedByRobotsTxt(robots, "/private/doc")).toBe(true);
+    expect(isPathDisallowedByRobotsTxt(robots, "/api/secret/key")).toBe(true);
+    expect(isPathDisallowedByRobotsTxt(robots, "/public/specs")).toBe(false);
+  });
+});
