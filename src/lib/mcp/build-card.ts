@@ -36,7 +36,15 @@ export function inlineAppBundle(bundle: string): string {
 const VIEW_SCRIPT = String.raw`
 const { App } = __extApps;
 const root = document.getElementById("root");
-const rupees = (n) => (typeof n === "number" ? "₹" + n.toLocaleString("en-IN") : "price unknown");
+const money = (n, currency) => {
+  if (typeof n !== "number") return "price unknown";
+  const code = String(currency || "INR").toUpperCase();
+  try {
+    return new Intl.NumberFormat(code === "INR" ? "en-IN" : undefined, { style: "currency", currency: code, maximumFractionDigits: code === "INR" ? 0 : 2 }).format(n);
+  } catch {
+    return code + " " + n.toLocaleString();
+  }
+};
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 function render(cards) {
@@ -50,13 +58,15 @@ function render(cards) {
       '<tr><td class="cat">' + esc(c.category) + '</td><td>' + esc(c.name) +
       (c.retailer ? ' <span class="muted">· ' + esc(c.retailer) + '</span>' : '') +
       '</td><td class="price">' + (c.included ? 'included' : c.url
-        ? '<a href="#" data-url="' + esc(c.url) + '">' + rupees(c.price) + '</a>'
-        : rupees(c.price)) + '</td></tr>').join("");
+        ? '<a href="#" data-url="' + esc(c.url) + '">' + money(c.price, c.currency) + '</a>'
+        : money(c.price, c.currency)) + '</td></tr>').join("");
     const v = s.validation_summary;
-    const checks = v ? v.passed + ' checks passed' + (v.unverified ? ', ' + v.unverified + ' unverified' : '') : '';
-    return '<section><header><h2>' + esc(card.label) + '</h2><span class="total">' + rupees(s.total) + '</span></header>' +
+    const checks = v ? v.passed + ' checks passed' + (v.unverified ? ', ' + v.unverified + ' unverified' : '') + (v.skipped ? ', ' + v.skipped + ' skipped' : '') : '';
+    const notes = (v?.issues ?? []).map((issue) => '<li>' + esc(issue) + '</li>').join("");
+    return '<section><header><h2>' + esc(card.label) + '</h2><span class="total">' + (s.total == null ? 'total incomplete' : money(s.total, s.currency)) + '</span></header>' +
       (card.notes ? '<p class="muted">' + esc(card.notes) + '</p>' : '') +
-      '<table>' + rows + '</table><p class="ok">' + esc(checks) + '</p></section>';
+      '<table>' + rows + '</table><p class="ok">' + esc(checks) + '</p>' +
+      (notes ? '<ul class="issues">' + notes + '</ul>' : '') + '</section>';
   }).join("");
 }
 
@@ -86,6 +96,7 @@ const STYLES = `
   a { color: var(--accent); }
   .muted { color: var(--muted); }
   .ok { color: var(--ok); margin: 8px 0 0; font-size: 12px; }
+  .issues { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--muted); }
 `;
 
 /** The card's HTML document, built once per process. */
