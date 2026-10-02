@@ -53,7 +53,7 @@ async function handle(request: Request): Promise<Response> {
       sessions.delete(id);
     }
   });
-  const server = createPcBuildSageMcpServer(buildAppConfig(request.headers));
+  const server = await createPcBuildSageMcpServer(buildAppConfig(request.headers));
   await server.connect(transport);
   return transport.handleRequest(request);
 }
