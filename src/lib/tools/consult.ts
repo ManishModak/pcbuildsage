@@ -29,9 +29,22 @@ const registrySpecSchema = z.object({
   model: z.string(),
   aliases: z.array(z.string()).default([])
 }).catchall(z.unknown());
+const sourcesSchema = z.preprocess((val) => {
+  if (!Array.isArray(val)) return [];
+  return val
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object" && "url" in item && typeof (item as { url: unknown }).url === "string") {
+        return (item as { url: string }).url.trim();
+      }
+      return undefined;
+    })
+    .filter((s): s is string => typeof s === "string" && (s.startsWith("http://") || s.startsWith("https://")));
+}, z.array(z.string().url()).default([]));
+
 const componentSpecsSchema = z.object({
   specs: registrySpecSchema,
-  sources: z.array(z.string().url()).default([])
+  sources: sourcesSchema
 });
 const advisorySeveritySchema = z.preprocess((value) => {
   if (value === "blocking" || value === "fail" || value === "failed") return "warning";
@@ -42,14 +55,14 @@ const auditFindingSchema = z.object({
   pair: z.string().optional(),
   severity: advisorySeveritySchema,
   detail: z.string(),
-  sources: z.array(z.string().url()).default([])
+  sources: sourcesSchema
 });
 const buildAuditSchema = z.object({
   findings: z.array(auditFindingSchema).default([])
 });
 const freeformSchema = z.object({
   answer: z.string(),
-  sources: z.array(z.string().url()).default([])
+  sources: sourcesSchema
 });
 
 export type ConsultDeps = {
