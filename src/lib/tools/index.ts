@@ -7,10 +7,17 @@ import { createValidateBuildTool } from "./validate-build";
 import { createPresentBuildTool } from "./present-build";
 import { createSuggestFollowupsTool } from "./suggest-followups";
 import { createConsultTool } from "./consult";
-import { createTurnValidationStore } from "./turn-state";
+import { createTurnValidationStore, type TurnValidationStore } from "./turn-state";
 
-export function createToolRegistry(config: AppConfig, options?: { repository?: CatalogRepository }): ToolSet {
-  const turnStore = createTurnValidationStore();
+/**
+ * Builds the tool set for one chat turn or MCP session. Pass `turnStore` to
+ * read the validate_build snapshots afterwards (the MCP build card does).
+ */
+export function createToolRegistry(
+  config: AppConfig,
+  options?: { repository?: CatalogRepository; turnStore?: TurnValidationStore }
+): ToolSet {
+  const turnStore = options?.turnStore ?? createTurnValidationStore();
   const tools: ToolSet = {
     search_products: createSearchProductsTool(
       { dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency, repository: options?.repository },

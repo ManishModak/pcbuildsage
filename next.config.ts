@@ -15,6 +15,10 @@ const cspHeader = [
 const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["better-sqlite3"],
+  // The MCP build card inlines this bundle at runtime (src/lib/mcp/build-card.ts).
+  outputFileTracingIncludes: {
+    "/api/mcp": ["./node_modules/@modelcontextprotocol/ext-apps/dist/src/app-with-deps.js"]
+  },
   async headers() {
     return [
       {
