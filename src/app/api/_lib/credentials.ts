@@ -55,7 +55,7 @@ export function assertSafeSearchConfig(search: AppConfig["search"], mode: Deploy
       throw new UnsafeConfigError(check.reason ?? `Search endpoint URL "${search.baseUrl}" is not permitted in hosted-demo mode.`);
     }
   }
-  return search;
+  return { ...search, crawlEnabled: false };
 }
 
 const providerSchema = z.enum(["gemini", "ollama", "openrouter", "openai-compatible", "groq"]);
@@ -103,7 +103,15 @@ export function buildAppConfig(headers: Headers, bodyConfig: unknown = {}): AppC
     assertSafeLlmChain(hydrated.llm.roles.chat, mode);
     assertSafeLlmChain(hydrated.llm.roles.subagent, mode);
     assertSafeLlmChain(hydrated.llm.roles.scraper, mode);
-    return { ...hydrated, search: assertSafeSearchConfig(hydrated.search, mode) };
+    return {
+      ...hydrated,
+      tier2Enabled: false,
+      freeformConsultEnabled: false,
+      search: {
+        ...assertSafeSearchConfig(hydrated.search, mode),
+        crawlEnabled: false
+      }
+    };
   }
 
   return hydrated;

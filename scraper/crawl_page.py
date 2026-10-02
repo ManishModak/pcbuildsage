@@ -6,6 +6,8 @@ _PROCESS_START = time.monotonic()
 import os  # noqa: E402
 import sys  # noqa: E402
 import asyncio  # noqa: E402
+import ipaddress  # noqa: E402
+import socket  # noqa: E402
 from pathlib import Path  # noqa: E402
 from urllib.parse import urlparse  # noqa: E402
 from bs4 import BeautifulSoup  # noqa: E402
@@ -32,11 +34,27 @@ class CrawlPageTimeout(Exception):
 
 def _assert_http_url(url: str) -> None:
     try:
-        scheme = urlparse(url).scheme.lower()
+        parsed = urlparse(url)
+        scheme = parsed.scheme.lower()
     except Exception as exc:
         raise ValueError(f"Invalid URL {url!r}: {exc}") from exc
     if scheme not in ("http", "https"):
         raise ValueError(f"Refusing to crawl non-http(s) URL: {url!r}")
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError(f"URL missing hostname: {url!r}")
+    host_clean = hostname.strip("[]").lower()
+    if host_clean in ("localhost", "127.0.0.1", "::1", "0.0.0.0"):
+        raise ValueError(f"Crawl blocked: private or loopback address {hostname!r}")
+    try:
+        addrinfo = socket.getaddrinfo(host_clean, None)
+        for res in addrinfo:
+            ip_str = res[4][0]
+            ip = ipaddress.ip_address(ip_str)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                raise ValueError(f"Crawl blocked: {hostname!r} resolves to private or loopback address {ip_str}")
+    except socket.gaierror as e:
+        raise ValueError(f"Crawl blocked: could not resolve {hostname!r}: {e}") from e
 
 
 async def _fetch_with_budget(fetcher: Crawl4AIFetcher, url: str, site: SiteConfig) -> str:
