@@ -103,11 +103,12 @@ export function isDeniedCrawlDomain(hostname: string): boolean {
 
 export function filterAllowedSearchResults(results: SearchResult[]): SearchResult[] {
   return results.filter((item) => {
+    if (!item?.url) return true;
     try {
       const parsed = new URL(item.url);
       return !isDeniedCrawlDomain(parsed.hostname);
     } catch {
-      return false;
+      return true;
     }
   });
 }
