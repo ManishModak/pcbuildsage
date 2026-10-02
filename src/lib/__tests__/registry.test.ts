@@ -76,7 +76,7 @@ describe("resolveComponent trust model", () => {
 
 describe("GPU variant identity", () => {
   it("corrects an 8GB offer linked to the 16GB registry variant and flags the conflict", () => {
-    const result = resolveComponent({ category: "gpu", key: "amd-rx-9060-xt-16gb", name: "ASRock RX 9060 XT Steel Legend 8GB OC GDDR6 Graphics Card" }, { skipDbLookup: true });
+    const result = resolveComponent({ category: "gpu", key: "amd-rx-9060-xt-16gb", name: "XFX Speedster RX 9060 XT 8GB GDDR6 Graphics Card" }, { skipDbLookup: true });
     expect(result?.key).toBe("amd-rx-9060-xt-8gb");
     expect(result?.spec.vram_gb).toBe(8);
     expect(result?.spec.spec_conflict).toContain("conflicts");
