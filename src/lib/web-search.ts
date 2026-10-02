@@ -64,9 +64,9 @@ export async function crawlPage(
   assertCrawlUrlAllowed(url);
   if (options?.signal?.aborted) throw new Error("Page crawl was cancelled.");
   // Resolve DNS and walk the redirect chain before handing the URL to the
-  // Python crawler (which follows redirects on its own). Fails closed.
-  await (options?.preflight ?? preflightCrawlUrl)(url, options?.signal);
-  const result = await runner("scraper.crawl_page", [url], {
+  // Python crawler. Fails closed.
+  const targetUrl = (await (options?.preflight ?? preflightCrawlUrl)(url, options?.signal)) ?? url;
+  const result = await runner("scraper.crawl_page", [targetUrl], {
     timeoutMs: options?.timeoutMs ?? CRAWL_TIMEOUT_MS,
     maxOutputBytes: 500_000,
     signal: options?.signal
@@ -175,8 +175,8 @@ function expandIPv6(addr: string): number[] | undefined {
   return words.length === 8 && words.every((w) => Number.isInteger(w) && w >= 0 && w <= 0xffff) ? words : undefined;
 }
 
-/** Pre-flight gate run before every crawl; rejects to block the crawl. */
-export type CrawlPreflight = (url: string, signal?: AbortSignal) => Promise<void>;
+/** Pre-flight gate run before every crawl; rejects to block the crawl. Returns final resolved URL. */
+export type CrawlPreflight = (url: string, signal?: AbortSignal) => Promise<string | void>;
 export type CrawlLookup = (hostname: string) => Promise<Array<{ address: string; family: number }>>;
 
 /** Budget for the whole pre-flight (DNS + redirect hops). */
