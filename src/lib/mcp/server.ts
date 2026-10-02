@@ -6,13 +6,14 @@
  * one implementation. One server per MCP session: the tool registry's turn
  * store then carries a session's validate_build results over to present_build.
  *
- * Uses the SDK's low-level Server rather than McpServer: McpServer only takes
- * Zod schemas, while search_products / list_models use AI SDK JSON schemas with
- * lenient validation (lenient-input.ts). Each tool's own AI SDK schema supplies
+ * Uses the SDK's low-level Server rather than McpServer (v2): McpServer.registerTool
+ * only takes Standard Schema with JSON (a `~standard` interface), which the AI SDK
+ * schemas don't implement, and fromJsonSchema would validate strictly, losing the
+ * lenient coercion in lenient-input.ts. Each tool's own AI SDK schema supplies
  * both the advertised JSON Schema and the argument validation.
  */
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { CallToolRequestSchema, ListToolsRequestSchema, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { Server } from "@modelcontextprotocol/server";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import { asSchema, type Tool } from "ai";
 import { createToolRegistry } from "@/lib/tools";
 import type { AppConfig } from "@/types";
@@ -46,7 +47,7 @@ export function createPcBuildSageMcpServer(config: AppConfig): Server {
       .map(([name, chatTool]) => [name, { chatTool, schema: asSchema(chatTool.inputSchema) }])
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  server.setRequestHandler('tools/list', async () => ({
     tools: await Promise.all(
       [...tools].map(async ([name, { chatTool, schema }]) => ({
         name,
@@ -57,7 +58,7 @@ export function createPcBuildSageMcpServer(config: AppConfig): Server {
     )
   }));
 
-  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+  server.setRequestHandler('tools/call', async (request, ctx) => {
     const entry = tools.get(request.params.name);
     if (!entry) return errorResult(`Unknown tool: ${request.params.name}`);
     const args = request.params.arguments ?? {};
@@ -65,9 +66,9 @@ export function createPcBuildSageMcpServer(config: AppConfig): Server {
     if (!parsed.success) return errorResult(parsed.error.message);
     try {
       const output = await entry.chatTool.execute!(parsed.value, {
-        toolCallId: String(extra.requestId),
+        toolCallId: String(ctx.mcpReq.id),
         messages: [],
-        abortSignal: extra.signal,
+        abortSignal: ctx.mcpReq.signal,
         context: {}
       });
       return toCallToolResult(output);
