@@ -172,7 +172,8 @@ export function mcpModelOutput(toolName: string, input: unknown, output: CallToo
   }
   if (toolName === "present_build" && domain && typeof domain === "object" && !Array.isArray(domain)) {
     // Cards carry full snapshots for the UI; the model only needs the verdict.
-    const { cards: _cards, ...verdict } = domain as Record<string, unknown>;
+    const verdict = { ...(domain as Record<string, unknown>) };
+    delete verdict.cards;
     return { type: "json", value: verdict };
   }
   return { type: "json", value: domain };
@@ -288,7 +289,6 @@ export class AlexaMcpSessions {
       await connection.close().catch(() => undefined);
       throw new McpUnavailableError(`MCP listTools failed (${mcpUrl}): ${messageOf(error)}`, { cause: error });
     }
-    const store = this;
     const tools: ToolSet = {};
     for (const def of defs) {
       const toolName = def.name;
@@ -297,7 +297,7 @@ export class AlexaMcpSessions {
         inputSchema: jsonSchema(asJsonSchema(def.inputSchema) as never),
         execute: (async (args: unknown, execOptions?: { abortSignal?: AbortSignal }) => {
           const params = args && typeof args === "object" && !Array.isArray(args) ? (args as Record<string, unknown>) : {};
-          return store.callWithRetry(key, mcpUrl, headers, ephemeral, toolName, params, execOptions?.abortSignal);
+          return this.callWithRetry(key, mcpUrl, headers, ephemeral, toolName, params, execOptions?.abortSignal);
         }) as never,
         toModelOutput: (({ input, output }: { input: unknown; output: unknown }) =>
           mcpModelOutput(toolName, input, output as CallToolResult)) as never

@@ -445,7 +445,6 @@ describe("token cost (3-build turn, full vs model view)", () => {
 
     const fullChars = JSON.stringify(validateFull.structuredContent).length + JSON.stringify(presentFull.structuredContent).length;
     const modelChars = JSON.stringify(validateModel.value).length + JSON.stringify(presentModel.value).length;
-    // eslint-disable-next-line no-console
     console.log(
       `alexa token probe: full=${fullChars} chars (~${approxTokens(fullChars)} tok), ` +
         `model-view=${modelChars} chars (~${approxTokens(modelChars)} tok)`
