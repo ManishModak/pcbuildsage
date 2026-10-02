@@ -1,10 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { parseJsonObject } from "@/lib/tools/consult";
 
+interface SpecPayload {
+  specs: {
+    brand?: string;
+    model?: string;
+    length_mm?: number;
+    form_factor?: string;
+    socket?: string;
+  };
+  sources?: string[];
+}
+
 describe("parseJsonObject subagent parser", () => {
   it("parses clean JSON payload", () => {
     const input = '{"specs": {"brand": "AMD", "model": "Ryzen 7 9700X"}, "sources": ["https://amd.com"]}';
-    const parsed = parseJsonObject(input) as any;
+    const parsed = parseJsonObject(input) as SpecPayload;
     expect(parsed.specs.brand).toBe("AMD");
     expect(parsed.sources).toEqual(["https://amd.com"]);
   });
@@ -15,7 +26,7 @@ I need to check the specs for { "model": "ASUS Dual RTX 4060 Ti" }.
 Wait, let's verify dimensions: { "length_mm": 227 } and TDP.
 </think>
 {"specs": {"brand": "ASUS", "model": "Dual GeForce RTX 4060 Ti OC Edition 8GB", "length_mm": 227}, "sources": ["https://asus.com"]}`;
-    const parsed = parseJsonObject(input) as any;
+    const parsed = parseJsonObject(input) as SpecPayload;
     expect(parsed.specs.brand).toBe("ASUS");
     expect(parsed.specs.length_mm).toBe(227);
   });
@@ -33,7 +44,7 @@ Wait, let's verify dimensions: { "length_mm": 227 } and TDP.
 }
 \`\`\`
 Hope this helps!`;
-    const parsed = parseJsonObject(input) as any;
+    const parsed = parseJsonObject(input) as SpecPayload;
     expect(parsed.specs.brand).toBe("Ant Esports");
     expect(parsed.specs.form_factor).toBe("Mid Tower");
   });
@@ -52,7 +63,7 @@ Analyzing motherboard: { "socket": "AM5" }
   "sources": ["https://gigabyte.com"]
 }
 \`\`\``;
-    const parsed = parseJsonObject(input) as any;
+    const parsed = parseJsonObject(input) as SpecPayload;
     expect(parsed.specs.brand).toBe("Gigabyte");
     expect(parsed.specs.socket).toBe("AM5");
   });
