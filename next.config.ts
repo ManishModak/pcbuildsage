@@ -22,6 +22,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Own lines (Track C): voice input needs the mic on this page only.
+        // Every other route keeps microphone=() via the global rule below.
+        source: "/alexa",
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(self), geolocation=()"
+          }
+        ]
+      },
+      {
         source: "/:path*",
         headers: [
           {
