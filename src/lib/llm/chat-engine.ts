@@ -187,7 +187,23 @@ function unwrapToolOutput(output: unknown): unknown {
   if (output && typeof output === "object" && "value" in output) {
     return (output as { value: unknown }).value;
   }
+  // MCP-backed tools (voice route) return the full CallToolResult; the domain
+  // result lives in structuredContent. Chat tools never emit this shape, so
+  // the default web-chat path is behaviour-identical.
+  if (isCallToolResultShape(output)) {
+    return output.structuredContent;
+  }
   return output;
+}
+
+function isCallToolResultShape(output: unknown): output is { structuredContent: unknown } {
+  if (!output || typeof output !== "object") return false;
+  const obj = output as Record<string, unknown>;
+  return (
+    Array.isArray(obj.content) &&
+    obj.structuredContent !== null &&
+    typeof obj.structuredContent === "object"
+  );
 }
 
 /**
@@ -444,19 +460,34 @@ export function continuationMessageId(messages: ReadonlyArray<{ id?: string; rol
   return last?.role === "assistant" && typeof last.id === "string" && last.id.length > 0 ? last.id : undefined;
 }
 
+/**
+ * Track B (voice-agent backend) injection point: the ONLY way the alexa route
+ * differs from web chat. `tools` swaps the local registry for MCP-client
+ * tools; `systemPromptSuffix` appends the voice addendum. Both are optional;
+ * when absent the web-chat path is behaviour-identical.
+ */
+export interface StreamChatOverrides {
+  tools?: ToolSet;
+  systemPromptSuffix?: string;
+}
+
 export async function streamChat(
   config: AppConfig,
   messages: ChatMessage[],
   sessionId?: string,
   abortSignal?: AbortSignal,
   clientCompactContext?: StoredCompactContext | null,
-  responseMessageId?: string
+  responseMessageId?: string,
+  overrides?: StreamChatOverrides
 ) {
   const lastUser = messages.filter((message) => message.role === "user").at(-1);
   if (lastUser) {
     await appendChatLog({ role: "user", content: lastUser.content ?? "", session_id: sessionId });
   }
   let systemPrompt = buildSystemPrompt(config, await loadCatalogSummary(config));
+  if (overrides?.systemPromptSuffix) {
+    systemPrompt += `\n\n${overrides.systemPromptSuffix}`;
+  }
   const session = (!isHosted() && sessionId) ? getSession(sessionId) : null;
   const buildState = session?.build_state ?? deriveBuildState(messages as unknown as UIMessage[]);
   if (buildState) {
@@ -472,7 +503,7 @@ export async function streamChat(
   // tool's toModelOutput (the trimmed model view), not the full UI output.
   // Set by prepareStep: steps left while late-turn research is closed, else null.
   let researchClosedStepsLeft: number | null = null;
-  const tools = gateResearchTools(createToolRegistry(config), () => researchClosedStepsLeft);
+  const tools = gateResearchTools(overrides?.tools ?? createToolRegistry(config), () => researchClosedStepsLeft);
   const capped = capMessages(messages);
   const rawModelMessages = await convertToModelMessages(
     capped.map((m: ChatMessage) => ({

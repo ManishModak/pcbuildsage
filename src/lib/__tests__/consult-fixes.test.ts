@@ -104,6 +104,71 @@ describe("registry cache key + TTL", () => {
     expect(result.cached).not.toBe(true);
     expect(result.specs.brand).toBe("AMD");
   });
+
+  it("treats low-confidence or ungrounded cached entries as a cache miss", async () => {
+    const config = configWithMockDb();
+    const key = registryKey("gpu", "Low Quality GPU");
+    state.registry.set(key, {
+      specs: JSON.stringify({ brand: "Unknown", model: "Low Quality GPU", aliases: [] }),
+      confidence: "low",
+      sources: JSON.stringify([]),
+      category: "gpu",
+      researched_at: new Date().toISOString(),
+    });
+    const result = (await consult({ mode: "component_specs", name: "Low Quality GPU", category: "gpu" }, config, {
+      searchClient,
+      generateText: (async () => ({
+        text: JSON.stringify({ specs: { brand: "NVIDIA", model: "Quality GPU", aliases: [] }, sources: ["https://example.com/cpu"] }),
+        provider: "ollama",
+        model: "test-subagent",
+        fallbackIndex: 0,
+      })) as unknown as typeof generateTextWithFallback,
+    })) as { cached?: boolean; specs: { brand: string } };
+    expect(result.cached).not.toBe(true);
+    expect(result.specs.brand).toBe("NVIDIA");
+  });
+
+  it("does not write low-confidence research results to database", async () => {
+    const config = configWithMockDb();
+    const key = registryKey("gpu", "Ghost GPU");
+    await consult({ mode: "component_specs", name: "Ghost GPU", category: "gpu" }, config, {
+      searchClient: {
+        async search() {
+          return { provider: "duckduckgo", grounded: false, results: [] };
+        }
+      },
+      generateText: (async () => ({
+        text: JSON.stringify({ specs: { brand: "Ghost", model: "Ghost GPU", aliases: [] }, sources: [] }),
+        provider: "ollama",
+        model: "test-subagent",
+        fallbackIndex: 0,
+      })) as unknown as typeof generateTextWithFallback,
+    });
+    expect(state.registry.has(key)).toBe(false);
+  });
+
+  it("bypasses cache when forceRefresh is requested", async () => {
+    const config = configWithMockDb();
+    const key = registryKey("cpu", "Cached Chip");
+    state.registry.set(key, {
+      specs: JSON.stringify({ brand: "Initial Brand", model: "Cached Chip", aliases: [] }),
+      confidence: "high",
+      sources: JSON.stringify(["https://example.com/cpu"]),
+      category: "cpu",
+      researched_at: new Date().toISOString(),
+    });
+    const result = (await consult({ mode: "component_specs", name: "Cached Chip", category: "cpu", forceRefresh: true }, config, {
+      searchClient,
+      generateText: (async () => ({
+        text: JSON.stringify({ specs: { brand: "Refreshed Brand", model: "Cached Chip", aliases: [] }, sources: ["https://example.com/cpu"] }),
+        provider: "ollama",
+        model: "test-subagent",
+        fallbackIndex: 0,
+      })) as unknown as typeof generateTextWithFallback,
+    })) as { cached?: boolean; specs: { brand: string } };
+    expect(result.cached).not.toBe(true);
+    expect(result.specs.brand).toBe("Refreshed Brand");
+  });
 });
 
 describe("confidence from source quality", () => {
