@@ -110,6 +110,18 @@ describe("crawl pre-flight (DNS + redirects)", () => {
     await expect(crawlPage("http://127.0.0.1.nip.io/", runner, { preflight })).rejects.toThrow(/resolves to private/);
     expect(called).toBe(false);
   });
+
+  it("passes preflight-resolved redirect target to the crawl runner", async () => {
+    let targetArg = "";
+    const runner = async (_mod: string, args: string[]) => {
+      targetArg = args[0];
+      return { code: 0, signal: null, stdout: "page text", stderr: "" };
+    };
+    const preflight = async () => "https://example.com/final-destination";
+    const res = await crawlPage("https://example.com/initial-redirect", runner, { preflight });
+    expect(res).toBe("page text");
+    expect(targetArg).toBe("https://example.com/final-destination");
+  });
 });
 
 describe("crawlPage cap", () => {
