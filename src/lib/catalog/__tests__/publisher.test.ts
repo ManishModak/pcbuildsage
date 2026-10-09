@@ -787,6 +787,36 @@ describe("Publisher Engine & Turso Schema", () => {
       cleanup();
     });
 
+    it("does not count a retailer missing from the snapshot as a drop, but still gates covered retailers", async () => {
+      const lastRun = (retailers: Record<string, number>) => ({
+        sql: `INSERT INTO catalog_runs (id, published_at, product_count, source_db_hash, status, metadata)
+              VALUES ('run-prev', '2026-09-27T00:00:00.000Z', ?, 'hash123', 'success', ?)`,
+        args: [Object.values(retailers).reduce((a, b) => a + b, 0), JSON.stringify({ stats: { retailers } })]
+      });
+      const products = (retailer: string, count: number) =>
+        Array.from({ length: count }, (_, i) => ({ id: `${retailer}-${i}`, name: `Product ${i}`, retailer }));
+
+      // RetailerB failed to scrape (absent): RetailerA alone matches its baseline, so this publishes.
+      const okClient = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(okClient);
+      await okClient.execute(lastRun({ RetailerA: 60, RetailerB: 40 }));
+      const missing = createCandidateDatabase(products("RetailerA", 60));
+      const okResult = await publishCatalogSnapshot({ dbPath: missing.dbPath, client: okClient });
+      expect(okResult.success).toBe(true);
+      expect(okResult.publishedCount).toBe(60);
+      missing.cleanup();
+
+      // Both retailers present, RetailerA halved: 100 vs covered baseline 150 is a 33% drop.
+      const dropClient = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(dropClient);
+      await dropClient.execute(lastRun({ RetailerA: 100, RetailerB: 50 }));
+      const dropped = createCandidateDatabase([...products("RetailerA", 50), ...products("RetailerB", 50)]);
+      const dropResult = await publishCatalogSnapshot({ dbPath: dropped.dbPath, client: dropClient });
+      expect(dropResult.success).toBe(false);
+      expect(dropResult.errors?.some((e) => e.includes("baseline 150"))).toBe(true);
+      dropped.cleanup();
+    });
+
     it("fails closed and publishes nothing when transaction is unavailable or throws", async () => {
       // 1. Transaction unavailable (not a function / missing)
       const { dbPath: dbPath1, cleanup: cleanup1 } = createCandidateDatabase([

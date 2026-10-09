@@ -67,20 +67,45 @@ export function computeDatabaseHash(filePath: string): string | null {
 }
 
 /**
- * Retrieves the product count from the last successful catalog run in Turso.
+ * The last successful catalog run in Turso: its product count, plus its
+ * per-retailer counts when its metadata recorded them (`stats.retailers`).
  */
-export async function getLastSuccessfulProductCount(client: Client): Promise<number | undefined> {
+export async function getLastSuccessfulRun(
+  client: Client
+): Promise<{ productCount: number; retailers?: Record<string, number> } | undefined> {
   try {
     const res = await client.execute(
-      "SELECT product_count FROM catalog_runs WHERE status = 'success' ORDER BY published_at DESC LIMIT 1"
+      "SELECT product_count, metadata FROM catalog_runs WHERE status = 'success' ORDER BY published_at DESC LIMIT 1"
     );
-    if (res.rows.length > 0 && typeof res.rows[0].product_count === "number") {
-      return res.rows[0].product_count;
+    const row = res.rows[0];
+    if (row && typeof row.product_count === "number") {
+      let retailers: Record<string, number> | undefined;
+      try {
+        const parsed = JSON.parse(String(row.metadata ?? "{}")) as { stats?: { retailers?: unknown } };
+        const raw = parsed.stats?.retailers;
+        if (raw && typeof raw === "object") retailers = raw as Record<string, number>;
+      } catch {
+        // Older runs may lack metadata; fall back to the total count.
+      }
+      return { productCount: row.product_count, retailers };
     }
   } catch {
     // Table may not exist yet or catalog is empty
   }
   return undefined;
+}
+
+/**
+ * Drop-gate baseline for a snapshot: the last run's count over only the
+ * retailers this snapshot covers. A retailer missing from the snapshot is a
+ * failed scrape whose listings are preserved, so it is not a drop.
+ */
+export function coveredBaseline(
+  lastRun: { productCount: number; retailers?: Record<string, number> },
+  snapshotRetailers: Record<string, number>
+): number {
+  if (!lastRun.retailers) return lastRun.productCount;
+  return Object.keys(snapshotRetailers).reduce((sum, retailer) => sum + (Number(lastRun.retailers?.[retailer]) || 0), 0);
 }
 
 /** A (country, retailer, category) scope the scraper crawled end to end. */
@@ -219,9 +244,11 @@ export async function publishCatalogSnapshot(
     };
   }
 
-  // e. Evaluate drop-threshold gate against last successful run in catalog_runs if baseline wasn't passed explicitly
+  // e. Evaluate drop-threshold gate against last successful run in catalog_runs if baseline wasn't passed explicitly.
+  //    Only retailers this snapshot covers count (see coveredBaseline).
   if (options.validatorOptions?.baselineProductCount === undefined && !options.force) {
-    const lastProductCount = await getLastSuccessfulProductCount(client);
+    const lastRun = await getLastSuccessfulRun(client);
+    const lastProductCount = lastRun ? coveredBaseline(lastRun, validation.stats.retailers) : undefined;
     if (lastProductCount !== undefined && lastProductCount > 0) {
       const maxDropRatio = options.validatorOptions?.maxDropRatio ?? 0.3;
       if (validation.stats.totalProducts < lastProductCount) {
