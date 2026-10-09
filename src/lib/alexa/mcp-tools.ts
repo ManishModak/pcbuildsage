@@ -31,12 +31,21 @@ import { toModelSearchResult } from "@/lib/catalog/compact";
 /** Fixed env name per CONTRACT section 4. Read at request time. */
 export const MCP_URL_ENV = "PCBUILDSAGE_MCP_URL";
 
-/** Voice style is a system-prompt addendum only (CONTRACT section 8). */
-export const ALEXA_VOICE_ADDENDUM =
-  "Voice mode: reply in 1-2 short spoken sentences, plain words, no markdown, " +
-  "tables, or long numbers. Prices and part lists belong on the build card, not " +
-  "in your reply. When there is a real choice, end with one short question " +
-  "(e.g. 'Want me to swap the GPU for something cheaper?').";
+/**
+ * Voice style, placed first in the system prompt: the general prompt asks for
+ * full explanations, and small local models follow the bulk of the prompt
+ * unless these rules say they win. The page also trims what it speaks.
+ */
+export const ALEXA_VOICE_RULES =
+  "VOICE MODE. These rules override any other guidance about answer length or format. " +
+  "Your text reply is read aloud by a voice assistant: at most two short sentences, under 40 words, " +
+  "plain words, no markdown, lists, tables or headings. The build card already shows every part, " +
+  "price and check, so never list parts or prices in the reply; name at most the key part and the total. " +
+  "When there is a real choice, end with one short question (e.g. 'Want me to swap the GPU for something cheaper?'). " +
+  "Keep tool use lean: search only what the build needs, then validate and present.";
+
+/** Closing reminder after the long general prompt (recency helps small models). */
+export const ALEXA_VOICE_REMINDER = "Remember VOICE MODE: two short spoken sentences, no lists or markdown.";
 
 /** Idle TTL for one MCP session per conversation; matches the server side. */
 export const ALEXA_MCP_SESSION_TTL_MS = 30 * 60_000;
@@ -66,6 +75,29 @@ export function pickForwardHeaders(headers: Headers): Record<string, string> {
       out[lower] = value;
     }
   });
+  return out;
+}
+
+/**
+ * Headers for the MCP connection: forwarded credentials plus the chat's own
+ * config. /api/mcp builds its config from headers only, while the page sends
+ * its settings (LLM chains, research, search) in the request body, so without
+ * this MCP tools would run on server defaults. Body config wins over a header
+ * config, as in buildAppConfig; compactContext is chat history, not config.
+ */
+export function mcpRequestHeaders(headers: Headers, bodyConfig: unknown): Record<string, string> {
+  const out = pickForwardHeaders(headers);
+  if (!bodyConfig || typeof bodyConfig !== "object" || Array.isArray(bodyConfig)) return out;
+  let headerConfig: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(out["x-pcbuildsage-config"] ?? "{}") as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) headerConfig = parsed as Record<string, unknown>;
+  } catch {
+    // An unparsable incoming header is replaced by the body config.
+  }
+  const config: Record<string, unknown> = { ...headerConfig, ...(bodyConfig as Record<string, unknown>) };
+  delete config.compactContext;
+  out["x-pcbuildsage-config"] = JSON.stringify(config);
   return out;
 }
 

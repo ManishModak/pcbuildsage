@@ -56,17 +56,66 @@ export function answerText(message: MessageLike | null | undefined): string {
   return latest;
 }
 
-function isAssistantText(message: MessageLike): boolean {
-  return message?.role === "assistant" && messageText(message).length > 0;
+/**
+ * The current turn's answer: the newest message's answer when it is from the
+ * assistant. When the newest message is the user's, a new turn is pending and
+ * there is no answer yet (an older turn's text would be stale).
+ */
+export function currentTurnAnswer(messages: MessageLike[]): string {
+  const last = messages.at(-1);
+  return last?.role === "assistant" ? answerText(last) : "";
 }
 
-/** Answer of the latest assistant message (the current answer). */
-export function latestAssistantText(messages: MessageLike[]): string {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const text = answerText(messages[i]);
-    if (messages[i]?.role === "assistant" && text.length > 0) return text;
+/** Said when a turn presents builds but ends without any text. */
+export const CARD_ONLY_REPLY = "I've put the builds on the card.";
+
+/** Plain text for speech: drops markdown syntax, links, code and table rows. */
+export function plainSpeech(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/^\s*\|.*\|\s*$/gm, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/^\s{0,3}(?:#{1,6}|[-*+•]|\d+[.)])\s+/gm, "")
+    .replace(/(\*\*|__)(.+?)\1/g, "$2")
+    .replace(/(^|[\s(])[*_]([^*_\n]+)[*_](?=[\s.,;:!?)]|$)/g, "$1$2")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Longest closing question kept on top of the summary's word budget. */
+const MAX_QUESTION_WORDS = 25;
+
+/**
+ * What the voice says and shows large: the answer's first sentences, up to
+ * about `maxWords` words (always at least the first sentence, trimmed at a
+ * clause break if it alone runs long), plus the closing question when the
+ * answer ends with a short one, since that keeps the voice conversation going.
+ * Small local models ignore the "two sentences" prompt rule, so brevity is
+ * enforced here; the full answer stays available on screen.
+ */
+export function spokenSummary(answer: string, maxWords = 40): string {
+  const plain = plainSpeech(answer);
+  if (!plain) return "";
+  // A sentence ends at . ! ? before a capital or quote, so "Rs. 21,645" and
+  // "2.5 GHz" don't split.
+  const sentences = plain.split(/(?<=[.!?])\s+(?=[A-Z"'“(])/);
+  const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
+  const last = sentences[sentences.length - 1];
+  const question = sentences.length > 1 && last.endsWith("?") && words(last) <= MAX_QUESTION_WORDS ? last : "";
+  const lead = question ? sentences.slice(0, -1) : sentences;
+  let summary = lead[0];
+  for (const next of lead.slice(1)) {
+    if (words(summary) + words(next) > maxWords) break;
+    summary = `${summary} ${next}`;
   }
-  return "";
+  if (words(summary) > maxWords * 1.5) {
+    const head = summary.split(/\s+/).slice(0, maxWords).join(" ");
+    const clause = Math.max(head.lastIndexOf(","), head.lastIndexOf(";"), head.lastIndexOf(" —"));
+    summary = `${(clause >= head.length / 3 ? head.slice(0, clause) : head).replace(/[,;:—\s]+$/, "")}.`;
+  }
+  return question ? `${summary} ${question}` : summary;
 }
 
 /**
@@ -84,9 +133,4 @@ export function shortTranscript(messages: MessageLike[], maxMessages = 6): Messa
       ? withText.slice(0, -1)
       : withText;
   return withoutCurrentAnswer.slice(-maxMessages);
-}
-
-/** True when at least one assistant turn has speakable text. */
-export function hasAssistantReply(messages: MessageLike[]): boolean {
-  return messages.some(isAssistantText);
 }

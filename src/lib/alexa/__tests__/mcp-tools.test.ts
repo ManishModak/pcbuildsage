@@ -20,6 +20,7 @@ import {
   isStaleSessionError,
   MCP_URL_ENV,
   mcpModelOutput,
+  mcpRequestHeaders,
   pickForwardHeaders,
   resolveMcpUrl,
   type McpClientLike,
@@ -144,6 +145,20 @@ describe("pickForwardHeaders", () => {
       "x-gemini-api-key": "g-key-2",
       "x-tavily-api-key": "t-key"
     });
+  });
+});
+
+describe("mcpRequestHeaders", () => {
+  it("sends the chat's body config to /api/mcp, over any header config, without compactContext", () => {
+    const headers = new Headers({ "x-pcbuildsage-config": '{"tier2Enabled":true,"countryCode":"IN"}', "x-tavily-api-key": "t-key" });
+    const out = mcpRequestHeaders(headers, { tier2Enabled: false, chatLlmChain: [{ provider: "ollama", model: "m" }], compactContext: { big: true } });
+    expect(JSON.parse(out["x-pcbuildsage-config"])).toEqual({ tier2Enabled: false, countryCode: "IN", chatLlmChain: [{ provider: "ollama", model: "m" }] });
+    expect(out["x-tavily-api-key"]).toBe("t-key");
+  });
+
+  it("leaves headers alone when the body has no config", () => {
+    const headers = new Headers({ "x-pcbuildsage-config": '{"a":1}' });
+    expect(mcpRequestHeaders(headers, undefined)).toEqual({ "x-pcbuildsage-config": '{"a":1}' });
   });
 });
 

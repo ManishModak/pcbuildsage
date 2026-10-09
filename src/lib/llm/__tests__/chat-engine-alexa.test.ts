@@ -54,13 +54,13 @@ function mcpResult(structured: unknown) {
 }
 
 describe("streamChat alexa overrides", () => {
-  let captured: { system?: string; tools?: Record<string, unknown> } | undefined;
+  let captured: { system?: string; tools?: Record<string, unknown>; thinking?: boolean } | undefined;
 
   beforeEach(() => {
     captured = undefined;
     vi.mocked(clientModule.streamTextWithFallback).mockImplementation((options: unknown) => {
-      const opts = options as { system?: string; tools?: Record<string, unknown> };
-      captured = { system: opts.system, tools: opts.tools };
+      const opts = options as { system?: string; tools?: Record<string, unknown>; thinking?: boolean };
+      captured = { system: opts.system, tools: opts.tools, thinking: opts.thinking };
       return { provider: "p", model: "m" } as never;
     });
   });
@@ -74,7 +74,7 @@ describe("streamChat alexa overrides", () => {
     expect(captured!.system).not.toContain(SUFFIX);
   });
 
-  it("swaps in MCP tools and appends the voice addendum when given", async () => {
+  it("swaps in MCP tools and wraps the prompt with the voice rules when given", async () => {
     const mcpTools = {
       only_mcp_tool: dynamicTool({
         description: "from mcp",
@@ -84,11 +84,15 @@ describe("streamChat alexa overrides", () => {
     };
     await streamChat(config, [{ role: "user", content: "hi" }], "session-1", undefined, null, undefined, {
       tools: mcpTools,
-      systemPromptSuffix: SUFFIX
+      systemPromptPrefix: "VOICE RULES",
+      systemPromptSuffix: SUFFIX,
+      thinking: false
     });
+    expect(captured!.thinking).toBe(false);
     expect(Object.keys(captured!.tools!)).toEqual(["only_mcp_tool"]);
+    expect(captured!.system!.startsWith("VOICE RULES")).toBe(true);
     expect(captured!.system).toContain("PCBuildSage");
-    expect(captured!.system).toContain(SUFFIX);
+    expect(captured!.system!.endsWith(SUFFIX)).toBe(true);
   });
 });
 

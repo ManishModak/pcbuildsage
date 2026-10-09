@@ -30,7 +30,16 @@ import { BuildCardHost } from "./build-card-host";
 import { extractPresentedBuilds, hasPresentAttempt } from "./present-cards";
 import { useSpeechRecognition } from "./use-speech-recognition";
 import { useSpeechSynthesis } from "./use-speech-synthesis";
-import { answerText, latestAssistantText, messageText, shortTranscript } from "./voice-text";
+import { Markdown } from "@/features/chat/markdown";
+import {
+  answerText,
+  CARD_ONLY_REPLY,
+  currentTurnAnswer,
+  messageText,
+  plainSpeech,
+  shortTranscript,
+  spokenSummary
+} from "./voice-text";
 
 /** Press longer than this sends on release (hold-to-talk); shorter is a tap. */
 const HOLD_MS = 450;
@@ -112,7 +121,15 @@ function AlexaConversation({
   const [hosted] = useState(() => isHostedMode());
 
   const presentations = useMemo(() => extractPresentedBuilds(messages), [messages]);
-  const currentAnswer = useMemo(() => latestAssistantText(messages), [messages]);
+  const currentAnswer = useMemo(() => currentTurnAnswer(messages), [messages]);
+  // Spoken and shown large: a short summary, whatever length the model wrote.
+  // A turn that ends on a card with no text still gets a short spoken reply.
+  const lastTurnPresented = useMemo(() => {
+    const last = messages.at(-1);
+    return last?.role === "assistant" && extractPresentedBuilds([last]).length > 0;
+  }, [messages]);
+  const spoken = currentAnswer ? spokenSummary(currentAnswer) : !streaming && lastTurnPresented ? CARD_ONLY_REPLY : "";
+  const hasMoreDetail = Boolean(currentAnswer) && plainSpeech(currentAnswer) !== spoken;
   const transcript = useMemo(() => shortTranscript(messages), [messages]);
   const awaitingCard = streaming && presentations.length === 0 && hasPresentAttempt(messages);
 
@@ -140,13 +157,13 @@ function AlexaConversation({
       interruptRef.current = false;
       return;
     }
-    if (!currentAnswer) return;
-    const key = `${sessionId}:${currentAnswer}`;
+    if (!spoken) return;
+    const key = `${sessionId}:${messages.length}:${spoken}`;
     if (spokenRef.current === key) return;
     spokenRef.current = key;
-    speech.speak(currentAnswer);
+    speech.speak(spoken);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- speak on turn end only
-  }, [status, currentAnswer, sessionId]);
+  }, [status, spoken, sessionId]);
 
   // --- Push-to-talk: hold to talk, tap to toggle ---------------------------
   const pressRef = useRef<{ at: number; toggleOff: boolean } | null>(null);
@@ -254,8 +271,8 @@ function AlexaConversation({
 
       {/* Current answer, large */}
       <section aria-live="polite" className="mt-5 min-h-24">
-        {currentAnswer ? (
-          <p className="text-xl leading-relaxed text-text sm:text-2xl">{currentAnswer}</p>
+        {spoken ? (
+          <p className="text-xl leading-relaxed text-text sm:text-2xl">{spoken}</p>
         ) : (
           <p className="text-xl leading-relaxed text-text-muted sm:text-2xl">
             {streaming ? "Listening to the sage…" : "Tap the mic and ask for a PC build."}
@@ -265,6 +282,14 @@ function AlexaConversation({
           <p className="mt-2 text-sm text-text-muted" role="status">
             Preparing your build card…
           </p>
+        ) : null}
+        {hasMoreDetail && !streaming ? (
+          <details className="mt-3 text-sm text-text-secondary">
+            <summary className="cursor-pointer text-text-muted select-none hover:text-text">Full answer</summary>
+            <div className="mt-2">
+              <Markdown text={currentAnswer} />
+            </div>
+          </details>
         ) : null}
       </section>
 
@@ -383,7 +408,7 @@ function AlexaConversation({
                 <span className="mr-1.5 font-medium text-text-muted">
                   {message.role === "user" ? "You" : "Sage"}
                 </span>
-                {message.role === "assistant" ? answerText(message) : messageText(message)}
+                {message.role === "assistant" ? spokenSummary(answerText(message)) : messageText(message)}
               </li>
             ))}
           </ol>
