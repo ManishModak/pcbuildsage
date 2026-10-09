@@ -36,7 +36,8 @@ export function assertSafeLlmChain(chain: LLMChainEntry[], mode: DeploymentMode)
  * (it grounds through the user's own Gemini call, no server-side search).
  * Everything else (duckduckgo, searxng, keyed-without-key) is coerced to
  * "none", so a request that omits searchProvider (config default duckduckgo)
- * still works without server-side scraping.
+ * still works without server-side scraping. Crawling is always off in hosted
+ * mode (it runs a headless browser on the server); BYOK research stays on.
  * Throws UnsafeConfigError when a kept provider's baseUrl fails SSRF checks.
  */
 export function assertSafeSearchConfig(search: AppConfig["search"], mode: DeploymentMode): AppConfig["search"] {
@@ -46,7 +47,7 @@ export function assertSafeSearchConfig(search: AppConfig["search"], mode: Deploy
   const allowed = provider !== "none" && isHostedSearchProviderAllowed(provider, mode);
   const hasRequiredKey = provider === "gemini-native" || Boolean(search.apiKey);
   if (!allowed || !hasRequiredKey) {
-    return { ...search, provider: "none", baseUrl: undefined, apiKey: undefined };
+    return { ...search, provider: "none", baseUrl: undefined, apiKey: undefined, crawlEnabled: false };
   }
 
   if (search.baseUrl && search.baseUrl.trim() !== "") {
@@ -103,15 +104,7 @@ export function buildAppConfig(headers: Headers, bodyConfig: unknown = {}): AppC
     assertSafeLlmChain(hydrated.llm.roles.chat, mode);
     assertSafeLlmChain(hydrated.llm.roles.subagent, mode);
     assertSafeLlmChain(hydrated.llm.roles.scraper, mode);
-    return {
-      ...hydrated,
-      tier2Enabled: false,
-      freeformConsultEnabled: false,
-      search: {
-        ...assertSafeSearchConfig(hydrated.search, mode),
-        crawlEnabled: false
-      }
-    };
+    return { ...hydrated, search: assertSafeSearchConfig(hydrated.search, mode) };
   }
 
   return hydrated;

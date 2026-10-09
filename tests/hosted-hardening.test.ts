@@ -184,8 +184,24 @@ describe("hosted search provider policy (no keyless DuckDuckGo)", () => {
     expect(config.search.provider).toBe("none");
   });
 
+  it("never crawls in hosted mode but keeps BYOK research on", () => {
+    expect(assertSafeSearchConfig({ provider: "tavily", apiKey: "k", crawlEnabled: true }, "hosted-demo").crawlEnabled).toBe(false);
+    expect(assertSafeSearchConfig({ provider: "duckduckgo", crawlEnabled: true }, "hosted-demo").crawlEnabled).toBe(false);
+    process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "hosted-demo";
+    const config = buildAppConfig(new Headers(), {
+      llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }],
+      tier2Enabled: true,
+      freeformConsultEnabled: true,
+      crawlEnabled: true
+    });
+    expect(config.search.crawlEnabled).toBe(false);
+    expect(config.tier2Enabled).toBe(true);
+    expect(config.freeformConsultEnabled).toBe(true);
+  });
+
   it("leaves local mode untouched", () => {
     expect(assertSafeSearchConfig({ provider: "duckduckgo", crawlEnabled: false }, "local").provider).toBe("duckduckgo");
+    expect(assertSafeSearchConfig({ provider: "duckduckgo", crawlEnabled: true }, "local").crawlEnabled).toBe(true);
   });
 });
 

@@ -157,7 +157,7 @@ export function resolveChatRequestBody(
       subagentLlmChain: subagentChain,
       personality: config.personality,
       tier2Enabled: effectiveTier2,
-      freeformConsultEnabled: isHosted ? false : config.freeformConsultEnabled,
+      freeformConsultEnabled: config.freeformConsultEnabled,
       countryCode,
       currency,
       locale: marketPref.locale,
