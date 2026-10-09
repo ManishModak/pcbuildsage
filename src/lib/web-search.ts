@@ -15,7 +15,7 @@ export type SearchResult = { title: string; url: string; snippet: string };
 export type CrawlDiagnostic =
   | { status: "succeeded" }
   | { status: "failed"; error: string }
-  | { status: "skipped"; reason: "no_results" };
+  | { status: "skipped"; reason: "no_results" | "denied_domain" };
 export type SearchResponse = {
   results: SearchResult[];
   provider: SearchProvider;
@@ -84,11 +84,36 @@ export async function crawlPage(
   return content.length > cap ? content.slice(0, cap) : content;
 }
 
+export const DENIED_CRAWL_DOMAINS = [
+  "tomshardware.com",
+  "techradar.com",
+  "pcgamer.com",
+  "anandtech.com",
+  "futureplc.com",
+  "techpowerup.com",
+  "3dcenter.org"
+] as const;
+
+export function isDeniedCrawlDomain(hostname: string): boolean {
+  const host = hostname.trim().toLowerCase().replace(/\.$/, "").replace(/^\[|\]$/g, "");
+  return DENIED_CRAWL_DOMAINS.some(
+    (denied) => host === denied || host.endsWith(`.${denied}`)
+  );
+}
+
+/** True when the URL's host is on the crawl deny list (unparsable URLs are left to assertCrawlUrlAllowed). */
+export function isDeniedCrawlUrl(url: string): boolean {
+  try {
+    return isDeniedCrawlDomain(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Synchronous URL gate: only http/https, and no hostname that is obviously
- * private (localhost, private/loopback/link-local IP literals, single-label
- * names). Hostnames that merely resolve to private addresses are caught by
- * the async preflightCrawlUrl, which crawlPage always runs.
+ * Synchronous URL gate: only http/https, no forbidden domains from anti-scraping
+ * terms/policies, and no hostname that is obviously private (localhost, private/
+ * loopback/link-local IP literals, single-label names).
  */
 export function assertCrawlUrlAllowed(url: string): void {
   let parsed: URL;
@@ -99,6 +124,9 @@ export function assertCrawlUrlAllowed(url: string): void {
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     throw new Error(`Crawl blocked: only http/https URLs are allowed ("${parsed.protocol}").`);
+  }
+  if (isDeniedCrawlDomain(parsed.hostname)) {
+    throw new Error(`Crawl blocked: domain "${parsed.hostname}" is forbidden by terms or anti-scraping policy.`);
   }
   if (isPrivateCrawlHost(parsed.hostname)) {
     throw new Error(`Crawl blocked: private or loopback address "${parsed.hostname}".`);
@@ -238,10 +266,48 @@ export async function preflightCrawlUrl(
     // Only the status and Location matter; drop the body.
     await response.body?.cancel().catch(() => undefined);
     const location = response.headers.get("location");
-    if (response.status < 300 || response.status >= 400 || !location) return current;
+    if (response.status < 300 || response.status >= 400 || !location) {
+      try {
+        const robotsUrl = new URL("/robots.txt", current).toString();
+        // Manual redirects: a followed redirect could reach a private address.
+        const robotsRes = await fetchImpl(robotsUrl, { method: "GET", redirect: "manual", signal: requestSignal });
+        if (robotsRes.ok) {
+          const robotsTxt = await robotsRes.text();
+          const path = new URL(current).pathname;
+          if (isPathDisallowedByRobotsTxt(robotsTxt, path)) {
+            throw new Error(`Crawl blocked: URL "${current}" is disallowed by site robots.txt.`);
+          }
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.message.includes("Crawl blocked")) throw err;
+      }
+      return current;
+    }
     if (hop >= CRAWL_MAX_REDIRECTS) throw new Error(`Crawl blocked: more than ${CRAWL_MAX_REDIRECTS} redirects from ${startUrl}.`);
     current = new URL(location, current).toString();
   }
+}
+
+export function isPathDisallowedByRobotsTxt(robotsTxt: string, pathname: string): boolean {
+  const lines = robotsTxt.split(/\r?\n/);
+  let userAgentApplies = false;
+  for (const rawLine of lines) {
+    const line = rawLine.split("#")[0].trim();
+    if (!line) continue;
+    const colonIdx = line.indexOf(":");
+    if (colonIdx === -1) continue;
+    const key = line.slice(0, colonIdx).trim().toLowerCase();
+    const value = line.slice(colonIdx + 1).trim();
+
+    if (key === "user-agent") {
+      userAgentApplies = value === "*";
+    } else if (userAgentApplies && key === "disallow") {
+      if (value === "/" || (value !== "" && pathname.startsWith(value))) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 export function createSearchClient(
@@ -275,7 +341,10 @@ export function createSearchClient(
         response = await keyedSearch(query, config.provider, config.apiKey!, options.limit);
       }
 
-      if (options.crawlEnabled && response.results.length > 0) {
+      // Denied domains stay in the results (the provider's snippets are fine
+      // to show and cite); only the crawl skips them.
+      const crawlTarget = response.results.find((result) => !isDeniedCrawlUrl(result.url));
+      if (options.crawlEnabled && crawlTarget) {
         const readiness = await checkReadiness();
         if (!readiness.ready) {
           response.crawl = {
@@ -283,16 +352,15 @@ export function createSearchClient(
             error: crawlUnavailableMessage(readiness.reason)
           };
         } else {
-          const topResult = response.results[0];
           try {
-            topResult.snippet = await crawlPage(topResult.url, crawlRunner, { preflight: dependencies.crawlPreflight });
+            crawlTarget.snippet = await crawlPage(crawlTarget.url, crawlRunner, { preflight: dependencies.crawlPreflight });
             response.crawl = { status: "succeeded" };
           } catch (error) {
             response.crawl = { status: "failed", error: error instanceof Error ? error.message : String(error) };
           }
         }
       } else if (options.crawlEnabled) {
-        response.crawl = { status: "skipped", reason: "no_results" };
+        response.crawl = { status: "skipped", reason: response.results.length > 0 ? "denied_domain" : "no_results" };
       }
 
       return response;
@@ -307,7 +375,7 @@ export function loadSearchPresets(dir = path.join(process.cwd(), "data", "search
   });
 }
 
-async function searxng(query: string, baseUrl = process.env.SEARXNG_BASE_URL ?? "http://localhost:8080", limit = 5): Promise<SearchResponse> {
+async function searxng(query: string, baseUrl = process.env.SEARXNG_BASE_URL ?? "http://localhost:8888", limit = 5): Promise<SearchResponse> {
   const url = new URL("/search", baseUrl);
   url.searchParams.set("q", query);
   url.searchParams.set("format", "json");
