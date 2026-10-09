@@ -480,12 +480,12 @@ function SettingsLayout({
                 </Field>
 
                 {!isHosted && config.searchProvider === "searxng" && (
-                  <Field label="SearXNG Base URL" hint="Example: http://localhost:8080">
+                  <Field label="SearXNG Base URL" hint="Example: http://localhost:8888">
                     {(controlProps) => (
                       <Input
                         {...controlProps}
                         type="text"
-                        placeholder="http://localhost:8080"
+                        placeholder="http://localhost:8888"
                         value={config.searchBaseUrl || ""}
                         onChange={(e) => updateConfig({ searchBaseUrl: e.target.value || undefined })}
                       />

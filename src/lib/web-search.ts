@@ -15,7 +15,7 @@ export type SearchResult = { title: string; url: string; snippet: string };
 export type CrawlDiagnostic =
   | { status: "succeeded" }
   | { status: "failed"; error: string }
-  | { status: "skipped"; reason: "no_results" };
+  | { status: "skipped"; reason: "no_results" | "denied_domain" };
 export type SearchResponse = {
   results: SearchResult[];
   provider: SearchProvider;
@@ -101,16 +101,13 @@ export function isDeniedCrawlDomain(hostname: string): boolean {
   );
 }
 
-export function filterAllowedSearchResults(results: SearchResult[]): SearchResult[] {
-  return results.filter((item) => {
-    if (!item?.url) return true;
-    try {
-      const parsed = new URL(item.url);
-      return !isDeniedCrawlDomain(parsed.hostname);
-    } catch {
-      return true;
-    }
-  });
+/** True when the URL's host is on the crawl deny list (unparsable URLs are left to assertCrawlUrlAllowed). */
+export function isDeniedCrawlUrl(url: string): boolean {
+  try {
+    return isDeniedCrawlDomain(new URL(url).hostname);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -272,7 +269,8 @@ export async function preflightCrawlUrl(
     if (response.status < 300 || response.status >= 400 || !location) {
       try {
         const robotsUrl = new URL("/robots.txt", current).toString();
-        const robotsRes = await fetchImpl(robotsUrl, { method: "GET", signal: requestSignal });
+        // Manual redirects: a followed redirect could reach a private address.
+        const robotsRes = await fetchImpl(robotsUrl, { method: "GET", redirect: "manual", signal: requestSignal });
         if (robotsRes.ok) {
           const robotsTxt = await robotsRes.text();
           const path = new URL(current).pathname;
@@ -343,9 +341,10 @@ export function createSearchClient(
         response = await keyedSearch(query, config.provider, config.apiKey!, options.limit);
       }
 
-      response.results = filterAllowedSearchResults(response.results);
-
-      if (options.crawlEnabled && response.results.length > 0) {
+      // Denied domains stay in the results (the provider's snippets are fine
+      // to show and cite); only the crawl skips them.
+      const crawlTarget = response.results.find((result) => !isDeniedCrawlUrl(result.url));
+      if (options.crawlEnabled && crawlTarget) {
         const readiness = await checkReadiness();
         if (!readiness.ready) {
           response.crawl = {
@@ -353,16 +352,15 @@ export function createSearchClient(
             error: crawlUnavailableMessage(readiness.reason)
           };
         } else {
-          const topResult = response.results[0];
           try {
-            topResult.snippet = await crawlPage(topResult.url, crawlRunner, { preflight: dependencies.crawlPreflight });
+            crawlTarget.snippet = await crawlPage(crawlTarget.url, crawlRunner, { preflight: dependencies.crawlPreflight });
             response.crawl = { status: "succeeded" };
           } catch (error) {
             response.crawl = { status: "failed", error: error instanceof Error ? error.message : String(error) };
           }
         }
       } else if (options.crawlEnabled) {
-        response.crawl = { status: "skipped", reason: "no_results" };
+        response.crawl = { status: "skipped", reason: response.results.length > 0 ? "denied_domain" : "no_results" };
       }
 
       return response;

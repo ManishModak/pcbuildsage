@@ -150,16 +150,14 @@ describe("crawl domain deny list & robots.txt", () => {
     expect(() => assertCrawlUrlAllowed("https://amd.com/en/products")).not.toThrow();
   });
 
-  it("filters out denied domains from search results", async () => {
-    const { filterAllowedSearchResults } = await import("@/lib/web-search");
-    const results = [
-      { title: "Tom's Hardware Review", url: "https://www.tomshardware.com/reviews/test", snippet: "..." },
-      { title: "AMD Specs", url: "https://www.amd.com/specs", snippet: "..." },
-      { title: "TechPowerUp GPU", url: "https://www.techpowerup.com/gpu-specs", snippet: "..." }
-    ];
-    const filtered = filterAllowedSearchResults(results);
-    expect(filtered).toHaveLength(1);
-    expect(filtered[0]?.url).toBe("https://www.amd.com/specs");
+  it("blocks a robots.txt-disallowed path without following redirects", async () => {
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      expect(init?.redirect).toBe("manual");
+      if (url === "https://example.com/robots.txt") return new Response("User-agent: *\nDisallow: /private/", { status: 200 });
+      return new Response("ok", { status: 200 });
+    }) as unknown as typeof fetch;
+    await expect(preflightCrawlUrl("https://example.com/private/doc", undefined, { lookup, fetchImpl })).rejects.toThrow(/robots\.txt/);
+    await expect(preflightCrawlUrl("https://example.com/specs", undefined, { lookup, fetchImpl })).resolves.toBe("https://example.com/specs");
   });
 
   it("evaluates robots.txt path restrictions accurately", async () => {

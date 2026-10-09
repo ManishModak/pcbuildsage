@@ -138,6 +138,24 @@ describe("crawl enhancement", () => {
     expect(response.results.map((result) => result.snippet)).toEqual(["crawled page content", "keep me"]);
   });
 
+  it("keeps denied domains in results but crawls the first allowed one", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      results: [
+        { title: "Review", url: "https://www.tomshardware.com/reviews/x", text: "review snippet" },
+        { title: "Specs", url: "https://example.com/specs", text: "spec snippet" }
+      ]
+    })));
+    const runPythonModule = vi.fn(async () => ({ code: 0, signal: null, stdout: "crawled specs\n", stderr: "" }));
+
+    const response = await createSearchClient(
+      { provider: "exa", apiKey: "key" },
+      { runPythonModule, checkCrawlerReadiness: async () => ({ ready: true }), crawlPreflight: async () => {} }
+    ).search("gpu", { crawlEnabled: true });
+
+    expect(runPythonModule).toHaveBeenCalledWith("scraper.crawl_page", ["https://example.com/specs"], expect.anything());
+    expect(response.results.map((result) => result.snippet)).toEqual(["review snippet", "crawled specs"]);
+  });
+
   it("keeps the original search result and exposes crawl failure", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({
       results: [{ title: "Top", url: "https://example.com/top", text: "search snippet" }]
