@@ -153,3 +153,37 @@ describe("crawlPage cap", () => {
     await expect(crawlPage("https://example.com/x", runner, { signal: controller.signal })).rejects.toThrow(/cancelled/);
   });
 });
+
+describe("crawl domain deny list & robots.txt", () => {
+  it("blocks forbidden domains in assertCrawlUrlAllowed", () => {
+    for (const host of ["tomshardware.com", "sub.tomshardware.com", "techpowerup.com", "3dcenter.org", "techradar.com"]) {
+      expect(() => assertCrawlUrlAllowed(`https://${host}/reviews`)).toThrow(/forbidden by terms or anti-scraping policy/);
+    }
+    expect(() => assertCrawlUrlAllowed("https://amd.com/en/products")).not.toThrow();
+  });
+
+  it("blocks a robots.txt-disallowed path without following redirects", async () => {
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      expect(init?.redirect).toBe("manual");
+      if (url === "https://example.com/robots.txt") return new Response("User-agent: *\nDisallow: /private/", { status: 200 });
+      return new Response("ok", { status: 200 });
+    }) as unknown as typeof fetch;
+    await expect(preflightCrawlUrl("https://example.com/private/doc", undefined, { lookup, fetchImpl })).rejects.toThrow(/robots\.txt/);
+    await expect(preflightCrawlUrl("https://example.com/specs", undefined, { lookup, fetchImpl })).resolves.toBe("https://example.com/specs");
+  });
+
+  it("evaluates robots.txt path restrictions accurately", async () => {
+    const { isPathDisallowedByRobotsTxt } = await import("@/lib/web-search");
+    const robots = `
+User-agent: Googlebot
+Disallow: /admin
+
+User-agent: *
+Disallow: /private/
+Disallow: /api/secret
+`;
+    expect(isPathDisallowedByRobotsTxt(robots, "/private/doc")).toBe(true);
+    expect(isPathDisallowedByRobotsTxt(robots, "/api/secret/key")).toBe(true);
+    expect(isPathDisallowedByRobotsTxt(robots, "/public/specs")).toBe(false);
+  });
+});

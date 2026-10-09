@@ -15,6 +15,10 @@ const cspHeader = [
 const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["better-sqlite3"],
+  // The MCP build card inlines this bundle at runtime (src/lib/mcp/build-card.ts).
+  outputFileTracingIncludes: {
+    "/api/mcp": ["./node_modules/@modelcontextprotocol/ext-apps/dist/src/app-with-deps.js"]
+  },
   async headers() {
     return [
       {
@@ -39,6 +43,19 @@ const nextConfig: NextConfig = {
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()"
+          }
+        ]
+      },
+      {
+        // Own lines (Track C): voice input needs the mic on this page only.
+        // This MUST stay AFTER the global rule above: Next dedupes the
+        // duplicate Permissions-Policy key and the later match wins — listed
+        // first, /:path* shadows it and the mic is denied on /alexa.
+        source: "/alexa",
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(self), geolocation=()"
           }
         ]
       }
