@@ -7,9 +7,10 @@ import {
   type TurnValidationStore
 } from "./turn-state";
 import { idsMatch, MIN_PREFIX_LEN, resolveIdPrefix, shortId } from "./product-ids";
+import { parsedJson } from "./lenient-input";
 
 export const presentBuildInputSchema = z.object({
-  builds: z
+  builds: parsedJson(z
     .array(
       z.object({
         label: z
@@ -29,7 +30,7 @@ export const presentBuildInputSchema = z.object({
       })
     )
     .min(1)
-    .describe("One or more complete build proposals")
+    .describe("One or more complete build proposals"))
 });
 
 export type PresentBuildInput = z.infer<typeof presentBuildInputSchema>;

@@ -51,6 +51,22 @@ export function coerceLenientValues(
   return out;
 }
 
+/**
+ * Accepts an array or object argument sent as a JSON string, which some models
+ * do for nested arguments (Nemotron sent `builds` as "[{...}]"). The JSON
+ * schema the model sees is unchanged; only validation is lenient.
+ */
+export function parsedJson<T extends z.ZodType>(schema: T) {
+  return z.preprocess((value) => {
+    if (typeof value !== "string") return value;
+    try {
+      return JSON.parse(value) as unknown;
+    } catch {
+      return value;
+    }
+  }, schema);
+}
+
 /** Splits input into known schema fields and the names of unknown ones. */
 export function splitUnknownFields<T extends object>(
   input: T,

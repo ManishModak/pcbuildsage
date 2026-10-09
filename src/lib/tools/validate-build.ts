@@ -6,7 +6,7 @@ import { getCatalogRepository, type CatalogRepository, type CatalogScope } from 
 import { validateBuild, type BuildParts, type BuildPart, type ValidationResult } from "../rules-engine";
 import { createBuildSnapshot, type BuildSnapshot } from "../catalog/build-snapshot";
 import { createTurnValidationStore, recordValidation, type TurnValidationStore } from "./turn-state";
-import { formatPrice } from "./lenient-input";
+import { formatPrice, parsedJson } from "./lenient-input";
 import { distinguishingPrefix, MIN_PREFIX_LEN, resolveIdPrefix, shortId } from "./product-ids";
 
 const componentCategorySchema = z.enum(["cpu", "gpu", "motherboard", "ram", "storage", "psu", "case", "cooler"]);
@@ -43,7 +43,7 @@ export const singleBuildValidationSchema = z.object({
 });
 
 export const validateBuildInputSchema = z.object({
-  builds: z
+  builds: parsedJson(z
     .array(singleBuildValidationSchema)
     .min(1)
     .max(5)
@@ -51,7 +51,7 @@ export const validateBuildInputSchema = z.object({
     .refine((builds) => new Set(builds.map((b) => b.label.trim().toLowerCase())).size === builds.length, {
       message: "Each build needs a unique label."
     })
-    .describe("One to five complete build proposals to validate side by side, each with a unique label."),
+    .describe("One to five complete build proposals to validate side by side, each with a unique label.")),
   budget: z
     .number()
     .positive()
