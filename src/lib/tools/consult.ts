@@ -594,7 +594,9 @@ async function runStructuredSubagent<T extends z.ZodTypeAny>(args: {
   // a chain-wide timeout signal would make the client treat an entry
   // timeout as user Stop and skip the fallback entries.
   const entryTimeout = args.deps.timeoutMsPerEntry ?? subagentEntryTimeoutMs(Boolean(args.config.search.crawlEnabled));
-  const repairTimeout = args.deps.timeoutMsPerEntry ?? Math.max(getEntryTimeoutMs(), 60_000);
+  // Repair gets the plain entry budget (no crawl allowance): no tools run, but
+  // local models still need the full window, so no short cap.
+  const repairTimeout = args.deps.timeoutMsPerEntry ?? getEntryTimeoutMs();
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (args.deps.abortSignal?.aborted) {
