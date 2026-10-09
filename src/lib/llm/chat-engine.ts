@@ -464,13 +464,16 @@ export function continuationMessageId(messages: ReadonlyArray<{ id?: string; rol
  * The voice route's injection point: the ONLY way /api/alexa differs from web
  * chat. `tools` swaps the local registry for MCP-client tools;
  * `systemPromptPrefix` puts rules that must win over the general guidance
- * first, and `systemPromptSuffix` appends a closing reminder. All optional;
+ * first, `systemPromptSuffix` appends a closing reminder, and `thinking: false`
+ * skips local models' thinking phase. All optional;
  * when absent the web-chat path is behaviour-identical.
  */
 export interface StreamChatOverrides {
   tools?: ToolSet;
   systemPromptPrefix?: string;
   systemPromptSuffix?: string;
+  /** false: local models answer without a thinking phase (voice latency). */
+  thinking?: boolean;
 }
 
 export async function streamChat(
@@ -614,6 +617,7 @@ export async function streamChat(
     system: systemPrompt,
     messages: initialModelMessages,
     tools,
+    ...(overrides?.thinking === false ? { thinking: false } : {}),
     // 25 on purpose: small local models (≤27B quants) and ranking several builds from in-stock parts need the steps; 14 was tested and is too low.
     stopWhen: (opts) => isStepCount(MAX_STEPS)(opts) || stopAfterFollowups(opts as { steps: StepLike[] }),
     abortSignal,

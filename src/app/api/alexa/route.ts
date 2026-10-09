@@ -20,7 +20,9 @@ import {
 
 export const runtime = "nodejs";
 
-const VOICE_PROMPT = { systemPromptPrefix: ALEXA_VOICE_RULES, systemPromptSuffix: ALEXA_VOICE_REMINDER };
+// Voice turns skip local models' thinking: on Ornith 9B that cut a build turn
+// from 10+ minutes (5-7k thinking tokens per step) to about 90 seconds.
+const VOICE_PROMPT = { systemPromptPrefix: ALEXA_VOICE_RULES, systemPromptSuffix: ALEXA_VOICE_REMINDER, thinking: false };
 
 export const POST = createChatPostHandler({
   label: "alexa",

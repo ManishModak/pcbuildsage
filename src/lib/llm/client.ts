@@ -4,6 +4,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { z } from "zod";
 import type { LLMChainEntry, LLMProvider, LLMRole } from "@/types";
 import { isHostedDemo } from "../config/deployment";
+import { isPrivateCrawlHost } from "../web-search";
 import { envKeyAllowed } from "./env-key-scope";
 import { ACCESS_BLOCKED_COPY, FREE_LIMIT_COPY, KEY_REJECTED_COPY } from "@/content/api-key-help";
 
@@ -156,6 +157,25 @@ export async function generateTextWithFallback(args: {
   throw new AggregateError(errors, `All fallback LLM providers failed (${describeChain(args.chain)}).`);
 }
 
+/**
+ * Request options that turn a local model's thinking off: Qwen-style chat
+ * templates read chat_template_kwargs.enable_thinking, which llama.cpp and
+ * vLLM pass through (the generic reasoning_effort is ignored there). Only for
+ * openai-compatible endpoints on this machine or the LAN, since cloud
+ * endpoints may reject unknown fields.
+ */
+export function localNoThinkingOptions(entry: LLMChainEntry) {
+  if (entry.provider !== "openai-compatible" || !entry.baseUrl) return {};
+  let host: string;
+  try {
+    host = new URL(entry.baseUrl).hostname;
+  } catch {
+    return {};
+  }
+  if (!isPrivateCrawlHost(host)) return {};
+  return { providerOptions: { "openai-compatible": { chat_template_kwargs: { enable_thinking: false } } } };
+}
+
 export async function streamTextWithFallback(args: {
   chain: LLMChainEntry[];
   system?: string;
@@ -170,8 +190,11 @@ export async function streamTextWithFallback(args: {
   onStepFinish?: (event: OnStepFinishEvent<ToolSet>) => void | Promise<void>;
   onFinish?: (event: OnFinishEvent<ToolSet>) => void | Promise<void>;
   prepareStep?: Parameters<typeof streamText>[0]["prepareStep"];
+  /** false: ask local models not to think (see localNoThinkingOptions). */
+  thinking?: boolean;
 }) {
   if (!args.chain.length) throw new Error("LLM chain is empty.");
+  const { thinking, ...streamArgs } = args;
   const errors: unknown[] = [];
   const firstTokenTimeout = args.firstTokenTimeoutMs ?? getFirstTokenTimeoutMs();
   for (const [index, entry] of args.chain.entries()) {
@@ -188,9 +211,10 @@ export async function streamTextWithFallback(args: {
     const abortSignal = args.abortSignal ? AbortSignal.any([args.abortSignal, entryController.signal]) : entryController.signal;
     try {
       const result = streamText({
-        ...args,
+        ...streamArgs,
         model: createLanguageModel(entry),
         ...(entry.reasoningEffort ? { reasoning: entry.reasoningEffort } : {}),
+        ...(thinking === false ? localNoThinkingOptions(entry) : {}),
         // Per-step retry with SDK exponential backoff: 429/5xx on step 2+
         // retries that step once instead of failing the turn.
         maxRetries: 1,
