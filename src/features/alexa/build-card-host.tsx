@@ -41,10 +41,16 @@ function isWebUrl(url: string): boolean {
   }
 }
 
+/** The app theme's mode, from the color-scheme each theme sets in globals.css. */
+function appThemeMode(): "light" | "dark" {
+  return getComputedStyle(document.documentElement).colorScheme.includes("dark") ? "dark" : "light";
+}
+
 export function BuildCardHost({ presentations }: { presentations: PresentedBuild[] }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const clientRef = useRef<Client | null>(null);
-  const bridgeRef = useRef<AppBridge | null>(null);
+  // Sends unsent presentations; set only once the card app has initialized.
+  const flushRef = useRef<(() => void) | null>(null);
   const sentRef = useRef<Set<string>>(new Set());
   // Latest presentations, visible to the bridge's oninitialized handler.
   const latestRef = useRef(presentations);
@@ -100,9 +106,12 @@ export function BuildCardHost({ presentations }: { presentations: PresentedBuild
     const bridge = new AppBridge(
       client,
       { name: "PCBuildSage voice host", version: "0" },
-      { openLinks: {}, serverTools: {} }
+      { openLinks: {}, serverTools: {} },
+      { hostContext: { theme: appThemeMode() } }
     );
-    bridgeRef.current = bridge;
+    // The card follows the app theme (not the OS setting) as it changes.
+    const themeObserver = new MutationObserver(() => bridge.setHostContext({ theme: appThemeMode() }));
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-theme-mode"] });
     const flush = () => {
       for (const presentation of latestRef.current) {
         if (sentRef.current.has(presentation.key)) continue;
@@ -110,7 +119,12 @@ export function BuildCardHost({ presentations }: { presentations: PresentedBuild
         void bridge.sendToolResult(presentation.output as Parameters<AppBridge["sendToolResult"]>[0]);
       }
     };
-    bridge.oninitialized = flush;
+    // Tool results sent before ui/initialize are dropped by the card, so
+    // nothing goes out until it has connected.
+    bridge.oninitialized = () => {
+      flushRef.current = flush;
+      flush();
+    };
     bridge.onsizechange = ({ height: next }) => {
       if (typeof next === "number" && next > 0) setHeight(next);
     };
@@ -121,24 +135,17 @@ export function BuildCardHost({ presentations }: { presentations: PresentedBuild
       return {};
     };
     void bridge.connect(new PostMessageTransport(target, target));
-    // A presentation already waiting (fast stub turn) flushes from
-    // oninitialized, which fires once the card app connects.
     return () => {
-      bridgeRef.current = null;
+      themeObserver.disconnect();
+      flushRef.current = null;
       void bridge.close();
     };
   }, [html]);
 
-  // Presentations that arrive after the bridge initialized go out immediately.
+  // Presentations that arrive after the card initialized go out immediately.
   useEffect(() => {
-    const bridge = bridgeRef.current;
-    if (!bridge || hostState.stage !== "ready") return;
-    for (const presentation of presentations) {
-      if (sentRef.current.has(presentation.key)) continue;
-      sentRef.current.add(presentation.key);
-      void bridge.sendToolResult(presentation.output as Parameters<AppBridge["sendToolResult"]>[0]);
-    }
-  }, [presentations, hostState.stage]);
+    flushRef.current?.();
+  }, [presentations]);
 
   if (hostState.stage === "blocked") {
     return (
