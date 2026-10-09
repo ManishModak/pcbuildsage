@@ -57,10 +57,11 @@ function toolNameOf(part: ToolPartLike): string {
   return part.type.startsWith("tool-") ? part.type.slice("tool-".length) : part.type;
 }
 
-function isToolPartLike(part: unknown): part is ToolPartLike {
+/** Static tools stream as `tool-<name>`; MCP-client tools (dynamicTool) as `dynamic-tool` + toolName. */
+export function isToolPartLike(part: unknown): part is ToolPartLike {
   if (typeof part !== "object" || part === null) return false;
   const type = (part as { type?: unknown }).type;
-  return typeof type === "string" && type.startsWith("tool-");
+  return typeof type === "string" && (type === "dynamic-tool" || type.startsWith("tool-"));
 }
 
 function readCards(output: unknown): { presented: boolean; cards: PresentCard[] } | null {

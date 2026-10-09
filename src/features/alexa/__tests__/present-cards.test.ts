@@ -25,6 +25,14 @@ describe("extractPresentedBuilds", () => {
     expect(found[0].cards[0].label).toBe("Gaming build");
   });
 
+  it("reads MCP-client (dynamic-tool) parts by toolName", () => {
+    const part = { type: "dynamic-tool", toolName: "present_build", toolCallId: "d1", state: "output-available", input: {}, output: presentOutput() };
+    const found = extractPresentedBuilds([{ id: "m1", role: "assistant", parts: [part] }]);
+    expect(found).toHaveLength(1);
+    expect(found[0].toolCallId).toBe("d1");
+    expect(hasPresentAttempt([{ role: "assistant", parts: [part] }])).toBe(true);
+  });
+
   it("falls back to JSON.parse(content[0].text).cards", () => {
     const output = presentOutput({ structuredContent: undefined });
     delete (output as Record<string, unknown>).structuredContent;

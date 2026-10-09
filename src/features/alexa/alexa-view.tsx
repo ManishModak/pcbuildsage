@@ -30,7 +30,7 @@ import { BuildCardHost } from "./build-card-host";
 import { extractPresentedBuilds, hasPresentAttempt } from "./present-cards";
 import { useSpeechRecognition } from "./use-speech-recognition";
 import { useSpeechSynthesis } from "./use-speech-synthesis";
-import { latestAssistantText, messageText, shortTranscript } from "./voice-text";
+import { answerText, latestAssistantText, messageText, shortTranscript } from "./voice-text";
 
 /** Press longer than this sends on release (hold-to-talk); shorter is a tap. */
 const HOLD_MS = 450;
@@ -383,7 +383,7 @@ function AlexaConversation({
                 <span className="mr-1.5 font-medium text-text-muted">
                   {message.role === "user" ? "You" : "Sage"}
                 </span>
-                {messageText(message)}
+                {message.role === "assistant" ? answerText(message) : messageText(message)}
               </li>
             ))}
           </ol>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasAssistantReply, latestAssistantText, messageText, shortTranscript } from "../voice-text";
+import { answerText, hasAssistantReply, latestAssistantText, messageText, shortTranscript } from "../voice-text";
 
 const user = (text: string, id = "u") => ({ id, role: "user", parts: [{ type: "text", text }] });
 const sage = (text: string, id = "a") => ({ id, role: "assistant", parts: [{ type: "text", text }] });
@@ -18,6 +18,34 @@ describe("latestAssistantText", () => {
   it("returns the newest assistant text", () => {
     expect(latestAssistantText([user("hi", "u1"), sage("first", "a1"), user("more", "u2"), sage("second", "a2")])).toBe("second");
     expect(latestAssistantText([user("hi")])).toBe("");
+  });
+});
+
+describe("answerText", () => {
+  it("keeps only the text after the last tool call", () => {
+    const turn = {
+      role: "assistant",
+      parts: [
+        { type: "step-start" },
+        { type: "text", text: "Let me check the catalog." },
+        { type: "dynamic-tool", toolName: "search_products", state: "output-available" },
+        { type: "step-start" },
+        { type: "text", text: "Validating now." },
+        { type: "tool-validate_build", state: "output-available" },
+        { type: "step-start" },
+        { type: "text", text: "Here's a 68k build with an RX 7600." }
+      ]
+    };
+    expect(answerText(turn)).toBe("Here's a 68k build with an RX 7600.");
+    expect(latestAssistantText([user("hi"), turn])).toBe("Here's a 68k build with an RX 7600.");
+  });
+
+  it("shows the latest step's text until the final step speaks", () => {
+    const running = {
+      role: "assistant",
+      parts: [{ type: "text", text: "Let me check the catalog." }, { type: "dynamic-tool", toolName: "search_products", state: "input-available" }]
+    };
+    expect(answerText(running)).toBe("Let me check the catalog.");
   });
 });
 

@@ -5,6 +5,8 @@
  * (what gets spoken and shown large) and the short-transcript window.
  */
 
+import { isToolPartLike } from "./present-cards";
+
 interface PartLike {
   type?: unknown;
   text?: unknown;
@@ -32,14 +34,36 @@ export function messageText(message: MessageLike | null | undefined): string {
     .trim();
 }
 
+/**
+ * The answer of one assistant message: the text of its last step. A tool turn
+ * streams a preamble before each call ("Let me check the catalog…"); only the
+ * text after the last tool call is the answer. While that final step hasn't
+ * produced text yet, this is the latest step's text.
+ */
+export function answerText(message: MessageLike | null | undefined): string {
+  if (!message || !Array.isArray(message.parts)) return messageText(message);
+  let step: string[] = [];
+  let latest = "";
+  for (const part of message.parts as PartLike[]) {
+    if (isToolPartLike(part)) {
+      step = [];
+    } else if (part?.type === "text" && typeof part.text === "string") {
+      step.push(part.text);
+      const text = step.join("\n").trim();
+      if (text) latest = text;
+    }
+  }
+  return latest;
+}
+
 function isAssistantText(message: MessageLike): boolean {
   return message?.role === "assistant" && messageText(message).length > 0;
 }
 
-/** Text of the latest assistant message (the current answer). */
+/** Answer of the latest assistant message (the current answer). */
 export function latestAssistantText(messages: MessageLike[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
-    const text = messageText(messages[i]);
+    const text = answerText(messages[i]);
     if (messages[i]?.role === "assistant" && text.length > 0) return text;
   }
   return "";
