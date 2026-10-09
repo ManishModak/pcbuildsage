@@ -32,6 +32,15 @@ const HOSTED_NOTICE =
   "Build cards need the local MCP server, which this hosted demo blocks. " +
   "Run the app locally (`npm run dev`) to see full builds — chat still works here.";
 
+function isWebUrl(url: string): boolean {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === "https:" || protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 export function BuildCardHost({ presentations }: { presentations: PresentedBuild[] }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const clientRef = useRef<Client | null>(null);
@@ -106,6 +115,8 @@ export function BuildCardHost({ presentations }: { presentations: PresentedBuild
       if (typeof next === "number" && next > 0) setHeight(next);
     };
     bridge.onopenlink = async ({ url }) => {
+      // Buy links only: refuse javascript:, data: and other non-web schemes.
+      if (!isWebUrl(url)) return { isError: true };
       window.open(url, "_blank", "noopener");
       return {};
     };
