@@ -23,23 +23,24 @@ export type ResolvedTheme = {
   tokens: Record<string, string>;
 };
 
+// Mirrors data/themes/sage-dark.json and the :root defaults in globals.css.
 const SAGE_DARK: ResolvedTheme = {
   name: "sage-dark",
   mode: "dark",
   tokens: {
-    "--bg": "#0E1210",
-    "--surface": "#161B18",
-    "--surface-raised": "#1D2420",
-    "--border": "#2A332E",
-    "--text": "#E8EDE9",
-    "--text-secondary": "#9DAAA2",
-    "--text-muted": "#67736B",
-    "--accent": "#7DC383",
-    "--on-accent": "#0B130D",
-    "--ok": "#7DC383",
-    "--blocking": "#E5735F",
-    "--warn": "#E0B25D",
-    "--unverified": "#B195E8"
+    "--bg": "#0A1311",
+    "--surface": "#111D19",
+    "--surface-raised": "#172621",
+    "--border": "#25382F",
+    "--text": "#E8EEE8",
+    "--text-secondary": "#A2B2A8",
+    "--text-muted": "#7F9288",
+    "--accent": "#B79CFF",
+    "--on-accent": "#160F2B",
+    "--ok": "#7FCB8C",
+    "--blocking": "#F2735F",
+    "--warn": "#E9B44C",
+    "--unverified": "#8EB6E8"
   }
 };
 

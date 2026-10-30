@@ -1,11 +1,11 @@
 /**
- * Builds the static sample-conversation fixture for the hosted empty screen.
+ * Builds the static example builds shown on the landing and the empty chat.
  *
  * Runs validate_build against the real scraped catalog only: no LLM call, no
- * network, no API key. Each category has a small search plan (a sensible
- * mid-range 1080p build); the script validates combinations of the top
- * in-stock matches and keeps the valid one with the fewest unverified specs,
- * so it still works after a re-scrape. Re-run whenever the catalog changes:
+ * network, no API key. Each example has a small search plan per category; the
+ * script validates combinations of the top in-stock matches and keeps the
+ * valid one with the fewest unverified specs, so it still works after a
+ * re-scrape. Re-run whenever the catalog changes:
  *
  *   npx tsx scripts/build-sample-fixture.ts [--db <path>] [--out <path>]
  *
@@ -24,22 +24,60 @@ import type { BuildSnapshot } from "../src/lib/catalog/build-snapshot";
 import type { ValidationResult } from "../src/lib/rules-engine";
 import { createValidateBuildTool } from "../src/lib/tools/validate-build";
 
-/** One search per category, cheapest first; the parts a sensible 1080p build would use. */
-const PLAN = {
-  cpu: { term: "Ryzen 5 5600" },
-  gpu: { term: "RTX 5060" },
-  motherboard: { term: "B550" },
-  ram: { ddr: "DDR4", min_capacity_gb: 16, modules: 2 },
-  storage: { interface: "nvme", min_capacity_gb: 1000 },
-  psu: { min_wattage: 650, term: "Bronze" },
-  case: { term: "ATX" },
-  cooler: { socket: "AM4", price_min: 1500 }
-} as const satisfies Record<string, Record<string, unknown>>;
+type Category = "cpu" | "gpu" | "motherboard" | "ram" | "storage" | "psu" | "case" | "cooler";
+type Plan = Partial<Record<Category, Record<string, unknown>>>;
 
-const CATEGORIES = Object.keys(PLAN) as Array<keyof typeof PLAN>;
+/** One search per category, cheapest first: the parts each kind of build would use. */
+const EXAMPLES: Array<{ id: string; label: string; prompt: string; plan: Plan }> = [
+  {
+    id: "1080p-gaming",
+    label: "1080p gaming",
+    prompt: "A 1080p gaming PC for under ₹90,000.",
+    plan: {
+      cpu: { term: "Ryzen 5 5600" },
+      gpu: { term: "RTX 5060" },
+      motherboard: { term: "B550" },
+      ram: { ddr: "DDR4", min_capacity_gb: 16, modules: 2 },
+      storage: { interface: "nvme", min_capacity_gb: 1000 },
+      psu: { min_wattage: 650, term: "Bronze" },
+      case: { term: "ATX" },
+      cooler: { socket: "AM4", price_min: 1500 }
+    }
+  },
+  {
+    id: "1440p-gaming",
+    label: "1440p gaming",
+    prompt: "A 1440p gaming PC on the newer AM5 platform.",
+    plan: {
+      cpu: { term: "Ryzen 5 7600" },
+      gpu: { term: "RTX 5070" },
+      motherboard: { term: "B650" },
+      ram: { ddr: "DDR5", min_capacity_gb: 32, modules: 2 },
+      storage: { interface: "nvme", min_capacity_gb: 1000 },
+      psu: { min_wattage: 750, term: "Gold" },
+      case: { term: "ATX" },
+      cooler: { socket: "AM5", price_min: 2000 }
+    }
+  },
+  {
+    id: "compact-no-gpu",
+    label: "Compact, no graphics card",
+    prompt: "A small, quiet PC for work and light games, no graphics card.",
+    plan: {
+      cpu: { term: "8600G" },
+      motherboard: { term: "B650M" },
+      ram: { ddr: "DDR5", min_capacity_gb: 32, modules: 2 },
+      storage: { interface: "nvme", min_capacity_gb: 1000 },
+      psu: { min_wattage: 550, term: "Gold" },
+      case: { term: "M-ATX" },
+      cooler: { socket: "AM5", price_min: 1500 }
+    }
+  }
+];
+
+const ALL_CATEGORIES = [...new Set(EXAMPLES.flatMap((example) => Object.keys(example.plan) as Category[]))];
 const CANDIDATES_PER_CATEGORY = 3;
 const MAX_COMBOS = 3000;
-const LABEL = "Example 1080p Gaming";
 
 function flagValue(name: string): string | undefined {
   const index = process.argv.indexOf(name);
@@ -71,10 +109,11 @@ type Candidate = { id: string; name: string; price: number | null };
 async function inStockCandidates(
   repo: SqliteCatalogRepository,
   scope: CatalogScope,
-  category: keyof typeof PLAN
+  plan: Plan,
+  category: Category
 ): Promise<Candidate[]> {
   const result = await repo.searchProducts(
-    { ...PLAN[category], category, inStockOnly: true, limit: CANDIDATES_PER_CATEGORY, sort_by: "price", order: "asc" },
+    { ...plan[category], category, inStockOnly: true, limit: CANDIDATES_PER_CATEGORY, sort_by: "price", order: "asc" },
     scope
   );
   return result.results.map((product) => ({
@@ -97,7 +136,7 @@ async function resolveScope(
   for (const market of markets) {
     const scope: CatalogScope = { countryCode: market.country_code, currency: market.currency };
     const coverage = await Promise.all(
-      CATEGORIES.map((category) => repo.getCategoryBaseline(category, scope))
+      ALL_CATEGORIES.map((category) => repo.getCategoryBaseline(category, scope))
     );
     if (coverage.every((baseline) => baseline.in_stock_total > 0)) return scope;
   }
@@ -125,86 +164,105 @@ type ToolOutput = Record<string, ValidationResult & { snapshot?: BuildSnapshot }
   builds?: Record<string, ValidationResult & { snapshot?: BuildSnapshot }>;
 };
 
+type Picked = { validation: ValidationResult; snapshot: BuildSnapshot };
+
+/** The valid, fully priced build with the fewest unverified specs, then the lowest total. */
+async function pickExample(
+  repo: SqliteCatalogRepository,
+  scope: CatalogScope,
+  example: (typeof EXAMPLES)[number],
+  dbPath: string
+): Promise<Picked> {
+  const categories = Object.keys(example.plan) as Category[];
+  const perCategory = await Promise.all(
+    categories.map((category) => inStockCandidates(repo, scope, example.plan, category))
+  );
+  const missing = categories.filter((_, index) => perCategory[index].length === 0);
+  if (missing.length > 0) {
+    throw new Error(`${example.id}: no in-stock candidates for ${missing.join(", ")} (${dbPath}).`);
+  }
+
+  const tool = createValidateBuildTool(scope, repo);
+  const context = { toolCallId: "sample-fixture", messages: [] } as unknown as Parameters<
+    NonNullable<typeof tool.execute>
+  >[1];
+
+  let picked: Picked | null = null;
+  let pickedScore = Number.POSITIVE_INFINITY;
+  let attempts = 0;
+  for (const combo of combos(perCategory)) {
+    attempts += 1;
+    const parts: Record<string, { product_id: string }> = {};
+    categories.forEach((category, index) => {
+      parts[category] = { product_id: combo[index].id };
+    });
+    const output = (await tool.execute!({ builds: [{ label: example.label, parts }] }, context)) as unknown as ToolOutput;
+    const entry = output.builds?.[example.label];
+    const snapshot = entry?.snapshot;
+    if (!entry || !snapshot || !entry.valid || !snapshot.is_complete || typeof snapshot.total !== "number") continue;
+    if (entry.issues.some((issue) => issue.severity === "blocking")) continue;
+    const unverified = entry.issues.filter((issue) => issue.severity === "needs_research" || issue.severity === "needs_verification").length;
+    const score = unverified * 1_000_000 + snapshot.total;
+    if (score < pickedScore) {
+      picked = { validation: entry, snapshot };
+      pickedScore = score;
+    }
+  }
+  if (!picked) {
+    throw new Error(
+      `${example.id}: no fully-valid, fully-priced build found in ${attempts} candidate combos from ${dbPath}.`
+    );
+  }
+
+  // Challenger self-check: every product ID in the fixture resolves in the catalog.
+  const ids = picked.snapshot.components.map((component) => component.product_id).filter(Boolean) as string[];
+  const resolved = await repo.searchProducts({ product_ids: ids, inStockOnly: false, limit: ids.length }, scope);
+  const found = new Set(resolved.results.map((product) => product.id));
+  const unresolved = ids.filter((id) => !found.has(id));
+  if (unresolved.length > 0) {
+    throw new Error(`${example.id}: fixture references products missing from catalog: ${unresolved.join(", ")}`);
+  }
+  return picked;
+}
+
 async function main(): Promise<void> {
   const dbPath = resolveDbPath();
   const outPath = resolveOutPath();
   const repo = new SqliteCatalogRepository(dbPath);
   try {
     const scope = await resolveScope(repo, repo.getDatabase() as never);
-    const perCategory = await Promise.all(
-      CATEGORIES.map((category) => inStockCandidates(repo, scope, category))
-    );
-    const missing = CATEGORIES.filter((_, index) => perCategory[index].length === 0);
-    if (missing.length > 0) {
-      throw new Error(`No in-stock candidates for: ${missing.join(", ")} (${dbPath}).`);
-    }
-
-    const tool = createValidateBuildTool(scope, repo);
-    const context = { toolCallId: "sample-fixture", messages: [] } as unknown as Parameters<
-      NonNullable<typeof tool.execute>
-    >[1];
-
-    // Keep the valid, fully priced build with the fewest unverified specs
-    // (issues that need research or verification), then the lowest total.
-    let picked: { parts: Record<string, { product_id: string }>; validation: ValidationResult; snapshot: BuildSnapshot } | null = null;
-    let pickedScore = Number.POSITIVE_INFINITY;
-    let attempts = 0;
-    for (const combo of combos(perCategory)) {
-      attempts += 1;
-      const parts: Record<string, { product_id: string }> = {};
-      CATEGORIES.forEach((category, index) => {
-        parts[category] = { product_id: combo[index].id };
-      });
-      const output = (await tool.execute!({ builds: [{ label: LABEL, parts }] }, context)) as unknown as ToolOutput;
-      const entry = output.builds?.[LABEL];
-      const snapshot = entry?.snapshot;
-      if (!entry || !snapshot || !entry.valid || !snapshot.is_complete || typeof snapshot.total !== "number") continue;
-      if (entry.issues.some((issue) => issue.severity === "blocking")) continue;
-      const unverified = entry.issues.filter((issue) => issue.severity === "needs_research" || issue.severity === "needs_verification").length;
-      const score = unverified * 1_000_000 + snapshot.total;
-      if (score < pickedScore) {
-        picked = { parts, validation: entry, snapshot };
-        pickedScore = score;
-      }
-    }
-
-    if (!picked) {
-      throw new Error(
-        `No fully-valid, fully-priced build found in ${attempts} candidate combos from ${dbPath}.`
-      );
-    }
-
-    // Challenger self-check: every product ID in the fixture resolves in the catalog.
-    const ids = picked.snapshot.components.map((component) => component.product_id).filter(Boolean) as string[];
-    const resolved = await repo.searchProducts({ product_ids: ids, inStockOnly: false, limit: ids.length }, scope);
-    const found = new Set(resolved.results.map((product) => product.id));
-    const unresolved = ids.filter((id) => !found.has(id));
-    if (unresolved.length > 0) {
-      throw new Error(`Fixture references products missing from catalog: ${unresolved.join(", ")}`);
-    }
-
     const generatedAt = new Date().toISOString();
     const fixtureDate = generatedAt.slice(0, 10);
+    const examples = [];
+    for (const example of EXAMPLES) {
+      const picked = await pickExample(repo, scope, example, dbPath);
+      examples.push({
+        id: example.id,
+        label: example.label,
+        prompt: example.prompt,
+        answer:
+          `Example answer: a validated "${example.label}" build totalling ` +
+          `${formatPrice(picked.snapshot.total, picked.snapshot.currency)} across ` +
+          `${picked.snapshot.component_count} catalog parts (prices observed ${fixtureDate}). ` +
+          `Every part below is a real catalog listing and compatibility was checked ` +
+          `by the deterministic engine.`,
+        validation: picked.validation,
+        snapshot: picked.snapshot
+      });
+      console.log(`${example.id}: ${picked.snapshot.component_count} parts, total ${formatPrice(picked.snapshot.total, picked.snapshot.currency)}.`);
+    }
+
     const fixture = {
-      version: 1,
+      version: 2,
       example: true,
       generated_at: generatedAt,
       source: { db: path.basename(dbPath), scope },
-      prompt: "Show me an example gaming build.",
-      answer:
-        `Example answer: a validated "${LABEL}" build totalling ` +
-        `${formatPrice(picked.snapshot.total, picked.snapshot.currency)} across ` +
-        `${picked.snapshot.component_count} catalog parts (prices observed ${fixtureDate}). ` +
-        `Every part below is a real catalog listing and compatibility was checked ` +
-        `by the deterministic engine.`,
-      label: LABEL,
-      validation: picked.validation,
-      snapshot: picked.snapshot
+      examples
     };
 
     mkdirSync(path.dirname(outPath), { recursive: true });
     writeFileSync(outPath, `${JSON.stringify(fixture, null, 2)}\n`);
-    console.log(`Wrote ${path.relative(process.cwd(), outPath)} (${scope.countryCode}/${scope.currency}, ${ids.length} parts, total ${formatPrice(picked.snapshot.total, picked.snapshot.currency)}).`);
+    console.log(`Wrote ${path.relative(process.cwd(), outPath)} (${scope.countryCode}/${scope.currency}, ${examples.length} examples).`);
   } finally {
     await repo.close?.();
   }

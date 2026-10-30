@@ -131,7 +131,7 @@ export function Field({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={controlId} className="text-caption font-medium text-text-secondary">
+      <label htmlFor={controlId} className="type-label text-caption text-text-secondary">
         {label}
       </label>
       {content}
@@ -154,7 +154,7 @@ export function ChoiceGroup({
 }) {
   return (
     <fieldset className={className}>
-      <legend className={cn("text-caption font-medium text-text-secondary", legendClassName)}>{label}</legend>
+      <legend className={cn("type-label text-caption text-text-secondary", legendClassName)}>{label}</legend>
       {children}
     </fieldset>
   );

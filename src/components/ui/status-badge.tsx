@@ -41,7 +41,7 @@ export function StatusBadge({
       }}
     >
       <Icon icon={status.icon} size={14} />
-      <span className="whitespace-nowrap font-mono">{label ?? status.word}</span>
+      <span className="type-label whitespace-nowrap">{label ?? status.word}</span>
     </span>
   );
 }

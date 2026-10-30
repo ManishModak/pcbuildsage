@@ -1,4 +1,5 @@
-// The brand mark: a leaf whose veins are PCB traces. Organic wisdom + silicon.
+// The brand mark: a leaf whose veins are PCB traces, in the sage green the
+// palette also uses for "checks passed".
 export function LeafMark({ size = 24, className }: { size?: number; className?: string }) {
   return (
     <svg
@@ -8,7 +9,7 @@ export function LeafMark({ size = 24, className }: { size?: number; className?: 
       fill="none"
       className={className}
       aria-hidden="true"
-      style={{ color: "var(--accent)" }}
+      style={{ color: "var(--ok)" }}
     >
       {/* leaf silhouette */}
       <path
@@ -37,12 +38,5 @@ export function LeafMark({ size = 24, className }: { size?: number; className?: 
 }
 
 export function Wordmark({ className }: { className?: string }) {
-  return (
-    <span className={className}>
-      <span className="font-semibold text-text">PCBuild</span>
-      <span className="font-semibold" style={{ color: "var(--accent)" }}>
-        Sage
-      </span>
-    </span>
-  );
+  return <span className={["type-title text-text", className].filter(Boolean).join(" ")}>PCBuildSage</span>;
 }

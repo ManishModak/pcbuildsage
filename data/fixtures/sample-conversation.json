@@ -1,551 +1,1719 @@
 {
-  "version": 1,
+  "version": 2,
   "example": true,
-  "generated_at": "2026-09-28T04:26:41.390Z",
+  "generated_at": "2026-10-30T16:24:32.381Z",
   "source": {
-    "db": "../../../../../../home/manishm/Projects/pcbuildsage-workspace/pcbuildsage/data/products.db",
+    "db": "products-in.db",
     "scope": {
       "countryCode": "IN",
       "currency": "INR"
     }
   },
-  "prompt": "Show me an example gaming build.",
-  "answer": "Example answer: a validated \"Example 1080p Gaming\" build totalling ₹87,509.00 across 8 catalog parts (prices observed 2026-09-28). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
-  "label": "Example 1080p Gaming",
-  "validation": {
-    "valid": true,
-    "issues": [
-      {
-        "severity": "needs_verification",
-        "rule": "spec_resolution",
-        "components": [
-          "e932a2bdc8f476b4ae189af5147b1ff0499ccbc4"
-        ],
-        "detail": "No case specs found in registry or research cache for 'Antec ST10M TG M-ATX Mini Tower Case'."
-      }
-    ],
-    "resolved": {
-      "cpu": {
-        "key": "28e670955fc9dd82537e371db57a03a9745ed9da",
-        "category": "cpu",
-        "spec": {
-          "brand": "AMD",
-          "model": "AMD Ryzen 5 5600",
-          "socket": "AM4",
-          "tdp_w": 65,
-          "ddr": "DDR4",
-          "igpu": false,
-          "cores": 6,
-          "boost_clock_ghz": 4.4,
-          "aliases": [
-            "AMD Ryzen 5 5600",
-            "Ryzen 5 5600",
-            "5600",
-            "R5 5600",
-            "5 5600"
-          ],
-          "sources": [
-            "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5600.html",
-            "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600.c2678"
-          ],
-          "confidence": "high",
-          "researched_at": "2026-08-16T10:05:00Z"
-        },
-        "source": "registry",
-        "confidence": "high"
-      },
-      "motherboard": {
-        "key": "b27312c888d03f570a5ea6a10fb50102de77d311",
-        "category": "motherboard",
-        "spec": {
-          "brand": "MSI",
-          "model": "MSI B550M-A Pro Motherboard",
-          "aliases": [
-            "MSI B550M-A Pro Motherboard"
-          ],
-          "socket": "AM4",
-          "ddr": "DDR4",
-          "chipset": "B550",
-          "form_factor": "Micro-ATX",
-          "m2_slots": 2,
-          "sata_ports": 4
-        },
-        "source": "derived",
-        "confidence": "medium"
-      },
-      "gpu": {
-        "key": "4633994a12229f87586da5299272924d25442508",
-        "category": "gpu",
-        "spec": {
-          "brand": "NVIDIA",
-          "model": "NVIDIA GeForce RTX 5060",
-          "aliases": [
-            "GeForce RTX 5060",
-            "RTX 5060",
-            "5060",
-            "NVIDIA RTX 5060",
-            "NVIDIA GeForce RTX 5060",
-            "RTX 5060 8GB",
-            "GeForce RTX 5060 8GB"
-          ],
-          "tdp_w": 145,
-          "recommended_psu_w": 550,
-          "vram_gb": 8,
-          "segment": "gaming",
-          "sources": [
-            "https://www.techpowerup.com/gpu-specs/geforce-rtx-5060.c4226",
-            "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5060-family/"
-          ],
-          "confidence": "high",
-          "researched_at": "2026-08-16T15:35:00Z"
-        },
-        "source": "registry",
-        "confidence": "high"
-      },
-      "psu": {
-        "key": "83e29ceb5c13ec7be025597e9e39ffa0f33a6549",
-        "category": "psu",
-        "spec": {
-          "brand": "Ant",
-          "model": "Ant Esports RX650 - 80 Plus Bronze Certified 650 Watt Non-Modular Power Supply",
-          "aliases": [
-            "Ant Esports RX650 - 80 Plus Bronze Certified 650 Watt Non-Modular Power Supply"
-          ],
-          "wattage": 650,
-          "wattage_w": 650,
-          "form_factor": "ATX"
-        },
-        "source": "derived",
-        "confidence": "medium"
-      },
-      "cooler": {
-        "key": "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
-        "category": "cooler",
-        "spec": {
-          "brand": "Ant Esports",
-          "model": "Ant Esports ICE-C612 V2 ARGB",
-          "height_mm": 153,
-          "sockets": [
-            "AM4",
-            "AM5",
-            "LGA 1700",
-            "LGA 1851",
-            "LGA 1200",
-            "LGA 1151",
-            "LGA 1150",
-            "LGA 1155",
-            "LGA 1156",
-            "LGA 1366",
-            "LGA 2011",
-            "LGA 2066"
-          ],
-          "tdp_rating_w": 180,
-          "aliases": [
-            "Ant Esports ICE-C612",
-            "ICE-C612",
-            "Ant Esports ICE-C612 V2",
-            "ICE-C612 V2",
-            "Ant Esports ICE C612",
-            "ICE-C612 ARGB"
-          ],
-          "sources": [
-            "https://antesports.com/product/ant-esports-ice-c612-v2-cpu-air-cooler/"
-          ],
-          "confidence": "high",
-          "researched_at": "2026-08-16T15:34:56+05:30",
-          "cooler_type": "air"
-        },
-        "source": "registry",
-        "confidence": "high"
-      },
-      "ram": {
-        "key": "1ee22f4e68844a8440d5ef87693f8319fb21ba7b",
-        "category": "ram",
-        "spec": {
-          "brand": "Teamgroup",
-          "model": "Teamgroup T-Force Delta RGB 16Gb (8Gbx2) White 3200MHz CL16 DDR4 Desktop RAM (TF4D416G3200HC16FDC01)",
-          "aliases": [
-            "Teamgroup T-Force Delta RGB 16Gb (8Gbx2) White 3200MHz CL16 DDR4 Desktop RAM (TF4D416G3200HC16FDC01)"
-          ],
-          "ddr": "DDR4",
-          "capacity_gb": 16,
-          "speed_mhz": 3200,
-          "modules": 2
-        },
-        "source": "derived",
-        "confidence": "medium"
-      },
-      "storage": [
-        {
-          "key": "9543837a198b70a5ca66ed1ce6c4e9f71126ad15",
-          "category": "storage",
-          "spec": {
-            "brand": "Hikvision",
-            "model": "Hikvision G4000 1TB M.2 NVMe Gen4 7400MB/s Internal SSD",
-            "aliases": [
-              "Hikvision G4000 1TB M.2 NVMe Gen4 7400MB/s Internal SSD"
-            ],
-            "capacity_gb": 1000,
-            "interface": "nvme",
-            "form_factor": "m2-2280",
-            "pcie_gen": 4
-          },
-          "source": "derived",
-          "confidence": "medium"
-        }
-      ]
-    },
-    "skipped_checks": [],
-    "checks": [
-      {
-        "rule": "spec_resolution",
-        "status": "unverified",
-        "components": [
-          "e932a2bdc8f476b4ae189af5147b1ff0499ccbc4"
-        ],
-        "message": "No case specs found in registry or research cache for 'Antec ST10M TG M-ATX Mini Tower Case'."
-      },
-      {
-        "rule": "socket",
-        "status": "passed",
-        "components": [
-          "28e670955fc9dd82537e371db57a03a9745ed9da",
-          "b27312c888d03f570a5ea6a10fb50102de77d311"
-        ],
-        "message": "CPU socket AM4 matches motherboard socket AM4."
-      },
-      {
-        "rule": "ddr",
-        "status": "passed",
-        "components": [
-          "28e670955fc9dd82537e371db57a03a9745ed9da",
-          "b27312c888d03f570a5ea6a10fb50102de77d311",
-          "1ee22f4e68844a8440d5ef87693f8319fb21ba7b"
-        ],
-        "message": "RAM (DDR4) matches motherboard and CPU memory support."
-      },
-      {
-        "rule": "wattage",
-        "status": "passed",
-        "components": [
-          "28e670955fc9dd82537e371db57a03a9745ed9da",
-          "4633994a12229f87586da5299272924d25442508",
-          "83e29ceb5c13ec7be025597e9e39ffa0f33a6549"
-        ],
-        "message": "PSU wattage (650W) covers estimated requirement (312W) and meets manufacturer recommendation (550W)."
-      },
-      {
-        "rule": "display_output",
-        "status": "passed",
-        "components": [
-          "4633994a12229f87586da5299272924d25442508"
-        ],
-        "message": "Discrete GPU provides display output."
-      },
-      {
-        "rule": "cooler",
-        "status": "passed",
-        "components": [
-          "28e670955fc9dd82537e371db57a03a9745ed9da",
-          "9bfafde76d6fae32fd7b430391147b3bd6a2f133"
-        ],
-        "message": "Cooler rating (180W) and socket (AM4) match CPU (65W)."
-      },
-      {
-        "rule": "storage",
-        "status": "passed",
-        "components": [
-          "b27312c888d03f570a5ea6a10fb50102de77d311",
-          "9543837a198b70a5ca66ed1ce6c4e9f71126ad15"
-        ],
-        "message": "Motherboard supports installed storage drives (1 NVMe)."
-      }
-    ],
-    "summary": {
-      "passed": 6,
-      "failed": 0,
-      "unverified": 1,
-      "text": "6 checks passed · 1 unverified"
-    },
-    "snapshot": {
-      "label": "Example 1080p Gaming",
-      "components": [
-        {
-          "category": "gpu",
-          "product_id": "4633994a12229f87586da5299272924d25442508",
-          "name": "MSI RTX 5060 Inspire 2X OC 8GB GDDR7",
-          "price": 33990,
-          "currency": "INR",
-          "retailer": "Kryptronix",
-          "url": "https://kryptronix.in/product/msi-rtx-5060-inspire-2x-oc-8gb-gddr7-2/",
-          "observed_at": "2026-07-10T06:30:15Z",
-          "included": false
-        },
-        {
-          "category": "cpu",
-          "product_id": "28e670955fc9dd82537e371db57a03a9745ed9da",
-          "name": "AMD Ryzen 5 5600 Processor",
-          "price": 12990,
-          "currency": "INR",
-          "retailer": "Kryptronix",
-          "url": "https://kryptronix.in/product/amd-ryzen-5-5600-processor-2/",
-          "observed_at": "2026-08-16T08:32:00Z",
-          "included": false
-        },
-        {
-          "category": "motherboard",
-          "product_id": "b27312c888d03f570a5ea6a10fb50102de77d311",
-          "name": "MSI B550M-A Pro Motherboard",
-          "price": 6250,
-          "currency": "INR",
-          "retailer": "MDComputers",
-          "url": "https://mdcomputers.in/product/motherboard/msi-b550m-a-pro-motherboard",
-          "observed_at": "2026-08-16T08:32:01Z",
-          "included": false
-        },
-        {
-          "category": "ram",
-          "product_id": "1ee22f4e68844a8440d5ef87693f8319fb21ba7b",
-          "name": "Teamgroup T-Force Delta RGB 16Gb (8Gbx2) White 3200MHz CL16 DDR4 Desktop RAM (TF4D416G3200HC16FDC01)",
-          "price": 13500,
-          "currency": "INR",
-          "retailer": "PCStudio",
-          "url": "https://www.pcstudio.in/product/teamgroup-t-force-delta-rgb-16gb-8gbx2-white-3200mhz-cl16-ddr4-desktop-ram/",
-          "observed_at": "2026-08-16T08:32:05Z",
-          "included": false
-        },
-        {
-          "category": "storage",
-          "product_id": "9543837a198b70a5ca66ed1ce6c4e9f71126ad15",
-          "name": "Hikvision G4000 1TB M.2 NVMe Gen4 7400MB/s Internal SSD",
-          "price": 13990,
-          "currency": "INR",
-          "retailer": "Kryptronix",
-          "url": "https://kryptronix.in/product/hikvision-g4000-1tb-m-2-nvme-gen4-7400mb-s-internal-ssd-2/",
-          "observed_at": "2026-08-16T08:32:43Z",
-          "included": false
-        },
-        {
-          "category": "psu",
-          "product_id": "83e29ceb5c13ec7be025597e9e39ffa0f33a6549",
-          "name": "Ant Esports RX650 - 80 Plus Bronze Certified 650 Watt Non-Modular Power Supply",
-          "price": 3339,
-          "currency": "INR",
-          "retailer": "VedantComputers",
-          "url": "https://www.vedantcomputers.com/pc-components/smps/ant-esports-rx-series-rx650-80plus-bronze-power-supply",
-          "observed_at": "2026-08-16T08:32:21Z",
-          "included": false
-        },
-        {
-          "category": "case",
-          "product_id": "e932a2bdc8f476b4ae189af5147b1ff0499ccbc4",
-          "name": "Antec ST10M TG M-ATX Mini Tower Case",
-          "price": 1900,
-          "currency": "INR",
-          "retailer": "MDComputers",
-          "url": "https://mdcomputers.in/product/antec-st10m-tg-mini-tower-cabinet/cabinet",
-          "observed_at": "2026-08-16T08:32:20Z",
-          "included": false
-        },
-        {
-          "category": "cooler",
-          "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
-          "name": "Ant Esports ICE-C612 V2 Rainbow LED CPU Air Cooler",
-          "price": 1550,
-          "currency": "INR",
-          "retailer": "VedantComputers",
-          "url": "https://www.vedantcomputers.com/pc-components/cpu-cooler/ant-esports-ice-c612-v2-cpu-cooler",
-          "observed_at": "2026-08-16T08:32:35Z",
-          "included": false
-        }
-      ],
-      "total": 87509,
-      "subtotal": 87509,
-      "currency": "INR",
-      "is_complete": true,
-      "component_count": 8,
-      "unpriced_count": 0,
-      "missing_prices": [],
-      "currencies": [
-        "INR"
-      ],
-      "parts": {
-        "cpu": {
-          "product_id": "28e670955fc9dd82537e371db57a03a9745ed9da"
-        },
-        "gpu": {
-          "product_id": "4633994a12229f87586da5299272924d25442508"
-        },
-        "motherboard": {
-          "product_id": "b27312c888d03f570a5ea6a10fb50102de77d311"
-        },
-        "ram": {
-          "product_id": "1ee22f4e68844a8440d5ef87693f8319fb21ba7b"
-        },
-        "storage": {
-          "product_id": "9543837a198b70a5ca66ed1ce6c4e9f71126ad15"
-        },
-        "psu": {
-          "product_id": "83e29ceb5c13ec7be025597e9e39ffa0f33a6549"
-        },
-        "case": {
-          "product_id": "e932a2bdc8f476b4ae189af5147b1ff0499ccbc4"
-        },
-        "cooler": {
-          "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133"
-        }
-      },
-      "valid": true,
-      "validation_summary": {
-        "passed": 6,
-        "failed": 0,
-        "unverified": 1,
-        "skipped": 0,
+  "examples": [
+    {
+      "id": "1080p-gaming",
+      "label": "1080p gaming",
+      "prompt": "A 1080p gaming PC for under ₹90,000.",
+      "answer": "Example answer: a validated \"1080p gaming\" build totalling ₹85,868.00 across 8 catalog parts (prices observed 2026-10-30). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
+      "validation": {
+        "valid": true,
         "issues": [
-          "No case specs found in registry or research cache for 'Antec ST10M TG M-ATX Mini Tower Case'."
-        ]
+          {
+            "severity": "needs_verification",
+            "rule": "storage",
+            "components": [
+              "cde65be3d9b4a75c94e0098dce124a3393664137",
+              "ae863beabfedc7a79efee3b95d8330a44d38b192"
+            ],
+            "detail": "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+          }
+        ],
+        "resolved": {
+          "cpu": {
+            "key": "28e670955fc9dd82537e371db57a03a9745ed9da",
+            "category": "cpu",
+            "spec": {
+              "brand": "AMD",
+              "model": "AMD Ryzen 5 5600",
+              "socket": "AM4",
+              "tdp_w": 65,
+              "max_power_w": 88,
+              "ddr": "DDR4",
+              "igpu": false,
+              "cores": 6,
+              "boost_clock_ghz": 4.4,
+              "aliases": [
+                "AMD Ryzen 5 5600",
+                "Ryzen 5 5600",
+                "5600",
+                "R5 5600",
+                "5 5600"
+              ],
+              "sources": [
+                "https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-5-5600.html",
+                "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-5600.c2678",
+                "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
+              ],
+              "confidence": "medium",
+              "researched_at": "2026-09-28T16:00:00Z"
+            },
+            "source": "registry",
+            "confidence": "medium"
+          },
+          "motherboard": {
+            "key": "cde65be3d9b4a75c94e0098dce124a3393664137",
+            "category": "motherboard",
+            "spec": {
+              "brand": "MSI",
+              "model": "MSI B550M-A Pro Motherboard",
+              "aliases": [
+                "MSI B550M-A Pro Motherboard"
+              ],
+              "socket": "AM4",
+              "ddr": "DDR4",
+              "chipset": "B550",
+              "form_factor": "Micro-ATX"
+            },
+            "source": "derived",
+            "confidence": "medium"
+          },
+          "gpu": {
+            "key": "4633994a12229f87586da5299272924d25442508",
+            "category": "gpu",
+            "spec": {
+              "brand": "MSI",
+              "model": "MSI GeForce RTX 5060 8G INSPIRE 2X OC",
+              "aliases": [
+                "MSI RTX 5060 Inspire 2X OC 8GB GDDR7",
+                "MSI GeForce RTX 5060 8G INSPIRE 2X OC",
+                "MSI RTX 5060 Inspire 2X OC 8GB",
+                "MSI GeForce RTX 5060 INSPIRE 2X OC"
+              ],
+              "length_mm": 204,
+              "slot_width": 2,
+              "tdp_w": 145,
+              "recommended_psu_w": 550,
+              "vram_gb": 8,
+              "segment": "gaming",
+              "sources": [
+                "https://storage-asset.msi.com/datasheet/vga/in/GeForce-RTX-5060-8G-INSPIRE-2X-OC.pdf"
+              ],
+              "confidence": "high",
+              "researched_at": "2026-09-29T17:00:00Z"
+            },
+            "source": "registry",
+            "confidence": "high"
+          },
+          "psu": {
+            "key": "3a4c7ec8b840db0549cca35d7bb34989c3a0832c",
+            "category": "psu",
+            "spec": {
+              "brand": "Coconut",
+              "model": "Coconut SM70 X650 Bronze 650 Watt White SMPS",
+              "aliases": [
+                "Coconut SM70 X650 Bronze 650 Watt White SMPS"
+              ],
+              "wattage": 650,
+              "wattage_w": 650,
+              "form_factor": "ATX"
+            },
+            "source": "derived",
+            "confidence": "medium"
+          },
+          "case": {
+            "key": "0ba593384c54b66b0c324160652bfc0f096cc045",
+            "category": "case",
+            "spec": {
+              "brand": "Ant Esports",
+              "model": "Ant Esports SI28 Mid Tower",
+              "max_gpu_length_mm": 270,
+              "max_cooler_height_mm": 162,
+              "form_factors": [
+                "ATX",
+                "Micro-ATX",
+                "Mini-ITX"
+              ],
+              "supported_psu_form_factors": [
+                "ATX"
+              ],
+              "aliases": [
+                "Ant Esports SI28",
+                "SI28",
+                "Ant Esports SI28 Mid Tower",
+                "Ant Esports SI28 Cabinet Black"
+              ],
+              "sources": [
+                "https://antesports.com/products/ant-esports-chassis-si28-black"
+              ],
+              "confidence": "high",
+              "researched_at": "2026-09-27T12:00:00Z"
+            },
+            "source": "registry",
+            "confidence": "high"
+          },
+          "cooler": {
+            "key": "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
+            "category": "cooler",
+            "spec": {
+              "brand": "Ant Esports",
+              "model": "Ant Esports ICE-C612 V2 ARGB",
+              "height_mm": 153,
+              "sockets": [
+                "AM4",
+                "AM5",
+                "LGA 1700",
+                "LGA 1851",
+                "LGA 1200",
+                "LGA 1151",
+                "LGA 1150",
+                "LGA 1155",
+                "LGA 1156",
+                "LGA 1366",
+                "LGA 2011",
+                "LGA 2066"
+              ],
+              "tdp_rating_w": 180,
+              "aliases": [
+                "Ant Esports ICE-C612",
+                "ICE-C612",
+                "Ant Esports ICE-C612 V2",
+                "ICE-C612 V2",
+                "Ant Esports ICE C612",
+                "ICE-C612 ARGB"
+              ],
+              "sources": [
+                "https://antesports.com/product/ant-esports-ice-c612-v2-cpu-air-cooler/"
+              ],
+              "confidence": "high",
+              "researched_at": "2026-08-16T15:34:56+05:30",
+              "cooler_type": "air"
+            },
+            "source": "registry",
+            "confidence": "high"
+          },
+          "ram": {
+            "key": "23ed2a7d2da9af3e789de1d7877476bad3578388",
+            "category": "ram",
+            "spec": {
+              "brand": "G.Skill",
+              "model": "G.Skill Ripjaws V 16GB 3200MHz CL16 DDR4 RAM",
+              "ddr": "DDR4",
+              "speed": "3200MHz",
+              "capacity": "16GB",
+              "modules": 2,
+              "aliases": [
+                "G.Skill Ripjaws V 16GB 3200MHz CL16 DDR4 RAM"
+              ],
+              "sources": [
+                "https://www.gskill.com/product/165/74/1535010370/F4-3200C16D-16GVKB"
+              ],
+              "confidence": "high",
+              "researched_at": "2026-08-16T15:34:56Z",
+              "capacity_gb": 16,
+              "speed_mhz": 3200
+            },
+            "source": "registry",
+            "confidence": "high"
+          },
+          "storage": [
+            {
+              "key": "ae863beabfedc7a79efee3b95d8330a44d38b192",
+              "category": "storage",
+              "spec": {
+                "brand": "MiPhi",
+                "model": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
+                "aliases": [
+                  "MiPhi MP300G3 NVMe 1TB Gen3 SSD"
+                ],
+                "capacity_gb": 1000,
+                "interface": "nvme",
+                "pcie_gen": 3
+              },
+              "source": "derived",
+              "confidence": "medium"
+            }
+          ]
+        },
+        "skipped_checks": [],
+        "checks": [
+          {
+            "rule": "socket",
+            "status": "passed",
+            "components": [
+              "28e670955fc9dd82537e371db57a03a9745ed9da",
+              "cde65be3d9b4a75c94e0098dce124a3393664137"
+            ],
+            "message": "CPU socket AM4 matches motherboard socket AM4."
+          },
+          {
+            "rule": "cpu_support",
+            "status": "passed",
+            "components": [
+              "28e670955fc9dd82537e371db57a03a9745ed9da",
+              "cde65be3d9b4a75c94e0098dce124a3393664137"
+            ],
+            "message": "Chipset B550 supports AMD Ryzen 5 5600."
+          },
+          {
+            "rule": "ddr",
+            "status": "passed",
+            "components": [
+              "28e670955fc9dd82537e371db57a03a9745ed9da",
+              "cde65be3d9b4a75c94e0098dce124a3393664137",
+              "23ed2a7d2da9af3e789de1d7877476bad3578388"
+            ],
+            "message": "RAM (DDR4) matches motherboard and CPU memory support."
+          },
+          {
+            "rule": "wattage",
+            "status": "passed",
+            "components": [
+              "28e670955fc9dd82537e371db57a03a9745ed9da",
+              "4633994a12229f87586da5299272924d25442508",
+              "3a4c7ec8b840db0549cca35d7bb34989c3a0832c"
+            ],
+            "message": "PSU wattage (650W) covers estimated requirement (340W) and meets manufacturer recommendation (550W)."
+          },
+          {
+            "rule": "display_output",
+            "status": "passed",
+            "components": [
+              "4633994a12229f87586da5299272924d25442508"
+            ],
+            "message": "Discrete GPU provides display output."
+          },
+          {
+            "rule": "clearance",
+            "status": "passed",
+            "components": [
+              "4633994a12229f87586da5299272924d25442508",
+              "0ba593384c54b66b0c324160652bfc0f096cc045"
+            ],
+            "message": "GPU length fits: 204mm card / 270mm case clearance."
+          },
+          {
+            "rule": "clearance",
+            "status": "passed",
+            "components": [
+              "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
+              "0ba593384c54b66b0c324160652bfc0f096cc045"
+            ],
+            "message": "Cooler height fits: 153mm cooler / 162mm case clearance."
+          },
+          {
+            "rule": "clearance",
+            "status": "passed",
+            "components": [
+              "cde65be3d9b4a75c94e0098dce124a3393664137",
+              "0ba593384c54b66b0c324160652bfc0f096cc045"
+            ],
+            "message": "Motherboard form factor Micro-ATX fits case."
+          },
+          {
+            "rule": "clearance",
+            "status": "passed",
+            "components": [
+              "3a4c7ec8b840db0549cca35d7bb34989c3a0832c",
+              "0ba593384c54b66b0c324160652bfc0f096cc045"
+            ],
+            "message": "PSU form factor ATX fits case (supported: ATX)."
+          },
+          {
+            "rule": "cooler",
+            "status": "passed",
+            "components": [
+              "28e670955fc9dd82537e371db57a03a9745ed9da",
+              "9bfafde76d6fae32fd7b430391147b3bd6a2f133"
+            ],
+            "message": "Cooler rating (180W) and socket (AM4) match CPU (65W)."
+          },
+          {
+            "rule": "storage",
+            "status": "unverified",
+            "components": [
+              "cde65be3d9b4a75c94e0098dce124a3393664137",
+              "ae863beabfedc7a79efee3b95d8330a44d38b192"
+            ],
+            "message": "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+          }
+        ],
+        "summary": {
+          "passed": 10,
+          "failed": 0,
+          "unverified": 1,
+          "text": "10 checks passed · 1 unverified"
+        },
+        "snapshot": {
+          "label": "1080p gaming",
+          "components": [
+            {
+              "category": "gpu",
+              "product_id": "4633994a12229f87586da5299272924d25442508",
+              "name": "MSI RTX 5060 Inspire 2X OC 8GB GDDR7",
+              "price": 33990,
+              "currency": "INR",
+              "retailer": "Kryptronix",
+              "url": "https://kryptronix.in/product/msi-rtx-5060-inspire-2x-oc-8gb-gddr7-2/",
+              "observed_at": "2026-10-30T08:44:35Z",
+              "included": false
+            },
+            {
+              "category": "cpu",
+              "product_id": "28e670955fc9dd82537e371db57a03a9745ed9da",
+              "name": "AMD Ryzen 5 5600 Processor",
+              "price": 12990,
+              "currency": "INR",
+              "retailer": "Kryptronix",
+              "url": "https://kryptronix.in/product/amd-ryzen-5-5600-processor-2/",
+              "observed_at": "2026-10-30T08:43:49Z",
+              "included": false
+            },
+            {
+              "category": "motherboard",
+              "product_id": "cde65be3d9b4a75c94e0098dce124a3393664137",
+              "name": "MSI B550M-A Pro Motherboard",
+              "price": 6300,
+              "currency": "INR",
+              "retailer": "MDComputers",
+              "url": "https://mdcomputers.in/product/msi-b550m-a-pro-motherboard",
+              "observed_at": "2026-10-30T08:43:51Z",
+              "included": false
+            },
+            {
+              "category": "ram",
+              "product_id": "23ed2a7d2da9af3e789de1d7877476bad3578388",
+              "name": "G.Skill Ripjaws V 16GB 3200MHz CL16 DDR4 RAM",
+              "price": 13040,
+              "currency": "INR",
+              "retailer": "MDComputers",
+              "url": "https://mdcomputers.in/product/g-skill-ram-ripjaws-v-16gb-ddr4-3200mhz-f4-3200c16s-16gvk",
+              "observed_at": "2026-10-30T08:44:06Z",
+              "included": false
+            },
+            {
+              "category": "storage",
+              "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192",
+              "name": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
+              "price": 13000,
+              "currency": "INR",
+              "retailer": "MDComputers",
+              "url": "https://mdcomputers.in/product/miphi-mp300g3-1tb-nvme-ssd-mp5015100t",
+              "observed_at": "2026-10-30T08:44:27Z",
+              "included": false
+            },
+            {
+              "category": "psu",
+              "product_id": "3a4c7ec8b840db0549cca35d7bb34989c3a0832c",
+              "name": "Coconut SM70 X650 Bronze 650 Watt White SMPS",
+              "price": 2999,
+              "currency": "INR",
+              "retailer": "MDComputers",
+              "url": "https://mdcomputers.in/product/coconut-sm70-x650-bronze-white-smps",
+              "observed_at": "2026-10-30T08:44:36Z",
+              "included": false
+            },
+            {
+              "category": "case",
+              "product_id": "0ba593384c54b66b0c324160652bfc0f096cc045",
+              "name": "Ant Esports SI28 ATX Mid Tower Case",
+              "price": 1999,
+              "currency": "INR",
+              "retailer": "MDComputers",
+              "url": "https://mdcomputers.in/product/ant-esports-si28-mid-tower-cabinet",
+              "observed_at": "2026-10-30T08:44:58Z",
+              "included": false
+            },
+            {
+              "category": "cooler",
+              "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
+              "name": "Ant Esports ICE-C612 V2 Rainbow LED CPU Air Cooler",
+              "price": 1550,
+              "currency": "INR",
+              "retailer": "VedantComputers",
+              "url": "https://www.vedantcomputers.com/pc-components/cpu-cooler/ant-esports-ice-c612-v2-cpu-cooler",
+              "observed_at": "2026-10-30T08:52:11Z",
+              "included": false
+            }
+          ],
+          "total": 85868,
+          "subtotal": 85868,
+          "currency": "INR",
+          "is_complete": true,
+          "component_count": 8,
+          "unpriced_count": 0,
+          "missing_prices": [],
+          "currencies": [
+            "INR"
+          ],
+          "parts": {
+            "cpu": {
+              "product_id": "28e670955fc9dd82537e371db57a03a9745ed9da"
+            },
+            "gpu": {
+              "product_id": "4633994a12229f87586da5299272924d25442508"
+            },
+            "motherboard": {
+              "product_id": "cde65be3d9b4a75c94e0098dce124a3393664137"
+            },
+            "ram": {
+              "product_id": "23ed2a7d2da9af3e789de1d7877476bad3578388"
+            },
+            "storage": {
+              "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192"
+            },
+            "psu": {
+              "product_id": "3a4c7ec8b840db0549cca35d7bb34989c3a0832c"
+            },
+            "case": {
+              "product_id": "0ba593384c54b66b0c324160652bfc0f096cc045"
+            },
+            "cooler": {
+              "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133"
+            }
+          },
+          "valid": true,
+          "validation_summary": {
+            "passed": 10,
+            "failed": 0,
+            "unverified": 1,
+            "skipped": 0,
+            "issues": [
+              "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+            ]
+          },
+          "created_at": "2026-10-30T16:24:32.624Z"
+        }
       },
-      "created_at": "2026-09-28T04:26:34.125Z"
+      "snapshot": {
+        "label": "1080p gaming",
+        "components": [
+          {
+            "category": "gpu",
+            "product_id": "4633994a12229f87586da5299272924d25442508",
+            "name": "MSI RTX 5060 Inspire 2X OC 8GB GDDR7",
+            "price": 33990,
+            "currency": "INR",
+            "retailer": "Kryptronix",
+            "url": "https://kryptronix.in/product/msi-rtx-5060-inspire-2x-oc-8gb-gddr7-2/",
+            "observed_at": "2026-10-30T08:44:35Z",
+            "included": false
+          },
+          {
+            "category": "cpu",
+            "product_id": "28e670955fc9dd82537e371db57a03a9745ed9da",
+            "name": "AMD Ryzen 5 5600 Processor",
+            "price": 12990,
+            "currency": "INR",
+            "retailer": "Kryptronix",
+            "url": "https://kryptronix.in/product/amd-ryzen-5-5600-processor-2/",
+            "observed_at": "2026-10-30T08:43:49Z",
+            "included": false
+          },
+          {
+            "category": "motherboard",
+            "product_id": "cde65be3d9b4a75c94e0098dce124a3393664137",
+            "name": "MSI B550M-A Pro Motherboard",
+            "price": 6300,
+            "currency": "INR",
+            "retailer": "MDComputers",
+            "url": "https://mdcomputers.in/product/msi-b550m-a-pro-motherboard",
+            "observed_at": "2026-10-30T08:43:51Z",
+            "included": false
+          },
+          {
+            "category": "ram",
+            "product_id": "23ed2a7d2da9af3e789de1d7877476bad3578388",
+            "name": "G.Skill Ripjaws V 16GB 3200MHz CL16 DDR4 RAM",
+            "price": 13040,
+            "currency": "INR",
+            "retailer": "MDComputers",
+            "url": "https://mdcomputers.in/product/g-skill-ram-ripjaws-v-16gb-ddr4-3200mhz-f4-3200c16s-16gvk",
+            "observed_at": "2026-10-30T08:44:06Z",
+            "included": false
+          },
+          {
+            "category": "storage",
+            "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192",
+            "name": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
+            "price": 13000,
+            "currency": "INR",
+            "retailer": "MDComputers",
+            "url": "https://mdcomputers.in/product/miphi-mp300g3-1tb-nvme-ssd-mp5015100t",
+            "observed_at": "2026-10-30T08:44:27Z",
+            "included": false
+          },
+          {
+            "category": "psu",
+            "product_id": "3a4c7ec8b840db0549cca35d7bb34989c3a0832c",
+            "name": "Coconut SM70 X650 Bronze 650 Watt White SMPS",
+            "price": 2999,
+            "currency": "INR",
+            "retailer": "MDComputers",
+            "url": "https://mdcomputers.in/product/coconut-sm70-x650-bronze-white-smps",
+            "observed_at": "2026-10-30T08:44:36Z",
+            "included": false
+          },
+          {
+            "category": "case",
+            "product_id": "0ba593384c54b66b0c324160652bfc0f096cc045",
+            "name": "Ant Esports SI28 ATX Mid Tower Case",
+            "price": 1999,
+            "currency": "INR",
+            "retailer": "MDComputers",
+            "url": "https://mdcomputers.in/product/ant-esports-si28-mid-tower-cabinet",
+            "observed_at": "2026-10-30T08:44:58Z",
+            "included": false
+          },
+          {
+            "category": "cooler",
+            "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
+            "name": "Ant Esports ICE-C612 V2 Rainbow LED CPU Air Cooler",
+            "price": 1550,
+            "currency": "INR",
+            "retailer": "VedantComputers",
+            "url": "https://www.vedantcomputers.com/pc-components/cpu-cooler/ant-esports-ice-c612-v2-cpu-cooler",
+            "observed_at": "2026-10-30T08:52:11Z",
+            "included": false
+          }
+        ],
+        "total": 85868,
+        "subtotal": 85868,
+        "currency": "INR",
+        "is_complete": true,
+        "component_count": 8,
+        "unpriced_count": 0,
+        "missing_prices": [],
+        "currencies": [
+          "INR"
+        ],
+        "parts": {
+          "cpu": {
+            "product_id": "28e670955fc9dd82537e371db57a03a9745ed9da"
+          },
+          "gpu": {
+            "product_id": "4633994a12229f87586da5299272924d25442508"
+          },
+          "motherboard": {
+            "product_id": "cde65be3d9b4a75c94e0098dce124a3393664137"
+          },
+          "ram": {
+            "product_id": "23ed2a7d2da9af3e789de1d7877476bad3578388"
+          },
+          "storage": {
+            "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192"
+          },
+          "psu": {
+            "product_id": "3a4c7ec8b840db0549cca35d7bb34989c3a0832c"
+          },
+          "case": {
+            "product_id": "0ba593384c54b66b0c324160652bfc0f096cc045"
+          },
+          "cooler": {
+            "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133"
+          }
+        },
+        "valid": true,
+        "validation_summary": {
+          "passed": 10,
+          "failed": 0,
+          "unverified": 1,
+          "skipped": 0,
+          "issues": [
+            "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+          ]
+        },
+        "created_at": "2026-10-30T16:24:32.624Z"
+      }
+    },
+    {
+      "id": "1440p-gaming",
+      "label": "1440p gaming",
+      "prompt": "A 1440p gaming PC on the newer AM5 platform.",
+      "answer": "Example answer: a validated \"1440p gaming\" build totalling ₹1,54,669.00 across 8 catalog parts (prices observed 2026-10-30). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
+      "validation": {
+        "valid": true,
+        "issues": [
+          {
+            "severity": "needs_verification",
+            "rule": "storage",
+            "components": [
+              "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+              "ae863beabfedc7a79efee3b95d8330a44d38b192"
+            ],
+            "detail": "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+          }
+        ],
+        "resolved": {
+          "cpu": {
+            "key": "a77b1bd955600638bca02a276fd9c661d8875bc7",
+            "category": "cpu",
+            "spec": {
+              "brand": "AMD",
+              "model": "AMD Ryzen 5 7600X",
+              "socket": "AM5",
+              "tdp_w": 105,
+              "max_power_w": 142,
+              "ddr": "DDR5",
+              "igpu": true,
+              "cores": 6,
+              "boost_clock_ghz": 5.3,
+              "aliases": [
+                "AMD Ryzen 5 7600X",
+                "Ryzen 5 7600X",
+                "7600X",
+                "R5 7600X",
+                "5 7600X"
+              ],
+              "sources": [
+                "https://www.amd.com/en/products/processors/desktops/ryzen/7000-series/amd-ryzen-5-7600x.html",
+                "https://www.techpowerup.com/cpu-specs/amd-ryzen-5-7600x.c2859",
+                "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
+              ],
+              "confidence": "medium",
+              "researched_at": "2026-09-28T16:00:00Z"
+            },
+            "source": "registry",
+            "confidence": "medium"
+          },
+          "motherboard": {
+            "key": "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+            "category": "motherboard",
+            "spec": {
+              "brand": "MSI",
+              "model": "MSI Pro B650M-E Motherboard",
+              "aliases": [
+                "MSI Pro B650M-E Motherboard"
+              ],
+              "socket": "AM5",
+              "ddr": "DDR5",
+              "chipset": "B650",
+              "form_factor": "Micro-ATX"
+            },
+            "source": "derived",
+            "confidence": "medium"
+          },
+          "gpu": {
+            "key": "5e02764d63c2395392d489d04f6d62a235dac55d",
+            "category": "gpu",
+            "spec": {
+              "brand": "INNO3D",
+              "model": "INNO3D GeForce RTX 5070 Twin X2 OC 12GB",
+              "aliases": [
+                "Inno3D RTX 5070 Twin X2 OC 12GB GDDR7 Graphics Card",
+                "INNO3D GeForce RTX 5070 Twin X2 OC 12GB",
+                "INNO3D RTX 5070 Twin X2 OC 12GB"
+              ],
+              "length_mm": 250,
+              "slot_width": 2,
+              "tdp_w": 250,
+              "recommended_psu_w": 650,
+              "vram_gb": 12,
+              "segment": "gaming",
+              "sources": [
+                "https://www.inno3d.com/product/inno3d-geforce-rtx-5070-twin-x2"
+              ],
+              "confidence": "high",
+              "researched_at": "2026-09-29T17:00:00Z"
+            },
+            "source": "registry",
+            "confidence": "high"
+          },
+          "psu": {
+            "key": "34584ee3cf88db239ca84f0a7ee6493d19073b77",
+            "category": "psu",
+            "spec": {
+              "brand": "Antec",
+              "model": "Antec G750 Gold 750 Watt SMPS",
+              "aliases": [
+                "Antec G750 Gold 750 Watt SMPS"
+              ],
+              "wattage": 750,
+              "wattage_w": 750,
+              "form_factor": "ATX"
+            },
+            "source": "derived",
+            "confidence": "medium"
+          },
+          "case": {
+            "key": "0ba593384c54b66b0c324160652bfc0f096cc045",
+            "category": "case",
+            "spec": {
+              "brand": "Ant Esports",
+              "model": "Ant Esports SI28 Mid Tower",
+              "max_gpu_length_mm": 270,
+              "max_cooler_height_mm": 162,
+              "form_factors": [
+                "ATX",
+                "Micro-ATX",
+                "Mini-ITX"
+              ],
+              "supported_psu_form_factors": [
+                "ATX"
+              ],
+              "aliases": [
+                "Ant Esports SI28",
+                "SI28",
+                "Ant Esports SI28 Mid Tower",
+                "Ant Esports SI28 Cabinet Black"
+              ],
+              "sources": [
+                "https://antesports.com/products/ant-esports-chassis-si28-black"
+              ],
+              "confidence": "high",
+              "researched_at": "2026-09-27T12:00:00Z"
+            },
+            "source": "registry",
+            "confidence": "high"
+          },
+          "cooler": {
+            "key": "5604a66c3d7835dc2b02fb7f8441a5eb726d41ee",
+            "category": "cooler",
+            "spec": {
+              "brand": "Cooler Master",
+              "model": "Cooler Master Hyper 212 RGB",
+              "height_mm": 158.8,
+              "sockets": [
+                "AM4",
+                "AM5",
+                "LGA 1700",
+                "LGA 1851",
+                "LGA 1200",
+                "LGA 1150",
+                "LGA 1151",
+                "LGA 1155",
+                "LGA 1156",
+                "LGA 2011",
+                "LGA 2011-3",
+                "LGA 2066"
+              ],
+              "tdp_rating_w": 180,
+              "aliases": [
+                "Cooler Master Hyper 212 RGB",
+                "Hyper 212 RGB"
+              ],
+              "sources": [
+                "https://www.coolermaster.com/en-global/products/hyper-212-rgb.html",
+                "https://www.coolermaster.com/en-global/products/hyper-212-rgb-black-edition.html",
+                "https://www.manua.ls/cooler-master/hyper-212-rgb/manual"
+              ],
+              "confidence": "high",
+              "researched_at": "2026-07-17T07:38:00Z",
+              "cooler_type": "air"
+            },
+            "source": "registry",
+            "confidence": "high"
+          },
+          "ram": {
+            "key": "0ad63e11e822dbba056c26ed611db3b1097f2783",
+            "category": "ram",
+            "spec": {
+              "brand": "Acer",
+              "model": "Acer Predator Vesta II RGB 32GB (16GBx2) DDR5 CL36 6000MHz RAM (Black)",
+              "aliases": [
+                "Acer Predator Vesta II RGB 32GB (16GBx2) DDR5 CL36 6000MHz RAM (Black)"
+              ],
+              "ddr": "DDR5",
+              "capacity_gb": 32,
+              "speed_mhz": 6000,
+              "modules": 2
+            },
+            "source": "derived",
+            "confidence": "medium"
+          },
+          "storage": [
+            {
+              "key": "ae863beabfedc7a79efee3b95d8330a44d38b192",
+              "category": "storage",
+              "spec": {
+                "brand": "MiPhi",
+                "model": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
+                "aliases": [
+                  "MiPhi MP300G3 NVMe 1TB Gen3 SSD"
+                ],
+                "capacity_gb": 1000,
+                "interface": "nvme",
+                "pcie_gen": 3
+              },
+              "source": "derived",
+              "confidence": "medium"
+            }
+          ]
+        },
+        "skipped_checks": [],
+        "checks": [
+          {
+            "rule": "socket",
+            "status": "passed",
+            "components": [
+              "a77b1bd955600638bca02a276fd9c661d8875bc7",
+              "1f8ea8e7799d041e498785d51e05c9ed851be74d"
+            ],
+            "message": "CPU socket AM5 matches motherboard socket AM5."
+          },
+          {
+            "rule": "ddr",
+            "status": "passed",
+            "components": [
+              "a77b1bd955600638bca02a276fd9c661d8875bc7",
+              "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+              "0ad63e11e822dbba056c26ed611db3b1097f2783"
+            ],
+            "message": "RAM (DDR5) matches motherboard and CPU memory support."
+          },
+          {
+            "rule": "wattage",
+            "status": "passed",
+            "components": [
+              "a77b1bd955600638bca02a276fd9c661d8875bc7",
+              "5e02764d63c2395392d489d04f6d62a235dac55d",
+              "34584ee3cf88db239ca84f0a7ee6493d19073b77"
+            ],
+            "message": "PSU wattage (750W) covers estimated requirement (531W) and meets manufacturer recommendation (650W)."
+          },
+          {
+            "rule": "display_output",
+            "status": "passed",
+            "components": [
+              "5e02764d63c2395392d489d04f6d62a235dac55d"
+            ],
+            "message": "Discrete GPU provides display output."
+          },
+          {
+            "rule": "clearance",
+            "status": "passed",
+            "components": [
+              "5e02764d63c2395392d489d04f6d62a235dac55d",
+              "0ba593384c54b66b0c324160652bfc0f096cc045"
+            ],
+            "message": "GPU length fits: 250mm card / 270mm case clearance."
+          },
+          {
+            "rule": "clearance",
+            "status": "passed",
+            "components": [
+              "5604a66c3d7835dc2b02fb7f8441a5eb726d41ee",
+              "0ba593384c54b66b0c324160652bfc0f096cc045"
+            ],
+            "message": "Cooler height fits: 158.8mm cooler / 162mm case clearance."
+          },
+          {
+            "rule": "clearance",
+            "status": "passed",
+            "components": [
+              "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+              "0ba593384c54b66b0c324160652bfc0f096cc045"
+            ],
+            "message": "Motherboard form factor Micro-ATX fits case."
+          },
+          {
+            "rule": "clearance",
+            "status": "passed",
+            "components": [
+              "34584ee3cf88db239ca84f0a7ee6493d19073b77",
+              "0ba593384c54b66b0c324160652bfc0f096cc045"
+            ],
+            "message": "PSU form factor ATX fits case (supported: ATX)."
+          },
+          {
+            "rule": "cooler",
+            "status": "passed",
+            "components": [
+              "a77b1bd955600638bca02a276fd9c661d8875bc7",
+              "5604a66c3d7835dc2b02fb7f8441a5eb726d41ee"
+            ],
+            "message": "Cooler rating (180W) and socket (AM5) match CPU (105W)."
+          },
+          {
+            "rule": "storage",
+            "status": "unverified",
+            "components": [
+              "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+              "ae863beabfedc7a79efee3b95d8330a44d38b192"
+            ],
+            "message": "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+          }
+        ],
+        "summary": {
+          "passed": 9,
+          "failed": 0,
+          "unverified": 1,
+          "text": "9 checks passed · 1 unverified"
+        },
+        "snapshot": {
+          "label": "1440p gaming",
+          "components": [
+            {
+              "category": "gpu",
+              "product_id": "5e02764d63c2395392d489d04f6d62a235dac55d",
+              "name": "Inno3D RTX 5070 Twin X2 12GB GDDR7 Graphics Card",
+              "price": 67990,
+              "currency": "INR",
+              "retailer": "Kryptronix",
+              "url": "https://kryptronix.in/product/inno3d-rtx-5070-twin-x2-12gb-gddr7-graphics-card-2/",
+              "observed_at": "2026-10-30T08:44:35Z",
+              "included": false
+            },
+            {
+              "category": "cpu",
+              "product_id": "a77b1bd955600638bca02a276fd9c661d8875bc7",
+              "name": "AMD Ryzen 5 7600X Processor with Radeon Graphics (6 Cores, 12 Threads, Max. Boost Clock Up To 5.3GHz, AM5 Socket and 38MB Cache)",
+              "price": 17290,
+              "currency": "INR",
+              "retailer": "VedantComputers",
+              "url": "https://www.vedantcomputers.com/pc-components/processor/amd-ryzen-5-7600x-processor",
+              "observed_at": "2026-10-30T08:50:03Z",
+              "included": false
+            },
+            {
+              "category": "motherboard",
+              "product_id": "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+              "name": "MSI Pro B650M-E Motherboard",
+              "price": 8750,
+              "currency": "INR",
+              "retailer": "VedantComputers",
+              "url": "https://www.vedantcomputers.com/pc-components/motherboard/msi-pro-b650m-e",
+              "observed_at": "2026-10-30T08:50:52Z",
+              "included": false
+            },
+            {
+              "category": "ram",
+              "product_id": "0ad63e11e822dbba056c26ed611db3b1097f2783",
+              "name": "Acer Predator Vesta II RGB 32GB (16GBx2) DDR5 CL36 6000MHz RAM (Black)",
+              "price": 37790,
+              "currency": "INR",
+              "retailer": "Kryptronix",
+              "url": "https://kryptronix.in/product/acer-predator-vesta-ii-rgb-32gb-16gbx2-ddr5-cl36-6000mhz-ram-black-2/",
+              "observed_at": "2026-10-30T08:45:29Z",
+              "included": false
+            },
+            {
+              "category": "storage",
+              "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192",
+              "name": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
+              "price": 13000,
+              "currency": "INR",
+              "retailer": "MDComputers",
+              "url": "https://mdcomputers.in/product/miphi-mp300g3-1tb-nvme-ssd-mp5015100t",
+              "observed_at": "2026-10-30T08:44:27Z",
+              "included": false
+            },
+            {
+              "category": "psu",
+              "product_id": "34584ee3cf88db239ca84f0a7ee6493d19073b77",
+              "name": "Antec G750 Gold 750 Watt SMPS",
+              "price": 5850,
+              "currency": "INR",
+              "retailer": "MDComputers",
+              "url": "https://mdcomputers.in/product/antec-g750-gold-smps",
+              "observed_at": "2026-10-30T08:44:36Z",
+              "included": false
+            },
+            {
+              "category": "case",
+              "product_id": "0ba593384c54b66b0c324160652bfc0f096cc045",
+              "name": "Ant Esports SI28 ATX Mid Tower Case",
+              "price": 1999,
+              "currency": "INR",
+              "retailer": "MDComputers",
+              "url": "https://mdcomputers.in/product/ant-esports-si28-mid-tower-cabinet",
+              "observed_at": "2026-10-30T08:44:58Z",
+              "included": false
+            },
+            {
+              "category": "cooler",
+              "product_id": "5604a66c3d7835dc2b02fb7f8441a5eb726d41ee",
+              "name": "Cooler Master Hyper 212 Flow ARGB AIr CPU Cooler - Black",
+              "price": 2000,
+              "currency": "INR",
+              "retailer": "VedantComputers",
+              "url": "https://www.vedantcomputers.com/pc-components/cpu-cooler/cooler-master-hyper-212-flow-argb-max-t4pn-217pa-r1",
+              "observed_at": "2026-10-30T08:52:11Z",
+              "included": false
+            }
+          ],
+          "total": 154669,
+          "subtotal": 154669,
+          "currency": "INR",
+          "is_complete": true,
+          "component_count": 8,
+          "unpriced_count": 0,
+          "missing_prices": [],
+          "currencies": [
+            "INR"
+          ],
+          "parts": {
+            "cpu": {
+              "product_id": "a77b1bd955600638bca02a276fd9c661d8875bc7"
+            },
+            "gpu": {
+              "product_id": "5e02764d63c2395392d489d04f6d62a235dac55d"
+            },
+            "motherboard": {
+              "product_id": "1f8ea8e7799d041e498785d51e05c9ed851be74d"
+            },
+            "ram": {
+              "product_id": "0ad63e11e822dbba056c26ed611db3b1097f2783"
+            },
+            "storage": {
+              "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192"
+            },
+            "psu": {
+              "product_id": "34584ee3cf88db239ca84f0a7ee6493d19073b77"
+            },
+            "case": {
+              "product_id": "0ba593384c54b66b0c324160652bfc0f096cc045"
+            },
+            "cooler": {
+              "product_id": "5604a66c3d7835dc2b02fb7f8441a5eb726d41ee"
+            }
+          },
+          "valid": true,
+          "validation_summary": {
+            "passed": 9,
+            "failed": 0,
+            "unverified": 1,
+            "skipped": 0,
+            "issues": [
+              "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+            ]
+          },
+          "created_at": "2026-10-30T16:24:46.230Z"
+        }
+      },
+      "snapshot": {
+        "label": "1440p gaming",
+        "components": [
+          {
+            "category": "gpu",
+            "product_id": "5e02764d63c2395392d489d04f6d62a235dac55d",
+            "name": "Inno3D RTX 5070 Twin X2 12GB GDDR7 Graphics Card",
+            "price": 67990,
+            "currency": "INR",
+            "retailer": "Kryptronix",
+            "url": "https://kryptronix.in/product/inno3d-rtx-5070-twin-x2-12gb-gddr7-graphics-card-2/",
+            "observed_at": "2026-10-30T08:44:35Z",
+            "included": false
+          },
+          {
+            "category": "cpu",
+            "product_id": "a77b1bd955600638bca02a276fd9c661d8875bc7",
+            "name": "AMD Ryzen 5 7600X Processor with Radeon Graphics (6 Cores, 12 Threads, Max. Boost Clock Up To 5.3GHz, AM5 Socket and 38MB Cache)",
+            "price": 17290,
+            "currency": "INR",
+            "retailer": "VedantComputers",
+            "url": "https://www.vedantcomputers.com/pc-components/processor/amd-ryzen-5-7600x-processor",
+            "observed_at": "2026-10-30T08:50:03Z",
+            "included": false
+          },
+          {
+            "category": "motherboard",
+            "product_id": "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+            "name": "MSI Pro B650M-E Motherboard",
+            "price": 8750,
+            "currency": "INR",
+            "retailer": "VedantComputers",
+            "url": "https://www.vedantcomputers.com/pc-components/motherboard/msi-pro-b650m-e",
+            "observed_at": "2026-10-30T08:50:52Z",
+            "included": false
+          },
+          {
+            "category": "ram",
+            "product_id": "0ad63e11e822dbba056c26ed611db3b1097f2783",
+            "name": "Acer Predator Vesta II RGB 32GB (16GBx2) DDR5 CL36 6000MHz RAM (Black)",
+            "price": 37790,
+            "currency": "INR",
+            "retailer": "Kryptronix",
+            "url": "https://kryptronix.in/product/acer-predator-vesta-ii-rgb-32gb-16gbx2-ddr5-cl36-6000mhz-ram-black-2/",
+            "observed_at": "2026-10-30T08:45:29Z",
+            "included": false
+          },
+          {
+            "category": "storage",
+            "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192",
+            "name": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
+            "price": 13000,
+            "currency": "INR",
+            "retailer": "MDComputers",
+            "url": "https://mdcomputers.in/product/miphi-mp300g3-1tb-nvme-ssd-mp5015100t",
+            "observed_at": "2026-10-30T08:44:27Z",
+            "included": false
+          },
+          {
+            "category": "psu",
+            "product_id": "34584ee3cf88db239ca84f0a7ee6493d19073b77",
+            "name": "Antec G750 Gold 750 Watt SMPS",
+            "price": 5850,
+            "currency": "INR",
+            "retailer": "MDComputers",
+            "url": "https://mdcomputers.in/product/antec-g750-gold-smps",
+            "observed_at": "2026-10-30T08:44:36Z",
+            "included": false
+          },
+          {
+            "category": "case",
+            "product_id": "0ba593384c54b66b0c324160652bfc0f096cc045",
+            "name": "Ant Esports SI28 ATX Mid Tower Case",
+            "price": 1999,
+            "currency": "INR",
+            "retailer": "MDComputers",
+            "url": "https://mdcomputers.in/product/ant-esports-si28-mid-tower-cabinet",
+            "observed_at": "2026-10-30T08:44:58Z",
+            "included": false
+          },
+          {
+            "category": "cooler",
+            "product_id": "5604a66c3d7835dc2b02fb7f8441a5eb726d41ee",
+            "name": "Cooler Master Hyper 212 Flow ARGB AIr CPU Cooler - Black",
+            "price": 2000,
+            "currency": "INR",
+            "retailer": "VedantComputers",
+            "url": "https://www.vedantcomputers.com/pc-components/cpu-cooler/cooler-master-hyper-212-flow-argb-max-t4pn-217pa-r1",
+            "observed_at": "2026-10-30T08:52:11Z",
+            "included": false
+          }
+        ],
+        "total": 154669,
+        "subtotal": 154669,
+        "currency": "INR",
+        "is_complete": true,
+        "component_count": 8,
+        "unpriced_count": 0,
+        "missing_prices": [],
+        "currencies": [
+          "INR"
+        ],
+        "parts": {
+          "cpu": {
+            "product_id": "a77b1bd955600638bca02a276fd9c661d8875bc7"
+          },
+          "gpu": {
+            "product_id": "5e02764d63c2395392d489d04f6d62a235dac55d"
+          },
+          "motherboard": {
+            "product_id": "1f8ea8e7799d041e498785d51e05c9ed851be74d"
+          },
+          "ram": {
+            "product_id": "0ad63e11e822dbba056c26ed611db3b1097f2783"
+          },
+          "storage": {
+            "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192"
+          },
+          "psu": {
+            "product_id": "34584ee3cf88db239ca84f0a7ee6493d19073b77"
+          },
+          "case": {
+            "product_id": "0ba593384c54b66b0c324160652bfc0f096cc045"
+          },
+          "cooler": {
+            "product_id": "5604a66c3d7835dc2b02fb7f8441a5eb726d41ee"
+          }
+        },
+        "valid": true,
+        "validation_summary": {
+          "passed": 9,
+          "failed": 0,
+          "unverified": 1,
+          "skipped": 0,
+          "issues": [
+            "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+          ]
+        },
+        "created_at": "2026-10-30T16:24:46.230Z"
+      }
+    },
+    {
+      "id": "compact-no-gpu",
+      "label": "Compact, no graphics card",
+      "prompt": "A small, quiet PC for work and light games, no graphics card.",
+      "answer": "Example answer: a validated \"Compact, no graphics card\" build totalling ₹86,815.00 across 7 catalog parts (prices observed 2026-10-30). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
+      "validation": {
+        "valid": true,
+        "issues": [
+          {
+            "severity": "needs_verification",
+            "rule": "spec_resolution",
+            "components": [
+              "bc4a62a52c0f603e02812ec92dd0983d0bac2d20"
+            ],
+            "detail": "No case specs found in registry or research cache for 'Antec ST20M M-ATX Mini Tower Case'."
+          },
+          {
+            "severity": "needs_verification",
+            "rule": "storage",
+            "components": [
+              "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+              "ae863beabfedc7a79efee3b95d8330a44d38b192"
+            ],
+            "detail": "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+          }
+        ],
+        "resolved": {
+          "cpu": {
+            "key": "49904496fdd5db2e5089743a62137915b613d268",
+            "category": "cpu",
+            "spec": {
+              "brand": "AMD",
+              "model": "AMD Ryzen 5 8600G",
+              "socket": "AM5",
+              "tdp_w": 65,
+              "max_power_w": 88,
+              "ddr": "DDR5",
+              "igpu": true,
+              "cores": 6,
+              "boost_clock_ghz": 5,
+              "aliases": [
+                "AMD Ryzen 5 8600G",
+                "Ryzen 5 8600G",
+                "8600G",
+                "R5 8600G",
+                "5 8600G"
+              ],
+              "sources": [
+                "https://www.amd.com/en/products/processors/desktops/ryzen/8000-series/amd-ryzen-5-8600g.html",
+                "https://www.techpowerup.com/cpu-specs/ryzen-5-8600g.c3428",
+                "https://www.tomshardware.com/news/amd-corrects-socket-am5-for-ryzen-7000-power-specs-230w-peak-power-170w-tdp"
+              ],
+              "confidence": "medium",
+              "researched_at": "2026-09-28T16:00:00Z"
+            },
+            "source": "registry",
+            "confidence": "medium"
+          },
+          "motherboard": {
+            "key": "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+            "category": "motherboard",
+            "spec": {
+              "brand": "MSI",
+              "model": "MSI Pro B650M-E Motherboard",
+              "aliases": [
+                "MSI Pro B650M-E Motherboard"
+              ],
+              "socket": "AM5",
+              "ddr": "DDR5",
+              "chipset": "B650",
+              "form_factor": "Micro-ATX"
+            },
+            "source": "derived",
+            "confidence": "medium"
+          },
+          "psu": {
+            "key": "ec6edb6dafb0148ce397bed94fd0e5ac35a59b1b",
+            "category": "psu",
+            "spec": {
+              "brand": "Ant",
+              "model": "Ant Esports FG550 V2 550W 80 Plus Gold Fully-Modular Power Supply",
+              "aliases": [
+                "Ant Esports FG550 V2 550W 80 Plus Gold Fully-Modular Power Supply"
+              ],
+              "wattage": 550,
+              "wattage_w": 550,
+              "form_factor": "ATX"
+            },
+            "source": "derived",
+            "confidence": "medium"
+          },
+          "cooler": {
+            "key": "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
+            "category": "cooler",
+            "spec": {
+              "brand": "Ant Esports",
+              "model": "Ant Esports ICE-C612 V2 ARGB",
+              "height_mm": 153,
+              "sockets": [
+                "AM4",
+                "AM5",
+                "LGA 1700",
+                "LGA 1851",
+                "LGA 1200",
+                "LGA 1151",
+                "LGA 1150",
+                "LGA 1155",
+                "LGA 1156",
+                "LGA 1366",
+                "LGA 2011",
+                "LGA 2066"
+              ],
+              "tdp_rating_w": 180,
+              "aliases": [
+                "Ant Esports ICE-C612",
+                "ICE-C612",
+                "Ant Esports ICE-C612 V2",
+                "ICE-C612 V2",
+                "Ant Esports ICE C612",
+                "ICE-C612 ARGB"
+              ],
+              "sources": [
+                "https://antesports.com/product/ant-esports-ice-c612-v2-cpu-air-cooler/"
+              ],
+              "confidence": "high",
+              "researched_at": "2026-08-16T15:34:56+05:30",
+              "cooler_type": "air"
+            },
+            "source": "registry",
+            "confidence": "high"
+          },
+          "ram": {
+            "key": "0ad63e11e822dbba056c26ed611db3b1097f2783",
+            "category": "ram",
+            "spec": {
+              "brand": "Acer",
+              "model": "Acer Predator Vesta II RGB 32GB (16GBx2) DDR5 CL36 6000MHz RAM (Black)",
+              "aliases": [
+                "Acer Predator Vesta II RGB 32GB (16GBx2) DDR5 CL36 6000MHz RAM (Black)"
+              ],
+              "ddr": "DDR5",
+              "capacity_gb": 32,
+              "speed_mhz": 6000,
+              "modules": 2
+            },
+            "source": "derived",
+            "confidence": "medium"
+          },
+          "storage": [
+            {
+              "key": "ae863beabfedc7a79efee3b95d8330a44d38b192",
+              "category": "storage",
+              "spec": {
+                "brand": "MiPhi",
+                "model": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
+                "aliases": [
+                  "MiPhi MP300G3 NVMe 1TB Gen3 SSD"
+                ],
+                "capacity_gb": 1000,
+                "interface": "nvme",
+                "pcie_gen": 3
+              },
+              "source": "derived",
+              "confidence": "medium"
+            }
+          ]
+        },
+        "skipped_checks": [],
+        "checks": [
+          {
+            "rule": "spec_resolution",
+            "status": "unverified",
+            "components": [
+              "bc4a62a52c0f603e02812ec92dd0983d0bac2d20"
+            ],
+            "message": "No case specs found in registry or research cache for 'Antec ST20M M-ATX Mini Tower Case'."
+          },
+          {
+            "rule": "socket",
+            "status": "passed",
+            "components": [
+              "49904496fdd5db2e5089743a62137915b613d268",
+              "1f8ea8e7799d041e498785d51e05c9ed851be74d"
+            ],
+            "message": "CPU socket AM5 matches motherboard socket AM5."
+          },
+          {
+            "rule": "ddr",
+            "status": "passed",
+            "components": [
+              "49904496fdd5db2e5089743a62137915b613d268",
+              "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+              "0ad63e11e822dbba056c26ed611db3b1097f2783"
+            ],
+            "message": "RAM (DDR5) matches motherboard and CPU memory support."
+          },
+          {
+            "rule": "wattage",
+            "status": "passed",
+            "components": [
+              "49904496fdd5db2e5089743a62137915b613d268",
+              "ec6edb6dafb0148ce397bed94fd0e5ac35a59b1b"
+            ],
+            "message": "PSU wattage (550W) covers estimated requirement (166W)."
+          },
+          {
+            "rule": "display_output",
+            "status": "passed",
+            "components": [
+              "49904496fdd5db2e5089743a62137915b613d268"
+            ],
+            "message": "CPU includes integrated graphics for display output."
+          },
+          {
+            "rule": "cooler",
+            "status": "passed",
+            "components": [
+              "49904496fdd5db2e5089743a62137915b613d268",
+              "9bfafde76d6fae32fd7b430391147b3bd6a2f133"
+            ],
+            "message": "Cooler rating (180W) and socket (AM5) match CPU (65W)."
+          },
+          {
+            "rule": "storage",
+            "status": "unverified",
+            "components": [
+              "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+              "ae863beabfedc7a79efee3b95d8330a44d38b192"
+            ],
+            "message": "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+          }
+        ],
+        "summary": {
+          "passed": 5,
+          "failed": 0,
+          "unverified": 2,
+          "text": "5 checks passed · 2 unverified"
+        },
+        "snapshot": {
+          "label": "Compact, no graphics card",
+          "components": [
+            {
+              "category": "cpu",
+              "product_id": "49904496fdd5db2e5089743a62137915b613d268",
+              "name": "AMD Ryzen 5 8600G Processor",
+              "price": 19690,
+              "currency": "INR",
+              "retailer": "Kryptronix",
+              "url": "https://kryptronix.in/product/amd-ryzen-5-8600g-processor-2/",
+              "observed_at": "2026-10-30T08:43:49Z",
+              "included": false
+            },
+            {
+              "category": "motherboard",
+              "product_id": "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+              "name": "MSI Pro B650M-E Motherboard",
+              "price": 8750,
+              "currency": "INR",
+              "retailer": "VedantComputers",
+              "url": "https://www.vedantcomputers.com/pc-components/motherboard/msi-pro-b650m-e",
+              "observed_at": "2026-10-30T08:50:52Z",
+              "included": false
+            },
+            {
+              "category": "ram",
+              "product_id": "0ad63e11e822dbba056c26ed611db3b1097f2783",
+              "name": "Acer Predator Vesta II RGB 32GB (16GBx2) DDR5 CL36 6000MHz RAM (Black)",
+              "price": 37790,
+              "currency": "INR",
+              "retailer": "Kryptronix",
+              "url": "https://kryptronix.in/product/acer-predator-vesta-ii-rgb-32gb-16gbx2-ddr5-cl36-6000mhz-ram-black-2/",
+              "observed_at": "2026-10-30T08:45:29Z",
+              "included": false
+            },
+            {
+              "category": "storage",
+              "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192",
+              "name": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
+              "price": 13000,
+              "currency": "INR",
+              "retailer": "MDComputers",
+              "url": "https://mdcomputers.in/product/miphi-mp300g3-1tb-nvme-ssd-mp5015100t",
+              "observed_at": "2026-10-30T08:44:27Z",
+              "included": false
+            },
+            {
+              "category": "psu",
+              "product_id": "ec6edb6dafb0148ce397bed94fd0e5ac35a59b1b",
+              "name": "Ant Esports FG550 V2 550W 80 Plus Gold Fully-Modular Power Supply",
+              "price": 3985,
+              "currency": "INR",
+              "retailer": "VedantComputers",
+              "url": "https://www.vedantcomputers.com/pc-components/smps/ant-esports-550w-fg550-v2",
+              "observed_at": "2026-10-30T08:51:26Z",
+              "included": false
+            },
+            {
+              "category": "case",
+              "product_id": "bc4a62a52c0f603e02812ec92dd0983d0bac2d20",
+              "name": "Antec ST20M M-ATX Mini Tower Case",
+              "price": 2050,
+              "currency": "INR",
+              "retailer": "MDComputers",
+              "url": "https://mdcomputers.in/product/antec-st20m-mini-tower-cabinet",
+              "observed_at": "2026-10-30T08:44:58Z",
+              "included": false
+            },
+            {
+              "category": "cooler",
+              "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
+              "name": "Ant Esports ICE-C612 V2 Rainbow LED CPU Air Cooler",
+              "price": 1550,
+              "currency": "INR",
+              "retailer": "VedantComputers",
+              "url": "https://www.vedantcomputers.com/pc-components/cpu-cooler/ant-esports-ice-c612-v2-cpu-cooler",
+              "observed_at": "2026-10-30T08:52:11Z",
+              "included": false
+            }
+          ],
+          "total": 86815,
+          "subtotal": 86815,
+          "currency": "INR",
+          "is_complete": true,
+          "component_count": 7,
+          "unpriced_count": 0,
+          "missing_prices": [],
+          "currencies": [
+            "INR"
+          ],
+          "parts": {
+            "cpu": {
+              "product_id": "49904496fdd5db2e5089743a62137915b613d268"
+            },
+            "motherboard": {
+              "product_id": "1f8ea8e7799d041e498785d51e05c9ed851be74d"
+            },
+            "ram": {
+              "product_id": "0ad63e11e822dbba056c26ed611db3b1097f2783"
+            },
+            "storage": {
+              "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192"
+            },
+            "psu": {
+              "product_id": "ec6edb6dafb0148ce397bed94fd0e5ac35a59b1b"
+            },
+            "case": {
+              "product_id": "bc4a62a52c0f603e02812ec92dd0983d0bac2d20"
+            },
+            "cooler": {
+              "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133"
+            }
+          },
+          "valid": true,
+          "validation_summary": {
+            "passed": 5,
+            "failed": 0,
+            "unverified": 2,
+            "skipped": 0,
+            "issues": [
+              "No case specs found in registry or research cache for 'Antec ST20M M-ATX Mini Tower Case'.",
+              "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+            ]
+          },
+          "created_at": "2026-10-30T16:24:58.379Z"
+        }
+      },
+      "snapshot": {
+        "label": "Compact, no graphics card",
+        "components": [
+          {
+            "category": "cpu",
+            "product_id": "49904496fdd5db2e5089743a62137915b613d268",
+            "name": "AMD Ryzen 5 8600G Processor",
+            "price": 19690,
+            "currency": "INR",
+            "retailer": "Kryptronix",
+            "url": "https://kryptronix.in/product/amd-ryzen-5-8600g-processor-2/",
+            "observed_at": "2026-10-30T08:43:49Z",
+            "included": false
+          },
+          {
+            "category": "motherboard",
+            "product_id": "1f8ea8e7799d041e498785d51e05c9ed851be74d",
+            "name": "MSI Pro B650M-E Motherboard",
+            "price": 8750,
+            "currency": "INR",
+            "retailer": "VedantComputers",
+            "url": "https://www.vedantcomputers.com/pc-components/motherboard/msi-pro-b650m-e",
+            "observed_at": "2026-10-30T08:50:52Z",
+            "included": false
+          },
+          {
+            "category": "ram",
+            "product_id": "0ad63e11e822dbba056c26ed611db3b1097f2783",
+            "name": "Acer Predator Vesta II RGB 32GB (16GBx2) DDR5 CL36 6000MHz RAM (Black)",
+            "price": 37790,
+            "currency": "INR",
+            "retailer": "Kryptronix",
+            "url": "https://kryptronix.in/product/acer-predator-vesta-ii-rgb-32gb-16gbx2-ddr5-cl36-6000mhz-ram-black-2/",
+            "observed_at": "2026-10-30T08:45:29Z",
+            "included": false
+          },
+          {
+            "category": "storage",
+            "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192",
+            "name": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
+            "price": 13000,
+            "currency": "INR",
+            "retailer": "MDComputers",
+            "url": "https://mdcomputers.in/product/miphi-mp300g3-1tb-nvme-ssd-mp5015100t",
+            "observed_at": "2026-10-30T08:44:27Z",
+            "included": false
+          },
+          {
+            "category": "psu",
+            "product_id": "ec6edb6dafb0148ce397bed94fd0e5ac35a59b1b",
+            "name": "Ant Esports FG550 V2 550W 80 Plus Gold Fully-Modular Power Supply",
+            "price": 3985,
+            "currency": "INR",
+            "retailer": "VedantComputers",
+            "url": "https://www.vedantcomputers.com/pc-components/smps/ant-esports-550w-fg550-v2",
+            "observed_at": "2026-10-30T08:51:26Z",
+            "included": false
+          },
+          {
+            "category": "case",
+            "product_id": "bc4a62a52c0f603e02812ec92dd0983d0bac2d20",
+            "name": "Antec ST20M M-ATX Mini Tower Case",
+            "price": 2050,
+            "currency": "INR",
+            "retailer": "MDComputers",
+            "url": "https://mdcomputers.in/product/antec-st20m-mini-tower-cabinet",
+            "observed_at": "2026-10-30T08:44:58Z",
+            "included": false
+          },
+          {
+            "category": "cooler",
+            "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
+            "name": "Ant Esports ICE-C612 V2 Rainbow LED CPU Air Cooler",
+            "price": 1550,
+            "currency": "INR",
+            "retailer": "VedantComputers",
+            "url": "https://www.vedantcomputers.com/pc-components/cpu-cooler/ant-esports-ice-c612-v2-cpu-cooler",
+            "observed_at": "2026-10-30T08:52:11Z",
+            "included": false
+          }
+        ],
+        "total": 86815,
+        "subtotal": 86815,
+        "currency": "INR",
+        "is_complete": true,
+        "component_count": 7,
+        "unpriced_count": 0,
+        "missing_prices": [],
+        "currencies": [
+          "INR"
+        ],
+        "parts": {
+          "cpu": {
+            "product_id": "49904496fdd5db2e5089743a62137915b613d268"
+          },
+          "motherboard": {
+            "product_id": "1f8ea8e7799d041e498785d51e05c9ed851be74d"
+          },
+          "ram": {
+            "product_id": "0ad63e11e822dbba056c26ed611db3b1097f2783"
+          },
+          "storage": {
+            "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192"
+          },
+          "psu": {
+            "product_id": "ec6edb6dafb0148ce397bed94fd0e5ac35a59b1b"
+          },
+          "case": {
+            "product_id": "bc4a62a52c0f603e02812ec92dd0983d0bac2d20"
+          },
+          "cooler": {
+            "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133"
+          }
+        },
+        "valid": true,
+        "validation_summary": {
+          "passed": 5,
+          "failed": 0,
+          "unverified": 2,
+          "skipped": 0,
+          "issues": [
+            "No case specs found in registry or research cache for 'Antec ST20M M-ATX Mini Tower Case'.",
+            "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+          ]
+        },
+        "created_at": "2026-10-30T16:24:58.379Z"
+      }
     }
-  },
-  "snapshot": {
-    "label": "Example 1080p Gaming",
-    "components": [
-      {
-        "category": "gpu",
-        "product_id": "4633994a12229f87586da5299272924d25442508",
-        "name": "MSI RTX 5060 Inspire 2X OC 8GB GDDR7",
-        "price": 33990,
-        "currency": "INR",
-        "retailer": "Kryptronix",
-        "url": "https://kryptronix.in/product/msi-rtx-5060-inspire-2x-oc-8gb-gddr7-2/",
-        "observed_at": "2026-07-10T06:30:15Z",
-        "included": false
-      },
-      {
-        "category": "cpu",
-        "product_id": "28e670955fc9dd82537e371db57a03a9745ed9da",
-        "name": "AMD Ryzen 5 5600 Processor",
-        "price": 12990,
-        "currency": "INR",
-        "retailer": "Kryptronix",
-        "url": "https://kryptronix.in/product/amd-ryzen-5-5600-processor-2/",
-        "observed_at": "2026-08-16T08:32:00Z",
-        "included": false
-      },
-      {
-        "category": "motherboard",
-        "product_id": "b27312c888d03f570a5ea6a10fb50102de77d311",
-        "name": "MSI B550M-A Pro Motherboard",
-        "price": 6250,
-        "currency": "INR",
-        "retailer": "MDComputers",
-        "url": "https://mdcomputers.in/product/motherboard/msi-b550m-a-pro-motherboard",
-        "observed_at": "2026-08-16T08:32:01Z",
-        "included": false
-      },
-      {
-        "category": "ram",
-        "product_id": "1ee22f4e68844a8440d5ef87693f8319fb21ba7b",
-        "name": "Teamgroup T-Force Delta RGB 16Gb (8Gbx2) White 3200MHz CL16 DDR4 Desktop RAM (TF4D416G3200HC16FDC01)",
-        "price": 13500,
-        "currency": "INR",
-        "retailer": "PCStudio",
-        "url": "https://www.pcstudio.in/product/teamgroup-t-force-delta-rgb-16gb-8gbx2-white-3200mhz-cl16-ddr4-desktop-ram/",
-        "observed_at": "2026-08-16T08:32:05Z",
-        "included": false
-      },
-      {
-        "category": "storage",
-        "product_id": "9543837a198b70a5ca66ed1ce6c4e9f71126ad15",
-        "name": "Hikvision G4000 1TB M.2 NVMe Gen4 7400MB/s Internal SSD",
-        "price": 13990,
-        "currency": "INR",
-        "retailer": "Kryptronix",
-        "url": "https://kryptronix.in/product/hikvision-g4000-1tb-m-2-nvme-gen4-7400mb-s-internal-ssd-2/",
-        "observed_at": "2026-08-16T08:32:43Z",
-        "included": false
-      },
-      {
-        "category": "psu",
-        "product_id": "83e29ceb5c13ec7be025597e9e39ffa0f33a6549",
-        "name": "Ant Esports RX650 - 80 Plus Bronze Certified 650 Watt Non-Modular Power Supply",
-        "price": 3339,
-        "currency": "INR",
-        "retailer": "VedantComputers",
-        "url": "https://www.vedantcomputers.com/pc-components/smps/ant-esports-rx-series-rx650-80plus-bronze-power-supply",
-        "observed_at": "2026-08-16T08:32:21Z",
-        "included": false
-      },
-      {
-        "category": "case",
-        "product_id": "e932a2bdc8f476b4ae189af5147b1ff0499ccbc4",
-        "name": "Antec ST10M TG M-ATX Mini Tower Case",
-        "price": 1900,
-        "currency": "INR",
-        "retailer": "MDComputers",
-        "url": "https://mdcomputers.in/product/antec-st10m-tg-mini-tower-cabinet/cabinet",
-        "observed_at": "2026-08-16T08:32:20Z",
-        "included": false
-      },
-      {
-        "category": "cooler",
-        "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133",
-        "name": "Ant Esports ICE-C612 V2 Rainbow LED CPU Air Cooler",
-        "price": 1550,
-        "currency": "INR",
-        "retailer": "VedantComputers",
-        "url": "https://www.vedantcomputers.com/pc-components/cpu-cooler/ant-esports-ice-c612-v2-cpu-cooler",
-        "observed_at": "2026-08-16T08:32:35Z",
-        "included": false
-      }
-    ],
-    "total": 87509,
-    "subtotal": 87509,
-    "currency": "INR",
-    "is_complete": true,
-    "component_count": 8,
-    "unpriced_count": 0,
-    "missing_prices": [],
-    "currencies": [
-      "INR"
-    ],
-    "parts": {
-      "cpu": {
-        "product_id": "28e670955fc9dd82537e371db57a03a9745ed9da"
-      },
-      "gpu": {
-        "product_id": "4633994a12229f87586da5299272924d25442508"
-      },
-      "motherboard": {
-        "product_id": "b27312c888d03f570a5ea6a10fb50102de77d311"
-      },
-      "ram": {
-        "product_id": "1ee22f4e68844a8440d5ef87693f8319fb21ba7b"
-      },
-      "storage": {
-        "product_id": "9543837a198b70a5ca66ed1ce6c4e9f71126ad15"
-      },
-      "psu": {
-        "product_id": "83e29ceb5c13ec7be025597e9e39ffa0f33a6549"
-      },
-      "case": {
-        "product_id": "e932a2bdc8f476b4ae189af5147b1ff0499ccbc4"
-      },
-      "cooler": {
-        "product_id": "9bfafde76d6fae32fd7b430391147b3bd6a2f133"
-      }
-    },
-    "valid": true,
-    "validation_summary": {
-      "passed": 6,
-      "failed": 0,
-      "unverified": 1,
-      "skipped": 0,
-      "issues": [
-        "No case specs found in registry or research cache for 'Antec ST10M TG M-ATX Mini Tower Case'."
-      ]
-    },
-    "created_at": "2026-09-28T04:26:34.125Z"
-  }
+  ]
 }

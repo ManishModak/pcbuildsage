@@ -1,20 +1,31 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Anek_Latin, JetBrains_Mono, Noto_Sans_Runic } from "next/font/google";
 import { AppProvider } from "../components/app/app-provider";
 import { RETURNING_BOOTSTRAP } from "../lib/client-config-store";
 import { SITE_URL } from "../lib/seo";
 import "./globals.css";
 
-const inter = Inter({
+// Anek Latin is variable on width as well as weight: headlines open up to
+// 125%, small labels narrow to ~88% (see .type-* in globals.css).
+const anek = Anek_Latin({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-inter"
+  axes: ["wdth"],
+  variable: "--font-anek"
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-mono-jb"
+});
+
+// Rune glyphs only (rune-text.tsx); the runic subset is a few KB.
+const notoRunic = Noto_Sans_Runic({
+  subsets: ["runic"],
+  weight: "400",
+  display: "block",
+  variable: "--font-noto-runic"
 });
 
 export const metadata: Metadata = {
@@ -41,7 +52,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0e1210",
+  themeColor: "#0a1311",
   width: "device-width",
   initialScale: 1
 };
@@ -72,7 +83,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       lang="en"
       data-theme="sage-dark"
       data-theme-mode="dark"
-      className={`${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${anek.variable} ${jetbrainsMono.variable} ${notoRunic.variable}`}
       suppressHydrationWarning
     >
       <head>
