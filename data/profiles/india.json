@@ -261,63 +261,40 @@
     {
       "site_name": "EliteHubs",
       "base_url": "https://elitehubs.com/",
-      "scraping_type": "category",
-      "browser_config": {
-        "headless": true,
-        "js_rendering": true,
-        "wait_for_selector": ".product-grid-item",
-        "scroll_down": true,
-        "timeout_ms": 5000
-      },
+      "scraping_type": "shopify_json",
       "categories": {
         "cpu": {
           "path": "collections/processor",
-          "pagination_pattern": "?page={page}",
-          "max_pages": 20
+          "max_pages": 10
         },
         "gpu": {
           "path": "collections/graphic-cards",
-          "pagination_pattern": "?page={page}",
-          "max_pages": 20
+          "max_pages": 10
         },
         "motherboard": {
           "path": "collections/motherboard",
-          "pagination_pattern": "?page={page}",
-          "max_pages": 20
+          "max_pages": 10
         },
         "ram": {
           "path": "collections/ram",
-          "pagination_pattern": "?page={page}",
-          "max_pages": 20
+          "max_pages": 10
         },
         "storage": {
           "path": "collections/ssd",
-          "pagination_pattern": "?page={page}",
-          "max_pages": 20
+          "max_pages": 10
         },
         "psu": {
           "path": "collections/power-supply-unit-psu",
-          "pagination_pattern": "?page={page}",
-          "max_pages": 20
+          "max_pages": 10
         },
         "case": {
           "path": "collections/pc-cabinet",
-          "pagination_pattern": "?page={page}",
-          "max_pages": 20
+          "max_pages": 10
         },
         "cooler": {
           "path": "collections/pc-coolers",
-          "pagination_pattern": "?page={page}",
-          "max_pages": 20
+          "max_pages": 10
         }
-      },
-      "selectors": {
-        "product_container": ".product-grid-item",
-        "title": ".product-card__title, .grid-view-item__title",
-        "price": ".price-item--sale, .price-item--regular, span.price",
-        "url": "a.product-card__link",
-        "image": ".product-card__image img, img",
-        "out_of_stock": ".price--sold-out, .badge--sold-out"
       }
     },
     {

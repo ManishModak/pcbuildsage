@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,9 @@ class ProfileError(ValueError):
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PROFILES_DIR = REPO_ROOT / "data" / "profiles"
+SHOPIFY_JSON = "shopify_json"
+SCRAPING_TYPES = {"category", "search", SHOPIFY_JSON}
+SHOPIFY_COLLECTION_PATH = re.compile(r"collections/[A-Za-z0-9][A-Za-z0-9_-]*")
 
 
 def _require(value: dict[str, Any], key: str, expected: type | tuple[type, ...]) -> Any:
@@ -40,27 +44,33 @@ def _validate_profile(raw: dict[str, Any]) -> None:
     for site in raw["sites"]:
         if not isinstance(site, dict):
             raise ProfileError("site entries must be objects")
-        for key in ("site_name", "base_url", "scraping_type", "browser_config", "categories", "selectors"):
+        for key in ("site_name", "base_url", "scraping_type", "categories"):
             _require(site, key, object)
-        if site["scraping_type"] not in {"category", "search"}:
-            raise ProfileError(f"{site['site_name']}: scraping_type must be category or search")
+        if site["scraping_type"] not in SCRAPING_TYPES:
+            raise ProfileError(f"{site['site_name']}: scraping_type must be one of {', '.join(sorted(SCRAPING_TYPES))}")
+        # shopify_json reads the store's products.json: no HTML, so no browser or selectors.
+        needs_html = site["scraping_type"] != SHOPIFY_JSON
+        if needs_html:
+            for key in ("browser_config", "selectors"):
+                _require(site, key, object)
         if "engine" in site and site["engine"] not in {"http", "browser"}:
             raise ProfileError(f"{site['site_name']}: engine must be 'http' or 'browser'")
-        if not isinstance(site["browser_config"], dict):
+        if not isinstance(site.get("browser_config", {}), dict):
             raise ProfileError(f"{site['site_name']}: browser_config must be an object")
         if not isinstance(site["categories"], dict) or not site["categories"]:
             raise ProfileError(f"{site['site_name']}: categories must be a non-empty object")
-        if not isinstance(site["selectors"], dict):
+        if not isinstance(site.get("selectors", {}), dict):
             raise ProfileError(f"{site['site_name']}: selectors must be an object")
-        for selector in ("product_container", "title", "price", "url"):
-            if not isinstance(site["selectors"].get(selector), str) or not site["selectors"][selector]:
-                raise ProfileError(f"{site['site_name']}: missing selector {selector}")
-        browser = site["browser_config"]
-        for key in ("headless", "js_rendering"):
-            if not isinstance(browser.get(key), bool):
-                raise ProfileError(f"{site['site_name']}: browser_config.{key} must be boolean")
-        if not isinstance(browser.get("timeout_ms"), int) or browser["timeout_ms"] < 1000:
-            raise ProfileError(f"{site['site_name']}: browser_config.timeout_ms must be >= 1000")
+        browser = site.get("browser_config", {})
+        if needs_html:
+            for selector in ("product_container", "title", "price", "url"):
+                if not isinstance(site["selectors"].get(selector), str) or not site["selectors"][selector]:
+                    raise ProfileError(f"{site['site_name']}: missing selector {selector}")
+            for key in ("headless", "js_rendering"):
+                if not isinstance(browser.get(key), bool):
+                    raise ProfileError(f"{site['site_name']}: browser_config.{key} must be boolean")
+            if not isinstance(browser.get("timeout_ms"), int) or browser["timeout_ms"] < 1000:
+                raise ProfileError(f"{site['site_name']}: browser_config.timeout_ms must be >= 1000")
         if "wait_for_selector" in browser and browser["wait_for_selector"] is not None and not isinstance(browser["wait_for_selector"], str):
             raise ProfileError(f"{site['site_name']}: browser_config.wait_for_selector must be a string")
         if "strip_listing_context" in site and not isinstance(site["strip_listing_context"], bool):
@@ -76,6 +86,8 @@ def _validate_profile(raw: dict[str, Any]) -> None:
                 raise ProfileError(f"{site['site_name']}/{category_name}: path must be a string")
             if not isinstance(category.get("max_pages"), int) or category["max_pages"] < 1:
                 raise ProfileError(f"{site['site_name']}/{category_name}: max_pages must be >= 1")
+            if not needs_html and not SHOPIFY_COLLECTION_PATH.fullmatch(category["path"]):
+                raise ProfileError(f"{site['site_name']}/{category_name}: path must be collections/<handle> for shopify_json")
             if "pagination_pattern" in category and "{page}" not in category["pagination_pattern"]:
                 raise ProfileError(f"{site['site_name']}/{category_name}: pagination_pattern must include {{page}}")
             if "search_pattern" in category and "{query}" not in category["search_pattern"]:
@@ -105,12 +117,17 @@ def load_profile(profile: str | Path, profiles_dir: Path = DEFAULT_PROFILES_DIR)
     _validate_profile(raw)
     sites: list[SiteConfig] = []
     for raw_site in raw["sites"]:
-        browser = BrowserConfig(
-            headless=raw_site["browser_config"]["headless"],
-            js_rendering=raw_site["browser_config"]["js_rendering"],
-            wait_for_selector=raw_site["browser_config"].get("wait_for_selector"),
-            scroll_down=raw_site["browser_config"].get("scroll_down", False),
-            timeout_ms=raw_site["browser_config"]["timeout_ms"],
+        browser_raw = raw_site.get("browser_config", {})
+        browser = (
+            BrowserConfig(
+                headless=browser_raw["headless"],
+                js_rendering=browser_raw["js_rendering"],
+                wait_for_selector=browser_raw.get("wait_for_selector"),
+                scroll_down=browser_raw.get("scroll_down", False),
+                timeout_ms=browser_raw["timeout_ms"],
+            )
+            if raw_site["scraping_type"] != SHOPIFY_JSON
+            else BrowserConfig()
         )
         categories = {
             name: CategoryConfig(
@@ -129,7 +146,7 @@ def load_profile(profile: str | Path, profiles_dir: Path = DEFAULT_PROFILES_DIR)
                 scraping_type=raw_site["scraping_type"],
                 browser_config=browser,
                 categories=categories,
-                selectors=raw_site["selectors"],
+                selectors=raw_site.get("selectors", {}),
                 country_code=raw["country_code"],
                 currency=raw["default_currency"],
                 engine=raw_site.get("engine", "browser"),

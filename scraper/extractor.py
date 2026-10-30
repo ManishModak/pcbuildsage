@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 from html.parser import HTMLParser
 from typing import Any, Iterator
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 
 from .models import RawProduct
 
@@ -194,6 +195,43 @@ def raw_from_llm_payload(items: list[dict[str, Any]], base_url: str) -> list[Raw
                 url=urljoin(base_url, url) if url else None,
                 image_url=urljoin(base_url, image) if image else None,
                 in_stock=bool(item.get("in_stock", True)),
+            )
+        )
+    return products
+
+
+def raw_from_shopify_products(items: list[Any], base_url: str) -> list[RawProduct]:
+    """Map a Shopify collection products.json page to listings.
+
+    The price is the lowest positive price among available variants, never
+    compare_at_price. With no available variant the lowest variant price is
+    kept and the listing is marked out of stock.
+    """
+    products: list[RawProduct] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        variants = [v for v in item.get("variants") or [] if isinstance(v, dict)]
+        priced: list[tuple[Decimal, bool]] = []
+        for variant in variants:
+            try:
+                price = Decimal(str(variant.get("price")))
+            except InvalidOperation:
+                continue
+            if price.is_finite() and price > 0:
+                priced.append((price, bool(variant.get("available"))))
+        in_stock = any(available for _, available in priced)
+        candidates = [price for price, available in priced if available or not in_stock]
+        handle = item.get("handle")
+        images = item.get("images") or []
+        image = images[0].get("src") if images and isinstance(images[0], dict) else None
+        products.append(
+            RawProduct(
+                title=item.get("title"),
+                price_text=str(min(candidates)) if candidates else None,
+                url=urljoin(base_url, f"products/{quote(handle)}") if handle else None,
+                image_url=image or None,
+                in_stock=in_stock,
             )
         )
     return products
