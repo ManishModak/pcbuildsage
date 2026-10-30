@@ -1199,7 +1199,8 @@
       "MSI B550M-A PRO AMD B550 Micro-ATX Motherboard"
     ],
     "sources": [
-      "https://www.msi.com/Motherboard/B550M-A-PRO"
+      "https://www.msi.com/Motherboard/B550M-A-PRO",
+      "https://download-2.msi.com/archive/mnu_exe/mb/B550M-APRO_A520M-APRO100x150.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -1225,7 +1226,8 @@
       "Gigabyte B550M H ARGB M-ATX Motherboard"
     ],
     "sources": [
-      "https://www.gigabyte.com/Motherboard/B550M-H-ARGB-rev-10"
+      "https://www.gigabyte.com/Motherboard/B550M-H-ARGB-rev-10",
+      "https://download.gigabyte.com/FileList/Manual/mb_manual_b550m-h-argb_1001_c.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -1334,7 +1336,8 @@
       "Msi Pro B550M-P WIFI6E Motherboard"
     ],
     "sources": [
-      "https://www.msi.com/Motherboard/PRO-B550M-P/Specification"
+      "https://www.msi.com/Motherboard/PRO-B550M-P/Specification",
+      "https://storage-asset.msi.com/specSheet/fr/mb/PRO%20B550M-P.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -1360,7 +1363,8 @@
       "Gigabyte B550M Gaming X WIFI6 Motherboard"
     ],
     "sources": [
-      "https://www.gigabyte.com/Motherboard/B550M-GAMING-X-WIFI6-rev-10"
+      "https://www.gigabyte.com/Motherboard/B550M-GAMING-X-WIFI6-rev-10",
+      "https://download.gigabyte.com/FileList/Manual/mb_manual_b550m-gaming-x-wifi6_ds3h-r2_c.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -1437,7 +1441,8 @@
       "MSI B550 Gaming WiFi6E DDR4 ATX Motherboard"
     ],
     "sources": [
-      "https://www.msi.com/Motherboard/B550-GAMING-WIFI6E"
+      "https://www.msi.com/Motherboard/B550-GAMING-WIFI6E",
+      "https://storage-asset.msi.com/specSheet/uk/mb/B550%20GAMING%20WIFI6E.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -1474,7 +1479,6 @@
     "ddr": "DDR4",
     "form_factor": "Micro-ATX",
     "m2_slots": 1,
-    "m2_sata_supported": true,
     "sata_ports": 4,
     "ram_slots": 2,
     "pcie_gen": 3,
@@ -1513,7 +1517,8 @@
       "Gigabyte A520M K V2 Amd Am4 Micro Atx Motherboard (A520M K V2)"
     ],
     "sources": [
-      "https://www.gigabyte.com/Motherboard/A520M-K-V2-rev-10"
+      "https://www.gigabyte.com/Motherboard/A520M-K-V2-rev-10",
+      "https://download.gigabyte.com/FileList/Manual/mb_manual_a520m-k-series_e_1101.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -1539,7 +1544,8 @@
       "MSI PRO A520M-S M-ATX DDR4 Motherboard"
     ],
     "sources": [
-      "https://www.msi.com/Motherboard/PRO-A520M-S"
+      "https://www.msi.com/Motherboard/PRO-A520M-S",
+      "https://storage-asset.msi.com/specSheet/uk/mb/PRO%20A520M-S.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -1564,7 +1570,8 @@
       "MAG A520M VECTOR WIFI"
     ],
     "sources": [
-      "https://www.msi.com/Motherboard/MAG-A520M-VECTOR-WIFI"
+      "https://www.msi.com/Motherboard/MAG-A520M-VECTOR-WIFI",
+      "https://download-2.msi.com/archive/mnu_exe/mb/E7D14v2.1.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -1614,7 +1621,8 @@
       "MSI B450M-A Pro Max II AM4 Micro Atx Motherboard (B450M-A-PRO-MAX-II)"
     ],
     "sources": [
-      "https://www.msi.com/Motherboard/B450M-A-PRO-MAX-II"
+      "https://www.msi.com/Motherboard/B450M-A-PRO-MAX-II",
+      "https://storage-asset.msi.com/specSheet/us/mb/B450M-A%20PRO%20MAX%20II.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -1640,7 +1648,8 @@
       "Gigabyte B450M K Motherboard"
     ],
     "sources": [
-      "https://www.gigabyte.com/Motherboard/B450M-K-rev-10"
+      "https://www.gigabyte.com/Motherboard/B450M-K-rev-10",
+      "https://download.gigabyte.com/FileList/Manual/mb_manual_b450m-k_e.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -1757,7 +1766,7 @@
     "m2_slots": 2,
     "sata_ports": 4,
     "ram_slots": 2,
-    "pcie_gen": 5,
+    "pcie_gen": 4,
     "aliases": [
       "ASUS EX-B650M-V7",
       "ASUS ASUS EX-B650M-V7",
@@ -1808,7 +1817,7 @@
     "m2_slots": 2,
     "sata_ports": 4,
     "ram_slots": 2,
-    "pcie_gen": 5,
+    "pcie_gen": 4,
     "aliases": [
       "Sapphire B650M-E",
       "Sapphire Sapphire B650M-E",
@@ -1859,7 +1868,7 @@
     "m2_slots": 2,
     "sata_ports": 4,
     "ram_slots": 2,
-    "pcie_gen": 5,
+    "pcie_gen": 4,
     "aliases": [
       "ASUS B650M-AYW WIFI",
       "ASUS ASUS B650M-AYW WIFI",
@@ -2047,7 +2056,8 @@
       "Msi Pro B760M-E Ddr4 Lga1700 Matx Motherboard (PRO-B760M-E-DDR4)"
     ],
     "sources": [
-      "https://www.msi.com/Motherboard/PRO-B760M-E-DDR4/Specification"
+      "https://www.msi.com/Motherboard/PRO-B760M-E-DDR4/Specification",
+      "https://storage-asset.msi.com/specSheet/fr/mb/PRO%20B760M-E%20DDR4.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -2149,30 +2159,6 @@
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
   },
-  "gigabyte-b760m-h-ddr5": {
-    "brand": "Gigabyte",
-    "model": "Gigabyte B760M H DDR5",
-    "socket": "LGA 1700",
-    "chipset": "B760",
-    "ddr": "DDR5",
-    "form_factor": "Micro-ATX",
-    "m2_slots": 2,
-    "sata_ports": 4,
-    "ram_slots": 2,
-    "pcie_gen": 4,
-    "aliases": [
-      "Gigabyte B760M H DDR5",
-      "Gigabyte Gigabyte B760M H DDR5",
-      "Gigabyte B760M H (DDR5) Motherboard",
-      "gigabyte-b760m-h-ddr5-motherboard",
-      "B760M H DDR5"
-    ],
-    "sources": [
-      "https://www.gigabyte.com/Motherboard/B760M-H-rev-10"
-    ],
-    "confidence": "high",
-    "researched_at": "2026-09-29T17:00:00Z"
-  },
   "gigabyte-b760m-e": {
     "brand": "Gigabyte",
     "model": "Gigabyte B760M E",
@@ -2216,10 +2202,17 @@
       "Msi Pro B760M-E Motherboard ( PRO-B760M-E)",
       "msi-pro-b760m-e-motherboard-pro-b760m-e",
       "Pro B760M-E",
-      "MSI Pro B760M-E Motherboard"
+      "MSI Pro B760M-E Motherboard",
+      "MSI Pro B760M-E DDR5",
+      "MSI MSI Pro B760M-E DDR5",
+      "MSI Pro B760M-E DDR5 Motherboard PRO-B760M-E",
+      "msi-pro-b760m-e-ddr5-motherboard-pro-b760m-e",
+      "Pro B760M-E DDR5",
+      "MSI PRO B760M-E (DDR5) Motherboard"
     ],
     "sources": [
-      "https://www.msi.com/Motherboard/PRO-B760M-E"
+      "https://www.msi.com/Motherboard/PRO-B760M-E",
+      "https://storage-asset.msi.com/specSheet/uk/mb/PRO%20B760M-E.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -2241,7 +2234,12 @@
       "Gigabyte B760M H Motherboard",
       "gigabyte-b760m-h-motherboard",
       "B760M H",
-      "Gigabyte B760M H Lga1700 Micro Atx Motherboard (B760M H)"
+      "Gigabyte B760M H Lga1700 Micro Atx Motherboard (B760M H)",
+      "Gigabyte B760M H DDR5",
+      "Gigabyte Gigabyte B760M H DDR5",
+      "Gigabyte B760M H (DDR5) Motherboard",
+      "gigabyte-b760m-h-ddr5-motherboard",
+      "B760M H DDR5"
     ],
     "sources": [
       "https://www.gigabyte.com/Motherboard/B760M-H-rev-10"
@@ -2257,7 +2255,6 @@
     "ddr": "DDR5",
     "form_factor": "Micro-ATX",
     "m2_slots": 2,
-    "m2_sata_supported": true,
     "sata_ports": 4,
     "ram_slots": 2,
     "pcie_gen": 4,
@@ -2266,36 +2263,15 @@
       "ASRock ASRock B760M HDV/M.2",
       "ASRock B760M HDV/M.2 M-ATX Motherboard",
       "asrock-b760m-hdv-m-2-m-atx-motherboard",
-      "B760M HDV/M.2"
+      "B760M HDV/M.2",
+      "ASRock B760M HDV/M.2 DDR5",
+      "ASRock ASRock B760M HDV/M.2 DDR5",
+      "ASRock B760M HDV/M.2 DDR5 M-ATX Motherboard",
+      "asrock-b760m-hdv-m-2-ddr5-m-atx-motherboard",
+      "B760M HDV/M.2 DDR5"
     ],
     "sources": [
       "https://www.asrock.com/mb/Intel/B760M-HDVM.2/index.asp"
-    ],
-    "confidence": "high",
-    "researched_at": "2026-09-29T17:00:00Z"
-  },
-  "msi-pro-b760m-e-ddr5": {
-    "brand": "MSI",
-    "model": "MSI Pro B760M-E DDR5",
-    "socket": "LGA 1700",
-    "chipset": "B760",
-    "ddr": "DDR5",
-    "form_factor": "Micro-ATX",
-    "m2_slots": 1,
-    "m2_sata_supported": true,
-    "sata_ports": 4,
-    "ram_slots": 2,
-    "pcie_gen": 4,
-    "aliases": [
-      "MSI Pro B760M-E DDR5",
-      "MSI MSI Pro B760M-E DDR5",
-      "MSI Pro B760M-E DDR5 Motherboard PRO-B760M-E",
-      "msi-pro-b760m-e-ddr5-motherboard-pro-b760m-e",
-      "Pro B760M-E DDR5",
-      "MSI PRO B760M-E (DDR5) Motherboard"
-    ],
-    "sources": [
-      "https://www.msi.com/Motherboard/PRO-B760M-E"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -2322,31 +2298,6 @@
     ],
     "sources": [
       "https://www.asus.com/motherboards-components/motherboards/prime/prime-b760m-k/techspec/"
-    ],
-    "confidence": "high",
-    "researched_at": "2026-09-29T17:00:00Z"
-  },
-  "asrock-b760m-hdv-m-2-ddr5": {
-    "brand": "ASRock",
-    "model": "ASRock B760M HDV/M.2 DDR5",
-    "socket": "LGA 1700",
-    "chipset": "B760",
-    "ddr": "DDR5",
-    "form_factor": "Micro-ATX",
-    "m2_slots": 2,
-    "m2_sata_supported": true,
-    "sata_ports": 4,
-    "ram_slots": 2,
-    "pcie_gen": 4,
-    "aliases": [
-      "ASRock B760M HDV/M.2 DDR5",
-      "ASRock ASRock B760M HDV/M.2 DDR5",
-      "ASRock B760M HDV/M.2 DDR5 M-ATX Motherboard",
-      "asrock-b760m-hdv-m-2-ddr5-m-atx-motherboard",
-      "B760M HDV/M.2 DDR5"
-    ],
-    "sources": [
-      "https://www.asrock.com/mb/Intel/B760M-HDVM.2/index.asp"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -2598,7 +2549,7 @@
       "MSI PRO H610M-S WiFi DDR4 II LGA1700 Micro ATX Motherboard"
     ],
     "sources": [
-      "https://www.msi.com/Motherboard/PRO-H610M-S-DDR4/Specification"
+      "https://storage-asset.msi.com/datasheet/mb/global/PRO-H610M-S-DDR4-II.pdf"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -2650,30 +2601,6 @@
     ],
     "sources": [
       "https://www.asus.com/motherboards-components/motherboards/csm/prime-h610m-cs-csm/techspec/"
-    ],
-    "confidence": "high",
-    "researched_at": "2026-09-29T17:00:00Z"
-  },
-  "asrock-h610m-x-gen5-ddr5": {
-    "brand": "ASRock",
-    "model": "ASRock H610M-X D5 Gen5",
-    "socket": "LGA 1700",
-    "chipset": "H610",
-    "ddr": "DDR5",
-    "form_factor": "Micro-ATX",
-    "m2_slots": 1,
-    "sata_ports": 4,
-    "ram_slots": 2,
-    "pcie_gen": 5,
-    "aliases": [
-      "ASRock H610M-X D5 Gen5",
-      "ASRock ASRock H610M-X D5 Gen5",
-      "ASRock H610M-X D5 Gen5 M-ATX Motherboard",
-      "asrock-h610m-x-d5-gen5-m-atx-motherboard",
-      "H610M-X D5 Gen5"
-    ],
-    "sources": [
-      "https://www.asrock.com/mb/Intel/H610M-X%20D5/index.asp"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -2743,7 +2670,12 @@
       "ASRock ASRock H610M-X D5",
       "ASRock H610M-X D5 M-ATX Motherboard",
       "asrock-h610m-x-d5-m-atx-motherboard",
-      "H610M-X D5"
+      "H610M-X D5",
+      "ASRock H610M-X D5 Gen5",
+      "ASRock ASRock H610M-X D5 Gen5",
+      "ASRock H610M-X D5 Gen5 M-ATX Motherboard",
+      "asrock-h610m-x-d5-gen5-m-atx-motherboard",
+      "H610M-X D5 Gen5"
     ],
     "sources": [
       "https://www.asrock.com/mb/Intel/H610M-X%20D5/index.asp"
