@@ -147,15 +147,17 @@ def load_profile(profile: str | Path, profiles_dir: Path = DEFAULT_PROFILES_DIR)
     )
 
 
-def filter_sites(profile: ProfileConfig, site_names: list[str] | None) -> list[SiteConfig]:
-    if not site_names:
-        return profile.sites
-    wanted = {name.casefold() for name in site_names}
-    sites = [site for site in profile.sites if site.site_name.casefold() in wanted]
-    missing = wanted - {site.site_name.casefold() for site in sites}
+def filter_sites(
+    profile: ProfileConfig, site_names: list[str] | None, exclude: list[str] | None = None
+) -> list[SiteConfig]:
+    """Sites to scrape: `site_names` (all when empty) minus `exclude`. Unknown names are errors."""
+    known = {site.site_name.casefold() for site in profile.sites}
+    wanted = {name.casefold() for name in site_names} if site_names else known
+    excluded = {name.casefold() for name in exclude or []}
+    missing = (wanted | excluded) - known
     if missing:
         raise ProfileError(f"unknown site(s): {', '.join(sorted(missing))}")
-    return sites
+    return [site for site in profile.sites if site.site_name.casefold() in wanted - excluded]
 
 
 def resolve_categories(site: SiteConfig, category_names: list[str] | None) -> list[CategoryConfig]:

@@ -112,6 +112,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--categories", help="Comma-separated category list, for example: gpu,cpu")
     parser.add_argument("--sites", help="Comma-separated site list")
     parser.add_argument("--site", help="Single site filter, mainly for --test-profile")
+    parser.add_argument("--exclude-sites", help="Comma-separated sites to leave out, for example: PCStudio")
     parser.add_argument("--quick", action="store_true", help="Use quick crawl depth")
     parser.add_argument("--max-pages", type=int, help="Override pages per category")
     parser.add_argument("--skip-fresh", type=int, metavar="HOURS", help="Skip recently scraped rows")
@@ -178,7 +179,7 @@ def build_work(profile_arg: str, args: argparse.Namespace) -> tuple[list[tuple[S
         site_names = [args.site]
     category_names = split_csv(args.categories)
     work: list[tuple[SiteConfig, CategoryConfig, int]] = []
-    for site in filter_sites(profile, site_names):
+    for site in filter_sites(profile, site_names, split_csv(args.exclude_sites)):
         if args.headed:
             site = replace(site, browser_config=replace(site.browser_config, headless=False))
         for category in resolve_categories(site, category_names):

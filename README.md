@@ -42,7 +42,7 @@ What you get:
 
 [pcbuildsage.onrender.com](https://pcbuildsage.onrender.com):
 
-- **India catalog**, refreshed twice a day from Indian retailers such as MDComputers, PrimeABGB, Vedant Computers, PC Studio and Kryptronix.
+- **India catalog**, refreshed twice a day from Indian retailers such as MDComputers, PrimeABGB, Vedant Computers and Kryptronix. Prices and stock are snapshots, so confirm them at checkout.
 - **Bring your own key.** Use a free key from [Google AI Studio](https://aistudio.google.com/app/apikey) (Gemini) or [OpenRouter](https://openrouter.ai/keys), which has free models. The demo never uses server-side keys.
 - **Your key stays in your browser.** It's kept in this tab's session storage and sent with each request only to reach your provider. It's never written to disk, stored in a database, or logged on the server.
 - **Your chats stay in your browser** too (IndexedDB). The server keeps no sessions.
@@ -118,7 +118,7 @@ Then open http://localhost:3000.
 | `TURSO_INGEST_TOKEN` | refresh workflow only | Write token for `npm run publish-catalog`. Never set it on the web service. |
 | `ANALYTICS_TURSO_URL` / `ANALYTICS_TURSO_TOKEN` | web service (optional) | A separate Turso database for the anonymous daily totals. Unset means nothing is counted. |
 
-Render's health check is `GET /api/health`. It always returns HTTP 200, with `status: "degraded"` if Turso can't be reached. The catalog is refreshed by `.github/workflows/refresh-catalog.yml`. See `.env.example` for the full list.
+Render's health check is `GET /api/health`. It always returns HTTP 200, with `status: "degraded"` if Turso can't be reached. The catalog is refreshed by `.github/workflows/refresh-catalog.yml`. Each run writes a per-retailer, per-category coverage table to its job summary (`npm run catalog-coverage`), and keeps one GitHub issue open while any retailer/category has had no fresh listings for 24 hours. PC Studio blocks GitHub's servers, so the hosted refresh skips it; local scrapes still include it. See `.env.example` for the full list.
 
 The same workflow publishes the static build guides to GitHub Pages. Before its first deploy, set **Settings → Pages → Source** to **GitHub Actions** in your fork, or the deploy step fails.
 
