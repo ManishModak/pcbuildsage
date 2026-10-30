@@ -16,6 +16,7 @@ import { fetchModels, isHostedMode, probeEntry } from "@/lib/api-client";
 import { hasUiKey, saveUiKey } from "@/lib/client-config-store";
 import { hasByokKey, setByokKey } from "@/lib/llm/client-byok-store";
 import { formatLatency, getErrorMessage } from "@/lib/format";
+import { describeProbeResult } from "@/lib/llm/probe-outcome";
 import type {
   ChainEntry,
   CredentialAvailability,
@@ -30,13 +31,14 @@ import { Icon } from "@/components/ui/icon";
 import { Button, Field, IconButton, Input, Spinner } from "@/components/ui/primitives";
 import { ModelField } from "@/components/ui/model-field";
 import { Select } from "@/components/ui/select";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 const PROVIDERS: Array<{ value: LLMProvider; label: string }> = [
   { value: "gemini", label: "Google Gemini" },
   { value: "groq", label: "Groq" },
   { value: "openrouter", label: "OpenRouter" },
-  { value: "ollama", label: "Ollama (local)" },
-  { value: "openai-compatible", label: "OpenAI-compatible" }
+  { value: "ollama", label: "Ollama (on your machine)" },
+  { value: "openai-compatible", label: "Other server (OpenAI-compatible)" }
 ];
 
 let entryCounter = 0;
@@ -138,35 +140,39 @@ export function ChainBuilder({
 
   return (
     <div className="flex flex-col gap-3">
-      {chain.map((entry, index) => (
-        <ChainCard
-          key={entry.id}
-          entry={entry}
-          index={index}
-          total={chain.length}
-          credentials={credentials}
-          endpoints={endpoints}
-          modelState={models[entry.id] ?? { models: [], loading: false }}
-          keyDraft={keyDraft[entry.id] ?? ""}
-          probing={Boolean(probing[entry.id])}
-          primaryMustSupportTools={primaryMustSupportTools}
-          onUpdate={(patch) => update(entry.id, patch)}
-          onKeyDraft={(value) => setKeyDraft((prev) => ({ ...prev, [entry.id]: value }))}
-          onCommitKey={() => commitKey(entry)}
-          onLoadModels={() => loadModels(entry)}
-          onProbe={() => probe(entry)}
-          onMoveUp={() => move(index, index - 1)}
-          onMoveDown={() => move(index, index + 1)}
-          onRemove={() => onChange(chain.filter((item) => item.id !== entry.id))}
-          onDragStart={() => (dragIndex.current = index)}
-          onDrop={() => {
-            if (dragIndex.current !== null) move(dragIndex.current, index);
-            dragIndex.current = null;
-          }}
-        />
-      ))}
+      {chain.length > 0 ? (
+        <div className="divide-y divide-border rounded-card border border-border bg-surface">
+          {chain.map((entry, index) => (
+            <ChainCard
+              key={entry.id}
+              entry={entry}
+              index={index}
+              total={chain.length}
+              credentials={credentials}
+              endpoints={endpoints}
+              modelState={models[entry.id] ?? { models: [], loading: false }}
+              keyDraft={keyDraft[entry.id] ?? ""}
+              probing={Boolean(probing[entry.id])}
+              primaryMustSupportTools={primaryMustSupportTools}
+              onUpdate={(patch) => update(entry.id, patch)}
+              onKeyDraft={(value) => setKeyDraft((prev) => ({ ...prev, [entry.id]: value }))}
+              onCommitKey={() => commitKey(entry)}
+              onLoadModels={() => loadModels(entry)}
+              onProbe={() => probe(entry)}
+              onMoveUp={() => move(index, index - 1)}
+              onMoveDown={() => move(index, index + 1)}
+              onRemove={() => onChange(chain.filter((item) => item.id !== entry.id))}
+              onDragStart={() => (dragIndex.current = index)}
+              onDrop={() => {
+                if (dragIndex.current !== null) move(dragIndex.current, index);
+                dragIndex.current = null;
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
       <Button variant="ghost" iconLeft={Plus} onClick={() => onChange([...chain, newEntry()])} className="self-start">
-        Add fallback provider
+        Add backup model
       </Button>
     </div>
   );
@@ -225,29 +231,25 @@ function ChainCard({
   }, [entry.provider, entry.baseUrl]);
 
   const keySourceOptions: Array<{ value: KeySource; label: string }> = [
-    ...(envAvailable ? [{ value: "env" as KeySource, label: "Detected env key" }] : []),
-    { value: "ui", label: "Enter a key" },
-    ...(isLocal ? [{ value: "none" as KeySource, label: "No key (local)" }] : [])
+    ...(envAvailable ? [{ value: "env" as KeySource, label: "Key from the server's environment" }] : []),
+    { value: "ui", label: "Paste a key" },
+    ...(isLocal ? [{ value: "none" as KeySource, label: "No key needed" }] : [])
   ];
 
   return (
     <div
-      className={cn(
-        "rounded-card border bg-surface",
-        toolBlocked ? "border-blocking/60" : "border-border"
-      )}
-      style={toolBlocked ? { borderColor: "color-mix(in srgb, var(--blocking) 55%, transparent)" } : undefined}
+      className={cn(toolBlocked && "shadow-[inset_3px_0_0_var(--blocking)]")}
       draggable
       onDragStart={onDragStart}
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
     >
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+      <div className="flex items-center gap-2 px-4 pt-3">
         <span className="cursor-grab text-text-muted" title="Drag to reorder" aria-hidden>
           <Icon icon={GripVertical} size={16} />
         </span>
-        <span className="font-mono text-caption text-text-secondary">
-          {isPrimary ? "primary" : `fallback ${index}`}
+        <span className="type-title text-base text-text">
+          {isPrimary ? "Main model" : `Backup ${index}`}
         </span>
         <div className="ml-auto flex items-center gap-0.5">
           <IconButton icon={ChevronUp} label="Move up" onClick={onMoveUp} disabled={index === 0} size={16} />
@@ -256,7 +258,7 @@ function ChainCard({
         </div>
       </div>
 
-      <div className="grid gap-3 p-3 sm:grid-cols-2">
+      <div className="grid gap-4 px-4 py-3 sm:grid-cols-2">
         <Field label="Provider">
           {(controlProps) => (
             <Select
@@ -271,11 +273,11 @@ function ChainCard({
         </Field>
 
         {entry.provider === "openai-compatible" ? (
-          <Field label="Local preset">
+          <Field label="Saved server">
             {(controlProps) => (
               <Select
                 {...controlProps}
-                placeholder="Custom endpoint"
+                placeholder="Custom address"
                 value={entry.presetName ?? ""}
                 options={endpoints.map((preset) => ({ value: preset.name, label: preset.name }))}
                 onChange={(event) => {
@@ -295,7 +297,7 @@ function ChainCard({
             )}
           </Field>
         ) : (
-          <Field label="Key source">
+          <Field label="Key">
             {(controlProps) => (
               <Select
                 {...controlProps}
@@ -308,7 +310,7 @@ function ChainCard({
         )}
 
         {isLocal ? (
-          <Field label="Base URL" hint="host:port or …/v1 — normalized automatically">
+          <Field label="Server address" hint="A host and port, or a URL ending in /v1.">
             {(controlProps) => (
               <Input
                 {...controlProps}
@@ -322,7 +324,7 @@ function ChainCard({
         ) : null}
 
         {entry.provider === "openai-compatible" ? (
-          <Field label="Key source">
+          <Field label="Key">
             {(controlProps) => (
               <Select
                 {...controlProps}
@@ -342,10 +344,10 @@ function ChainCard({
                 label="API key"
                 hint={
                   keySaved
-                    ? "A key is saved for this provider (write-only)."
+                    ? "A key is saved for this provider. Paste a new one to replace it."
                     : isHostedMode()
-                    ? "Stored in ephemeral session storage, sent only as a request header."
-                    : "Stored locally, sent only as a request header."
+                    ? "Stored in this browser tab's session storage. Sent with each request only so the PCBuildSage server can forward it to this provider."
+                    : "Stored in this browser's local storage. Sent with each request only so the PCBuildSage server can forward it to this provider."
                 }
               >
                 {(controlProps) => (
@@ -354,7 +356,7 @@ function ChainCard({
                     type="password"
                     autoComplete="off"
                     value={keyDraft}
-                    placeholder={keySaved ? "•••••••• saved" : "paste key"}
+                    placeholder={keySaved ? "•••••••• saved" : "Paste your key"}
                     onChange={(event) => onKeyDraft(event.target.value)}
                     onBlur={onCommitKey}
                   />
@@ -363,17 +365,17 @@ function ChainCard({
             );
           })()
         ) : entry.keySource === "env" ? (
-          <ReadOnlyValue label="Credential">
-            <span className="inline-flex h-11 items-center gap-2 rounded-btn border border-border bg-surface px-3 text-caption text-text-secondary">
-              <Icon icon={CircleCheck} size={15} className="text-accent" />
-              Using detected environment key
+          <ReadOnlyValue label="Key status">
+            <span className="inline-flex min-h-11 items-center gap-2 text-sm text-text-secondary">
+              <Icon icon={CircleCheck} size={15} className="text-ok" />
+              Using the key set on the server
             </span>
           </ReadOnlyValue>
         ) : (
-          <ReadOnlyValue label="Credential">
-            <span className="inline-flex h-11 items-center gap-2 rounded-btn border border-border bg-surface px-3 text-caption text-text-secondary">
+          <ReadOnlyValue label="Key status">
+            <span className="inline-flex min-h-11 items-center gap-2 text-sm text-text-secondary">
               <Icon icon={Server} size={15} />
-              Keyless local endpoint
+              This server doesn&apos;t need a key
             </span>
           </ReadOnlyValue>
         )}
@@ -402,12 +404,12 @@ function ChainCard({
         </div>
 
         <div>
-          <Field label="Reasoning effort" hint="For reasoning models (e.g. o3, DeepSeek R1)">
+          <Field label="Reasoning effort" hint="Only for models that think before answering.">
             {(controlProps) => (
               <Select
                 {...controlProps}
                 options={[
-                  { value: "", label: "Default (provider default)" },
+                  { value: "", label: "Provider default" },
                   { value: "low", label: "Low" },
                   { value: "medium", label: "Medium" },
                   { value: "high", label: "High" }
@@ -426,11 +428,11 @@ function ChainCard({
         {isLocal ? (
           <div>
             <Field
-              label="Context limit (tokens)"
+              label="Context window (tokens)"
               hint={
                 !entry.contextLimit
-                  ? "Required: specify the context limit for this local model."
-                  : "Configured context window in tokens."
+                  ? "Required. Enter how many tokens this model can read at once."
+                  : "How many tokens this model can read at once."
               }
             >
               {(controlProps) => (
@@ -439,7 +441,7 @@ function ChainCard({
                   type="number"
                   min={512}
                   step={1024}
-                  placeholder="e.g. 8192, 32768"
+                  placeholder="8192"
                   value={entry.contextLimit ?? ""}
                   onChange={(event) => {
                     const parsed = parseInt(event.target.value, 10);
@@ -454,25 +456,27 @@ function ChainCard({
         {isLocal && (!entry.contextLimit || entry.contextLimit <= 0) ? (
           <div
             role="alert"
-            className="col-span-full flex items-center gap-2 rounded-btn border border-warn/40 bg-warn/10 p-2.5 text-caption text-warn"
+            className="col-span-full flex items-center gap-2 text-caption text-warn"
           >
-            <Icon icon={TriangleAlert} size={15} />
-            <span>Unknown context limit for local provider. Please enter the context limit to avoid unexpected behavior or truncation.</span>
+            <Icon icon={TriangleAlert} size={15} className="shrink-0" />
+            <span>Context window unknown. Enter it so long chats aren&apos;t cut off.</span>
           </div>
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2.5">
-        <Button variant="ghost" size="sm" iconLeft={Radio} onClick={onProbe} disabled={probing || !entry.model}>
-          {probing ? "Verifying…" : "Ping & probe tools"}
-        </Button>
-        {probing ? <Spinner size={14} /> : null}
+      <div className="flex flex-col gap-2 px-4 pb-4 pt-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="ghost" size="sm" iconLeft={Radio} onClick={onProbe} disabled={probing || !entry.model}>
+            {probing ? "Checking…" : "Check model"}
+          </Button>
+          {probing ? <Spinner size={14} /> : null}
+        </div>
         {entry.ping ? <PingResultView entry={entry} /> : null}
         {toolBlocked ? (
-          <span className="ml-auto inline-flex items-center gap-1.5 text-caption" style={{ color: "var(--blocking)" }}>
-            <Icon icon={TriangleAlert} size={14} />
-            Cannot be the chat primary until tools work
-          </span>
+          <p className="inline-flex items-center gap-1.5 text-caption text-blocking">
+            <Icon icon={TriangleAlert} size={14} className="shrink-0" />
+            Can&apos;t be the main model until it can use tools.
+          </p>
         ) : null}
       </div>
     </div>
@@ -482,43 +486,48 @@ function ChainCard({
 function ReadOnlyValue({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <p className="text-caption font-medium text-text-secondary">{label}</p>
+      <p className="type-label text-caption text-text-secondary">{label}</p>
       {children}
     </div>
   );
 }
 
+const OUTCOME_LABEL = {
+  key: "Key problem",
+  quota: "Limit reached",
+  tools: "No tool use",
+  network: "Not reachable",
+  unknown: "Check failed"
+} as const;
+
+// One plain outcome per check (see describeProbeResult); the raw provider
+// hint follows as the detail.
 function PingResultView({ entry }: { entry: ChainEntry }) {
   const ping = entry.ping!;
-  if (!ping.reachable) {
+  const outcome = describeProbeResult(ping);
+  if (outcome.kind === "ok") {
     return (
-      <span className="inline-flex items-center gap-1.5 text-caption" style={{ color: "var(--warn)" }}>
-        <Icon icon={TriangleAlert} size={14} />
-        unreachable{ping.hint ? ` — ${truncate(ping.hint)}` : ""}
-      </span>
+      <p className="flex flex-wrap items-center gap-2 text-caption text-text-secondary" aria-live="polite">
+        <StatusBadge kind="ok" label="Works" />
+        <span>Answered in <span className="font-mono">{formatLatency(ping.latencyMs)}</span> and can use tools.</span>
+      </p>
     );
   }
   return (
-    <span className="flex flex-wrap items-center gap-2 text-caption">
-      <span className="inline-flex items-center gap-1.5 text-accent">
-        <Icon icon={CircleCheck} size={14} />
-        reachable <span className="font-mono text-text-secondary">{formatLatency(ping.latencyMs)}</span>
-      </span>
-      {ping.toolCapable ? (
-        <span className="inline-flex items-center gap-1.5 text-accent">
-          <Icon icon={CircleCheck} size={14} />
-          tool-capable
-        </span>
-      ) : (
-        <span className="inline-flex items-center gap-1.5" style={{ color: "var(--warn)" }} title={ping.hint}>
-          <Icon icon={TriangleAlert} size={14} />
-          no tool support{ping.hint ? ` — ${truncate(ping.hint)}` : ""}
-        </span>
-      )}
-    </span>
+    <div className="flex flex-col gap-1" aria-live="polite">
+      <p className="flex flex-wrap items-center gap-2 text-caption text-text">
+        <StatusBadge kind="warn" label={OUTCOME_LABEL[outcome.kind]} />
+        <span>{outcome.message}</span>
+      </p>
+      {ping.hint ? (
+        <p className="text-caption text-text-muted" title={ping.hint}>
+          Details: {truncate(ping.hint)}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
-function truncate(value: string, max = 90): string {
+function truncate(value: string, max = 140): string {
   return value.length > max ? `${value.slice(0, max)}…` : value;
 }

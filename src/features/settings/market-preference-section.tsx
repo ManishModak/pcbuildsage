@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Globe, CheckCircle } from "lucide-react";
+import { Globe } from "lucide-react";
 import { fetchMarkets } from "@/lib/api-client";
 import type { MarketMetadata } from "@/lib/config/deployment";
 import {
@@ -11,7 +11,7 @@ import {
   type MarketPreference
 } from "@/lib/market/client-market-store";
 import { useOptionalApp } from "@/components/app/app-provider";
-import { Card, Field } from "@/components/ui/primitives";
+import { Field } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/select";
 import { Icon } from "@/components/ui/icon";
 
@@ -126,26 +126,26 @@ export function MarketPreferenceSection({
 
   return (
     <section className={`flex flex-col gap-4 ${className ?? ""}`} data-testid="market-preference-section">
-      <div className="flex flex-col gap-0.5">
-        <h2 className="text-lg font-semibold text-text">Market Preference</h2>
-        <p className="text-caption text-text-secondary">
-          Choose your country and currency for localized product pricing, retailer catalog, and compatibility rules.
+      <div className="flex flex-col gap-1">
+        <h2 className="type-title text-xl text-text">Region and currency</h2>
+        <p className="text-sm text-text-secondary">
+          Sets which retailers and prices the Sage uses, and any regional compatibility rules.
         </p>
       </div>
 
-      <Card className="flex flex-col gap-4 p-4">
+      <div className="flex flex-col gap-4 rounded-card border border-border bg-surface p-4">
         {markets.length === 0 && (
           <div
-            className="flex items-center gap-2 rounded-btn border border-border bg-surface-raised px-3.5 py-2.5 text-caption text-text-muted"
+            className="flex items-center gap-2 text-caption text-warn"
             data-testid="catalog-unavailable"
           >
-            <Icon icon={Globe} size={15} className="text-text-muted" />
-            <span>Catalog unavailable (no markets available)</span>
+            <Icon icon={Globe} size={15} className="shrink-0" />
+            <span>Catalog unavailable: no regions are set up on this server.</span>
           </div>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Country / Region">
+          <Field label="Country or region">
             {(controlProps) => (
               <Select
                 {...controlProps}
@@ -178,29 +178,20 @@ export function MarketPreferenceSection({
           </Field>
         </div>
 
-        <div className="flex items-center justify-between rounded-btn border border-border bg-surface-raised px-3.5 py-2.5 text-caption">
-          <div className="flex items-center gap-2 text-text">
-            <Icon icon={Globe} size={15} className="text-accent" />
-            <span>
-              {markets.length === 0 ? (
-                <>
-                  Active Region: <strong className="font-semibold">Catalog unavailable</strong> · Currency:{" "}
-                  <strong className="font-semibold">{pref.currencyCode}</strong>
-                </>
-              ) : (
-                <>
-                  Active Region: <strong className="font-semibold">{activeMarket?.name ?? pref.countryCode}</strong> (
-                  {pref.countryCode}) · Currency: <strong className="font-semibold">{pref.currencyCode}</strong>
-                </>
-              )}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 text-text-muted">
-            <Icon icon={CheckCircle} size={13} className="text-accent" />
-            <span>Browser Storage</span>
-          </div>
-        </div>
-      </Card>
+        <p className="border-t border-border pt-3 text-caption text-text-secondary">
+          {markets.length === 0 ? (
+            <>
+              Prices show in <span className="font-mono text-text">{pref.currencyCode}</span>.
+            </>
+          ) : (
+            <>
+              Showing {activeMarket?.name ?? pref.countryCode} prices in{" "}
+              <span className="font-mono text-text">{pref.currencyCode}</span>.
+            </>
+          )}{" "}
+          Saved in this browser.
+        </p>
+      </div>
     </section>
   );
 }

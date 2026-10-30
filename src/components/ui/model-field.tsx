@@ -36,8 +36,8 @@ export function ModelField({
     <div className="flex flex-col gap-1.5">
       {recommended.length > 0 ? (
         <div className="flex flex-col gap-1" data-testid="model-recommended">
-          <span className="text-caption font-semibold uppercase tracking-wide text-text-secondary">
-            Recommended — tool-capable
+          <span className="type-label text-caption text-text-secondary">
+            Recommended: can use tools
           </span>
           <div className="flex flex-wrap gap-1.5">
             {recommended.map((model) => (
@@ -47,15 +47,19 @@ export function ModelField({
                 onClick={() => onChange(model.id)}
                 disabled={disabled}
                 title={model.id}
-                className={cn(
-                  "rounded-pill border px-2 py-0.5 font-mono text-caption transition-colors duration-150 cursor-pointer",
+                className={"text-caption " + cn(
+                  "inline-flex items-center gap-1.5 rounded-chip border px-2 py-0.5 transition-colors duration-150 cursor-pointer",
                   value === model.id
-                    ? "border-accent bg-accent/10 text-accent font-semibold"
+                    ? "border-accent bg-accent/10 text-accent"
                     : "border-border bg-surface text-text-secondary hover:text-text hover:border-text-muted"
                 )}
               >
-                {model.name && model.name !== model.id ? model.name : model.id}
-                {isFreeModel(model) ? " · Free" : ""}
+                {model.name && model.name !== model.id ? (
+                  <span>{model.name}</span>
+                ) : (
+                  <span className="font-mono">{model.id}</span>
+                )}
+                {isFreeModel(model) ? <span className="type-label text-ok">Free</span> : null}
               </button>
             ))}
           </div>
@@ -69,7 +73,7 @@ export function ModelField({
             list={listId}
             value={value}
             disabled={disabled}
-            placeholder="model id (type or pick)"
+            placeholder="Type or pick a model ID"
             onChange={(event) => onChange(event.target.value)}
           />
           {loading ? (
@@ -92,12 +96,12 @@ export function ModelField({
       {error ? (
         <p className="text-caption text-warn">{error}</p>
       ) : (
-        <p className={cn("text-caption text-text-muted", loading && "opacity-70")}>
+        <p className={`text-caption text-text-muted ${loading ? "opacity-70" : ""}`}>
           {loading
-            ? "Fetching models…"
+            ? "Loading models…"
             : models.length
-              ? `${models.length} models available — or type any id`
-              : "Type a model id (listing unavailable for this endpoint)"}
+              ? `${models.length} models found. You can also type any model ID.`
+              : "This server doesn't list its models. Type the model ID."}
         </p>
       )}
     </div>

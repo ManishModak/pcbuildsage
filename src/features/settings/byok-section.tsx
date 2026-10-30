@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ShieldCheck } from "lucide-react";
 import { fetchModels } from "@/lib/api-client";
 import { pickFreeToolCapableDefault } from "@/lib/llm/model-recommend";
 import type { DiscoveredModel, ReasoningEffort } from "@/types/client";
@@ -19,10 +18,9 @@ import {
   setByokModel,
   setByokReasoningEffort
 } from "@/lib/llm/client-byok-store";
-import { Button, Card } from "@/components/ui/primitives";
-import { Icon } from "@/components/ui/icon";
+import { Button } from "@/components/ui/primitives";
 import { ByokProviderCard, type ProviderConfig } from "./byok-provider-card";
-import { KeyHelpPanel } from "./key-help-panel";
+import { KeyHandlingNote, KeyHelpPanel } from "./key-help-panel";
 
 const BYOK_PROVIDERS: ProviderConfig[] = [
   {
@@ -31,7 +29,7 @@ const BYOK_PROVIDERS: ProviderConfig[] = [
     placeholder: "AIzaSy...",
     defaultModel: "gemini-2.5-flash",
     docsUrl: "https://aistudio.google.com/app/apikey",
-    docsLabel: "Get Gemini API Key"
+    docsLabel: "Get a Gemini key"
   },
   {
     id: "groq",
@@ -39,7 +37,7 @@ const BYOK_PROVIDERS: ProviderConfig[] = [
     placeholder: "gsk_...",
     defaultModel: "llama-3.3-70b-versatile",
     docsUrl: "https://console.groq.com/keys",
-    docsLabel: "Get Groq API Key"
+    docsLabel: "Get a Groq key"
   },
   {
     id: "openrouter",
@@ -49,7 +47,7 @@ const BYOK_PROVIDERS: ProviderConfig[] = [
     // tool-capable) once a key is saved, otherwise the user picks.
     defaultModel: "",
     docsUrl: "https://openrouter.ai/keys",
-    docsLabel: "Get OpenRouter API Key"
+    docsLabel: "Get an OpenRouter key"
   }
 ];
 
@@ -270,23 +268,25 @@ export function ByokSection({
 
   return (
     <section className={`flex flex-col gap-5 ${className ?? ""}`} data-testid="byok-section">
-      <div className="flex flex-col gap-0.5">
-        <h2 className="text-lg font-semibold text-text">Bring Your Own Key (BYOK)</h2>
-        <p className="text-caption text-text-secondary">
-          Enter your own API keys for Google Gemini, Groq, or OpenRouter. Keys are stored safely in browser storage and sent
-          exclusively via per-request HTTP headers to guarantee zero server-side storage or logging.
+      <div className="flex flex-col gap-1">
+        <h2 className="type-title text-xl text-text">AI model</h2>
+        <p className="text-sm text-text-secondary">
+          Add your own key for Google Gemini, Groq or OpenRouter, then pick the model that answers your chats.
         </p>
       </div>
 
       <KeyHelpPanel />
 
       {configuredProviders.length > 1 && (
-        <Card className="flex flex-col gap-3 p-4 bg-surface-raised border-border" data-testid="byok-active-provider-card">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-text">Active Chat Provider</span>
-            <span className="text-caption text-accent font-medium">Auto-selected for new chats</span>
+        <div
+          className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4"
+          data-testid="byok-active-provider-card"
+        >
+          <div className="flex flex-col gap-0.5">
+            <h3 className="type-title text-base text-text">Chat uses</h3>
+            <p className="text-caption text-text-secondary">New chats use this provider and its model.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
             {configuredProviders.map((p) => (
               <Button
                 key={p.id}
@@ -294,55 +294,52 @@ export function ByokSection({
                 size="sm"
                 onClick={() => handleActiveProviderChange(p.id)}
                 data-testid={`byok-active-${p.id}`}
-                className="justify-start truncate"
+                className="min-w-0 justify-start"
               >
-                {p.name} ({selectedModels[p.id]})
+                <span className="truncate">
+                  {p.name}
+                  {selectedModels[p.id] ? <span className="font-mono"> {selectedModels[p.id]}</span> : null}
+                </span>
               </Button>
             ))}
           </div>
-        </Card>
+        </div>
       )}
 
-      <div className="flex flex-col gap-4">
-        {BYOK_PROVIDERS.map((provider) => (
-          <ByokProviderCard
-            key={provider.id}
-            provider={provider}
-            currentKey={keys[provider.id]}
-            draft={drafts[provider.id] || ""}
-            onDraftChange={(val) => setDrafts((prev) => ({ ...prev, [provider.id]: val }))}
-            persist={persists[provider.id]}
-            onPersistChange={(val) => setPersists((prev) => ({ ...prev, [provider.id]: val }))}
-            isEditing={editing[provider.id]}
-            onSetEditing={(val) => setEditing((prev) => ({ ...prev, [provider.id]: val }))}
-            showDraft={showDraft[provider.id]}
-            onToggleShowDraft={() => setShowDraft((prev) => ({ ...prev, [provider.id]: !prev[provider.id] }))}
-            selectedModel={selectedModels[provider.id]}
-            onModelChange={(model) => handleModelChange(provider.id, model)}
-            models={models[provider.id]}
-            loadingModels={loadingModels[provider.id]}
-            modelError={modelErrors[provider.id]}
-            customInput={customInputs[provider.id]}
-            onSetCustomInput={(val) => setCustomInputs((prev) => ({ ...prev, [provider.id]: val }))}
-            customDraft={customDrafts[provider.id]}
-            onCustomDraftChange={(val) => setCustomDrafts((prev) => ({ ...prev, [provider.id]: val }))}
-            reasoningEffort={reasoningEfforts[provider.id]}
-            onReasoningEffortChange={(effort) => handleReasoningEffortChange(provider.id, effort)}
-            onSave={() => handleSave(provider.id)}
-            onClear={() => handleClear(provider.id)}
-            onDetectModels={() => void loadModelsForProvider(provider.id, keys[provider.id], true)}
-          />
-        ))}
-
-        <div className="flex items-start gap-2.5 rounded-btn border border-border bg-surface-raised p-3 text-caption text-text-secondary">
-          <Icon icon={ShieldCheck} size={16} className="text-accent mt-0.5 shrink-0" />
-          <p className="leading-relaxed">
-            <strong className="font-semibold text-text">Security & Privacy Guarantee:</strong> Keys are stored only in your
-            browser&apos;s temporary <code className="text-accent">sessionStorage</code> by default and vanish automatically when this
-            tab is closed. They are forwarded strictly in encrypted per-request HTTP headers for active inference, and are
-            never written to any database, file, or server log.
-          </p>
+      <div className="flex flex-col gap-3">
+        <h3 className="type-title text-base text-text">Your API keys</h3>
+        <div className="divide-y divide-border rounded-card border border-border bg-surface">
+          {BYOK_PROVIDERS.map((provider) => (
+            <ByokProviderCard
+              key={provider.id}
+              provider={provider}
+              currentKey={keys[provider.id]}
+              draft={drafts[provider.id] || ""}
+              onDraftChange={(val) => setDrafts((prev) => ({ ...prev, [provider.id]: val }))}
+              persist={persists[provider.id]}
+              onPersistChange={(val) => setPersists((prev) => ({ ...prev, [provider.id]: val }))}
+              isEditing={editing[provider.id]}
+              onSetEditing={(val) => setEditing((prev) => ({ ...prev, [provider.id]: val }))}
+              showDraft={showDraft[provider.id]}
+              onToggleShowDraft={() => setShowDraft((prev) => ({ ...prev, [provider.id]: !prev[provider.id] }))}
+              selectedModel={selectedModels[provider.id]}
+              onModelChange={(model) => handleModelChange(provider.id, model)}
+              models={models[provider.id]}
+              loadingModels={loadingModels[provider.id]}
+              modelError={modelErrors[provider.id]}
+              customInput={customInputs[provider.id]}
+              onSetCustomInput={(val) => setCustomInputs((prev) => ({ ...prev, [provider.id]: val }))}
+              customDraft={customDrafts[provider.id]}
+              onCustomDraftChange={(val) => setCustomDrafts((prev) => ({ ...prev, [provider.id]: val }))}
+              reasoningEffort={reasoningEfforts[provider.id]}
+              onReasoningEffortChange={(effort) => handleReasoningEffortChange(provider.id, effort)}
+              onSave={() => handleSave(provider.id)}
+              onClear={() => handleClear(provider.id)}
+              onDetectModels={() => void loadModelsForProvider(provider.id, keys[provider.id], true)}
+            />
+          ))}
         </div>
+        <KeyHandlingNote />
       </div>
     </section>
   );

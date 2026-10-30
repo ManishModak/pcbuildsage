@@ -141,10 +141,10 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
     it("renders Market Preference section with country and currency selection controls when markets are available", () => {
       const html = renderToStaticMarkup(<MarketPreferenceSection initialMarkets={STANDARD_MARKETS} />);
 
-      expect(html).toContain("Market Preference");
-      expect(html).toContain("Country / Region");
+      expect(html).toContain("Region and currency");
+      expect(html).toContain("Country or region");
       expect(html).toContain("Currency");
-      expect(html).toContain("Browser Storage");
+      expect(html).toContain("Saved in this browser.");
       expect(html).toContain("data-testid=\"country-select\"");
       expect(html).toContain("data-testid=\"currency-select\"");
     });
@@ -192,31 +192,33 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
     it("renders BYOK section with Gemini and OpenRouter provider cards", () => {
       const html = renderToStaticMarkup(<ByokSection />);
 
-      expect(html).toContain("Bring Your Own Key (BYOK)");
+      expect(html).toContain("Your API keys");
       expect(html).toContain("Google Gemini");
       expect(html).toContain("OpenRouter");
       expect(html).toContain("data-testid=\"byok-card-gemini\"");
       expect(html).toContain("data-testid=\"byok-card-openrouter\"");
-      expect(html).toContain("Privacy Guarantee");
+      expect(html).toContain("What happens to your key");
+      expect(html).toContain("stored in this browser tab&#x27;s session storage");
+      expect(html).not.toMatch(/never leaves your browser|never sent to (our|the) server/i);
     });
 
     it("shows unconfigured state with input and save button when no key is set", () => {
       const html = renderToStaticMarkup(<ByokSection />);
 
-      expect(html).toContain("Not Configured");
+      expect(html).toContain("No key yet");
       expect(html).toContain("data-testid=\"byok-gemini-input\"");
       expect(html).toContain("data-testid=\"byok-gemini-save\"");
       expect(html).toContain("Remember for this browser");
     });
 
-    it("shows masked key and Clear Key button when a provider key is set", () => {
+    it("shows masked key and Clear key button when a provider key is set", () => {
       setByokKey("gemini", "AIzaSyFakeGeminiKey123456");
       const html = renderToStaticMarkup(<ByokSection />);
 
-      expect(html).toContain("Configured");
+      expect(html).toContain("Key saved");
       expect(html).toContain(maskApiKey("AIzaSyFakeGeminiKey123456"));
-      expect(html).toContain("Clear Key");
-      expect(html).toContain("Replace Key");
+      expect(html).toContain("Clear key");
+      expect(html).toContain("Replace key");
       expect(html).toContain("data-testid=\"byok-gemini-clear\"");
       expect(html).toContain("data-testid=\"byok-gemini-masked\"");
     });
@@ -237,12 +239,12 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
       expect(html).toContain("data-testid=\"byok-openrouter-clear\"");
     });
 
-    it("renders Configured Model section and Auto-Detect Models button when key is present", () => {
+    it("renders the model picker and Refresh models button when key is present", () => {
       setByokKey("gemini", "AIzaSyFakeGeminiKey123456");
       const html = renderToStaticMarkup(<ByokSection />);
 
-      expect(html).toContain("Configured Model");
-      expect(html).toContain("Auto-Detect Models");
+      expect(html).toContain("Model");
+      expect(html).toContain("Refresh models");
       expect(html).toContain("data-testid=\"byok-gemini-detect\"");
       expect(html).toContain("data-testid=\"byok-gemini-model-select\"");
     });
@@ -262,7 +264,7 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
       setByokReasoningEffort("groq", "high");
       const html = renderToStaticMarkup(<ByokSection />);
 
-      expect(html).toContain("Reasoning Effort");
+      expect(html).toContain("Reasoning effort");
       expect(html).toContain("data-testid=\"byok-groq-reasoning-effort\"");
       expect(html).toContain("data-testid=\"byok-groq-effort-default\"");
       expect(html).toContain("data-testid=\"byok-groq-effort-low\"");
@@ -299,23 +301,23 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
       expect(html).toContain("data-testid=\"byok-groq-clear\"");
     });
 
-    it("renders Active Chat Provider card when both Gemini and OpenRouter are configured", () => {
+    it("renders the Chat uses card when both Gemini and OpenRouter are configured", () => {
       setByokKey("gemini", "AIzaSyGeminiKey");
       setByokKey("openrouter", "sk-or-v1-OpenRouterKey");
       const html = renderToStaticMarkup(<ByokSection />);
 
-      expect(html).toContain("Active Chat Provider");
+      expect(html).toContain("Chat uses");
       expect(html).toContain("data-testid=\"byok-active-provider-card\"");
       expect(html).toContain("data-testid=\"byok-active-gemini\"");
       expect(html).toContain("data-testid=\"byok-active-openrouter\"");
     });
 
-    it("renders Active Chat Provider buttons for all configured providers including Groq", () => {
+    it("renders the Chat uses buttons for all configured providers including Groq", () => {
       setByokKey("gemini", "AIzaSyGeminiKey");
       setByokKey("groq", "gsk_GroqKey123");
       const html = renderToStaticMarkup(<ByokSection />);
 
-      expect(html).toContain("Active Chat Provider");
+      expect(html).toContain("Chat uses");
       expect(html).toContain("data-testid=\"byok-active-gemini\"");
       expect(html).toContain("data-testid=\"byok-active-groq\"");
     });
@@ -331,14 +333,12 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
       );
 
       // Market tab and section present
-      expect(html).toContain("Market Preference");
-      expect(html).toContain("Country / Region");
+      expect(html).toContain("Region and currency");
+      expect(html).toContain("Country or region");
 
       // Scraper management and wizard button completely absent
-      expect(html).not.toContain("Launch Scraping &amp; Setup Wizard");
-      expect(html).not.toContain("Launch Scraping & Setup Wizard");
-      expect(html).not.toContain("Scraping &amp; Local Catalog Setup");
-      expect(html).not.toContain("Scraping & Local Catalog Setup");
+      expect(html).not.toContain("Open catalog setup");
+      expect(html).not.toContain("Product catalog");
     });
 
     it("renders BYOK section in LLM tab in hosted-demo mode and hides provider chain", () => {
@@ -349,14 +349,14 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
         </AppProvider>
       );
 
-      expect(html).toContain("Bring Your Own Key (BYOK)");
+      expect(html).toContain("Your API keys");
       expect(html).toContain("Google Gemini");
       expect(html).toContain("Groq");
       expect(html).toContain("OpenRouter");
-      expect(html).not.toContain("LLM provider chain");
+      expect(html).not.toContain("Add backup model");
     });
 
-    it("renders Scraping & Local Catalog tab in local mode", () => {
+    it("renders the Catalog tab in local mode", () => {
       setCachedDeploymentMode("local");
       const html = renderToStaticMarkup(
         <AppProvider>
@@ -364,8 +364,9 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
         </AppProvider>
       );
 
-      expect(html).toContain("Scraping &amp; Local Catalog");
-      expect(html).toContain("Launch Scraping &amp; Setup Wizard");
+      expect(html).toContain("Catalog");
+      expect(html).toContain("Product catalog");
+      expect(html).toContain("Open catalog setup");
     });
   });
 
