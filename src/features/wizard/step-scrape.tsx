@@ -1,6 +1,5 @@
 "use client";
 
-import { Database } from "lucide-react";
 import type { DataSourceChoice } from "./step-data-source";
 import { ScrapeForm } from "./scrape-form";
 import { SimplePanel } from "./simple-panel";
@@ -17,9 +16,8 @@ export function StepScrape({
   if (dataSource === "existing") {
     return (
       <SimplePanel
-        icon={Database}
         title="Using your existing database"
-        description="Your local product data is ready. You can re-scrape later from settings whenever prices go stale."
+        description="Your local product data is ready. You can fetch fresh prices later from settings."
         onBack={onBack}
         onNext={onNext}
       />

@@ -14,10 +14,10 @@ describe("ScrapeProgress raw log component", () => {
     );
 
     expect(markup).toContain("Raw log (3 lines)");
-    expect(markup).toContain("copy");
+    expect(markup).toContain("Copy");
     expect(markup).toContain('aria-label="Copy logs to clipboard"');
     expect(markup).toContain('title="Copy logs"');
-    expect(markup).toContain("show");
+    expect(markup).toContain("Show");
   });
 
   it("disables copy button when logs are empty", () => {

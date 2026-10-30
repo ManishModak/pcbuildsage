@@ -43,8 +43,8 @@ export function ProfileImportDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Import a scrape profile"
-      description="Add a community profile from a file or URL. It is validated against the schema before saving."
+      title="Import a profile"
+      description="Add a community profile from a file or a URL. It is checked against the schema before it is saved."
     >
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
@@ -87,7 +87,7 @@ export function ProfileImportDialog({
                 disabled={!url.trim()}
                 onClick={() => void handle(() => importProfileFromUrl(url.trim()))}
               >
-                Fetch
+                Import
               </Button>
             </div>
           )}
@@ -100,7 +100,7 @@ export function ProfileImportDialog({
           >
             <p className="flex items-center gap-2 text-caption font-medium" style={{ color: "var(--blocking)" }}>
               <Icon icon={OctagonX} size={14} />
-              Profile rejected — {errors.length} schema {errors.length === 1 ? "error" : "errors"}
+              Profile rejected: {errors.length} schema {errors.length === 1 ? "error" : "errors"}
             </p>
             <ul className="flex flex-col gap-1 font-mono text-caption text-text-secondary">
               {errors.map((error, index) => (

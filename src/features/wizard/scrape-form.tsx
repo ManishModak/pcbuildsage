@@ -4,25 +4,29 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import {
   ArrowLeft,
   ArrowRight,
+  Check,
   ChevronDown,
   ChevronRight,
   FlaskConical,
   Play,
+  TriangleAlert,
   Upload,
   X
 } from "lucide-react";
 import { fetchProfiles, postSse, testProfile } from "@/lib/api-client";
 import { useApp } from "@/components/app/app-provider";
+import { RuneSpinner } from "@/components/app/rune-spinner";
 import { cancelledRunOutcome, failedRunOutcome } from "@/contracts/scrape";
 import { loadLastScrape, saveLastScrape } from "@/lib/client-config-store";
 import { estimateScrapeMinutes, getErrorMessage } from "@/lib/format";
 import type { ProfileSummary, ScrapeRunConfig } from "@/types/client";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
-import { Button, Card, ChoiceControl, ChoiceGroup, Field, Input, Spinner, Toggle } from "@/components/ui/primitives";
+import { Button, Card, ChoiceControl, ChoiceGroup, Field, Input, Toggle } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/select";
 import { ProfileImportDialog } from "./profile-import";
 import { ScrapeProgress } from "./scrape-progress";
+import { StepHeader } from "./simple-panel";
 import {
   createInitialScrapeStreamState,
   scrapeStreamReducer,
@@ -216,24 +220,21 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
   if (phase !== "config") {
     return (
       <section className="flex flex-col gap-6">
-        <header className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold text-text">Scraping {activeProfile?.profileName ?? profileId}</h1>
-          <p className="text-base text-text-secondary">
-            Live progress below. Data is written as it arrives — you can continue once it settles.
-          </p>
-        </header>
+        <StepHeader title={`Fetching ${activeProfile?.profileName ?? profileId}`}>
+          Products are saved as they arrive. You can continue once the run finishes.
+        </StepHeader>
         {stream.runError ? <RunError message={stream.runError} /> : null}
-        {stream.outcome?.status === "cancelled" ? <RunNotice message="Scrape cancelled. Completed writes were kept." /> : null}
+        {stream.outcome?.status === "cancelled" ? <RunNotice message="Fetch cancelled. Products already saved were kept." /> : null}
         <ScrapeProgress
           rows={Array.from(stream.rows.values())}
           logs={stream.logs}
           running={phase === "running"}
           productsWritten={stream.productsWritten}
         />
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between border-t border-border pt-4">
           {phase === "running" ? (
             <Button variant="danger" iconLeft={X} onClick={stopScrape}>
-              Stop scrape
+              Stop fetching
             </Button>
           ) : (
             <Button variant="ghost" iconLeft={ArrowLeft} onClick={() => setPhase("config")}>
@@ -255,24 +256,24 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
         <Card className="flex flex-col items-start gap-3 p-4" aria-live="polite">
           {profileState.status === "loading" ? (
             <div className="flex items-center gap-3 text-sm text-text-secondary">
-              <Spinner />
-              Loading scrape profiles…
+              <RuneSpinner />
+              Loading profiles…
             </div>
           ) : profileState.status === "error" ? (
             <>
               <div role="alert">
-                <p className="text-sm font-medium text-text">Could not load scrape profiles</p>
+                <p className="text-sm font-medium text-text">Could not load profiles</p>
                 <p className="text-caption text-text-secondary">{profileState.message}</p>
               </div>
-              <Button variant="ghost" onClick={() => void loadProfiles()}>Retry</Button>
+              <Button variant="ghost" onClick={() => void loadProfiles()}>Load profiles again</Button>
             </>
           ) : (
             <>
               <div>
-                <p className="text-sm font-medium text-text">No scrape profiles installed</p>
-                <p className="text-caption text-text-secondary">Import a community profile before configuring a scrape.</p>
+                <p className="text-sm font-medium text-text">No profiles installed</p>
+                <p className="text-caption text-text-secondary">Import a community profile to choose what to fetch.</p>
               </div>
-              <Button variant="ghost" iconLeft={Upload} onClick={() => setImportOpen(true)}>Import profile</Button>
+              <Button variant="ghost" iconLeft={Upload} onClick={() => setImportOpen(true)}>Import a profile</Button>
             </>
           )}
         </Card>
@@ -290,7 +291,7 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
     <section className="flex flex-col gap-6">
       <ScrapeConfigHeader />
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-6">
         <Field label="Profile">
           {(controlProps) => (
             <div className="flex gap-2">
@@ -300,7 +301,7 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
                 value={profileId}
                 options={profiles.map((profile) => ({
                   value: profile.id,
-                  label: `${profile.flag ? `${profile.flag} ` : ""}${profile.profileName ?? profile.id} · ${profile.siteCount} sites`
+                  label: `${profile.flag ? `${profile.flag} ` : ""}${profile.profileName ?? profile.id} (${profile.siteCount} sites)`
                 }))}
                 onChange={(event) => selectProfile(event.target.value, profiles)}
               />
@@ -326,22 +327,22 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
         />
 
         <ChoiceGroup label="Depth" className="flex flex-col gap-1.5">
-          <div className="flex flex-wrap gap-2">
-            <DepthOption value="quick" active={depth === "quick"} onSelect={setDepth} label="Quick" sub="2 pages/category" />
-            <DepthOption value="full" active={depth === "full"} onSelect={setDepth} label="Full" sub="profile max_pages" />
-            <DepthOption value="custom" active={depth === "custom"} onSelect={setDepth} label="Custom" sub="set max pages" />
-            {depth === "custom" ? (
-              <Input
-                type="number"
-                min={1}
-                mono
-                value={maxPages}
-                onChange={(event) => setMaxPages(Math.max(1, Number(event.target.value) || 1))}
-                className="w-24"
-                aria-label="Max pages"
-              />
-            ) : null}
+          <div className="grid grid-cols-3 divide-x divide-border overflow-hidden rounded-card border border-border bg-surface">
+            <DepthOption value="quick" active={depth === "quick"} onSelect={setDepth} label="Quick" sub="2 pages per category" />
+            <DepthOption value="full" active={depth === "full"} onSelect={setDepth} label="Full" sub="The profile's page limit" />
+            <DepthOption value="custom" active={depth === "custom"} onSelect={setDepth} label="Custom" sub="Set the page limit" />
           </div>
+          {depth === "custom" ? (
+            <Input
+              type="number"
+              min={1}
+              mono
+              value={maxPages}
+              onChange={(event) => setMaxPages(Math.max(1, Number(event.target.value) || 1))}
+              className="w-24"
+              aria-label="Max pages"
+            />
+          ) : null}
         </ChoiceGroup>
 
         {/* Advanced — collapsed by default (layout discipline). */}
@@ -350,7 +351,7 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
             type="button"
             aria-expanded={advancedOpen}
             onClick={() => setAdvancedOpen((prev) => !prev)}
-            className="flex w-full items-center gap-2 px-4 py-3 text-sm text-text-secondary hover:text-text"
+            className="flex w-full items-center gap-2 px-4 py-3 text-sm text-text-secondary transition-colors duration-150 hover:text-text"
           >
             <Icon icon={advancedOpen ? ChevronDown : ChevronRight} size={16} />
             Advanced options
@@ -360,17 +361,17 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
               <Toggle
                 checked={advanced.skipFreshOn}
                 onChange={(value) => setAdvanced((prev) => ({ ...prev, skipFreshOn: value }))}
-                label="Skip freshly-scraped"
-                description={`Skip a site+category scraped within ${advanced.skipFreshHours} hours.`}
+                label="Skip recently fetched"
+                description={`Skip a site and category fetched within the last ${advanced.skipFreshHours} hours.`}
               />
               <Toggle
                 checked={!advanced.noLlmFallback}
                 onChange={(value) => setAdvanced((prev) => ({ ...prev, noLlmFallback: !value }))}
-                label="LLM extraction fallback"
-                description="Use an LLM when CSS selectors miss fields. Auto-disable if no scraper credential resolves."
+                label="AI extraction fallback"
+                description="Use an AI model when CSS selectors miss fields. It turns off automatically if no scraper credential resolves."
               />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Per-site LLM call budget">
+                <Field label="AI calls per site">
                   {(controlProps) => (
                     <Input
                       {...controlProps}
@@ -383,7 +384,7 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
                     />
                   )}
                 </Field>
-                <Field label="Concurrent sites" hint="Each parallel worker uses ~200–300 MB RAM (recommended: 2–4).">
+                <Field label="Concurrent sites" hint="Each parallel worker uses about 200–300 MB of RAM. 2–4 is recommended.">
                   {(controlProps) => (
                     <Input
                       {...controlProps}
@@ -422,8 +423,8 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
               <Toggle
                 checked={advanced.headed}
                 onChange={(value) => setAdvanced((prev) => ({ ...prev, headed: value }))}
-                label="Headed debug browser"
-                description="Show the browser window while crawling (slower)."
+                label="Show browser window"
+                description="Watch the browser while it crawls. This is slower."
               />
             </div>
           ) : null}
@@ -431,7 +432,7 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
 
         {testOutput !== null ? (
           <Card className="p-3">
-            <p className="mb-2 text-caption font-medium text-text-secondary">Test profile output</p>
+            <p className="type-label mb-2 text-caption text-text-secondary">Test output</p>
             <pre className="max-h-48 overflow-auto font-mono text-caption text-text-secondary">{testOutput}</pre>
           </Card>
         ) : null}
@@ -447,9 +448,9 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
           </Button>
           <div className="flex flex-col items-end">
             <Button iconLeft={Play} onClick={startScrape} disabled={!profileId || sites.size === 0 || categories.size === 0}>
-              Start scrape
+              Start fetching
             </Button>
-            <span className="mt-1 font-mono text-caption text-text-muted">estimated {estimate.label}</span>
+            <span className="mt-1 text-caption text-text-muted">Estimated {estimate.label}</span>
           </div>
         </div>
       </div>
@@ -465,21 +466,19 @@ export function ScrapeForm({ onBack, onNext }: { onBack: () => void; onNext: () 
 
 function ScrapeConfigHeader() {
   return (
-    <header className="flex flex-col gap-1">
-      <h1 className="text-2xl font-semibold text-text">Configure the scrape</h1>
-      <p className="text-base text-text-secondary">
-        Community profiles define how each site is crawled. Choose what to fetch right now.
-      </p>
-    </header>
+    <StepHeader title="Choose what to fetch">
+      Community profiles define how each site is crawled. Pick the sites and categories to fetch now.
+    </StepHeader>
   );
 }
 
 function RunError({ message }: { message: string }) {
   return (
     <div
-      className="rounded-card border px-4 py-3 text-caption"
+      className="flex items-start gap-2 rounded-card border px-4 py-3 text-caption"
       style={{ color: "var(--warn)", borderColor: "color-mix(in srgb, var(--warn) 45%, transparent)" }}
     >
+      <Icon icon={TriangleAlert} size={14} className="mt-0.5 shrink-0" />
       {message}
     </div>
   );
@@ -510,12 +509,16 @@ function DepthOption({
       checked={active}
       onChange={() => onSelect(value)}
       className={cn(
-        "flex min-h-11 flex-col items-start rounded-btn border px-3 py-1.5 text-left transition-colors duration-150",
-        active ? "border-accent" : "border-border hover:border-text-muted"
+        "flex min-h-11 flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors duration-150",
+        active ? "bg-surface-raised" : "hover:bg-surface-raised"
       )}
     >
-      <span className="text-sm text-text">{label}</span>
-      <span className="font-mono text-caption text-text-muted">{sub}</span>
+      {active ? <span aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-accent" /> : null}
+      <span className="flex items-center gap-1.5 text-sm text-text">
+        {label}
+        {active ? <Icon icon={Check} size={14} className="text-accent" /> : null}
+      </span>
+      <span className="text-caption text-text-muted">{sub}</span>
     </ChoiceControl>
   );
 }
@@ -552,10 +555,11 @@ function CheckboxGroup({
               checked={checked}
               onChange={() => onToggle(option)}
               className={cn(
-                "flex min-h-11 items-center rounded-chip border px-3 text-caption transition-colors duration-150",
+                "flex min-h-11 items-center gap-1.5 rounded-chip border px-3 text-caption transition-colors duration-150",
                 checked ? "border-accent text-text" : "border-border text-text-secondary hover:border-text-muted"
               )}
             >
+              {checked ? <Icon icon={Check} size={13} className="text-accent" /> : null}
               {option}
             </ChoiceControl>
           );
