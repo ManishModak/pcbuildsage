@@ -10,12 +10,14 @@ export function PillTabs({
   tabs,
   value,
   onChange,
-  ariaLabel
+  ariaLabel,
+  size = "md"
 }: {
   tabs: PillTab[];
   value: string;
   onChange: (next: string) => void;
   ariaLabel: string;
+  size?: "sm" | "md";
 }) {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -48,7 +50,8 @@ export function PillTabs({
             onKeyDown={(event) => onKeyDown(event, index)}
             onClick={() => onChange(tab.value)}
             className={cn(
-              "min-h-9 rounded-pill px-4 text-sm font-medium transition-colors duration-150",
+              "rounded-pill font-medium transition-colors duration-150",
+              size === "sm" ? "min-h-8 px-3 text-caption" : "min-h-9 px-4 text-sm",
               active ? "bg-accent text-on-accent" : "text-text-secondary hover:text-text"
             )}
           >

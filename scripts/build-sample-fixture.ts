@@ -61,7 +61,7 @@ const EXAMPLES: Array<{ id: string; label: string; prompt: string; plan: Plan }>
   },
   {
     id: "compact-no-gpu",
-    label: "Compact, no graphics card",
+    label: "Compact, no GPU",
     prompt: "A small, quiet PC for work and light games, no graphics card.",
     plan: {
       cpu: { term: "8600G" },

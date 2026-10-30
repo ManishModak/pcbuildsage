@@ -8,7 +8,6 @@ import { PillTabs } from "@/components/ui/pill-tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/components/ui/cn";
 import type { DerivedBuild, BuildVersion } from "./build-derive";
-import { VerdictSeal } from "./verdict-seal";
 import {
   priceAge,
   recheckPricesPrompt,

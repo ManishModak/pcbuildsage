@@ -1223,9 +1223,9 @@
     },
     {
       "id": "compact-no-gpu",
-      "label": "Compact, no graphics card",
+      "label": "Compact, no GPU",
       "prompt": "A small, quiet PC for work and light games, no graphics card.",
-      "answer": "Example answer: a validated \"Compact, no graphics card\" build totalling ₹86,815.00 across 7 catalog parts (prices observed 2026-10-30). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
+      "answer": "Example answer: a validated \"Compact, no GPU\" build totalling ₹86,815.00 across 7 catalog parts (prices observed 2026-10-30). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
       "validation": {
         "valid": true,
         "issues": [
@@ -1460,7 +1460,7 @@
           "text": "5 checks passed · 2 unverified"
         },
         "snapshot": {
-          "label": "Compact, no graphics card",
+          "label": "Compact, no GPU",
           "components": [
             {
               "category": "cpu",
@@ -1588,7 +1588,7 @@
         }
       },
       "snapshot": {
-        "label": "Compact, no graphics card",
+        "label": "Compact, no GPU",
         "components": [
           {
             "category": "cpu",

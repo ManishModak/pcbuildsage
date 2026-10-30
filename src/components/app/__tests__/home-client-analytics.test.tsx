@@ -63,7 +63,19 @@ afterEach(() => {
 });
 
 describe("M2 client event wiring in HomeClient", () => {
+  it("first-time visitors stay on the landing until they open setup", () => {
+    const html = renderToStaticMarkup(<HomeClient landing={<div>landing copy</div>} />);
+    expect(html).toContain('<div data-landing=""><div>landing copy</div></div>');
+    expect(html).not.toContain("data-returning-spinner");
+    expect(state.wizardOnComplete).toBeNull();
+  });
+
   it("Wizard onComplete fires onboarding_completed exactly once", () => {
+    // Setup is open while the URL hash is #setup.
+    vi.stubGlobal("window", {
+      location: { hash: "#setup", pathname: "/", search: "" },
+      history: { state: null, replaceState: vi.fn() }
+    });
     renderToStaticMarkup(<HomeClient landing={<div>landing</div>} />);
     expect(typeof state.wizardOnComplete).toBe("function");
     state.wizardOnComplete?.();

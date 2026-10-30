@@ -22,9 +22,9 @@ const FRAME_MS = 1000 / 24;
 const FLAP = ["\\v/", "-v-", "/v\\", "-v-"]; // wings up, level, down, level
 const GLIDE = "-v-";
 const LAYERS = [
-  { size: 10, alpha: 0.2, speed: 14, bob: 4 },
-  { size: 12, alpha: 0.28, speed: 24, bob: 7 },
-  { size: 15, alpha: 0.38, speed: 38, bob: 10 }
+  { size: 11, alpha: 0.26, speed: 14, bob: 4 },
+  { size: 13, alpha: 0.36, speed: 24, bob: 7 },
+  { size: 16, alpha: 0.48, speed: 38, bob: 10 }
 ] as const;
 const POINTER_RADIUS = 110;
 

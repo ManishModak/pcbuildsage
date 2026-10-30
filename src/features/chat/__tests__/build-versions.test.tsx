@@ -372,7 +372,8 @@ describe("Build Versions and UI Accessibility (Issue 08)", () => {
     expect(markup).not.toContain('for="build-version-select"');
 
     // Each select and label must have matching generated IDs
-    const selectMatches = [...markup.matchAll(/id="([^"]+)"/g)].map((m) => m[1]);
+    // Only the selects' ids: the verdict seal's ring path carries its own id.
+    const selectMatches = [...markup.matchAll(/<select[^>]*\bid="([^"]+)"/g)].map((m) => m[1]);
     const labelMatches = [...markup.matchAll(/for="([^"]+)"/g)].map((m) => m[1]);
 
     expect(selectMatches.length).toBeGreaterThanOrEqual(2);

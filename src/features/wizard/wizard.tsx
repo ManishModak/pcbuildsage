@@ -22,7 +22,7 @@ import { hostedByokCanAdvance, hostedProbeIsCurrent, isHostedByokProvider, shoul
 const LOCAL_STEPS = ["Data source", "Fetch data", "AI providers", "Personalize"];
 const HOSTED_STEPS = ["Market", "AI Provider", "Personalize"];
 
-export function Wizard({ onComplete }: { onComplete: () => void }) {
+export function Wizard({ onComplete, onExit }: { onComplete: () => void; onExit?: () => void }) {
   const { config, updateConfig } = useApp();
   const [step, setStep] = useState(0);
 
@@ -191,7 +191,7 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:py-12 md:flex-row md:gap-10">
-      <Stepper steps={steps} step={step} onJump={(index) => index < step && go(index)} />
+      <Stepper steps={steps} step={step} onJump={(index) => index < step && go(index)} onExit={onExit} />
 
       <div className="min-w-0 flex-1">
         {/* Fade (no slide/remount jump) over a reserved min-height so the next
@@ -349,9 +349,29 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function Stepper({ steps, step, onJump }: { steps: string[]; step: number; onJump: (index: number) => void }) {
+function Stepper({
+  steps,
+  step,
+  onJump,
+  onExit
+}: {
+  steps: string[];
+  step: number;
+  onJump: (index: number) => void;
+  onExit?: () => void;
+}) {
   return (
     <nav aria-label="Onboarding progress" className="md:w-44 md:shrink-0">
+      {onExit ? (
+        <button
+          type="button"
+          onClick={onExit}
+          className="mb-4 inline-flex items-center gap-1.5 rounded-btn text-sm text-text-secondary hover:text-text"
+        >
+          <Icon icon={ArrowLeft} size={14} />
+          Back to overview
+        </button>
+      ) : null}
       {/* Mobile: progress dots */}
       <ol className="flex items-center gap-2 md:hidden">
         {steps.map((label, index) => (
