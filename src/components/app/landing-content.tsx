@@ -9,16 +9,16 @@ import { SampleConversation } from "@/features/chat/sample-conversation";
 // What the build is checked for, and what it isn't. Not a sequence, so no numbers.
 const PROMISES = [
   {
-    title: "Totals added up by code",
+    title: "Exact totals, added up by code",
     body: "The AI picks the parts. Code adds up the prices, so the total is exact for the listings shown."
   },
   {
     title: "Compatibility checked by rules",
     body:
-      "Socket, memory type, power supply wattage and case clearances go through a rules engine the AI can't override. Anything it can't verify is marked unverified."
+      "Socket, memory type, power supply wattage and case clearances are checked by a rules engine the AI can't override. Anything it can't verify is marked unverified."
   },
   {
-    title: "A buy link for every part",
+    title: "Buy links for every part",
     body:
       "Each part links to the listing it was priced from. Prices and stock are snapshots refreshed twice a day, so confirm them at checkout."
   },

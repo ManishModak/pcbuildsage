@@ -26,7 +26,7 @@ export function FailoverPill({ meta }: { meta: ChatMetadata | undefined }) {
       }}
       role="button"
       tabIndex={0}
-      className="mb-3 flex flex-col gap-2 rounded-card border px-3 py-2 text-caption select-none cursor-pointer hover:bg-surface-raised/15 transition-colors shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="mb-3 flex flex-col gap-2 rounded-card border px-3 py-2 text-caption cursor-pointer select-none transition-colors duration-150 hover:bg-surface-raised"
       style={{
         color: "var(--warn)",
         borderColor: "color-mix(in srgb, var(--warn) 30%, transparent)",
@@ -36,19 +36,20 @@ export function FailoverPill({ meta }: { meta: ChatMetadata | undefined }) {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <Icon icon={TriangleAlert} size={14} className="shrink-0" />
-          <span className={`font-medium ${isExpanded ? "" : "truncate"}`}>
+          <span className={isExpanded ? "" : "truncate"}>
             Primary model error: {isExpanded ? "" : cleanError}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0 text-text-secondary border-l pl-3 font-mono text-[10px]" style={{ borderColor: "color-mix(in srgb, var(--warn) 20%, transparent)" }}>
-          <Icon icon={Radio} size={11} className="animate-pulse text-accent" />
-          <span>Fallback #{meta.fallbackIndex} ({meta.provider})</span>
+        <div className="type-label flex shrink-0 items-center gap-1.5 border-l pl-3 text-caption text-text-secondary" style={{ borderColor: "color-mix(in srgb, var(--warn) 20%, transparent)" }}>
+          <Icon icon={Radio} size={11} className="text-accent" />
+          <span>Fallback #{meta.fallbackIndex}</span>
+          <span className="font-mono font-normal">{meta.provider}</span>
         </div>
       </div>
 
       {isExpanded ? (
         <div
-          className="mt-1 pl-5 text-text-secondary font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap select-text border-t pt-2 border-dashed"
+          className="mt-1 pl-5 text-text-secondary font-mono text-caption leading-relaxed break-words whitespace-pre-wrap select-text border-t pt-2 border-dashed"
           style={{ borderColor: "color-mix(in srgb, var(--warn) 20%, transparent)" }}
           onClick={(e) => e.stopPropagation()} // Prevent closing when highlighting/clicking text
         >

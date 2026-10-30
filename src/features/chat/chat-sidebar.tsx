@@ -80,7 +80,7 @@ export function ChatSidebar({
           <SidebarGroup className="group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:px-0">
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton tooltip="New chat" onClick={onNew}>
+                <SidebarMenuButton tooltip="New chat" onClick={onNew} className="rounded-btn">
                   <Icon icon={MessageSquarePlus} size={16} />
                   <span className="group-data-[collapsible=icon]:hidden">New chat</span>
                 </SidebarMenuButton>
@@ -89,7 +89,7 @@ export function ChatSidebar({
           </SidebarGroup>
 
           <SidebarGroup className="group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:px-0">
-            <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Chats</SidebarGroupLabel>
+            <SidebarGroupLabel className="type-label h-7 text-caption text-text-muted group-data-[collapsible=icon]:hidden">Chats</SidebarGroupLabel>
             <SidebarGroupContent>
               {sessions.length === 0 ? (
                 isLoading ? (
@@ -117,12 +117,13 @@ export function ChatSidebar({
                           tooltip={title}
                           onClick={() => onSelect(session.id)}
                           aria-current={active ? "true" : undefined}
+                          className="rounded-btn data-[active=true]:bg-surface-raised data-[active=true]:text-text"
                         >
-                          <Icon icon={MessageSquare} size={16} />
+                          <Icon icon={MessageSquare} size={16} className="text-text-muted" />
                           {/* Hide the two-line label when the rail collapses to
                               icons, otherwise it leaks as stacked text fragments. */}
                           <span className="flex flex-1 min-w-0 flex-col group-data-[collapsible=icon]:hidden">
-                            <span className="truncate text-sm text-text">{title}</span>
+                            <span className={cn("truncate text-sm", active ? "text-text" : "text-text-secondary")}>{title}</span>
                             <span className="truncate text-caption text-text-muted">
                               {formatRelativeTime(session.updated_at)}
                             </span>
@@ -186,6 +187,7 @@ export function ChatSidebar({
                 type="button"
                 tooltip="Settings"
                 onClick={() => setSettingsOpen(true)}
+                className="rounded-btn"
               >
                 <Icon icon={Settings} size={16} />
                 <span className="group-data-[collapsible=icon]:hidden">Settings</span>

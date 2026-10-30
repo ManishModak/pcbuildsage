@@ -74,17 +74,16 @@ export function Dialog({
       onClose={handleClose}
       onMouseDown={handleMouseDown}
       className={cn(
-        "pcbs-dialog w-full max-w-lg rounded-card border border-border bg-surface-raised shadow-2xl outline-none",
+        "pcbs-dialog w-full max-w-lg rounded-card border border-border bg-surface-raised shadow-[0_18px_40px_-20px_color-mix(in_srgb,var(--bg)_80%,black)] outline-none",
         className
       )}
-      style={{ boxShadow: "0 24px 60px -20px rgba(0,0,0,0.55)" }}
     >
       {/* Mount content only while open so children keep remount-on-open semantics. */}
       {open ? (
         <>
           <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
             <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold text-text">{title}</h2>
+              <h2 className="type-title text-lg text-text">{title}</h2>
               {description ? <p className="text-caption text-text-secondary">{description}</p> : null}
             </div>
             <IconButton icon={X} label="Close dialog" onClick={onClose} className="-mr-2 -mt-1" />

@@ -20,7 +20,7 @@ export function ThemeSwitcher({ variant = "bar" }: { variant?: "bar" | "sidebar"
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
         {inSidebar ? (
-          <SidebarMenuButton type="button">
+          <SidebarMenuButton type="button" className="rounded-btn">
             <Icon icon={Palette} size={16} />
             <span className="group-data-[collapsible=icon]:hidden">Theme</span>
           </SidebarMenuButton>
@@ -33,8 +33,7 @@ export function ThemeSwitcher({ variant = "bar" }: { variant?: "bar" | "sidebar"
           side={inSidebar ? "top" : "bottom"}
           align={inSidebar ? "start" : "end"}
           sideOffset={8}
-          className="pcbs-fade-in z-40 w-52 rounded-card border border-border bg-surface-raised p-1 shadow-xl"
-          style={{ boxShadow: "0 20px 48px -18px rgba(0,0,0,0.5)" }}
+          className="pcbs-fade-in z-40 w-52 rounded-card border border-border bg-surface-raised p-1 shadow-[0_18px_40px_-20px_color-mix(in_srgb,var(--bg)_80%,black)]"
         >
           {themeCatalog.status === "loading" ? (
             <p className="px-3 py-2 text-caption text-text-muted">Loading themes…</p>

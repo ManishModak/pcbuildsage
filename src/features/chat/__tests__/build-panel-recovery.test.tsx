@@ -184,7 +184,7 @@ describe("build panel recovery: an interrupted chat still has a build", () => {
 
     // A product id is never a part name: the unresolved RAM falls back to its
     // category label, and the id only ever shows in the secondary line.
-    expect(markup).toContain('<span class="block text-sm text-text">Memory</span>');
+    expect(markup).toContain('<span class="block text-[15px] leading-snug text-text">Memory</span>');
     expect(markup).not.toContain(`text-text">${RAM_ID}`);
 
     // An incomplete snapshot has no total, and that reads as an em dash.

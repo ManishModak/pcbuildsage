@@ -81,7 +81,7 @@ export function TranscriptMenu({
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-btn border border-border bg-surface text-caption select-none shrink-0 transition-colors duration-150 hover:border-text-secondary/40",
+        "inline-flex items-center rounded-btn border border-border bg-surface text-caption select-none shrink-0 transition-colors duration-150 hover:border-text-muted",
         className
       )}
     >
@@ -91,7 +91,7 @@ export function TranscriptMenu({
         onClick={handleCopyMarkdown}
         aria-label={copiedFormat === "markdown" ? "Transcript copied" : "Copy chat transcript"}
         title="Copy chat transcript (Markdown)"
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 font-medium text-text hover:text-accent transition-colors duration-150 cursor-pointer"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 type-label text-text hover:text-accent transition-colors duration-150 cursor-pointer"
       >
         <Icon
           icon={copiedFormat === "markdown" ? Check : Copy}
@@ -121,12 +121,11 @@ export function TranscriptMenu({
             side="bottom"
             align="end"
             sideOffset={6}
-            className="pcbs-fade-in z-50 min-w-48 rounded-card border border-border bg-surface-raised p-1 shadow-xl text-text"
-            style={{ boxShadow: "0 16px 36px -12px rgba(0,0,0,0.5)" }}
+            className="pcbs-fade-in z-50 min-w-48 rounded-card border border-border bg-surface-raised p-1 text-text shadow-[0_18px_40px_-20px_color-mix(in_srgb,var(--bg)_80%,black)]"
           >
             <DropdownMenu.Item
               onClick={handleCopyMarkdown}
-              className="flex cursor-pointer items-center gap-2 rounded-btn px-2.5 py-1.5 text-xs text-text-secondary outline-none transition-colors duration-150 hover:bg-surface hover:text-text"
+              className="flex cursor-pointer items-center gap-2 rounded-btn px-2.5 py-1.5 text-caption text-text-secondary outline-none transition-colors duration-150 hover:bg-surface hover:text-text"
             >
               <Icon
                 icon={copiedFormat === "markdown" ? Check : FileText}
@@ -138,21 +137,21 @@ export function TranscriptMenu({
 
             <DropdownMenu.Item
               onClick={handleCopyJson}
-              className="flex cursor-pointer items-center gap-2 rounded-btn px-2.5 py-1.5 text-xs text-text-secondary outline-none transition-colors duration-150 hover:bg-surface hover:text-text"
+              className="flex cursor-pointer items-center gap-2 rounded-btn px-2.5 py-1.5 text-caption text-text-secondary outline-none transition-colors duration-150 hover:bg-surface hover:text-text"
             >
               <Icon
                 icon={copiedFormat === "json" ? Check : Code}
                 size={14}
                 className={copiedFormat === "json" ? "text-accent" : "text-text-muted"}
               />
-              <span className="flex-1">Copy as JSON (Debug)</span>
+              <span className="flex-1">Copy as JSON (debug)</span>
             </DropdownMenu.Item>
 
             <DropdownMenu.Separator className="my-1 h-px bg-border" />
 
             <DropdownMenu.Item
               onClick={handleDownloadMarkdown}
-              className="flex cursor-pointer items-center gap-2 rounded-btn px-2.5 py-1.5 text-xs text-text-secondary outline-none transition-colors duration-150 hover:bg-surface hover:text-text"
+              className="flex cursor-pointer items-center gap-2 rounded-btn px-2.5 py-1.5 text-caption text-text-secondary outline-none transition-colors duration-150 hover:bg-surface hover:text-text"
             >
               <Icon icon={Download} size={14} className="text-text-muted" />
               <span className="flex-1">Download (.md)</span>
