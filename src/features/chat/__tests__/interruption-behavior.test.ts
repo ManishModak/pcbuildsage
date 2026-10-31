@@ -127,8 +127,6 @@ describe("Priority 4: Interruption & Continuation Behavior", () => {
   describe("Subagent Interruption and Abort Handling", () => {
     it("handles the subagent timeout without retrying or caching partial results", async () => {
       temporaryDirectory = mkdtempSync(path.join(tmpdir(), "pcbuildsage-interruption-"));
-      const timeoutController = new AbortController();
-      vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeoutController.signal);
       const baseConfig: AppConfig = {
         ...DEFAULT_CONFIG,
         dbPath: path.join(temporaryDirectory, "products.db"),
@@ -143,12 +141,9 @@ describe("Priority 4: Interruption & Continuation Behavior", () => {
         search: { provider: "tavily", apiKey: "tvly-key", crawlEnabled: false }
       };
 
-      const generateText = vi.fn().mockImplementation(({ abortSignal }: { abortSignal: AbortSignal }) =>
-        new Promise((_, reject) => {
-          abortSignal.addEventListener("abort", () => reject(abortSignal.reason), { once: true });
-          timeoutController.abort(new DOMException("The operation timed out", "TimeoutError"));
-        })
-      );
+      // The fallback client times each entry itself (timeoutMsPerEntry) and
+      // rejects once the whole chain timed out; consult passes only Stop.
+      const generateText = vi.fn().mockRejectedValue(new DOMException("The operation timed out", "TimeoutError"));
 
       const result = (await consult(
         {
@@ -168,7 +163,7 @@ describe("Priority 4: Interruption & Continuation Behavior", () => {
       expect(result.retryable).toBe(false);
       expect(result.actions).toEqual([]);
       expect(generateText).toHaveBeenCalledTimes(1);
-      expect(timeoutController.signal.aborted).toBe(true);
+      expect(generateText.mock.calls[0][0]).toMatchObject({ abortSignal: undefined, timeoutMsPerEntry: expect.any(Number) });
       expect(getDb(baseConfig.dbPath).prepare("SELECT COUNT(*) AS count FROM registry_research").get()).toEqual({ count: 0 });
     });
   });

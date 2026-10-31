@@ -8,6 +8,8 @@
 import { isHostedMode } from "@/lib/api-client";
 import { getMarketPreference, type MarketPreference } from "@/lib/market/client-market-store";
 import { getActiveByokProvider, getByokModel, getByokReasoningEffort, hasByokKey } from "@/lib/llm/client-byok-store";
+import { hostedDefaultModelFor } from "@/lib/llm/hosted-defaults";
+import type { StoredCompactContext } from "@/lib/sessions/compact-context";
 import type { ClientConfig, KeySource, LLMProvider, ReasoningEffort, SearchProvider } from "@/types/client";
 
 export interface ResolveChatOptions {
@@ -17,10 +19,12 @@ export interface ResolveChatOptions {
   hasKey?: (provider: string) => boolean;
   getModel?: (provider: string) => string | undefined;
   getReasoningEffort?: (provider: string) => ReasoningEffort | undefined;
+  compactContext?: StoredCompactContext | null;
 }
 
 export interface ChatRequestBody {
   sessionId: string;
+  compactContext?: StoredCompactContext | null;
   config: {
     chatLlmChain: Array<{
       provider: LLMProvider;
@@ -89,12 +93,7 @@ export function resolveChatRequestBody(
               : null;
 
     if (preferredProvider) {
-      const defaultModel =
-        preferredProvider === "gemini"
-          ? "gemini-2.5-flash"
-          : preferredProvider === "groq"
-            ? "llama-3.3-70b-versatile"
-            : "anthropic/claude-3.5-sonnet";
+      const defaultModel = hostedDefaultModelFor(preferredProvider);
       const model = getModelFn(preferredProvider) || defaultModel;
       const effort = getReasoningEffortFn(preferredProvider);
       chatChain = [
@@ -114,7 +113,8 @@ export function resolveChatRequestBody(
     model: entry.model,
     keySource: (hasKeyFn(entry.provider) ? "ui" : entry.keySource) as "env" | "ui",
     baseUrl: isHosted ? undefined : entry.baseUrl,
-    ...(entry.reasoningEffort ? { reasoningEffort: entry.reasoningEffort } : {})
+    ...(entry.reasoningEffort ? { reasoningEffort: entry.reasoningEffort } : {}),
+    ...(entry.contextLimit ? { contextLimit: entry.contextLimit } : {})
   }));
 
   let subagentChain = serverChain;
@@ -128,7 +128,8 @@ export function resolveChatRequestBody(
         model: entry.model,
         keySource: (hasKeyFn(entry.provider) ? "ui" : entry.keySource) as "env" | "ui",
         baseUrl: isHosted ? undefined : entry.baseUrl,
-        ...(entry.reasoningEffort ? { reasoningEffort: entry.reasoningEffort } : {})
+        ...(entry.reasoningEffort ? { reasoningEffort: entry.reasoningEffort } : {}),
+        ...(entry.contextLimit ? { contextLimit: entry.contextLimit } : {})
       }));
     }
   }
@@ -149,6 +150,7 @@ export function resolveChatRequestBody(
 
   return {
     sessionId,
+    ...(options?.compactContext ? { compactContext: options.compactContext } : {}),
     config: {
       chatLlmChain: serverChain,
       llmChain: serverChain,
@@ -201,12 +203,7 @@ export function resolveActiveModel(
               : null;
 
     if (preferredProvider) {
-      const defaultModel =
-        preferredProvider === "gemini"
-          ? "gemini-2.5-flash"
-          : preferredProvider === "groq"
-            ? "llama-3.3-70b-versatile"
-            : "anthropic/claude-3.5-sonnet";
+      const defaultModel = hostedDefaultModelFor(preferredProvider);
       return getModelFn(preferredProvider) || defaultModel;
     }
   }

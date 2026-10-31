@@ -3,13 +3,19 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from scraper.__main__ import make_product
+from scraper.config import load_profile
+from scraper.models import BrowserConfig, RawProduct, SiteConfig
 from scraper.normalizer import (
     RegistryMatcher,
     classify_subcategory,
     normalize_title,
+    parse_cpu_package,
+    parse_gpu_specs,
     parse_price,
     product_id,
     reclassify_category,
+    strip_listing_context,
 )
 
 
@@ -97,3 +103,169 @@ def test_reclassify_category_gt_710_not_ram() -> None:
     # "GT 710 DDR5 Graphics Card" -> not RAM (storage -> storage)
     assert reclassify_category("GT 710 DDR5 Graphics Card", "storage") == "storage"
 
+
+def test_reclassify_category_gpu_on_cooler_shelf() -> None:
+    assert reclassify_category("Gigabyte RTX 5050 Windforce OC 8GB GDDR6 Graphics Card", "cooler") == "gpu"
+    assert reclassify_category("ASUS Prime RX 9060 XT OC Edition 16GB GDDR6 Graphics Card", "cooler") == "gpu"
+
+
+def test_reclassify_category_real_coolers_stay() -> None:
+    # "RX" in a cooler's product line is not a Radeon model.
+    assert reclassify_category("Corsair iCUE LINK Titan 360 RX LCD White CPU Cooler", "cooler") == "cooler"
+    assert reclassify_category("EK Quantum Vector RTX 4090 Water Block for Graphics Card", "cooler") == "cooler"
+
+
+def test_parse_cpu_package_clues() -> None:
+    assert parse_cpu_package("AMD Ryzen 5 5600 with Wraith Stealth Cooler") == {
+        "cooler_included": "included",
+        "cooler_name": "AMD Wraith Stealth",
+    }
+    assert parse_cpu_package("AMD Ryzen 7 3700X with Wraith Prism cooler") == {
+        "cooler_included": "included",
+        "cooler_name": "AMD Wraith Prism",
+    }
+    assert parse_cpu_package("Intel Core i5-12400 Boxed with cooler") == {
+        "cooler_included": "included",
+    }
+    assert parse_cpu_package("AMD Ryzen 5 7600 Boxed (with fan)") == {
+        "cooler_included": "included",
+    }
+    assert parse_cpu_package("Intel Core i5 12400 with stock cooler") == {
+        "cooler_included": "included",
+    }
+    assert parse_cpu_package("AMD Ryzen 7 7800X3D Without Cooler") == {
+        "cooler_included": "not_included",
+    }
+    assert parse_cpu_package("AMD Ryzen 7 7800X3D No Cooler") == {
+        "cooler_included": "not_included",
+    }
+    assert parse_cpu_package("AMD Ryzen 7 7800X3D w/o cooler") == {
+        "cooler_included": "not_included",
+    }
+    assert parse_cpu_package("AMD Ryzen 7 7800X3D Cooler Not Included") == {
+        "cooler_included": "not_included",
+    }
+    assert parse_cpu_package("AMD Ryzen 7 7800X3D Tray") == {
+        "cooler_included": "not_included",
+    }
+    assert parse_cpu_package("Intel Core i7-13700K OEM") == {
+        "cooler_included": "not_included",
+    }
+    assert parse_cpu_package("AMD Ryzen 7 9700X 8GB") == {
+        "cooler_included": "unknown",
+    }
+    # r4: explicit inclusion overrides generic oem/tray
+    assert parse_cpu_package("AMD Ryzen 5 5600 OEM with Wraith Stealth") == {
+        "cooler_included": "included",
+        "cooler_name": "AMD Wraith Stealth",
+    }
+    assert parse_cpu_package("Intel Core i5-12400 Tray Boxed with cooler") == {
+        "cooler_included": "included",
+    }
+    # r4: explicit no-cooler wording not overridden by cooler name
+    assert parse_cpu_package("AMD Ryzen 5 5600 without cooler Wraith Stealth") == {
+        "cooler_included": "not_included",
+    }
+    assert parse_cpu_package("AMD Ryzen 7 7800X3D No Cooler Wraith Prism") == {
+        "cooler_included": "not_included",
+    }
+    # r4: conflicting statements stay unknown
+    assert parse_cpu_package("AMD Ryzen 5 5600 with Wraith Stealth without cooler") == {
+        "cooler_included": "unknown",
+    }
+
+
+def test_parse_gpu_specs_explicit_length_and_fans() -> None:
+    # r4: explicit length contexts
+    res1 = parse_gpu_specs("Gigabyte RTX 4070 Windforce OC Length: 261mm")
+    assert res1 is not None and res1["length_mm"] == 261
+
+    res2 = parse_gpu_specs("Sapphire Pure AMD Radeon RX 7700 XT 12GB Card Length: 320mm")
+    assert res2 is not None and res2["length_mm"] == 320
+
+    res3 = parse_gpu_specs("ASUS TUF Gaming GeForce RTX 4070 Ti Dimensions: 305 x 138 x 65 mm")
+    assert res3 is not None and res3["length_mm"] == 305
+
+    # r4: fan dimensions must NOT parse as card length
+    assert parse_gpu_specs("MSI GeForce RTX 4060 Ventus 2X Black 8G OC Dual 100mm Fan") is None
+    assert parse_gpu_specs("Gigabyte RTX 4070 Gaming OC 120mm PWM Fans") is None
+
+    # r4: bare mm without explicit context is not accepted
+    assert parse_gpu_specs("ZOTAC Gaming GeForce RTX 4060 8GB 222 mm") is None
+
+
+def test_parse_cpu_package_laminar_token_boundaries() -> None:
+    # Matches with boundary
+    assert parse_cpu_package("Intel Core i5-12400 with Intel Laminar RM1") == {
+        "cooler_included": "included",
+        "cooler_name": "Intel Laminar RM1",
+    }
+    assert parse_cpu_package("Intel Core i5-12400 with Intel Laminar cooler") == {
+        "cooler_included": "included",
+        "cooler_name": "Intel Laminar RM1",
+    }
+    # Non-cooler phrases with bare "laminar" must not match cooler
+    assert parse_cpu_package("Mid-tower case with laminar airflow guide") == {
+        "cooler_included": "unknown",
+    }
+
+
+def test_make_product_gpu_specs_length(tmp_path: Path) -> None:
+    raw = RawProduct(
+        title="Sapphire Pure AMD Radeon RX 7700 XT 12GB Card Length: 320mm",
+        price_text="$400",
+        url="https://example.com/sapphire-7700xt",
+        image_url=None,
+        in_stock=True,
+    )
+    site = SiteConfig(
+        site_name="Shop",
+        base_url="https://example.com/",
+        scraping_type="search",
+        browser_config=BrowserConfig(),
+        categories={},
+        selectors={},
+        country_code="US",
+        currency="USD",
+    )
+    matcher = RegistryMatcher(tmp_path)
+    product = make_product(raw, site, "gpu", matcher, "2026-09-13T00:00:00Z")
+    assert product is not None
+    assert product.specs.get("length_mm") == 320
+
+
+
+
+
+def test_strip_listing_context_handles_both_mdcomputers_link_shapes() -> None:
+    canonical = "https://mdcomputers.in/product/asus-dual-rtx5060ti-16g"
+    # Current links put the listing after the slug; older ones before it.
+    assert strip_listing_context(f"{canonical}/graphics-card?page=3", "catalog/graphics-card") == canonical
+    assert strip_listing_context(f"{canonical}/graphics-card", "catalog/graphics-card") == canonical
+    assert (
+        strip_listing_context("https://mdcomputers.in/product/cabinet/nzxt-h5", "catalog/cabinet")
+        == "https://mdcomputers.in/product/nzxt-h5"
+    )
+
+
+def test_strip_listing_context_keeps_slug_that_matches_listing() -> None:
+    # Only the query goes when removing the segment would leave /product alone.
+    assert (
+        strip_listing_context("https://mdcomputers.in/product/storage?page=2", "catalog/storage")
+        == "https://mdcomputers.in/product/storage"
+    )
+
+
+def test_make_product_gives_one_id_per_mdcomputers_product(tmp_path: Path) -> None:
+    site = next(s for s in load_profile("india").sites if s.site_name == "MDComputers")
+    matcher = RegistryMatcher(tmp_path)
+
+    def row(url: str):
+        raw = RawProduct(title="NZXT H5 Flow", price_text="₹8,500", url=url, image_url=None, in_stock=True)
+        return make_product(raw, site, "case", matcher, "2026-09-30T00:00:00Z")
+
+    page_1 = row("https://mdcomputers.in/product/nzxt-h5-flow/cabinet")
+    page_4 = row("https://mdcomputers.in/product/nzxt-h5-flow/cabinet?page=4")
+
+    assert page_1.url == page_4.url == "https://mdcomputers.in/product/nzxt-h5-flow"
+    assert page_1.id == page_4.id == product_id("https://mdcomputers.in/product/nzxt-h5-flow")

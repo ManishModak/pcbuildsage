@@ -185,5 +185,22 @@
     "specs": null,
     "first_seen": "2026-07-10T00:00:00Z",
     "last_scraped": "2026-07-10T00:00:00Z"
+  },
+  {
+    "id": "9a8b7c6d5e4f3041928374657687980a1b2c3d4e",
+    "name": "Corsair RM850x 850W 80 Plus Gold PSU",
+    "normalized_name": "corsair rm850x",
+    "registry_key": "corsair-rm850x",
+    "price_minor": 1150000,
+    "currency": "INR",
+    "country_code": "IN",
+    "retailer": "Vedant Computers",
+    "url": "https://www.vedantcomputers.com/corsair-rm850x",
+    "image_url": "https://www.vedantcomputers.com/images/rm850x.jpg",
+    "in_stock": 1,
+    "category": "psu",
+    "specs": null,
+    "first_seen": "2026-07-10T00:00:00Z",
+    "last_scraped": "2026-07-10T00:00:00Z"
   }
 ]

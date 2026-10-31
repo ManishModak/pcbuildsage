@@ -1,6 +1,13 @@
 // Formatting helpers. Prices are integer minor units everywhere in the API;
 // these render them for display. Kept framework-agnostic and unit-tested.
 
+import {
+  DEMO_RATE_LIMIT_COPY,
+  FREE_LIMIT_COPY,
+  mapProviderErrorToPlainLanguage,
+  stripPlainCopyPrefix
+} from "@/content/api-key-help";
+
 const CURRENCY_MINOR_DIGITS: Record<string, number> = {
   INR: 2,
   USD: 2,
@@ -42,6 +49,30 @@ export function formatPrice(
 
 export function sumPrices(prices: Array<number | null | undefined>): number {
   return prices.reduce<number>((total, price) => total + (typeof price === "number" ? price : 0), 0);
+}
+
+/**
+ * Sum a set of priced rows for display, refusing to invent a total.
+ *
+ * Returns null when any price is missing or when the rows span more than one
+ * currency: `formatPrice(null, ...)` renders an em dash, which is honest,
+ * where summing unpriced rows into a smaller number (the old `sumPrices` path
+ * turned a fully unpriced build into "₹0.00") or adding 4000 USD to 4000 INR
+ * is a confidently wrong figure.
+ */
+export function sumPricesByCurrency(
+  rows: Array<{ price?: number | null; currency?: string | null }>
+): number | null {
+  if (rows.length === 0) return null;
+  const currencies = new Set<string>();
+  let total = 0;
+  for (const row of rows) {
+    if (typeof row.price !== "number" || Number.isNaN(row.price)) return null;
+    total += row.price;
+    currencies.add(typeof row.currency === "string" ? row.currency.trim().toUpperCase() : "");
+  }
+  if (currencies.size !== 1) return null;
+  return total;
 }
 
 export function formatLatency(ms: number | undefined): string {
@@ -141,6 +172,13 @@ export function getErrorMessageText(msg: string): string {
     }
   }
 
+  // The chat route already leads with plain copy; drop it so it isn't shown
+  // twice once this function adds its own.
+  const strippedMsg = stripPlainCopyPrefix(msg);
+  if (!strippedMsg) return msg; // Nothing but the plain copy: show it as is.
+  msg = strippedMsg;
+  extracted = stripPlainCopyPrefix(extracted);
+
   const combined = `${msg} ${extracted}`.toLowerCase();
 
   const isDailyQuota =
@@ -154,22 +192,18 @@ export function getErrorMessageText(msg: string): string {
     const detail = extracted !== msg ? extracted : (msg.length < 120 ? msg : "");
     const resetMatch = msg.match(/(?:resets?|retry)(?:\s+(?:at|in|-after))?\s+([^,;.)]+)/i);
     const timingInfo = resetMatch ? ` (${resetMatch[0].trim()})` : "";
-    return `The provider reports that its daily free-model quota is exhausted. Try again after it resets${timingInfo}, or check your provider settings.${detail ? ` Details: ${detail}` : ""}`;
+    return `${FREE_LIMIT_COPY} The provider reports that its daily free-model quota is exhausted. Try again after it resets${timingInfo}, or check your provider settings.${detail ? ` Details: ${detail}` : ""}`;
   }
 
-  if (
-    combined.includes("429") ||
-    combined.includes("rate limit") ||
-    combined.includes("rate_limit") ||
-    combined.includes("too many requests") ||
-    combined.includes("resource_exhausted") ||
-    combined.includes("quota exceeded") ||
-    combined.includes("tokens per minute") ||
-    combined.includes("requests per minute") ||
-    combined.includes("free-tier limit")
-  ) {
-    const detail = extracted !== msg ? extracted : (msg.length < 120 ? msg : "");
-    return `Rate limit or quota reached (HTTP 429). The model provider temporarily rejected the request because token or request limits were exceeded. Please wait a moment before trying again, or configure an alternative provider/key in Settings.${detail ? ` Details: ${detail}` : ""}`;
+  // Rejected keys and exhausted free quotas speak plain language first; the
+  // provider detail (if any) follows for debugging. Detection lives in the
+  // shared api-key-help module so chat, probe, and API surfaces agree.
+  const plainCopy = mapProviderErrorToPlainLanguage({ message: combined });
+  const shortDetail = extracted !== msg ? extracted : (msg.length < 120 ? msg : "");
+  // Our own demo limiter's detail adds nothing to the plain copy.
+  if (plainCopy === DEMO_RATE_LIMIT_COPY) return DEMO_RATE_LIMIT_COPY;
+  if (plainCopy) {
+    return `${plainCopy}${shortDetail ? ` Details: ${shortDetail}` : ""}`;
   }
 
   if (

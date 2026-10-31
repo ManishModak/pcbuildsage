@@ -124,11 +124,11 @@ describe("GitHub Actions Workflow: Refresh Hosted Catalog (.github/workflows/ref
       expect(pythonStep!.with?.cache).toBe("pip");
     });
 
-    it("configures Node.js 20 with npm caching using actions/setup-node@v4", () => {
+    it("configures Node.js 22 with npm caching using actions/setup-node@v4", () => {
       const nodeStep = steps.find((s) => s.uses?.startsWith("actions/setup-node"));
       expect(nodeStep).toBeDefined();
       expect(nodeStep!.uses).toBe("actions/setup-node@v4");
-      expect(String(nodeStep!.with?.["node-version"])).toBe("20");
+      expect(String(nodeStep!.with?.["node-version"])).toBe("22");
       expect(nodeStep!.with?.cache).toBe("npm");
     });
 
@@ -171,6 +171,24 @@ describe("GitHub Actions Workflow: Refresh Hosted Catalog (.github/workflows/ref
 
       // Verify security boundary: read token or unauthorized keys are not injected
       expect(publishStep!.env?.TURSO_READ_TOKEN).toBeUndefined();
+    });
+  });
+  describe("Guides deploy gating", () => {
+    type Job = { needs?: string | string[]; if?: string; steps?: Array<WorkflowStep & { if?: string; "continue-on-error"?: unknown }> };
+    const jobs = (parsedWorkflow as unknown as { jobs: Record<string, Job> }).jobs;
+
+    it("deploys Pages only after the guides job succeeds (build-guides exits 1 when every tier is skipped)", () => {
+      expect(jobs["deploy-pages"].needs).toBe("guides");
+      expect(jobs["deploy-pages"].if).toBeUndefined();
+      const steps = jobs.guides.steps ?? [];
+      const build = steps.findIndex((step) => step.run?.includes("npm run build-guides"));
+      const upload = steps.findIndex((step) => step.uses?.startsWith("actions/upload-pages-artifact"));
+      expect(build).toBeGreaterThanOrEqual(0);
+      expect(upload).toBeGreaterThan(build);
+      for (const step of steps.slice(build)) {
+        expect(step["continue-on-error"]).toBeUndefined();
+        expect(step.if).toBeUndefined();
+      }
     });
   });
 });

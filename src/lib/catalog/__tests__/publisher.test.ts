@@ -6,12 +6,12 @@
  * batch upserting, catalog_runs audit tracking, and fail-closed error recovery.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import type { Client, InStatement, ResultSet } from "@libsql/client";
+import { createClient, type Client, type InStatement, type ResultSet, type Transaction } from "@libsql/client";
 import {
   publishCatalogSnapshot,
   computeDatabaseHash
@@ -102,7 +102,30 @@ function createMockClient(): MockTursoClient {
       return [];
     },
     async transaction() {
-      throw new Error("transaction not implemented in mock");
+      if (client.isClosed) throw new Error("Client is closed");
+      let txClosed = false;
+      const tx = {
+        execute: async (stmt: InStatement) => {
+          if (client.isClosed || txClosed) throw new Error("Transaction is closed");
+          return await client.execute(stmt);
+        },
+        batch: async (statements: InStatement[]) => {
+          if (client.isClosed || txClosed) throw new Error("Transaction is closed");
+          return await client.batch(statements);
+        },
+        commit: async () => {
+          if (client.isClosed || txClosed) throw new Error("Transaction is closed");
+          txClosed = true;
+        },
+        rollback: async () => {
+          if (client.isClosed || txClosed) throw new Error("Transaction is closed");
+          txClosed = true;
+        },
+        close: () => { txClosed = true; },
+        get closed() { return txClosed; },
+        executeMultiple: async () => {}
+      };
+      return tx as unknown as Transaction;
     },
     async executeMultiple() {
       return undefined;
@@ -143,13 +166,22 @@ interface TestProduct {
   last_scraped?: string;
 }
 
+interface TestScrapeJob {
+  country_code?: string;
+  retailer: string;
+  category?: string;
+  status: "complete" | "partial" | "failed";
+}
+
 function createCandidateDatabase(
   products: TestProduct[] = [],
-  options: { schemaVersion?: number; omitProductsTable?: boolean } = {}
+  options: { schemaVersion?: number; omitProductsTable?: boolean; jobs?: TestScrapeJob[] } = {}
 ): { dbPath: string; cleanup: () => void } {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "publisher-test-"));
   const dbPath = path.join(tmpDir, "candidate.db");
   const db = new Database(dbPath);
+  db.pragma("journal_mode = MEMORY");
+  db.pragma("synchronous = OFF");
 
   const version = options.schemaVersion ?? 5;
   db.pragma(`user_version = ${version}`);
@@ -197,27 +229,52 @@ function createCandidateDatabase(
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    for (let i = 0; i < products.length; i++) {
-      const p = products[i];
+    const insertMany = db.transaction((items: TestProduct[]) => {
       const now = new Date().toISOString();
-      insert.run(
-        p.id ?? `prod-${i + 1}`,
-        p.name ?? `Test CPU Component ${i + 1}`,
-        p.normalized_name ?? `test cpu component ${i + 1}`,
-        p.registry_key ?? "cpu-key",
-        p.price !== undefined ? p.price : 199.99,
-        p.currency ?? "USD",
-        p.country_code ?? "US",
-        p.retailer ?? "TestRetailer",
-        p.url ?? `https://example.com/item-${i + 1}`,
-        p.image_url ?? "https://example.com/img.jpg",
-        p.in_stock !== undefined ? p.in_stock : 1,
-        p.category ?? "cpu",
-        p.subcategory ?? "desktop",
-        p.specs ?? JSON.stringify({ cores: 8, threads: 16 }),
-        p.first_seen ?? now,
-        p.last_scraped ?? now
+      for (let i = 0; i < items.length; i++) {
+        const p = items[i];
+        insert.run(
+          p.id ?? `prod-${i + 1}`,
+          p.name ?? `Test CPU Component ${i + 1}`,
+          p.normalized_name ?? `test cpu component ${i + 1}`,
+          p.registry_key ?? "cpu-key",
+          p.price !== undefined ? p.price : 199.99,
+          p.currency ?? "USD",
+          p.country_code ?? "US",
+          p.retailer ?? "TestRetailer",
+          p.url ?? `https://example.com/item-${i + 1}`,
+          p.image_url ?? "https://example.com/img.jpg",
+          p.in_stock !== undefined ? p.in_stock : 1,
+          p.category ?? "cpu",
+          p.subcategory ?? "desktop",
+          p.specs ?? JSON.stringify({ cores: 8, threads: 16 }),
+          p.first_seen ?? now,
+          p.last_scraped ?? now
+        );
+      }
+    });
+
+    insertMany(products);
+  }
+
+  if (options.jobs) {
+    // Mirrors SCRAPE_JOBS_DDL in scraper/db.py.
+    db.exec(`
+      CREATE TABLE scrape_jobs (
+        country_code TEXT NOT NULL,
+        retailer TEXT NOT NULL,
+        category TEXT NOT NULL,
+        status TEXT NOT NULL,
+        finished_at TEXT NOT NULL,
+        error TEXT,
+        PRIMARY KEY (country_code, retailer, category)
       );
+    `);
+    const insertJob = db.prepare(
+      "INSERT INTO scrape_jobs (country_code, retailer, category, status, finished_at) VALUES (?, ?, ?, ?, ?)"
+    );
+    for (const job of options.jobs) {
+      insertJob.run(job.country_code ?? "US", job.retailer, job.category ?? "cpu", job.status, new Date().toISOString());
     }
   }
 
@@ -557,6 +614,430 @@ describe("Publisher Engine & Turso Schema", () => {
     it("returns null for non-existent file", () => {
       const hash = computeDatabaseHash("/path/to/nonexistent-file.db");
       expect(hash).toBeNull();
+    });
+  });
+
+  describe("Atomic Transaction, Stale Sweeping & Zero-Row Retailer Resilience (libSQL in-memory)", () => {
+    it("marks stale rows out of stock (in_stock = 0) without deleting them for active retailers", async () => {
+      const client = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(client);
+
+      const now = new Date().toISOString();
+      // Pre-populate Turso with two products from RetailerA
+      await client.execute({
+        sql: `INSERT INTO products (id, name, currency, country_code, retailer, url, in_stock, category, first_seen, last_scraped)
+              VALUES ('p-keep', 'Kept Item', 'USD', 'US', 'RetailerA', 'https://example.com/keep', 1, 'cpu', ?, ?),
+                     ('p-stale', 'Stale Item', 'USD', 'US', 'RetailerA', 'https://example.com/stale', 1, 'cpu', ?, ?)`,
+        args: [now, now, now, now]
+      });
+
+      // Candidate DB only has p-keep and a new product p-new (p-stale is missing from snapshot)
+      const { dbPath, cleanup } = createCandidateDatabase(
+        [
+          { id: "p-keep", name: "Kept Item", retailer: "RetailerA" },
+          { id: "p-new", name: "New Item", retailer: "RetailerA" }
+        ],
+        { jobs: [{ retailer: "RetailerA", status: "complete" }] }
+      );
+
+      const result = await publishCatalogSnapshot({
+        dbPath,
+        client,
+        validatorOptions: { minProducts: 1 }
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.publishedCount).toBe(2);
+      expect(result.staleCount).toBe(1);
+
+      // Verify in Turso database:
+      const rowsRes = await client.execute("SELECT id, in_stock FROM products ORDER BY id");
+      const rows = rowsRes.rows;
+      expect(rows.length).toBe(3); // p-stale was NOT deleted!
+
+      const staleRow = rows.find((r) => r.id === "p-stale");
+      const keepRow = rows.find((r) => r.id === "p-keep");
+      const newRow = rows.find((r) => r.id === "p-new");
+
+      expect(staleRow?.in_stock).toBe(0); // marked out of stock!
+      expect(keepRow?.in_stock).toBe(1);
+      expect(newRow?.in_stock).toBe(1);
+
+      cleanup();
+    });
+
+    it("preserves listings for retailers with 0 rows in candidate DB and emits warning", async () => {
+      const client = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(client);
+
+      const now = new Date().toISOString();
+      // Turso has products from RetailerA and RetailerB
+      await client.execute({
+        sql: `INSERT INTO products (id, name, currency, country_code, retailer, url, in_stock, category, first_seen, last_scraped)
+              VALUES ('p-ret-b', 'Retailer B Product', 'USD', 'US', 'RetailerB', 'https://example.com/b', 1, 'cpu', ?, ?),
+                     ('p-ret-a', 'Retailer A Product', 'USD', 'US', 'RetailerA', 'https://example.com/a', 1, 'cpu', ?, ?)`,
+        args: [now, now, now, now]
+      });
+
+      // Candidate DB ONLY has products from RetailerA; RetailerB scrape failed (0 rows)
+      const { dbPath, cleanup } = createCandidateDatabase([
+        { id: "p-ret-a", name: "Retailer A Product", retailer: "RetailerA" },
+        { id: "p-ret-a2", name: "Retailer A Second Product", retailer: "RetailerA" }
+      ]);
+
+      const result = await publishCatalogSnapshot({
+        dbPath,
+        client,
+        validatorOptions: { minProducts: 1 }
+      });
+
+      expect(result.success).toBe(true);
+      // Warning emitted for RetailerB
+      expect(result.warnings?.some((w) => w.includes("Retailer \"RetailerB\" has 0 rows in candidate snapshot"))).toBe(true);
+
+      // Verify RetailerB product was NOT swept or marked out of stock!
+      const retBRow = (await client.execute("SELECT in_stock FROM products WHERE id = 'p-ret-b'")).rows[0];
+      expect(retBRow.in_stock).toBe(1);
+
+      cleanup();
+    });
+
+    it("rolls back entire transaction on write failure, leaving stale listings and new products untouched", async () => {
+      const client = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(client);
+
+      const now = new Date().toISOString();
+      await client.execute({
+        sql: `INSERT INTO products (id, name, currency, country_code, retailer, url, in_stock, category, first_seen, last_scraped)
+              VALUES ('p-initial', 'Initial Product', 'USD', 'US', 'RetailerA', 'https://example.com/init', 1, 'cpu', ?, ?)`,
+        args: [now, now]
+      });
+
+      const { dbPath, cleanup } = createCandidateDatabase([
+        { id: "p-new-item", name: "Candidate Product", retailer: "RetailerA" }
+      ]);
+
+      // Intercept client.transaction to simulate failure before commit
+      const origTransaction = client.transaction.bind(client);
+      vi.spyOn(client, "transaction").mockImplementation(async (mode?: "write" | "read" | "deferred") => {
+        const tx = await origTransaction(mode);
+        const origBatch = tx.batch.bind(tx);
+        tx.batch = async (stmts) => {
+          await origBatch(stmts);
+          throw new Error("Simulated network error during transaction batch write");
+        };
+        return tx;
+      });
+
+      const result = await publishCatalogSnapshot({
+        dbPath,
+        client,
+        validatorOptions: { minProducts: 1 }
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.errors?.[0]).toContain("Simulated network error during transaction batch write");
+
+      // Verify database state was completely rolled back:
+      // 1. p-initial must STILL be in_stock = 1 (not swept to 0)
+      const initialRow = (await client.execute("SELECT in_stock FROM products WHERE id = 'p-initial'")).rows[0];
+      expect(initialRow.in_stock).toBe(1);
+
+      // 2. p-new-item must NOT exist in database
+      const newRows = (await client.execute("SELECT id FROM products WHERE id = 'p-new-item'")).rows;
+      expect(newRows.length).toBe(0);
+
+      // 3. No catalog_runs row must be recorded
+      const runs = (await client.execute("SELECT id FROM catalog_runs")).rows;
+      expect(runs.length).toBe(0);
+
+      cleanup();
+    });
+
+    it("enforces drop-threshold gate against last successful catalog_runs product_count", async () => {
+      const client = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(client);
+
+      // Insert a previous successful catalog run with 100 products
+      await client.execute({
+        sql: `INSERT INTO catalog_runs (id, published_at, product_count, source_db_hash, status, metadata)
+              VALUES ('run-prev', '2026-09-27T00:00:00.000Z', 100, 'hash123', 'success', '{}')`
+      });
+
+      // Create candidate DB with only 60 products (40% drop, exceeding 30% maxDropRatio)
+      const prods = Array.from({ length: 60 }, (_, i) => ({
+        id: `drop-p-${i}`,
+        name: `Product ${i}`,
+        retailer: "RetailerA"
+      }));
+      const { dbPath, cleanup } = createCandidateDatabase(prods);
+
+      const result = await publishCatalogSnapshot({
+        dbPath,
+        client
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.errors?.some((e) => e.includes("40.0%") && e.includes("baseline 100"))).toBe(true);
+
+      // Turso products table must have 0 products published
+      const productsInTurso = (await client.execute("SELECT COUNT(*) as count FROM products")).rows[0];
+      expect(productsInTurso.count).toBe(0);
+
+      cleanup();
+    });
+
+    it("does not count a retailer missing from the snapshot as a drop, but still gates covered retailers", async () => {
+      const lastRun = (retailers: Record<string, number>) => ({
+        sql: `INSERT INTO catalog_runs (id, published_at, product_count, source_db_hash, status, metadata)
+              VALUES ('run-prev', '2026-09-27T00:00:00.000Z', ?, 'hash123', 'success', ?)`,
+        args: [Object.values(retailers).reduce((a, b) => a + b, 0), JSON.stringify({ stats: { retailers } })]
+      });
+      const products = (retailer: string, count: number) =>
+        Array.from({ length: count }, (_, i) => ({ id: `${retailer}-${i}`, name: `Product ${i}`, retailer }));
+
+      // RetailerB failed to scrape (absent): RetailerA alone matches its baseline, so this publishes.
+      const okClient = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(okClient);
+      await okClient.execute(lastRun({ RetailerA: 60, RetailerB: 40 }));
+      const missing = createCandidateDatabase(products("RetailerA", 60));
+      const okResult = await publishCatalogSnapshot({ dbPath: missing.dbPath, client: okClient });
+      expect(okResult.success).toBe(true);
+      expect(okResult.publishedCount).toBe(60);
+      missing.cleanup();
+
+      // Both retailers present, RetailerA halved: 100 vs covered baseline 150 is a 33% drop.
+      const dropClient = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(dropClient);
+      await dropClient.execute(lastRun({ RetailerA: 100, RetailerB: 50 }));
+      const dropped = createCandidateDatabase([...products("RetailerA", 50), ...products("RetailerB", 50)]);
+      const dropResult = await publishCatalogSnapshot({ dbPath: dropped.dbPath, client: dropClient });
+      expect(dropResult.success).toBe(false);
+      expect(dropResult.errors?.some((e) => e.includes("baseline 150"))).toBe(true);
+      dropped.cleanup();
+    });
+
+    it("fails closed and publishes nothing when transaction is unavailable or throws", async () => {
+      // 1. Transaction unavailable (not a function / missing)
+      const { dbPath: dbPath1, cleanup: cleanup1 } = createCandidateDatabase([
+        { id: "p-no-tx", name: "No Transaction Product", retailer: "RetailerA" }
+      ]);
+      const mockClientNoTx = createMockClient();
+      // @ts-expect-error simulating client without transaction support
+      delete mockClientNoTx.transaction;
+
+      const resultNoTx = await publishCatalogSnapshot({
+        dbPath: dbPath1,
+        client: mockClientNoTx,
+        validatorOptions: { minProducts: 1 }
+      });
+
+      expect(resultNoTx.success).toBe(false);
+      expect(resultNoTx.publishedCount).toBe(0);
+      expect(resultNoTx.errors).toBeDefined();
+      expect(resultNoTx.errors![0]).toContain("transactions");
+      expect(mockClientNoTx.batches.length).toBe(0);
+      expect(mockClientNoTx.catalogRuns.length).toBe(0);
+      cleanup1();
+
+      // 2. Transaction rejected / throws
+      const { dbPath: dbPath2, cleanup: cleanup2 } = createCandidateDatabase([
+        { id: "p-tx-throws", name: "Tx Throws Product", retailer: "RetailerA" }
+      ]);
+      const mockClientTxThrows = createMockClient();
+      vi.spyOn(mockClientTxThrows, "transaction").mockRejectedValue(
+        new Error("Turso transaction lock timeout")
+      );
+
+      const resultTxThrows = await publishCatalogSnapshot({
+        dbPath: dbPath2,
+        client: mockClientTxThrows,
+        validatorOptions: { minProducts: 1 }
+      });
+
+      expect(resultTxThrows.success).toBe(false);
+      expect(resultTxThrows.publishedCount).toBe(0);
+      expect(resultTxThrows.errors).toBeDefined();
+      expect(resultTxThrows.errors![0]).toContain("Turso transaction lock timeout");
+      expect(mockClientTxThrows.batches.length).toBe(0);
+      expect(mockClientTxThrows.catalogRuns.length).toBe(0);
+
+      // Verify throwOnError also propagates the rejection
+      await expect(
+        publishCatalogSnapshot({
+          dbPath: dbPath2,
+          client: mockClientTxThrows,
+          throwOnError: true,
+          validatorOptions: { minProducts: 1 }
+        })
+      ).rejects.toThrow("Turso transaction lock timeout");
+
+      cleanup2();
+    });
+
+    it("scopes stale sweep by (country_code, retailer) so sweeping retailer in country Y does not sweep in country Z", async () => {
+      const client = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(client);
+
+      const now = new Date().toISOString();
+      // Seed Turso with Amazon products across two countries:
+      // Amazon US: 2 products (in_stock = 1)
+      // Amazon IN: 2 products (in_stock = 1)
+      await client.execute({
+        sql: `INSERT INTO products (id, name, currency, country_code, retailer, url, in_stock, category, first_seen, last_scraped)
+              VALUES ('amz-us-1', 'Amazon US Laptop', 'USD', 'US', 'Amazon', 'https://amazon.com/us1', 1, 'cpu', ?, ?),
+                     ('amz-us-2', 'Amazon US GPU', 'USD', 'US', 'Amazon', 'https://amazon.com/us2', 1, 'gpu', ?, ?),
+                     ('amz-in-keep', 'Amazon IN CPU', 'INR', 'IN', 'Amazon', 'https://amazon.in/cpu', 1, 'cpu', ?, ?),
+                     ('amz-in-stale', 'Amazon IN Stale Item', 'INR', 'IN', 'Amazon', 'https://amazon.in/stale', 1, 'cpu', ?, ?)`,
+        args: [now, now, now, now, now, now, now, now]
+      });
+
+      // Candidate DB is an IN snapshot:
+      // - amz-in-keep is present
+      // - amz-in-new is a newly added item
+      // - amz-in-stale is omitted (should be swept)
+      // - amz-us-1 and amz-us-2 are not in this candidate DB at all
+      const { dbPath, cleanup } = createCandidateDatabase(
+        [
+          { id: "amz-in-keep", name: "Amazon IN CPU", currency: "INR", country_code: "IN", retailer: "Amazon" },
+          { id: "amz-in-new", name: "Amazon IN New RAM", currency: "INR", country_code: "IN", retailer: "Amazon" }
+        ],
+        { jobs: [{ country_code: "IN", retailer: "Amazon", status: "complete" }] }
+      );
+
+      const result = await publishCatalogSnapshot({
+        dbPath,
+        client,
+        validatorOptions: { minProducts: 1 }
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.publishedCount).toBe(2);
+      expect(result.staleCount).toBe(1);
+
+      // Verify Turso state:
+      const allRows = (
+        await client.execute("SELECT id, country_code, retailer, in_stock FROM products ORDER BY id")
+      ).rows;
+
+      const us1 = allRows.find((r) => r.id === "amz-us-1");
+      const us2 = allRows.find((r) => r.id === "amz-us-2");
+      const inKeep = allRows.find((r) => r.id === "amz-in-keep");
+      const inNew = allRows.find((r) => r.id === "amz-in-new");
+      const inStale = allRows.find((r) => r.id === "amz-in-stale");
+
+      // IN sweep correctly swept the omitted IN product
+      expect(inStale?.in_stock).toBe(0);
+      expect(inKeep?.in_stock).toBe(1);
+      expect(inNew?.in_stock).toBe(1);
+
+      // CRITICAL: US Amazon products MUST NOT be swept! They must remain in_stock = 1
+      expect(us1?.in_stock).toBe(1);
+      expect(us2?.in_stock).toBe(1);
+
+      cleanup();
+    });
+
+    it("sweeps only (country, retailer, category) scopes whose scrape job is complete", async () => {
+      const client = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(client);
+
+      const now = new Date().toISOString();
+      await client.execute({
+        sql: `INSERT INTO products (id, name, currency, country_code, retailer, url, in_stock, category, first_seen, last_scraped)
+              VALUES ('cpu-keep', 'CPU Keep', 'INR', 'IN', 'Shop', 'https://shop.in/cpu-keep', 1, 'cpu', ?, ?),
+                     ('cpu-gone', 'CPU Gone', 'INR', 'IN', 'Shop', 'https://shop.in/cpu-gone', 1, 'cpu', ?, ?),
+                     ('gpu-keep', 'GPU Keep', 'INR', 'IN', 'Shop', 'https://shop.in/gpu-keep', 1, 'gpu', ?, ?),
+                     ('gpu-unseen', 'GPU Unseen', 'INR', 'IN', 'Shop', 'https://shop.in/gpu-unseen', 1, 'gpu', ?, ?),
+                     ('ram-unseen', 'RAM Unseen', 'INR', 'IN', 'Shop', 'https://shop.in/ram-unseen', 1, 'ram', ?, ?),
+                     ('psu-unseen', 'PSU Unseen', 'INR', 'IN', 'Shop', 'https://shop.in/psu-unseen', 1, 'psu', ?, ?)`,
+        args: Array(12).fill(now)
+      });
+
+      const base = { currency: "INR", country_code: "IN", retailer: "Shop" };
+      const { dbPath, cleanup } = createCandidateDatabase(
+        [
+          { ...base, id: "cpu-keep", category: "cpu" },
+          { ...base, id: "gpu-keep", category: "gpu" },
+          { ...base, id: "ram-seen", category: "ram" }
+        ],
+        {
+          jobs: [
+            { country_code: "IN", retailer: "Shop", category: "cpu", status: "complete" },
+            { country_code: "IN", retailer: "Shop", category: "gpu", status: "partial" },
+            { country_code: "IN", retailer: "Shop", category: "ram", status: "failed" }
+            // psu: no job recorded at all
+          ]
+        }
+      );
+
+      const result = await publishCatalogSnapshot({ dbPath, client, validatorOptions: { minProducts: 1 } });
+
+      expect(result.success).toBe(true);
+      expect(result.staleCount).toBe(1);
+      const stock = Object.fromEntries(
+        (await client.execute("SELECT id, in_stock FROM products")).rows.map((r) => [String(r.id), Number(r.in_stock)])
+      );
+      expect(stock["cpu-gone"]).toBe(0); // complete scope: retired
+      expect(stock["gpu-unseen"]).toBe(1); // partial scope: untouched
+      expect(stock["ram-unseen"]).toBe(1); // failed scope: untouched
+      expect(stock["psu-unseen"]).toBe(1); // no job: untouched
+      expect(result.warnings?.some((w) => w.includes("IN/Shop/gpu is partial"))).toBe(true);
+
+      cleanup();
+    });
+
+    it("retires rows of a never-complete scope once no scrape has seen them for a week", async () => {
+      const client = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(client);
+
+      const now = new Date().toISOString();
+      const eightDaysAgo = new Date(Date.now() - 8 * 86_400_000).toISOString();
+      await client.execute({
+        sql: `INSERT INTO products (id, name, currency, country_code, retailer, url, in_stock, category, first_seen, last_scraped)
+              VALUES ('gpu-recent', 'GPU Recent', 'INR', 'IN', 'Shop', 'https://shop.in/gpu-recent', 1, 'gpu', ?, ?),
+                     ('gpu-old', 'GPU Old', 'INR', 'IN', 'Shop', 'https://shop.in/gpu-old', 1, 'gpu', ?, ?)`,
+        args: [now, now, eightDaysAgo, eightDaysAgo]
+      });
+
+      const base = { currency: "INR", country_code: "IN", retailer: "Shop" };
+      const { dbPath, cleanup } = createCandidateDatabase(
+        [{ ...base, id: "gpu-seen", category: "gpu" }],
+        { jobs: [{ country_code: "IN", retailer: "Shop", category: "gpu", status: "partial" }] }
+      );
+
+      const result = await publishCatalogSnapshot({ dbPath, client, validatorOptions: { minProducts: 1 } });
+
+      expect(result.success).toBe(true);
+      const stock = Object.fromEntries(
+        (await client.execute("SELECT id, in_stock FROM products")).rows.map((r) => [String(r.id), Number(r.in_stock)])
+      );
+      expect(stock["gpu-recent"]).toBe(1); // partial scope, seen recently: kept
+      expect(stock["gpu-old"]).toBe(0); // partial scope, unseen for 8 days: retired
+
+      cleanup();
+    });
+
+    it("marks nothing out of stock when the snapshot has no scrape_jobs table", async () => {
+      const client = createClient({ url: "file::memory:" });
+      await ensureTursoSchema(client);
+
+      const now = new Date().toISOString();
+      await client.execute({
+        sql: `INSERT INTO products (id, name, currency, country_code, retailer, url, in_stock, category, first_seen, last_scraped)
+              VALUES ('old', 'Old Item', 'USD', 'US', 'RetailerA', 'https://example.com/old', 1, 'cpu', ?, ?)`,
+        args: [now, now]
+      });
+      const { dbPath, cleanup } = createCandidateDatabase([{ id: "new", retailer: "RetailerA" }]);
+
+      const result = await publishCatalogSnapshot({ dbPath, client, validatorOptions: { minProducts: 1 } });
+
+      expect(result.success).toBe(true);
+      expect(result.staleCount).toBe(0);
+      expect((await client.execute("SELECT in_stock FROM products WHERE id = 'old'")).rows[0].in_stock).toBe(1);
+      expect(result.warnings?.some((w) => w.includes("no scrape_jobs table"))).toBe(true);
+
+      cleanup();
     });
   });
 });

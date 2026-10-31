@@ -8,6 +8,8 @@ import { fetchStatus, isHostedMode } from "@/lib/api-client";
 import { apiKeyHeaders } from "@/lib/client-config-store";
 import { injectByokHeaders } from "@/lib/llm/client-byok-store";
 import { getMarketPreference } from "@/lib/market/client-market-store";
+import { getClientSession } from "@/lib/sessions/client-store";
+import type { StoredCompactContext } from "@/lib/sessions/compact-context";
 import { resolveActiveModel, resolveChatRequestBody } from "./chat-config-resolver";
 import type { ClientConfig, StatusResponse } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
@@ -16,11 +18,13 @@ import { Composer } from "./composer";
 import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
 import { BuildCard } from "./build-card";
-import { extractBuildsFromMessage, type DerivedBuild } from "./build-derive";
+import { BuildErrorBoundary } from "./build-error-boundary";
+import { buildHeaderSignature, buildsFingerprint, extractBuildsFromMessage, findAllBuildVersions, followNewestVersion, openedBuildsForSession, resolveBuildTotal, resolveSelectedVersion, shouldAutoOpenPanel, type DerivedBuild, type BuildVersion } from "./build-derive";
+import { getFollowups } from "@/lib/followups";
 import { isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
 import { useApp } from "@/components/app/app-provider";
-import { getErrorMessage, formatRelativeTime, formatPrice, sumPrices, formatModelName } from "@/lib/format";
+import { getErrorMessage, formatRelativeTime, formatPrice, formatModelName } from "@/lib/format";
 import { useIsDesktop } from "@/hooks/use-mobile";
 import {
   Sheet,
@@ -29,8 +33,18 @@ import {
   SheetTitle,
   SheetDescription
 } from "@/components/animate-ui/components/radix/sheet";
-import { sessionSignature, type SessionSaveQueue } from "./session-save-queue";
+import {
+  decideStreamPersist,
+  registerPageCloseFlush,
+  sessionSignature,
+  shouldFlushOnPageHide,
+  type ServerSessionCopy,
+  type SessionSaveQueue
+} from "./session-save-queue";
+import { CONFLICT_ADOPTED_NOTICE, describeSaveFailure, SaveAlert, shouldShowNotSavedYet } from "./save-failure-notice";
 import { TranscriptMenu } from "./transcript-menu";
+import { ChatRecovery, isIncompleteChatFinish, prepareChatRecovery, isContextLimitError } from "./chat-recovery";
+import { getModelContextLimit, estimateTokens, shouldTriggerCompaction, TOOL_DEFINITIONS_TOKEN_OVERHEAD } from "@/lib/llm/context-budget";
 
 function deriveTitle(messages: ChatUIMessage[]): string {
   const firstUser = messages.find((message) => message.role === "user");
@@ -54,6 +68,20 @@ function deriveTitle(messages: ChatUIMessage[]): string {
   return text.length > 60 ? `${text.slice(0, 60)}…` : text;
 }
 
+/**
+ * Build derivation runs during ChatView's own render, outside the build error
+ * boundary, so a malformed part in saved data (e.g. a null component) must not
+ * take down the whole chat: fall back to "no builds" and log it instead.
+ */
+function deriveSafely<T>(derive: () => T, fallback: T): T {
+  try {
+    return derive();
+  } catch (error) {
+    console.warn("Could not derive builds from this chat:", error);
+    return fallback;
+  }
+}
+
 function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedBuild[] | null {
   const allToolParts: ToolPart[] = [];
   for (const m of messages) {
@@ -72,24 +100,12 @@ function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedB
   return null;
 }
 
-function buildsSignature(builds: DerivedBuild[] | null): string {
-  if (!builds || builds.length === 0) return "";
-  return builds
-    .map(
-      (b) =>
-        `${b.label || ""}:${b.currency}:${b.components
-          .map((c) => `${c.category}:${c.name}:${c.price}`)
-          .join(",")}`
-    )
-    .join("|");
-}
-
-function ModelStatus({ modelName, streaming }: { modelName: string; streaming: boolean }) {
+function ModelStatus({ modelName, streaming, isCompacting }: { modelName: string; streaming: boolean; isCompacting?: boolean }) {
   const [dots, setDots] = useState("...");
   const displayName = useMemo(() => formatModelName(modelName), [modelName]);
 
   useEffect(() => {
-    if (!streaming) return;
+    if (!streaming && !isCompacting) return;
     const interval = setInterval(() => {
       setDots((prev) => {
         if (prev === "...") return ".";
@@ -99,7 +115,7 @@ function ModelStatus({ modelName, streaming }: { modelName: string; streaming: b
       });
     }, 500);
     return () => clearInterval(interval);
-  }, [streaming]);
+  }, [streaming, isCompacting]);
 
   return (
     <div
@@ -107,14 +123,14 @@ function ModelStatus({ modelName, streaming }: { modelName: string; streaming: b
       title={modelName ? `Model: ${modelName}` : undefined}
     >
       <span
-        className={`h-2 w-2 rounded-full shrink-0 ${streaming ? "animate-pulse" : ""}`}
+        className={`h-2 w-2 rounded-full shrink-0 ${streaming || isCompacting ? "animate-pulse" : ""}`}
         style={{
-          backgroundColor: "#10b981",
-          boxShadow: streaming ? "0 0 8px #10b981" : undefined
+          backgroundColor: isCompacting ? "#f59e0b" : "#10b981",
+          boxShadow: streaming || isCompacting ? (isCompacting ? "0 0 8px #f59e0b" : "0 0 8px #10b981") : undefined
         }}
       />
       <span className="font-mono text-caption text-text-muted truncate">
-        <span className="text-text-secondary">{displayName}</span> · {streaming ? `thinking${dots}` : "idle"}
+        <span className="text-text-secondary">{displayName}</span> · {isCompacting ? `compacting context${dots}` : streaming ? `thinking${dots}` : "idle"}
       </span>
     </div>
   );
@@ -126,7 +142,10 @@ export function ChatView({
   initialMessages,
   saveQueue,
   onPersisted,
-  isActive = true
+  isActive = true,
+  onStreamingChange,
+  isLoading = false,
+  initialPrompt
 }: {
   config: ClientConfig;
   sessionId: string;
@@ -134,6 +153,17 @@ export function ChatView({
   saveQueue: SessionSaveQueue;
   onPersisted?: () => void;
   isActive?: boolean;
+  /** Report streaming state so the workspace can refuse to evict this chat. */
+  onStreamingChange?: (sessionId: string, streaming: boolean) => void;
+  /**
+   * True while this chat's messages are still being fetched. Renders a loading
+   * state instead of the new-chat screen, and suppresses the composer and build
+   * panel so a half-loaded chat cannot be written into. Optional: callers that
+   * omit it behave exactly as before.
+   */
+  isLoading?: boolean;
+  /** Text to prefill (not send) in the composer, e.g. from a guide's `?prompt=` link. */
+  initialPrompt?: string;
 }) {
   const { setHeaderSuffix, updateConfig } = useApp();
   const configRef = useRef(config);
@@ -146,8 +176,25 @@ export function ChatView({
     sessionIdRef.current = sessionId;
   });
 
+  // Bumped whenever the save queue's durability state may have changed, so the
+  // "Not saved yet" indicator re-reads it. The queue mutates outside React
+  // state; without this the header would keep a stale verdict.
+  const [, bumpSaveState] = useReducer((tick: number) => tick + 1, 0);
+
+  /** Set when a save could not be made durable anywhere on this device. */
+  const [saveFailureNotice, setSaveFailureNotice] = useState<string | null>(null);
+  /** Set when another tab's newer copy of this chat replaced the local one. */
+  const [conflictNotice, setConflictNotice] = useState<string | null>(null);
+
   useEffect(() => {
-    saveQueue.setOnPersisted(() => onPersisted?.());
+    saveQueue.setOnPersisted(() => {
+      // A save landed, so a previous failure notice no longer describes reality.
+      // (A conflict notice stays: adopting the other tab's copy is still worth
+      // knowing about even after later saves succeed.)
+      setSaveFailureNotice(null);
+      bumpSaveState();
+      onPersisted?.();
+    });
     return () => saveQueue.setOnPersisted(() => {});
   }, [saveQueue, onPersisted]);
 
@@ -185,26 +232,233 @@ export function ChatView({
 
   const relativeTime = lastScraped ? formatRelativeTime(lastScraped) : "";
 
+  const compactContextRef = useRef<StoredCompactContext | null>(null);
+
+  useEffect(() => {
+    compactContextRef.current = null;
+    if (sessionId) {
+      getClientSession(sessionId)
+        .then((s) => {
+          if (s?.compact_context) {
+            compactContextRef.current = s.compact_context;
+          }
+        })
+        .catch(() => {});
+    }
+  }, [sessionId]);
+
   const transport = useMemo(
     () =>
-      // eslint-disable-next-line react-hooks/refs -- configRef/sessionIdRef are read inside the transport's headers/body callbacks, which run at request time, not during render
+      // eslint-disable-next-line react-hooks/refs -- configRef/sessionIdRef/compactContextRef are read inside the transport's headers/body callbacks, which run at request time, not during render
       new DefaultChatTransport<ChatUIMessage>({
         api: "/api/chat",
         headers: () => injectByokHeaders(apiKeyHeaders(configRef.current.chatChain, configRef.current)) as Record<string, string>,
-        body: () => resolveChatRequestBody(configRef.current, sessionIdRef.current)
+        body: () =>
+          resolveChatRequestBody(configRef.current, sessionIdRef.current, {
+            compactContext: compactContextRef.current
+          })
       }),
     []
   );
+
+  const [recovery] = useState(() => new ChatRecovery());
+  const [incompleteNotice, setIncompleteNotice] = useState<{ sessionId: string } | null>(null);
+  const [isCompacting, setIsCompacting] = useState(false);
+  const [contextExceededNotice, setContextExceededNotice] = useState<string | null>(null);
+
+  const [prevSessionId, setPrevSessionId] = useState(sessionId);
+  if (sessionId !== prevSessionId) {
+    setPrevSessionId(sessionId);
+    setIsCompacting(false);
+    setContextExceededNotice(null);
+    setSaveFailureNotice(null);
+    setConflictNotice(null);
+  }
+
+  useEffect(() => {
+    recovery.reset();
+    return () => recovery.cancel();
+  }, [recovery, sessionId]);
+
+  const handleErrorRef = useRef<(err: Error) => void>(() => {});
 
   const { messages, sendMessage, status, stop, error, setMessages } = useChat<ChatUIMessage>({
     id: sessionId,
     messages: initialMessages,
     transport,
+    onError: (chatError) => {
+      handleErrorRef.current(chatError);
+    },
+    onFinish: ({ message, isAbort, isError }) => {
+      setIsCompacting(false);
+      // Persisted by the save queue (persistSnapshot) with the rest of the session,
+      // so revision handling stays in one place.
+      const meta = message?.metadata as { compactContext?: StoredCompactContext } | undefined;
+      if (meta?.compactContext) {
+        compactContextRef.current = meta.compactContext;
+      }
+      if (isIncompleteChatFinish(message, { isAbort, isError })) {
+        const scheduled = recovery.scheduleIncomplete(() => {
+          setMessages((current) => prepareChatRecovery(current));
+          void sendMessage();
+        });
+        setIncompleteNotice(scheduled ? null : { sessionId });
+      } else {
+        setIncompleteNotice(null);
+      }
+    },
     throttle: 50
   });
 
+  const sendMessageRef = useRef(sendMessage);
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  });
+
+  const setMessagesRef = useRef(setMessages);
+  useEffect(() => {
+    setMessagesRef.current = setMessages;
+  });
+
+  const streaming = status === "streaming" || status === "submitted";
+
+  // Read by the save queue's conflict deferral (via setHandlers below) and by
+  // the page-close flush, both registered once and neither re-registered when
+  // the status flips.
+  const streamingRef = useRef(streaming);
+  useEffect(() => {
+    streamingRef.current = streaming;
+  }, [streaming]);
+
+  // The save queue lives in the workspace, so the view late-binds the callbacks
+  // that need its own state: surfacing a save that could not be made durable, and
+  // adopting the winner of a revision conflict instead of overwriting it.
+  useEffect(() => {
+    saveQueue.setHandlers({
+      isStreaming: () => streamingRef.current,
+      onPersistError: (error) => {
+        // Each failure means something different, and only some of them are worth
+        // interrupting the user for - a flush that could not fit through keepalive
+        // describes no user-facing problem at all.
+        setSaveFailureNotice(describeSaveFailure(error));
+        bumpSaveState();
+      },
+      onConflictAdopted: (copy: ServerSessionCopy) => {
+        saveQueue.observeRevision(copy.revision);
+        setMessagesRef.current(copy.messages);
+        // The compacted context summarises the transcript we just adopted, so it has
+        // to be replaced with theirs. Keeping ours would make the next save - which
+        // is revision+1 and therefore accepted - persist a summary that no longer
+        // describes the conversation.
+        compactContextRef.current = (copy.compactContext as StoredCompactContext | null | undefined) ?? null;
+        setConflictNotice(CONFLICT_ADOPTED_NOTICE);
+        bumpSaveState();
+      }
+    });
+  }, [saveQueue]);
+
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  const lastMsg = messages.at(-1);
+  const activeIsCompacting =
+    isCompacting &&
+    status !== "streaming" &&
+    !(lastMsg?.role === "assistant" && (lastMsg.parts?.length ?? 0) > 0);
+
+  useEffect(() => {
+    handleErrorRef.current = (chatError: Error) => {
+      if (isContextLimitError(chatError)) {
+        if (recovery.canRecover()) {
+          setIsCompacting(true);
+          setContextExceededNotice(null);
+          const scheduled = recovery.scheduleContextRecovery(chatError, async (signal) => {
+            try {
+              const res = await fetch("/api/chat/compact", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(injectByokHeaders(apiKeyHeaders(configRef.current.chatChain, configRef.current)) as Record<string, string>)
+                },
+                body: JSON.stringify({
+                  sessionId: sessionIdRef.current,
+                  messages: messagesRef.current,
+                  config: resolveChatRequestBody(configRef.current, sessionIdRef.current, {
+                    compactContext: compactContextRef.current
+                  }),
+                  force: true
+                }),
+                signal
+              });
+              if (signal.aborted) return;
+              if (!res.ok) throw new Error("Compaction failed");
+              const data = (await res.json()) as {
+                compacted?: boolean;
+                compactContext?: StoredCompactContext;
+                messages?: StoredCompactContext["messages"];
+                boundaryMessageId?: string;
+              };
+              if (!data.compacted) {
+                throw new Error("Compaction was unable to compress history further");
+              }
+              const compactCtx = data.compactContext ?? (data.messages ? {
+                messages: data.messages,
+                boundaryMessageId: data.boundaryMessageId
+              } : undefined);
+              if (compactCtx) {
+                // The resend below carries it; the save queue persists it after that turn.
+                compactContextRef.current = compactCtx;
+              }
+              setIsCompacting(false);
+              setMessagesRef.current((current) => prepareChatRecovery(current));
+              void sendMessageRef.current();
+            } catch {
+              setIsCompacting(false);
+              if (!signal.aborted) {
+                setContextExceededNotice(
+                  "Context limit exceeded. Compaction was unable to compress history further within this model's context window. Please start a new chat."
+                );
+              }
+            }
+          });
+          if (!scheduled) {
+            setIsCompacting(false);
+            setContextExceededNotice(
+              "Context limit exceeded. The conversation history is too large to fit in this model's context window. Please start a new chat."
+            );
+          }
+        } else {
+          setIsCompacting(false);
+          setContextExceededNotice(
+            "Context limit exceeded. The conversation history is too large to fit in this model's context window. Please start a new chat."
+          );
+        }
+        return;
+      }
+      recovery.schedule(chatError, () => {
+        setMessagesRef.current((current) => prepareChatRecovery(current));
+        void sendMessageRef.current();
+      });
+    };
+  });
+
+  // Memoised on the messages identity, so the stringify the header signature
+  // needs costs one pass per message update rather than one per render.
+  const messagesSignature = useMemo(() => sessionSignature(messages), [messages]);
+
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
-  const [activeBuilds, setActiveBuilds] = useState<DerivedBuild[] | null>(null);
+  // Stored with the session it belongs to: ChatView is not remounted on a
+  // switch, so a build from the previous chat must never reach the panel.
+  const [openedBuilds, setOpenedBuilds] = useState<{ sessionId: string; builds: DerivedBuild[] } | null>(null);
+  const activeBuilds = openedBuildsForSession(openedBuilds, sessionId);
+  const setActiveBuilds = useCallback(
+    (builds: DerivedBuild[] | null) => {
+      setOpenedBuilds(builds ? { sessionId, builds } : null);
+    },
+    [sessionId]
+  );
   const [panelWidth, setPanelWidth] = useState(460);
   const [isDragging, setIsDragging] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -235,58 +489,176 @@ export function ChatView({
 
   const isDesktop = useIsDesktop(768);
 
-  const latestBuilds = useMemo(
-    () => findLatestBuilds(messages, config.currency),
-    [messages, config.currency]
+  // While a reply is streaming, a present_build that has not returned yet is
+  // still the build the user is watching being made. Once the turn is over the
+  // same call is treated as interrupted, and a finished or loaded transcript
+  // never counts one.
+  const streamingMessageId = useMemo(() => {
+    if (status !== "streaming" && status !== "submitted") return undefined;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return messages[i].id;
+    }
+    return undefined;
+  }, [status, messages]);
+
+  const allBuildVersions = useMemo(
+    () => deriveSafely(() => findAllBuildVersions(messages, config.currency, { streamingMessageId }), []),
+    [messages, config.currency, streamingMessageId]
   );
 
-  const displayBuilds = activeBuilds ?? latestBuilds;
+  // Selected by stable id, not by version number: an edit or a truncation
+  // renumbers the versions, and a number can then point at another build.
+  const [selectedVersionId, setSelectedVersionId] = useState<string | undefined>(undefined);
+  const [selectedAlternativeIndex, setSelectedAlternativeIndex] = useState(0);
+
+  const activeVersionObj = useMemo(
+    () => resolveSelectedVersion(allBuildVersions, selectedVersionId),
+    [allBuildVersions, selectedVersionId]
+  );
+
+  const safeSelectedVersionId = activeVersionObj?.id;
+
+  const latestBuilds = useMemo(() => {
+    if (allBuildVersions.length > 0) {
+      return allBuildVersions[allBuildVersions.length - 1].builds;
+    }
+    return deriveSafely(() => findLatestBuilds(messages, config.currency), null);
+  }, [allBuildVersions, messages, config.currency]);
+
+  // Memoised so the selection keeps its identity while nothing it selects from
+  // has changed; the header effect below also fingerprints the value.
+  const displayBuilds = useMemo(
+    () => activeVersionObj?.builds ?? activeBuilds ?? latestBuilds,
+    [activeVersionObj, activeBuilds, latestBuilds]
+  );
 
   const lastSigRef = useRef<string>("");
   const hasInitializedOpenRef = useRef(false);
+  const lastVersionIdRef = useRef<string | undefined>(undefined);
+
+  // A build version that just arrived supersedes whatever was selected, so the
+  // panel follows the new build instead of staying pinned to an older one.
+  useEffect(() => {
+    const newestId = allBuildVersions[allBuildVersions.length - 1]?.id;
+    const nextId = followNewestVersion(selectedVersionId, lastVersionIdRef.current, allBuildVersions);
+    lastVersionIdRef.current = newestId;
+    if (nextId === selectedVersionId) return;
+    setSelectedVersionId(nextId);
+  }, [allBuildVersions, selectedVersionId]);
 
   useEffect(() => {
-    const currentSig = buildsSignature(latestBuilds);
+    const currentSig = buildsFingerprint(latestBuilds);
     if (latestBuilds && currentSig) {
+      // Only a presented build summons the panel: a validated-only or text
+      // build updates what the panel shows when it is open, but never opens it
+      // on its own.
+      const presented = shouldAutoOpenPanel(allBuildVersions);
       if (currentSig !== lastSigRef.current) {
         lastSigRef.current = currentSig;
         queueMicrotask(() => {
           setActiveBuilds(latestBuilds);
-          if (isActive && typeof window !== "undefined" && window.innerWidth >= 768) {
+          if (presented && isActive && typeof window !== "undefined" && window.innerWidth >= 768) {
             setSidePanelOpen(true);
             hasInitializedOpenRef.current = true;
           }
         });
-      } else if (isActive && !hasInitializedOpenRef.current && typeof window !== "undefined" && window.innerWidth >= 768) {
+      } else if (presented && isActive && !hasInitializedOpenRef.current && typeof window !== "undefined" && window.innerWidth >= 768) {
         hasInitializedOpenRef.current = true;
         queueMicrotask(() => {
           setSidePanelOpen(true);
         });
       }
     }
-  }, [latestBuilds, isActive]);
+  }, [latestBuilds, allBuildVersions, isActive, setActiveBuilds]);
 
-  const streaming = status === "streaming" || status === "submitted";
+  // Tell the workspace whether this chat may be evicted. Unmounting a streaming
+  // view kills its stream, so the pool must be allowed over its cap instead.
+  useEffect(() => {
+    onStreamingChange?.(sessionId, streaming);
+  }, [onStreamingChange, sessionId, streaming]);
+
+  // Unmount only. A stream that dies with its view would otherwise leave the entry
+  // flagged streaming forever, which makes it permanently unevictable. Split from
+  // the effect above so the reset does not also fire on every status change.
+  useEffect(
+    () => () => onStreamingChange?.(sessionId, false),
+    [onStreamingChange, sessionId]
+  );
+
   const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
   const activeModel = useMemo(
     () => resolveActiveModel(config, lastAssistantMessage?.metadata?.model),
     [config, lastAssistantMessage?.metadata?.model]
   );
 
-  const primaryBuild = displayBuilds?.[0];
-  const headerBuildPrice = primaryBuild
-    ? formatPrice(
-        sumPrices(primaryBuild.components.map((c) => c.price)),
-        primaryBuild.currency
-      )
+  const safeAlternativeIndex = Math.min(
+    Math.max(0, selectedAlternativeIndex),
+    Math.max(0, (displayBuilds?.length ?? 1) - 1)
+  );
+  const activeBuild = displayBuilds?.[safeAlternativeIndex];
+  const headerBuildPrice = activeBuild
+    ? formatPrice(resolveBuildTotal(activeBuild), activeBuild.currency)
     : null;
 
+  // Everything this header renders, as one value. `displayBuilds` is rebuilt
+  // from tool parts on every pass, so comparing it by identity re-armed this
+  // effect forever: publish a new element, re-render the provider, derive fresh
+  // builds, publish again - until React gave up with "Maximum update depth
+  // exceeded". The signature ends that cycle, and it is the whole header rather
+  // than just the build so nothing goes stale behind the guard.
+  // Whether the transcript on screen is known to be unsaved: a failure notice,
+  // something the queue still holds, or a settled transcript it has not
+  // acknowledged. While streaming the signature is perpetually new, so the
+  // settled check waits until the turn ends instead of flickering.
+  const notSavedYet = shouldShowNotSavedYet({
+    messageCount: messages.length,
+    isLoading,
+    saveFailureNotice,
+    queueUnsaved: saveQueue.hasUnsaved(),
+    settledUnacknowledged: !streaming && !saveQueue.isAcknowledged(messagesSignature)
+  });
+  const headerSignature =
+    buildHeaderSignature({
+      sessionId,
+      model: activeModel,
+      streaming,
+      compacting: activeIsCompacting,
+      sidePanelOpen,
+      messageCount: messages.length,
+      // The transcript menu copies and downloads the messages it closed over, so
+      // their content is part of what the header shows - a reply streaming in has
+      // to move this or the export goes out without it.
+      transcript: messagesSignature,
+      error: error ? getErrorMessage(error) : "",
+      currency: config.currency,
+      countryCode: config.countryCode,
+      buildPrice: headerBuildPrice,
+      builds: displayBuilds
+    }) + (notSavedYet ? "\u0001unsaved" : "");
+  const lastHeaderSignatureRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      // Another pooled chat owns the header while this one is hidden. Forget what
+      // we published, so switching back republishes ours instead of leaving the
+      // other chat's header (and its transcript export) on screen.
+      lastHeaderSignatureRef.current = null;
+      return;
+    }
+    if (lastHeaderSignatureRef.current === headerSignature) return;
+    lastHeaderSignatureRef.current = headerSignature;
     setHeaderSuffix(
       <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
-          <ModelStatus modelName={activeModel} streaming={streaming} />
+          <ModelStatus modelName={activeModel} streaming={streaming} isCompacting={activeIsCompacting} />
+          {notSavedYet ? (
+            <span
+              className="shrink-0 rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary"
+              title="This chat has changes that are not saved yet"
+            >
+              Not saved yet
+            </span>
+          ) : null}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {messages.length > 0 ? (
@@ -339,8 +711,11 @@ export function ChatView({
   }, [
     isActive,
     setHeaderSuffix,
+    headerSignature,
+    notSavedYet,
     activeModel,
     streaming,
+    activeIsCompacting,
     displayBuilds,
     headerBuildPrice,
     sidePanelOpen,
@@ -365,18 +740,33 @@ export function ChatView({
   }, [messages, streaming, isActive]);
 
   const persistSnapshot = useCallback(
-    (currentMessages: ChatUIMessage[]) => {
+    (currentMessages: ChatUIMessage[], options?: { urgent?: boolean }) => {
       if (currentMessages.length === 0) return;
       const signature = sessionSignature(currentMessages);
       const marketPref = getMarketPreference();
 
-      void saveQueue.enqueue(signature, {
-        id: sessionIdRef.current,
-        messages: currentMessages,
-        title: deriveTitle(currentMessages),
-        countryCode: marketPref.countryCode || configRef.current.countryCode,
-        currency: marketPref.currencyCode || configRef.current.currency
-      });
+      // Compaction may have run during this turn; carry the compacted context into
+      // every save, including the throttled mid-stream ones and the page-close
+      // flush, so a reopened chat resumes against the same compacted history.
+      const lastAssistant = [...currentMessages].reverse().find((m) => m.role === "assistant");
+      const meta = lastAssistant?.metadata as { compactContext?: StoredCompactContext } | undefined;
+      if (meta?.compactContext) {
+        compactContextRef.current = meta.compactContext;
+      }
+
+      void saveQueue.enqueue(
+        signature,
+        {
+          id: sessionIdRef.current,
+          messages: currentMessages,
+          title: deriveTitle(currentMessages),
+          countryCode: marketPref.countryCode || configRef.current.countryCode,
+          currency: marketPref.currencyCode || configRef.current.currency,
+          compactContext: compactContextRef.current
+        },
+        options
+      );
+      bumpSaveState();
     },
     [saveQueue]
   );
@@ -384,34 +774,135 @@ export function ChatView({
   // Persist the full UIMessage[] to the sessions store after each completed or failed turn.
   useEffect(() => {
     if ((status !== "ready" && status !== "error") || messages.length === 0) return;
+    // A conflict that resolved while the reply was streaming waited until now.
+    // Adopting means the server copy replaced this transcript, so there is
+    // nothing local left to save; re-saving means the stream added turns, which
+    // the persist below writes on top of the observed server revision.
+    if (saveQueue.drainDeferredConflict(sessionSignature(messages)) === "adopted") return;
     persistSnapshot(messages);
-  }, [status, messages, persistSnapshot]);
+  }, [status, messages, persistSnapshot, saveQueue]);
 
-  // Keep a ref to latest messages for unmount saving so no state is ever lost.
-  const messagesRef = useRef(messages);
+  // A save that failed transiently (offline, 5xx) waits here instead of being
+  // dropped. Retry it when the browser reports it is back.
   useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
+    if (typeof window === "undefined") return;
+    const onOnline = () => {
+      if (!saveQueue.retryUnsaved()) {
+        const current = messagesRef.current;
+        if (current.length > 0 && !saveQueue.isAcknowledged(sessionSignature(current))) {
+          persistSnapshot(current);
+        }
+      }
+      bumpSaveState();
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [saveQueue, persistSnapshot]);
 
+  // Persist *while* streaming, throttled. Without this, closing or reloading the
+  // page mid-reply throws the whole partial answer away: the effect above only
+  // ever runs once a turn reaches "ready" or "error".
+  const streamSaveRef = useRef<{ signature: string | null; at: number | null }>({ signature: null, at: null });
+  useEffect(() => {
+    // The guard comes first on purpose: sessionSignature is a full JSON.stringify
+    // of the transcript, and this effect runs on every render of every mounted pool
+    // entry. Deciding "skip" first keeps an idle background tab from paying for a
+    // signature nobody reads.
+    if (!streaming || messages.length === 0) return;
+    const signature = sessionSignature(messages);
+    const now = Date.now();
+    const decision = decideStreamPersist({
+      streaming,
+      signature,
+      lastSavedSignature: streamSaveRef.current.signature,
+      lastSavedAt: streamSaveRef.current.at,
+      now
+    });
+    if (decision !== "save") return;
+    streamSaveRef.current = { signature, at: now };
+    persistSnapshot(messages);
+  }, [messages, streaming, persistSnapshot]);
+
+  /**
+   * Best-effort flush when the page is being hidden or closed. Local mode sends
+   * this with `fetch(..., { keepalive: true })`, which MDN documents as not being
+   * aborted by the unload: "the browser will not abort the associated request if
+   * the page that initiated it is unloaded before the request is complete".
+   *
+   * Two honest limits, both of which make this a tail-risk reducer rather than
+   * the durability mechanism:
+   *
+   * - It cannot work above 64 KiB of body. MDN: "The body size for `keepalive`
+   *   requests is limited to 64 kibibytes." A real long chat is far larger, so the
+   *   flush refuses and throws rather than letting the browser silently drop it.
+   *   The 5-second throttle above is what actually protects a long conversation.
+   * - `visibilitychange` (hidden) also fires on an ordinary tab switch, and an
+   *   urgent write deliberately bypasses the queue's dedupe. Re-uploading an
+   *   unchanged transcript on every tab switch would be pure waste, so the flush
+   *   only fires when there is something the last save does not already have:
+   *   a live stream, or messages that have changed since it.
+   *
+   * The browser can also skip the event entirely. MDN, on `pagehide`: "the
+   * `pagehide` event is not fired at all" when the user switches to another app and
+   * later closes the browser from the app manager. A request already in flight
+   * cannot be jumped ahead of either. None of that changes what the throttle
+   * guarantees.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const lifecycle = {
+      get visibilityState() {
+        return document.visibilityState;
+      },
+      addEventListener: (type: string, listener: () => void) => document.addEventListener(type, listener),
+      removeEventListener: (type: string, listener: () => void) => document.removeEventListener(type, listener)
+    };
+    return registerPageCloseFlush(lifecycle, () => {
+      const messages = messagesRef.current;
+      const shouldFlush = shouldFlushOnPageHide({
+        messageCount: messages.length,
+        streaming: streamingRef.current,
+        signature: sessionSignature(messages),
+        isAcknowledged: (signature) => saveQueue.isAcknowledged(signature)
+      });
+      if (!shouldFlush) return;
+      persistSnapshot(messages, { urgent: true });
+    });
+  }, [persistSnapshot, saveQueue]);
+
+  // The view is going away (pool eviction, app teardown), so this is the last
+  // chance to write: same urgent path as the page-close flush, and the same
+  // compactContext carry-over, because it goes through `persistSnapshot`.
+  // Same rule as the page-close flush: an idle chat whose transcript is already
+  // saved has nothing to write, and re-saving it would bump its revision and
+  // move it to the top of the sidebar on every eviction.
   useEffect(() => {
     return () => {
-      if (messagesRef.current.length > 0) {
-        const msgs = messagesRef.current;
-        const signature = sessionSignature(msgs);
-        const marketPref = getMarketPreference();
-        void saveQueue.enqueue(signature, {
-          id: sessionIdRef.current,
-          messages: msgs,
-          title: deriveTitle(msgs),
-          countryCode: marketPref.countryCode || configRef.current.countryCode,
-          currency: marketPref.currencyCode || configRef.current.currency
-        });
-      }
+      const messages = messagesRef.current;
+      const shouldFlush = shouldFlushOnPageHide({
+        messageCount: messages.length,
+        streaming: streamingRef.current,
+        signature: sessionSignature(messages),
+        isAcknowledged: (signature) => saveQueue.isAcknowledged(signature)
+      });
+      if (shouldFlush) persistSnapshot(messages, { urgent: true });
     };
-  }, [saveQueue]);
+  }, [persistSnapshot, saveQueue]);
+
+  const checkShouldCompact = (currentMsgs: ChatUIMessage[], newText: string) => {
+    const entry = configRef.current.chatChain?.[0];
+    const limit = getModelContextLimit(entry || resolveActiveModel(configRef.current));
+    const tokenEst = estimateTokens(currentMsgs) + estimateTokens(newText) + TOOL_DEFINITIONS_TOKEN_OVERHEAD;
+    return shouldTriggerCompaction(tokenEst, limit);
+  };
 
   const send = (text: string) => {
-    if (!text.trim() || streaming) return;
+    if (!text.trim() || streaming || isLoading) return;
+    recovery.reset();
+    setIncompleteNotice(null);
+    if (checkShouldCompact(messages, text)) {
+      setIsCompacting(true);
+    }
     void sendMessage({ text });
     const userMsg: ChatUIMessage = {
       id: crypto.randomUUID(),
@@ -422,8 +913,13 @@ export function ChatView({
   };
 
   const handleEditMessage = (index: number, newText: string) => {
-    if (streaming) return;
+    if (streaming || isLoading) return;
+    recovery.reset();
+    setIncompleteNotice(null);
     const truncated = messages.slice(0, index);
+    if (checkShouldCompact(truncated, newText)) {
+      setIsCompacting(true);
+    }
     setMessages(truncated);
     void sendMessage({ text: newText });
     const editedUserMsg: ChatUIMessage = {
@@ -440,26 +936,48 @@ export function ChatView({
       <div className="flex flex-1 flex-col min-w-0 h-full">
         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[760px] px-4 pb-6">
-            {messages.length === 0 ? (
+            {isLoading ? (
+              // An existing chat whose messages are still being fetched. Showing
+              // the new-chat screen here would look like an empty history and
+              // invite the user to type into a thread that is about to change.
+              <div className="flex items-center gap-2 pt-8 text-sm text-text-muted" role="status">
+                <span className="h-2 w-2 rounded-full bg-text-muted animate-pulse shrink-0" />
+                <span>Loading chat…</span>
+              </div>
+            ) : messages.length === 0 ? (
               <ChatEmptyState onPick={send} currency={config.currency} />
             ) : (
               <div className="flex flex-col gap-6 pt-6">
-                {messages.map((message, index) => (
-                  <MessageView
-                    key={message.id || `msg-${index}`}
-                    message={message}
-                    currency={config.currency}
-                    onViewBuild={(builds) => {
-                      setActiveBuilds(builds);
-                      setSidePanelOpen(true);
-                    }}
-                    onEdit={
-                      !streaming && message.role === "user"
-                        ? (newText) => handleEditMessage(index, newText)
-                        : undefined
-                    }
-                  />
-                ))}
+                {messages.map((message, index) => {
+                  const msgVersions = allBuildVersions.filter((v) => v.messageIndex === index);
+                  return (
+                    <MessageView
+                      key={message.id || `msg-${index}`}
+                      message={message}
+                      isStreaming={streaming && index === messages.length - 1 && message.role === "assistant"}
+                      versions={msgVersions}
+                      followups={index === messages.length - 1 ? getFollowups(message, status) : []}
+                      onFollowup={send}
+                      onViewBuild={(versionId) => {
+                        // Resolve within this message's own versions by stable
+                        // id, so the clicked message always opens its own
+                        // build and the panel never holds an ad-hoc list.
+                        const matched: BuildVersion | undefined = msgVersions.find((v) => v.id === versionId);
+                        if (!matched) return;
+
+                        setSelectedVersionId(matched.id);
+                        setActiveBuilds(matched.builds);
+                        setSelectedAlternativeIndex(0);
+                        setSidePanelOpen(true);
+                      }}
+                      onEdit={
+                        !streaming && message.role === "user"
+                          ? (newText) => handleEditMessage(index, newText)
+                          : undefined
+                      }
+                    />
+                  );
+                })}
                 {status === "submitted" ? (
                   <p className="text-caption text-text-muted" role="status">
                     The sage is thinking…
@@ -468,7 +986,47 @@ export function ChatView({
               </div>
             )}
 
-            {error ? (
+            {incompleteNotice?.sessionId === sessionId && status === "ready" ? (
+              <p className="mt-4 rounded-card border border-border bg-surface px-4 py-3 text-sm text-text-secondary" role="alert">
+                Response ended before completion. You can send “continue” to try again.
+              </p>
+            ) : null}
+            {saveFailureNotice || conflictNotice ? (
+              <SaveAlert message={saveFailureNotice ?? conflictNotice ?? ""} />
+            ) : null}
+            {contextExceededNotice ? (
+              <div
+                className="mt-4 flex items-start gap-2 rounded-card border px-4 py-3 text-sm"
+                style={{
+                  color: "var(--warn)",
+                  borderColor: "color-mix(in srgb, var(--warn) 45%, transparent)",
+                  backgroundColor: "color-mix(in srgb, var(--warn) 8%, transparent)"
+                }}
+                role="alert"
+              >
+                <Icon icon={TriangleAlert} size={16} className="mt-0.5 shrink-0" />
+                <span className="flex-1 whitespace-pre-wrap leading-relaxed">
+                  {contextExceededNotice}
+                </span>
+              </div>
+            ) : activeIsCompacting ? (
+              <div
+                className="mt-4 flex items-center gap-2 rounded-card border px-4 py-3 text-sm"
+                style={{
+                  color: "var(--accent)",
+                  borderColor: "color-mix(in srgb, var(--accent) 45%, transparent)",
+                  backgroundColor: "color-mix(in srgb, var(--accent) 8%, transparent)"
+                }}
+                role="status"
+              >
+                <span className="h-2 w-2 rounded-full bg-accent animate-pulse shrink-0" />
+                <span className="flex-1 whitespace-pre-wrap leading-relaxed">
+                  {recovery.canRecover() && !streaming
+                    ? "Compacting conversation context before retrying..."
+                    : "Compacting conversation context..."}
+                </span>
+              </div>
+            ) : error ? (
               <div
                 className="mt-4 flex items-start gap-2 rounded-card border px-4 py-3 text-sm"
                 style={{
@@ -489,7 +1047,19 @@ export function ChatView({
 
         <div className="border-t border-border bg-bg shrink-0">
           <div className="mx-auto w-full max-w-[760px] px-4 py-3">
-            <Composer onSend={send} onStop={stop} streaming={streaming} />
+            <Composer
+              onSend={send}
+              onStop={() => {
+                recovery.cancel();
+                setIsCompacting(false);
+                void stop();
+              }}
+              // A half-loaded chat must not be messaged into: the transcript it
+              // would be appended to is not the one the user is looking at.
+              disabled={isLoading}
+              streaming={streaming || activeIsCompacting}
+              initialValue={initialPrompt}
+            />
             <p className="mt-2 text-center text-caption text-text-muted">
               {isHostedMode() ? (
                 <>Prices live from cloud catalog ({config.currency}){relativeTime ? ` · Updated ${relativeTime}` : ""}</>
@@ -511,7 +1081,7 @@ export function ChatView({
       </div>
 
       {/* Desktop Right Side Panel Splitter & Aside */}
-      {sidePanelOpen && displayBuilds && displayBuilds.length > 0 ? (
+      {!isLoading && sidePanelOpen && displayBuilds && displayBuilds.length > 0 ? (
         <>
           {/* Clean Draggable Splitter Area (no visible handle artifact) */}
           <div
@@ -540,7 +1110,11 @@ export function ChatView({
               <div className="flex items-center gap-2 min-w-0">
                 <Icon icon={Package} size={18} className="text-accent shrink-0" />
                 <h2 className="text-sm font-semibold text-text truncate">Proposed Build</h2>
-                {displayBuilds.length > 1 ? (
+                {allBuildVersions.length > 1 ? (
+                  <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
+                    v{safeSelectedVersionId ? allBuildVersions.find((v) => v.id === safeSelectedVersionId)?.version ?? 1 : 1} of {allBuildVersions.length}
+                  </span>
+                ) : displayBuilds && displayBuilds.length > 1 ? (
                   <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
                     {displayBuilds.length} options
                   </span>
@@ -578,14 +1152,33 @@ export function ChatView({
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
-              <BuildCard builds={displayBuilds} inSidePanel />
+              <BuildErrorBoundary resetKeys={[safeSelectedVersionId, safeAlternativeIndex]}>
+                <BuildCard
+                  builds={displayBuilds ?? undefined}
+                  versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
+                  selectedVersionId={safeSelectedVersionId}
+                  onVersionChange={(versionId) => {
+                    setSelectedVersionId(versionId);
+                    setSelectedAlternativeIndex(0);
+                    const matched = allBuildVersions.find((v) => v.id === versionId);
+                    if (matched) setActiveBuilds(matched.builds);
+                  }}
+                  selectedAlternativeIndex={safeAlternativeIndex}
+                  onAlternativeChange={setSelectedAlternativeIndex}
+                  inSidePanel
+                  onRecheckPrices={streaming || isLoading ? undefined : send}
+                />
+              </BuildErrorBoundary>
             </div>
           </aside>
         </>
       ) : null}
 
       {/* Mobile/Tablet Slide-over Drawer / Sheet */}
-      <Sheet open={sidePanelOpen && !isDesktop && Boolean(displayBuilds?.length)} onOpenChange={setSidePanelOpen}>
+      <Sheet
+        open={!isLoading && sidePanelOpen && !isDesktop && Boolean(displayBuilds?.length)}
+        onOpenChange={setSidePanelOpen}
+      >
         <SheetContent
           side="right"
           className="w-full sm:max-w-md bg-surface p-0 flex flex-col h-full border-l border-border"
@@ -594,7 +1187,11 @@ export function ChatView({
             <div className="flex items-center gap-2 min-w-0">
               <Icon icon={Package} size={18} className="text-accent shrink-0" />
               <SheetTitle className="text-sm font-semibold text-text truncate">Proposed Build</SheetTitle>
-              {displayBuilds && displayBuilds.length > 1 ? (
+              {allBuildVersions.length > 1 ? (
+                <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
+                  v{safeSelectedVersionId ? allBuildVersions.find((v) => v.id === safeSelectedVersionId)?.version ?? 1 : 1} of {allBuildVersions.length}
+                </span>
+              ) : displayBuilds && displayBuilds.length > 1 ? (
                 <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
                   {displayBuilds.length} options
                 </span>
@@ -605,7 +1202,33 @@ export function ChatView({
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-4">
-            {displayBuilds && <BuildCard builds={displayBuilds} inSidePanel />}
+            {displayBuilds && (
+              <BuildErrorBoundary resetKeys={[safeSelectedVersionId, safeAlternativeIndex]}>
+                <BuildCard
+                  builds={displayBuilds}
+                  versions={allBuildVersions.length > 0 ? allBuildVersions : undefined}
+                  selectedVersionId={safeSelectedVersionId}
+                  onVersionChange={(versionId) => {
+                    setSelectedVersionId(versionId);
+                    setSelectedAlternativeIndex(0);
+                    const matched = allBuildVersions.find((v) => v.id === versionId);
+                    if (matched) setActiveBuilds(matched.builds);
+                  }}
+                  selectedAlternativeIndex={safeAlternativeIndex}
+                  onAlternativeChange={setSelectedAlternativeIndex}
+                  inSidePanel
+                  onRecheckPrices={
+                    streaming || isLoading
+                      ? undefined
+                      : (prompt) => {
+                          // Close the sheet so the reply is visible.
+                          setSidePanelOpen(false);
+                          send(prompt);
+                        }
+                  }
+                />
+              </BuildErrorBoundary>
+            )}
           </div>
         </SheetContent>
       </Sheet>

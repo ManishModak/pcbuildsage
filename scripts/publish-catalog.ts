@@ -23,6 +23,7 @@ export interface ParsedCliArgs {
   force: boolean;
   json: boolean;
   batchSize?: number;
+  baselineCount?: number;
   help: boolean;
 }
 
@@ -31,6 +32,7 @@ export interface RunCliOptions {
   stderr?: (msg: string) => void;
   client?: PublishOptions["client"];
   batchSize?: number;
+  baselineCount?: number;
 }
 
 /**
@@ -47,6 +49,7 @@ Options:
   --dry-run            Validate snapshot without writing to remote Turso database
   --force              Bypass validation errors and attempt publish
   --batch-size <num>   Number of records per upsert batch (default: 100)
+  --baseline-count <n> Baseline product count for drop-threshold gate
   --json               Output structured JSON to stdout
   --help, -h           Show this help message
 `);
@@ -68,6 +71,8 @@ export function parseCliArgs(args: string[] = process.argv.slice(2)): ParsedCliA
       json: { type: "boolean", default: false },
       "batch-size": { type: "string" },
       batchSize: { type: "string" },
+      "baseline-count": { type: "string" },
+      baselineCount: { type: "string" },
       help: { type: "boolean", short: "h", default: false }
     },
     strict: true,
@@ -82,6 +87,16 @@ export function parseCliArgs(args: string[] = process.argv.slice(2)): ParsedCliA
       throw new Error(`Invalid --batch-size: "${rawBatch}". Must be a positive integer.`);
     }
     batchSize = Math.floor(num);
+  }
+
+  const rawBaseline = values["baseline-count"] ?? values.baselineCount;
+  let baselineCount: number | undefined;
+  if (rawBaseline !== undefined) {
+    const num = Number(rawBaseline);
+    if (!Number.isFinite(num) || num <= 0) {
+      throw new Error(`Invalid --baseline-count: "${rawBaseline}". Must be a positive integer.`);
+    }
+    baselineCount = Math.floor(num);
   }
 
   const positionalDb = positionals.find((p) => typeof p === "string" && p.trim().length > 0);
@@ -103,6 +118,7 @@ export function parseCliArgs(args: string[] = process.argv.slice(2)): ParsedCliA
     force: Boolean(values.force),
     json: Boolean(values.json),
     batchSize,
+    baselineCount,
     help: Boolean(values.help)
   };
 }
@@ -125,6 +141,9 @@ export function printHumanSummary(
   if (!result.dryRun) {
     log(`Published:      ${result.publishedCount}`);
   }
+  if (result.staleCount !== undefined) {
+    log(`Stale Swept:    ${result.staleCount} (marked out of stock)`);
+  }
 
   if (stats?.categories && Object.keys(stats.categories).length > 0) {
     const sorted = Object.entries(stats.categories).sort(([a], [b]) => a.localeCompare(b));
@@ -139,6 +158,13 @@ export function printHumanSummary(
     log(`Retailers (${sorted.length}):`);
     for (const [ret, count] of sorted) {
       log(`  • ${ret}: ${count}`);
+    }
+  }
+
+  if (result.warnings && result.warnings.length > 0) {
+    log(`Warnings (${result.warnings.length}):`);
+    for (const warn of result.warnings) {
+      log(`  ⚠ ${warn}`);
     }
   }
 
@@ -239,12 +265,14 @@ export async function runPublishCatalog(
 
   let result: PublishResult;
   try {
+    const baselineCount = io.baselineCount ?? parsed.baselineCount;
     result = await publishCatalogSnapshot({
       dbPath: parsed.db,
       dryRun: parsed.dryRun,
       force: parsed.force,
       batchSize: io.batchSize ?? parsed.batchSize,
-      client: io.client
+      client: io.client,
+      validatorOptions: baselineCount !== undefined ? { baselineProductCount: baselineCount } : undefined
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

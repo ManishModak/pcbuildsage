@@ -223,3 +223,18 @@ body:has(dialog.pcbs-dialog[open]) {
     scroll-behavior: auto !important;
   }
 }
+
+/* Returning users (html[data-returning], set by the <head> bootstrap in
+ * layout.tsx from the saved config) see the spinner instead of the
+ * server-rendered landing until hydration swaps in the chat, so the landing
+ * doesn't flash and then shift away. The landing HTML stays in the page for
+ * crawlers. */
+[data-returning-spinner] {
+  display: none;
+}
+html[data-returning] [data-landing] {
+  display: none;
+}
+html[data-returning] [data-returning-spinner] {
+  display: flex;
+}

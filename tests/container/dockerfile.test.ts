@@ -1,7 +1,36 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { parseDockerfile } from "../e2e/test-harness";
+
+// Minimal Dockerfile parser (reads the real Dockerfile; no fake harness).
+function parseDockerfile(dockerfileContent: string) {
+  const lines = dockerfileContent.split("\n").map((l) => l.trim()).filter((l) => l.length > 0 && !l.startsWith("#"));
+  const fromStages: string[] = [];
+  let user: string | null = null;
+  const exposedPorts: string[] = [];
+  const envVars: Record<string, string> = {};
+  let outputStandaloneCopied = false;
+  for (const line of lines) {
+    if (/^FROM\s+/i.test(line)) fromStages.push(line);
+    else if (/^USER\s+/i.test(line)) user = line.replace(/^USER\s+/i, "").trim();
+    else if (/^EXPOSE\s+/i.test(line)) exposedPorts.push(line.replace(/^EXPOSE\s+/i, "").trim());
+    else if (/^ENV\s+/i.test(line)) {
+      const parts = line.replace(/^ENV\s+/i, "").trim().split("=");
+      if (parts.length >= 2) envVars[parts[0].trim()] = parts.slice(1).join("=").trim();
+    }
+    if (line.includes(".next/standalone") || line.includes("standalone")) outputStandaloneCopied = true;
+  }
+  return {
+    isMultiStage: fromStages.length >= 2,
+    stagesCount: fromStages.length,
+    user,
+    isNonRoot: user !== null && user !== "root" && user !== "0",
+    exposedPorts,
+    envVars,
+    isProductionEnv: envVars["NODE_ENV"] === "production",
+    hasStandalone: outputStandaloneCopied
+  };
+}
 
 describe("Container Verification - Next.js Standalone Dockerfile & .dockerignore", () => {
   const dockerfilePath = path.resolve(__dirname, "../../Dockerfile");
@@ -13,21 +42,21 @@ describe("Container Verification - Next.js Standalone Dockerfile & .dockerignore
     expect(content.length).toBeGreaterThan(0);
   });
 
-  it("verifies 3 multi-stage build definitions (deps, builder, runner)", () => {
+  it("verifies 3 multi-stage build definitions (deps, builder, runner) on Node 22", () => {
     const content = fs.readFileSync(dockerfilePath, "utf-8");
     const parsed = parseDockerfile(content);
 
     expect(parsed.isMultiStage).toBe(true);
     expect(parsed.stagesCount).toBe(3);
 
-    // Verify each named stage in sequence
+    // Verify each named stage in sequence (CI and Docker both pin Node 22)
     const lines = content.split("\n").map((l) => l.trim());
     const fromLines = lines.filter((l) => /^FROM\s+/i.test(l));
 
     expect(fromLines).toHaveLength(3);
-    expect(fromLines[0]).toMatch(/^FROM\s+node:20-bookworm-slim\s+AS\s+deps$/i);
-    expect(fromLines[1]).toMatch(/^FROM\s+node:20-bookworm-slim\s+AS\s+builder$/i);
-    expect(fromLines[2]).toMatch(/^FROM\s+node:20-bookworm-slim\s+AS\s+runner$/i);
+    expect(fromLines[0]).toMatch(/^FROM\s+node:22-bookworm-slim\s+AS\s+deps$/i);
+    expect(fromLines[1]).toMatch(/^FROM\s+node:22-bookworm-slim\s+AS\s+builder$/i);
+    expect(fromLines[2]).toMatch(/^FROM\s+node:22-bookworm-slim\s+AS\s+runner$/i);
   });
 
   it("verifies unprivileged user creation and non-root execution (USER nextjs)", () => {

@@ -2,23 +2,36 @@ import type { ToolSet } from "ai";
 import type { AppConfig } from "@/types";
 import type { CatalogRepository } from "@/lib/catalog";
 import { createSearchProductsTool } from "./search-products";
-import { createGetCatalogTool } from "./get-catalog";
+import { createListModelsTool } from "./list-models";
 import { createValidateBuildTool } from "./validate-build";
 import { createPresentBuildTool } from "./present-build";
+import { createSuggestFollowupsTool } from "./suggest-followups";
 import { createConsultTool } from "./consult";
+import { createTurnValidationStore, type TurnValidationStore } from "./turn-state";
 
-export function createToolRegistry(config: AppConfig, options?: { repository?: CatalogRepository }): ToolSet {
+/**
+ * Builds the tool set for one chat turn or MCP session. Pass `turnStore` to
+ * read the validate_build snapshots afterwards (the MCP build card does).
+ */
+export function createToolRegistry(
+  config: AppConfig,
+  options?: { repository?: CatalogRepository; turnStore?: TurnValidationStore }
+): ToolSet {
+  const turnStore = options?.turnStore ?? createTurnValidationStore();
   const tools: ToolSet = {
     search_products: createSearchProductsTool(
       { dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency, repository: options?.repository },
       options?.repository
     ),
-    get_catalog: createGetCatalogTool(
+    list_models: createListModelsTool(
       { dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency, repository: options?.repository },
       options?.repository
     ),
-    validate_build: createValidateBuildTool(),
-    present_build: createPresentBuildTool()
+    validate_build: createValidateBuildTool(
+      { dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency }, options?.repository, turnStore
+    ),
+    present_build: createPresentBuildTool(turnStore),
+    suggest_followups: createSuggestFollowupsTool()
   };
 
   if (config.tier2Enabled && config.search.provider !== "none") {
@@ -29,6 +42,10 @@ export function createToolRegistry(config: AppConfig, options?: { repository?: C
 
 export { createSearchProductsTool, searchProducts } from "./search-products";
 export { createGetCatalogTool, getCatalog } from "./get-catalog";
-export { createValidateBuildTool } from "./validate-build";
+export { createListModelsTool, listModels } from "./list-models";
+export { createValidateBuildTool, toModelValidateOutput } from "./validate-build";
 export { createPresentBuildTool } from "./present-build";
 export { createConsultTool, consult } from "./consult";
+export { createTurnValidationStore, recordValidation, validLabels, normalizeLabel } from "./turn-state";
+export type { TurnValidationStore, TurnValidationEntry } from "./turn-state";
+export { resolveIdPrefix, idsMatch, shortId, SHORT_ID_LEN, MIN_PREFIX_LEN } from "./product-ids";

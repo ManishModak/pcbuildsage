@@ -6,7 +6,11 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 import { initializeSchema } from "@/lib/db";
+import { createValidateBuildTool } from "@/lib/tools/validate-build";
 import type { Product } from "@/types/db";
 import {
   SqliteCatalogRepository,
@@ -76,6 +80,36 @@ describe("SqliteCatalogRepository", () => {
     resetCatalogRepositoryRegistry();
   });
 
+  it("looks up exact offer IDs within market scope, including retired offers", async () => {
+    insertProduct(db, { id: "selected", name: "Selected CPU", in_stock: 0 });
+    insertProduct(db, { id: "unselected", name: "Other CPU" });
+    insertProduct(db, { id: "foreign", country_code: "IN", currency: "INR" });
+    const result = await repo.searchProducts({ product_ids: ["selected", "foreign"], in_stock: false }, scopeUS);
+    expect(result.results.map((product) => product.id)).toEqual(["selected"]);
+    expect((await repo.searchProducts({ product_ids: [] }, scopeUS)).results).toEqual([]);
+  });
+
+  it("validates actual in-stock and retired catalog IDs through the tool", async () => {
+    insertProduct(db, { id: "active-cpu", name: "AMD Ryzen 5 5500 Processor", registry_key: "amd-ryzen-5-5500", in_stock: 1 });
+    insertProduct(db, { id: "retired-gpu", category: "gpu", name: "Sapphire PURE RX 7700 XT 12GB", registry_key: "sapphire-pure-rx-7700-xt", in_stock: 0 });
+    const tool = createValidateBuildTool(scopeUS, repo);
+    const output = await tool.execute!({ parts: { cpu: { product_id: "active-cpu" }, gpu: { product_id: "retired-gpu" } } }, { toolCallId: "test", messages: [], context: {} });
+    expect(output).toMatchObject({ resolved: { cpu: { key: "active-cpu", spec: { socket: "AM4" } } } });
+    expect(output).toMatchObject({ resolved: { gpu: { key: "retired-gpu", spec: { vram_gb: 12 } } } });
+  });
+
+  it("excludes mislinked 8GB cards from 16GB searches and exposes the conflict", async () => {
+    insertProduct(db, { id: "eight", category: "gpu", name: "XFX Speedster RX 9060 XT 8GB OC", registry_key: "amd-rx-9060-xt-16gb" });
+    const all = await repo.searchProducts({ category: "gpu" }, scopeUS);
+    expect(all.results[0].specs).toMatchObject({ vram_gb: 8, spec_conflict: expect.any(String) });
+    expect(all.results[0].registry_key).toBe("amd-rx-9060-xt-8gb");
+    const sixteen = await repo.searchProducts({ category: "gpu", min_vram_gb: 16 }, scopeUS);
+    expect(sixteen.results).toHaveLength(0);
+    const tool = createValidateBuildTool(scopeUS, repo);
+    const result = await tool.execute!({ parts: { gpu: { product_id: "eight" } } }, { toolCallId: "variant", messages: [], context: {} });
+    expect(result).toMatchObject({ checks: expect.arrayContaining([expect.objectContaining({ rule: "spec_resolution", status: "unverified", components: ["eight"] })]) });
+  });
+
   describe("Factory Registration and Instantiation", () => {
     it("is resolved as default local catalog repository from getCatalogRepository('local')", () => {
       const defaultRepo = getCatalogRepository("local");
@@ -99,12 +133,64 @@ describe("SqliteCatalogRepository", () => {
       await expect(repo.close()).resolves.toBeUndefined();
     });
 
-    it("returns standard markets metadata via getMarkets()", async () => {
-      const markets = await repo.getMarkets();
-      expect(Array.isArray(markets)).toBe(true);
-      expect(markets.length).toBeGreaterThan(0);
-      expect(markets.map((m) => m.code)).toContain("US");
-      expect(markets.map((m) => m.code)).toContain("IN");
+    it("returns markets from installed profiles when empty, and active catalog markets when stocked", async () => {
+      // Empty catalog in local mode falls back to installed profiles; the us-example.json
+      // template (example.com) has no real retailer, so only India is offered
+      const initialMarkets = await repo.getMarkets();
+      expect(initialMarkets.map((m) => m.code)).toEqual(["IN"]);
+
+      // Insert in-stock products for IN, out-of-stock for US
+      insertProduct(db, { id: "p-in", country_code: "IN", currency: "INR", in_stock: 1 });
+      insertProduct(db, { id: "p-us-out", country_code: "US", currency: "USD", in_stock: 0 });
+
+      let markets = await repo.getMarkets();
+      expect(markets).toHaveLength(1);
+      expect(markets[0].code).toBe("IN");
+      expect(markets[0].name).toBe("India");
+
+      // Once US has in-stock inventory, it is included
+      insertProduct(db, { id: "p-us-in", country_code: "US", currency: "USD", in_stock: 1 });
+      markets = await repo.getMarkets();
+      expect(markets).toHaveLength(2);
+      expect(markets.map((m) => m.code)).toEqual(["IN", "US"]);
+    });
+
+    it("offers India when empty DB has only india.json installed, while hosted mode returns empty", async () => {
+      const tmpDir = path.join(os.tmpdir(), `profiles-test-${Date.now()}`);
+      fs.mkdirSync(tmpDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "india.json"),
+        JSON.stringify({
+          country_code: "IN",
+          default_currency: "INR",
+          sites: [{ base_url: "https://mdcomputers.in/" }]
+        })
+      );
+      // Template profile: every site on a reserved example domain, so it must not add a market
+      fs.writeFileSync(
+        path.join(tmpDir, "us-example.json"),
+        JSON.stringify({
+          country_code: "US",
+          default_currency: "USD",
+          sites: [{ base_url: "https://example.com/" }, { base_url: "https://shop.example.org/" }]
+        })
+      );
+
+      try {
+        const emptyLocalRepo = new SqliteCatalogRepository(createInMemoryDb(), undefined, tmpDir);
+        const localMarkets = await emptyLocalRepo.getMarkets();
+        expect(localMarkets).toHaveLength(1);
+        expect(localMarkets[0]).toEqual({
+          code: "IN",
+          name: "India",
+          defaultCurrency: "INR",
+          supportedCurrencies: ["INR"],
+          locale: "en-IN"
+        });
+        await emptyLocalRepo.close();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
     });
   });
 

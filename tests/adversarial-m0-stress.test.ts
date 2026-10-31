@@ -17,6 +17,7 @@ import {
 import { middleware } from "../src/middleware";
 
 import { listMarkets, getMarketByCode } from "../src/lib/config/markets";
+import { setCatalogRepository, type CatalogRepository } from "../src/lib/catalog";
 import { buildAppConfig, UnsafeConfigError, assertSafeLlmChain } from "../src/app/api/_lib/credentials";
 
 import { GET as healthRoute } from "../src/app/api/health/route";
@@ -44,6 +45,7 @@ describe("Adversarial M0 Empirical Stress Test Suite", () => {
     } else {
       delete process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
     }
+    setCatalogRepository(null);
     vi.restoreAllMocks();
   });
 
@@ -565,35 +567,22 @@ describe("Adversarial M0 Empirical Stress Test Suite", () => {
       }));
       expect(res3.status).toBe(400);
 
-      // Case D: SearXNG in hosted mode
+      // Case D: SearchBaseUrl SSRF on a kept keyed provider (searxng /
+      // duckduckgo are coerced to "none" in hosted mode, see
+      // tests/hosted-hardening.test.ts).
       const res4 = await chatRoute(new Request("http://localhost/api/chat", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-exa-api-key": "test-key" },
         body: JSON.stringify({
           messages: [{ role: "user", content: "hello" }],
           config: {
             llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }],
-            searchProvider: "searxng",
-            searchBaseUrl: "http://localhost:8080"
-          }
-        })
-      }));
-      expect(res4.status).toBe(400);
-
-      // Case E: SearchBaseUrl SSRF
-      const res5 = await chatRoute(new Request("http://localhost/api/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: "hello" }],
-          config: {
-            llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }],
-            searchProvider: "duckduckgo",
+            searchProvider: "exa",
             searchBaseUrl: "http://127.0.0.1:8080"
           }
         })
       }));
-      expect(res5.status).toBe(400);
+      expect(res4.status).toBe(400);
     });
   });
 
@@ -616,7 +605,8 @@ describe("Adversarial M0 Empirical Stress Test Suite", () => {
       const res2 = await healthRoute();
       expect(res2.status).toBe(200);
       const body2 = (await res2.json()) as { status: string; mode: string; timestamp: string };
-      expect(body2.status).toBe("ok");
+      // Hosted: "ok" with a reachable Turso, "degraded" otherwise; always HTTP 200.
+      expect(["ok", "degraded"]).toContain(body2.status);
       expect(body2.mode).toBe("hosted-demo");
       expect(body2.timestamp).toBeDefined();
     });
@@ -675,18 +665,34 @@ describe("Adversarial M0 Empirical Stress Test Suite", () => {
   // Section 6: Market Metadata Registry & Query Robustness
   // ==========================================================================
   describe("6. Market Metadata Registry & Query Robustness", () => {
-    it("GET /api/markets returns all 5 standard markets (US, UK, IN, CA, DE)", async () => {
-      const res = await marketsRoute();
-      expect(res.status).toBe(200);
-      const body = (await res.json()) as { markets: Array<{ code: string; name: string; defaultCurrency: string }> };
+    it("GET /api/markets returns markets with in-stock products (India in current catalog)", async () => {
+      const fixtureRepo: Partial<CatalogRepository> = {
+        getMarkets: async () => [
+          {
+            code: "IN",
+            name: "India",
+            defaultCurrency: "INR",
+            supportedCurrencies: ["INR"],
+            locale: "en-IN"
+          }
+        ]
+      };
+      setCatalogRepository(fixtureRepo as CatalogRepository);
+      try {
+        const res = await marketsRoute();
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { markets: Array<{ code: string; name: string; defaultCurrency: string }> };
 
-      expect(Array.isArray(body.markets)).toBe(true);
-      const codes = body.markets.map((m) => m.code);
-      expect(codes).toContain("US");
-      expect(codes).toContain("UK");
-      expect(codes).toContain("IN");
-      expect(codes).toContain("CA");
-      expect(codes).toContain("DE");
+        expect(Array.isArray(body.markets)).toBe(true);
+        const codes = body.markets.map((m) => m.code);
+        expect(codes).toContain("IN");
+        expect(codes).not.toContain("US");
+        expect(codes).not.toContain("UK");
+        expect(codes).not.toContain("CA");
+        expect(codes).not.toContain("DE");
+      } finally {
+        setCatalogRepository(null);
+      }
     });
 
     it("listMarkets does NOT leak internal scraper selectors, categories, or URLs", () => {

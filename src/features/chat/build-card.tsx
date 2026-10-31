@@ -1,28 +1,111 @@
 "use client";
 
-import { useState } from "react";
-import { ExternalLink, FlaskConical } from "lucide-react";
-import { formatPrice, sumPrices } from "@/lib/format";
+import { useState, useId } from "react";
+import { AlertCircle, ExternalLink, FlaskConical, RefreshCw } from "lucide-react";
+import { formatPrice } from "@/lib/format";
 import { Icon } from "@/components/ui/icon";
 import { PillTabs } from "@/components/ui/pill-tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/components/ui/cn";
-import type { DerivedBuild } from "./build-derive";
-import { validationStrip } from "./build-derive";
+import type { DerivedBuild, BuildVersion } from "./build-derive";
+import {
+  priceAge,
+  recheckPricesPrompt,
+  resolveBuildTotal,
+  validationStrip,
+  TEXT_BUILD_CAVEAT,
+  type StripBadge
+} from "./build-derive";
+
+export interface BuildCardProps {
+  builds?: DerivedBuild[];
+  versions?: BuildVersion[];
+  /**
+   * Selected version, by stable id rather than by number: an edit or a
+   * truncation renumbers the versions, and a number can then point at a
+   * different build than the one the user picked.
+   */
+  selectedVersionId?: string;
+  onVersionChange?: (versionId: string) => void;
+  selectedAlternativeIndex?: number;
+  onAlternativeChange?: (index: number) => void;
+  inSidePanel?: boolean;
+  /**
+   * Sends a chat message asking to reprice the build. Offered only when its
+   * prices are stale; omit it (e.g. while a reply streams) to show the note alone.
+   */
+  onRecheckPrices?: (prompt: string) => void;
+}
 
 // The flagship artifact. One card per proposed build, presented as pill tabs
 // above a shared card body. Tab labels name the tradeoff each build makes and
 // come from the model via validate_build. Prices are mono, right-aligned, tabular.
-export function BuildCard({ builds, inSidePanel }: { builds: DerivedBuild[]; inSidePanel?: boolean }) {
-  const [index, setIndex] = useState(0);
-  const active = builds[Math.min(index, builds.length - 1)];
+export function BuildCard({
+  builds,
+  versions,
+  selectedVersionId,
+  onVersionChange,
+  selectedAlternativeIndex,
+  onAlternativeChange,
+  inSidePanel = false,
+  onRecheckPrices
+}: BuildCardProps) {
+  const selectId = useId();
+
+  const availableVersions = versions ?? [];
+  const latestVersion = availableVersions.length > 0 ? availableVersions[availableVersions.length - 1] : undefined;
+
+  // A recovered version's label is a fixed string ("Validated - not presented
+  // yet"), and an interrupted session can have more than one, so fall back to
+  // the build's own label to keep the options tellable apart.
+  const ambiguousLabels = new Set(
+    availableVersions
+      .map((v) => v.label)
+      .filter((label, _index, all) => all.filter((other) => other === label).length > 1)
+  );
+
+  const [internalVersionId, setInternalVersionId] = useState<string | undefined>(undefined);
+  const requestedId = selectedVersionId ?? internalVersionId;
+  // A selection can outlive the version it named (the transcript was edited or
+  // truncated), so fall back to the latest instead of rendering nothing.
+  const currentVersionObj =
+    (requestedId ? availableVersions.find((v) => v.id === requestedId) : undefined) ??
+    latestVersion ??
+    undefined;
+  const activeVersionNum = currentVersionObj?.version ?? 1;
+  const activeBuilds = currentVersionObj?.builds ?? builds ?? [];
+
+  const [prevVersionId, setPrevVersionId] = useState(currentVersionObj?.id);
+  const [internalIndex, setInternalIndex] = useState(0);
+
+  // Clean state adjustment on version change during render (standard React pattern)
+  if (prevVersionId !== currentVersionObj?.id) {
+    setPrevVersionId(currentVersionObj?.id);
+    setInternalIndex(0);
+  }
+
+  const index = selectedAlternativeIndex ?? internalIndex;
+
+  const setIndex = (newIndex: number) => {
+    setInternalIndex(newIndex);
+    onAlternativeChange?.(newIndex);
+  };
+
+  const safeIndex = Math.min(Math.max(0, index), Math.max(0, activeBuilds.length - 1));
+  const active = activeBuilds[safeIndex];
   if (!active) return null;
 
-  const tabs = builds.map((build, i) => ({
+  // The turn said a build existed but nothing renderable came with it. The
+  // version picker and the strategy tabs stay: the controls are how the user
+  // reaches the builds that *do* have details, and dropping them would strand
+  // the panel on a dead card. Only the body is replaced by the message.
+  const unavailable = active.detailsUnavailable || active.components.length === 0;
+
+  const tabs = activeBuilds.map((build, i) => ({
     value: String(i),
     label: build.label ?? `Build ${i + 1}`
   }));
-  const total = sumPrices(active.components.map((component) => component.price));
+  const total = resolveBuildTotal(active);
   const strip = validationStrip(active.validation);
 
   return (
@@ -33,11 +116,53 @@ export function BuildCard({ builds, inSidePanel }: { builds: DerivedBuild[]; inS
       )}
       aria-label="Proposed build"
     >
+      {availableVersions.length > 1 ? (
+        <div className="flex items-center justify-between border-b border-border bg-surface-raised/40 px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-caption font-medium text-text-secondary">
+              Build Version
+            </span>
+            <span className="rounded-pill bg-surface border border-border px-2 py-0.5 text-[11px] font-mono font-medium text-text-muted">
+              v{activeVersionNum} of {availableVersions.length}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor={selectId} className="sr-only">
+              Previous versions
+            </label>
+            <select
+              id={selectId}
+              aria-label="Previous versions"
+              value={currentVersionObj?.id ?? ""}
+              onChange={(e) => {
+                const nextId = e.target.value;
+                setInternalVersionId(nextId);
+                setIndex(0);
+                onVersionChange?.(nextId);
+              }}
+              className="rounded-btn border border-border bg-surface px-2.5 py-1 text-caption font-medium text-text hover:border-accent focus:border-accent focus:outline-none cursor-pointer"
+            >
+              {availableVersions.map((v) => {
+                const optionLabel =
+                  ambiguousLabels.has(v.label) && v.builds[0]?.label
+                    ? `${v.label} · ${v.builds[0].label}`
+                    : v.label;
+                return (
+                  <option key={v.id} value={v.id}>
+                    {v === latestVersion ? `${optionLabel} (Latest)` : optionLabel}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        </div>
+      ) : null}
+
       {tabs.length > 1 ? (
         <div className="border-b border-border px-4 pt-4">
           <PillTabs
             tabs={tabs}
-            value={String(Math.min(index, builds.length - 1))}
+            value={String(safeIndex)}
             onChange={(value) => setIndex(Number(value))}
             ariaLabel="Build strategy"
           />
@@ -45,16 +170,57 @@ export function BuildCard({ builds, inSidePanel }: { builds: DerivedBuild[]; inS
       ) : (
         <div className="border-b border-border px-4 py-3">
           <span className="inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
-            {active.label ?? "Proposed build"}
+            {/* A text-derived build's caveat is shown once, in the body below. */}
+            {active.label ?? (active.textDerived ? undefined : currentVersionObj?.label) ?? "Proposed build"}
           </span>
         </div>
       )}
 
       <div className="px-4 py-3">
-        <ul className="flex flex-col">
-          {active.components.map((component) => (
-            <li
-              key={`${component.category}-${component.name}`}
+        {unavailable ? (
+          <p role="alert" className="text-sm text-text-secondary">
+            {"Build details unavailable \u2014 ask the assistant to present it again"}
+          </p>
+        ) : (
+          <>
+            {active.textDerived ? (
+              <p className="mb-3 inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
+                {TEXT_BUILD_CAVEAT}
+              </p>
+            ) : null}
+            <BuildComponentsList active={active} total={total} strip={strip} onRecheckPrices={onRecheckPrices} />
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The renderable body of a build: component rows, authoritative total, and
+ * validation badges. Split out so the unavailable branch above can keep the
+ * version picker and strategy tabs while replacing only this.
+ */
+function BuildComponentsList({
+  active,
+  total,
+  strip,
+  onRecheckPrices
+}: {
+  active: DerivedBuild;
+  total: number | null;
+  strip: StripBadge[];
+  onRecheckPrices?: (prompt: string) => void;
+}) {
+  const age = priceAge(active.pricesAsOf);
+  return (
+    <>
+      <ul className="flex flex-col">
+        {active.components.map((component, componentIndex) => (
+          <li
+              // Two identical parts in one category are legal (a matched pair
+              // of sticks, say), so the key needs the position too.
+              key={`${componentIndex}-${component.category}-${component.name}`}
               className="flex items-baseline gap-3 border-b border-border py-2.5 last:border-b-0"
             >
               <span className="w-24 shrink-0 text-caption font-medium uppercase tracking-wide text-text-muted">
@@ -63,7 +229,15 @@ export function BuildCard({ builds, inSidePanel }: { builds: DerivedBuild[]; inS
               <span className="min-w-0 flex-1">
                 <span className="block text-sm text-text">{component.name}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  {component.retailer ? (
+                  {component.notInCatalog ? (
+                    <span className="inline-flex flex-wrap items-baseline gap-x-2 text-caption text-text-muted">
+                      <span className="italic">not in catalog</span>
+                      {/* The id belongs here, not in the name above it. */}
+                      {component.productId ? (
+                        <span className="font-mono text-[11px]">{component.productId}</span>
+                      ) : null}
+                    </span>
+                  ) : component.retailer ? (
                     component.url ? (
                       <a
                         href={component.url}
@@ -80,7 +254,16 @@ export function BuildCard({ builds, inSidePanel }: { builds: DerivedBuild[]; inS
                   ) : (
                     <span className="text-caption text-text-muted italic">Derived requirement</span>
                   )}
-                  {component.unverified && component.retailer ? (
+                  {component.failed ? (
+                    <span
+                      className="inline-flex items-center gap-1 text-caption text-warn"
+                      style={{ color: "var(--warn)" }}
+                      title={component.failedNote}
+                    >
+                      <Icon icon={AlertCircle} size={12} />
+                      {component.failedNote ?? "Incompatible"}
+                    </span>
+                  ) : component.unverified ? (
                     <span
                       className="inline-flex items-center gap-1 text-caption"
                       style={{ color: "var(--unverified)" }}
@@ -104,6 +287,24 @@ export function BuildCard({ builds, inSidePanel }: { builds: DerivedBuild[]; inS
           <span className="font-mono text-[22px] leading-none text-text">{formatPrice(total, active.currency)}</span>
         </div>
 
+        {age ? (
+          age.stale && onRecheckPrices ? (
+            <button
+              type="button"
+              onClick={() => onRecheckPrices(recheckPricesPrompt(active))}
+              className="mt-2 inline-flex cursor-pointer items-center gap-1 text-caption hover:underline"
+              style={{ color: "var(--warn)" }}
+            >
+              <Icon icon={RefreshCw} size={12} />
+              {`${age.label} \u2014 recheck prices`}
+            </button>
+          ) : (
+            <p className="mt-2 text-caption" style={age.stale ? { color: "var(--warn)" } : undefined}>
+              <span className={age.stale ? undefined : "text-text-muted"}>{age.label}</span>
+            </p>
+          )
+        ) : null}
+
         {strip.length ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {strip.map((badge, i) => (
@@ -111,7 +312,6 @@ export function BuildCard({ builds, inSidePanel }: { builds: DerivedBuild[]; inS
             ))}
           </div>
         ) : null}
-      </div>
-    </section>
+    </>
   );
 }

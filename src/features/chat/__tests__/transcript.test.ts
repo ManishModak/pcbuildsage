@@ -105,7 +105,7 @@ describe("transcript utilities", () => {
     expect(parsed.session.title).toBe("Test JSON Transcript");
     expect(parsed.session.model).toBe("gemini-2.5-flash");
     expect(parsed.session.currency).toBe("USD");
-    expect(parsed.error).toContain("Rate limit or quota reached (HTTP 429)");
+    expect(parsed.error).toContain("You've hit the free limit. Wait a bit or pick another free model.");
     expect(parsed.messages).toHaveLength(2);
     expect(parsed.messages[0].role).toBe("user");
     expect(parsed.messages[1].role).toBe("assistant");
@@ -126,5 +126,58 @@ describe("transcript utilities", () => {
     });
 
     expect(md).toContain("Raw content text without parts array");
+  });
+
+  it("preserves exact interleaving order (Reasoning -> Tool Call -> Text -> Tool Call -> Text)", () => {
+    const interleavedMessage: ChatUIMessage = {
+      id: "msg-interleaved",
+      role: "assistant",
+      parts: [
+        {
+          type: "reasoning",
+          text: "Step 1: Pondering user budget and requirements."
+        },
+        {
+          type: "tool-search_products",
+          toolCallId: "call-1",
+          state: "output-available",
+          input: { term: "RTX 4060", category: "gpu" },
+          output: [{ name: "RTX 4060", priceMinor: 2900000 }]
+        },
+        {
+          type: "text",
+          text: "First, I located a suitable RTX 4060 GPU."
+        },
+        {
+          type: "tool-validate_build",
+          toolCallId: "call-2",
+          state: "output-available",
+          input: { parts: { gpu: "RTX 4060" } },
+          output: { valid: true }
+        },
+        {
+          type: "text",
+          text: "Next, compatibility checks have passed."
+        }
+      ]
+    };
+
+    const md = formatMarkdownTranscript({
+      title: "Interleaving Test",
+      messages: [interleavedMessage],
+      currency: "INR"
+    });
+
+    const posReasoning = md.indexOf("Step 1: Pondering user budget");
+    const posTool1 = md.indexOf("Tool Call**: `search_products`");
+    const posText1 = md.indexOf("First, I located a suitable RTX 4060 GPU.");
+    const posTool2 = md.indexOf("Tool Call**: `validate_build`");
+    const posText2 = md.indexOf("Next, compatibility checks have passed.");
+
+    expect(posReasoning).toBeGreaterThan(-1);
+    expect(posTool1).toBeGreaterThan(posReasoning);
+    expect(posText1).toBeGreaterThan(posTool1);
+    expect(posTool2).toBeGreaterThan(posText1);
+    expect(posText2).toBeGreaterThan(posTool2);
   });
 });

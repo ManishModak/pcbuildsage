@@ -13,7 +13,16 @@ vi.mock("better-sqlite3", async (importOriginal) => {
   };
 });
 
-import { deleteSession, getSession, listSessions, saveSession, getSessionsDb } from "../sessions";
+import {
+  deleteSession,
+  getSession,
+  listSessions,
+  saveSession,
+  getSessionsDb,
+  parseCompactContext,
+  isSessionCompacting,
+  setSessionCompacting
+} from "../sessions";
 
 describe("sessions store", () => {
   beforeEach(() => {
@@ -146,5 +155,61 @@ describe("sessions store", () => {
     expect(s2.country_code).toBeNull();
     expect(s2.currency).toBeNull();
     expect(s2.messages).toEqual([{ id: "m1" }]);
+  });
+
+  it("persists and round-trips compact_context with boundaryMessageId and snapshot", () => {
+    const compactContext = {
+      messages: [
+        { role: "user" as const, content: "Initial budget prompt" },
+        { role: "assistant" as const, content: "[Progress & Handoff Summary]" }
+      ],
+      boundaryMessageId: "msg-boundary-123",
+      snapshot: { label: "Gaming Rig", total: 1200 }
+    };
+
+    saveSession({
+      id: "compact-session",
+      revision: 1,
+      messages: [{ id: "m1", role: "user" }],
+      compactContext
+    });
+
+    const session = getSession("compact-session")!;
+    expect(session).not.toBeNull();
+    expect(session.compact_context).toEqual(compactContext);
+  });
+
+  it("parseCompactContext validates message shapes and safely discards corrupted data", () => {
+    // Valid case
+    const validRaw = JSON.stringify({
+      messages: [{ role: "user", content: "hello" }],
+      boundaryMessageId: "b-1"
+    });
+    expect(parseCompactContext(validRaw)).toEqual({
+      messages: [{ role: "user", content: "hello" }],
+      boundaryMessageId: "b-1",
+      snapshot: null
+    });
+
+    // Invalid JSON
+    expect(parseCompactContext("not-json")).toBeNull();
+
+    // Missing messages array
+    expect(parseCompactContext(JSON.stringify({ boundaryMessageId: "b-1" }))).toBeNull();
+
+    // Invalid message roles
+    expect(
+      parseCompactContext(JSON.stringify({ messages: [{ role: "alien", content: "xyz" }] }))
+    ).toBeNull();
+  });
+
+  it("tracks in-memory proactive compaction status across session lifecycles", () => {
+    expect(isSessionCompacting("session-x")).toBe(false);
+
+    setSessionCompacting("session-x", true);
+    expect(isSessionCompacting("session-x")).toBe(true);
+
+    setSessionCompacting("session-x", false);
+    expect(isSessionCompacting("session-x")).toBe(false);
   });
 });

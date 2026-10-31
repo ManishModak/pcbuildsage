@@ -1,6 +1,24 @@
 import type { ChainEntry, ClientConfig, ScrapeRunConfig, SearchProvider } from "@/types/client";
+import { getByokKey } from "@/lib/llm/client-byok-store";
 
-const CONFIG_KEY = "pcbuildsage:config";
+export const CONFIG_KEY = "pcbuildsage:config";
+
+/**
+ * Inline <head> script (see src/app/layout.tsx): marks returning (onboarded)
+ * users with html[data-returning] before first paint, so globals.css shows
+ * the loading spinner instead of flashing the landing that HomeClient swaps
+ * for the chat after hydration.
+ */
+export const RETURNING_BOOTSTRAP = `
+(function () {
+  try {
+    var raw = localStorage.getItem(${JSON.stringify(CONFIG_KEY)});
+    if (raw && JSON.parse(raw).onboarded === true) {
+      document.documentElement.setAttribute("data-returning", "");
+    }
+  } catch (e) {}
+})();
+`;
 const SCRAPE_KEY = "pcbuildsage:lastScrape";
 const KEYS_KEY = "pcbuildsage:uiKeys";
 
@@ -135,7 +153,7 @@ export function saveUiKey(provider: string, key: string): void {
 }
 
 export function hasUiKey(provider: string): boolean {
-  return Boolean(readKeyMap()[provider]);
+  return Boolean(readKeyMap()[provider] || getByokKey(provider));
 }
 
 export function apiKeyHeaders(chain: ChainEntry[], config?: ClientConfig): Record<string, string> {
@@ -143,13 +161,13 @@ export function apiKeyHeaders(chain: ChainEntry[], config?: ClientConfig): Recor
   const headers: Record<string, string> = {};
   for (const entry of chain) {
     if (entry.keySource === "ui") {
-      const key = map[entry.provider];
+      const key = map[entry.provider] || getByokKey(entry.provider);
       if (key) headers[`x-pcbuildsage-api-key-${entry.provider}`] = key;
     }
   }
   if (config && config.searchProvider) {
     if (["exa", "tavily", "brave"].includes(config.searchProvider)) {
-      const key = map[config.searchProvider];
+      const key = map[config.searchProvider] || getByokKey(config.searchProvider);
       if (key) {
         headers[`x-pcbuildsage-api-key-${config.searchProvider}`] = key;
       }
@@ -174,7 +192,9 @@ export function toServerChain(chain: ChainEntry[]) {
     provider: entry.provider,
     model: entry.model,
     keySource: entry.keySource,
-    baseUrl: entry.baseUrl
+    baseUrl: entry.baseUrl,
+    reasoningEffort: entry.reasoningEffort,
+    contextLimit: entry.contextLimit
     // apiKey deliberately omitted: keys travel via headers, never body.
   }));
 }

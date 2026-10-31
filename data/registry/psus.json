@@ -82,7 +82,6 @@
     "brand": "Ant Esports",
     "model": "Ant Esports VS500L 500W",
     "wattage": 500,
-    "efficiency": "80+",
     "form_factor": "ATX",
     "aliases": [
       "Ant Esports VS500L",
@@ -160,7 +159,6 @@
     "brand": "Ant Esports",
     "model": "Ant Esports VS550L 550W",
     "wattage": 550,
-    "efficiency": "80+",
     "form_factor": "ATX",
     "aliases": [
       "Ant Esports VS550L",
@@ -261,7 +259,6 @@
     "brand": "Ant Esports",
     "model": "Ant Esports VS600L 600W",
     "wattage": 600,
-    "efficiency": "80+",
     "form_factor": "ATX",
     "aliases": [
       "Ant Esports VS600L",
@@ -423,7 +420,6 @@
     "brand": "Ant Esports",
     "model": "Ant Esports VS650L 650W",
     "wattage": 650,
-    "efficiency": "80+",
     "form_factor": "ATX",
     "aliases": [
       "Ant Esports VS650L",
@@ -1014,7 +1010,7 @@
     "confidence": "high",
     "researched_at": "2026-08-16T15:34:56+05:30"
   },
-  "be-quiet-dark-power-pro-12-850w": {
+  "be-quiet-dark-power-12-850w": {
     "brand": "be quiet!",
     "model": "be quiet! Dark Power 12 850W",
     "wattage": 850,
@@ -1025,8 +1021,7 @@
       "Dark Power 12 850W",
       "be quiet! Dark Power 12 850",
       "Dark Power 12 850",
-      "be quiet! Dark Power Pro 12 850W",
-      "Dark Power Pro 12 850W"
+      "BN315"
     ],
     "sources": [
       "https://www.bequiet.com/en/powersupply/2150"

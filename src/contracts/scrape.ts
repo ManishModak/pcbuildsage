@@ -8,6 +8,8 @@ export type RunOutcome = {
   jobs_succeeded: number;
   jobs_failed: number;
   jobs_skipped: number;
+  /** Jobs that kept good pages but missed some; jobs_failed counts only hard failures. */
+  jobs_partial?: number;
   products_written: number | null;
   errors: string[];
 };
@@ -44,16 +46,20 @@ export function parseRunOutcome(value: unknown): RunOutcome | null {
     !isCount(candidate.jobs_succeeded) ||
     !isCount(candidate.jobs_failed) ||
     !isCount(candidate.jobs_skipped) ||
+    !(candidate.jobs_partial === undefined || isCount(candidate.jobs_partial)) ||
     !(candidate.products_written === null || isCount(candidate.products_written)) ||
     !Array.isArray(candidate.errors) ||
     !candidate.errors.every((error) => typeof error === "string")
   ) {
     return null;
   }
-  const jobsAccountedFor = candidate.jobs_succeeded + candidate.jobs_failed + candidate.jobs_skipped;
+  const partial = candidate.jobs_partial ?? 0;
+  const jobsAccountedFor = candidate.jobs_succeeded + partial + candidate.jobs_failed + candidate.jobs_skipped;
   const statusIsConsistent =
-    (candidate.status === "succeeded" && candidate.jobs_failed === 0) ||
-    (candidate.status === "partial" && candidate.jobs_failed > 0 && candidate.jobs_failed < candidate.jobs_total) ||
+    (candidate.status === "succeeded" && candidate.jobs_failed === 0 && partial === 0) ||
+    (candidate.status === "partial" &&
+      candidate.jobs_failed + partial > 0 &&
+      candidate.jobs_succeeded + partial > 0) ||
     candidate.status === "failed" ||
     candidate.status === "cancelled";
   return jobsAccountedFor === candidate.jobs_total && statusIsConsistent ? candidate as RunOutcome : null;
@@ -98,7 +104,11 @@ export function resolveRunTermination(
     );
   }
   const outcome = outcomes[0];
-  const exitMatches = outcome.status === "succeeded" ? code === 0 : code !== 0;
+  // Mirrors run_exit_code in scraper/__main__.py: a partial run that wrote
+  // rows exits 0 so the snapshot can still be published.
+  const expectsZero =
+    outcome.status === "succeeded" || (outcome.status === "partial" && (outcome.products_written ?? 0) > 0);
+  const exitMatches = expectsZero ? code === 0 : code !== 0;
   return exitMatches
     ? outcome
     : failedRunOutcome(`The scraper outcome did not match its exit code (${code ?? "null"}).`);

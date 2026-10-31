@@ -98,7 +98,8 @@ async function promptLlmEntry(palette: Palette): Promise<{ entry: LLMChainEntry;
   const toolProbe = await probeToolCapability(entry);
   if (!toolProbe.ok) {
     const flag = preset?.launch_flags ? ` Enable: ${preset.launch_flags}` : "";
-    throw new Error(`Endpoint is reachable but not tool-capable.${flag} ${toolProbe.remedies?.join(" ") ?? ""}`.trim());
+    const reason = toolProbe.error ?? "Endpoint is reachable but not tool-capable.";
+    throw new Error(`${reason}${flag} ${toolProbe.remedies?.join(" ") ?? ""}`.trim());
   }
   console.log(palette.ok(`${STATUS_GLYPHS.ok} ${providerName}:${model} is tool-capable`));
 

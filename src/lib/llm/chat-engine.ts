@@ -1,100 +1,678 @@
-import { type OnFinishEvent, type OnStepFinishEvent, type ToolSet, convertToModelMessages, isStepCount } from "ai";
+import { type OnFinishEvent, type OnStepFinishEvent, type ToolSet, type ModelMessage, type UIMessage, convertToModelMessages, isStepCount } from "ai";
 import type { AppConfig } from "@/types";
 import { streamTextWithFallback } from "./client";
 import { appendChatLog } from "@/lib/logger";
-import { createToolRegistry } from "@/lib/tools";
+import { createToolRegistry, getCatalog } from "@/lib/tools";
+import type { CatalogRepository, GetCatalogResult } from "@/lib/catalog";
 import { getPersonality } from "./personalities";
-import { getSession } from "@/lib/sessions";
-import { type ChatMessage, capMessages } from "./messages";
+import { getSession, saveCompactContext, setSessionCompacting, type StoredCompactContext } from "@/lib/sessions";
+import { type ChatMessage, capMessages, deriveBuildState } from "./messages";
+import {
+  getModelContextLimit,
+  shouldTriggerCompaction,
+  measureToolDefinitionsTokens,
+  calculateStepTokens
+} from "./context-budget";
+import { compactConversation } from "./compaction";
+import type { BuildSnapshot } from "../catalog/build-snapshot";
+import { isHostedDemo } from "../config/deployment";
+import { record as recordAnalytics } from "../analytics/store";
+function isHosted(): boolean {
+  return isHostedDemo();
+}
 
 export type { ChatMessage };
+
+/**
+ * Formats a compact catalog summary block for the system prompt.
+ * Contains categories with count 0 or more, price ranges, and accessory subcategories.
+ */
+export function formatCatalogSummary(catalog: GetCatalogResult): string {
+  const currency = catalog.scope.currency;
+  const currencySymbol =
+    currency === "INR" ? "₹" : currency === "USD" ? "$" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : `${currency} `;
+
+  const lines = catalog.categories.map((cat) => {
+    const priceRange =
+      cat.count > 0 && cat.price_min != null && cat.price_max != null
+        ? `${currencySymbol}${cat.price_min}–${currencySymbol}${cat.price_max}`
+        : "none";
+    let line = `- ${cat.category}: ${cat.count} items (${cat.in_stock_count} in stock), price: ${priceRange}`;
+    if (cat.subcategories && Object.keys(cat.subcategories).length > 0) {
+      const subs = Object.entries(cat.subcategories)
+        .map(([subName, sub]) => {
+          const subRange =
+            sub.price_min != null && sub.price_max != null
+              ? ` (${currencySymbol}${sub.price_min}–${currencySymbol}${sub.price_max})`
+              : "";
+          return `${subName}: ${sub.count}${subRange}`;
+        })
+        .join(", ");
+      line += ` [accessories: ${subs}]`;
+    }
+    return line;
+  });
+
+  return `Catalog summary (${catalog.scope.country_code}, ${currency}):\n${lines.join("\n")}`;
+}
+
+/**
+ * Catalog summary for the system prompt. A catalog outage must not take the
+ * whole chat down, so a failed lookup returns an empty block and the model
+ * still has search_products to discover what exists.
+ */
+export async function loadCatalogSummary(config: AppConfig, repository?: CatalogRepository): Promise<string> {
+  try {
+    const catalog = await getCatalog({ dbPath: config.dbPath, countryCode: config.countryCode, currency: config.currency }, repository);
+    return formatCatalogSummary(catalog);
+  } catch (error) {
+    console.warn("Catalog summary unavailable:", error instanceof Error ? error.message : String(error));
+    return "";
+  }
+}
 
 /**
  * How the sage decides between one build and a comparison set. This is guidance,
  * not a rule the model must satisfy — an underspecified brief is answered with
  * contrasting builds because concrete options are a faster clarifying question
- * than an intake form, while a specific brief gets the single build it asked for.
+ * than an intake form, while a specific brief still allows sensible alternatives
+ * alongside the requested build. One build remains fine when alternatives add
+ * no value.
  */
 const BRIEF_STRATEGY_LINES = [
-  "Answer shape: If the user's brief is specific, propose 1 complete build. If it is underspecified, propose 2-3 contrasting complete builds with short tradeoff labels (e.g. 'Max Performance', 'Best Value') so the user can react to concrete options.",
-  "Lead with a one-line summary of how the builds differ, state which one you would pick and why. Budget allocation is a heuristic, not a quota: prioritize the GPU and CPU for gaming, allocate remaining funds across the platform, and defer to in-stock catalog data."
+  "Answer shape: Usually offer 3 builds, up to 5 when they differ meaningfully; 1 is fine when alternatives add nothing. List the recommended build first.",
+  "Lead with a one-line summary of how the builds differ, state which one is your recommended choice and why. Present useful candidates once their tradeoffs are clear, instead of repeatedly reconsidering equivalent choices. Validate each proposed selection before calling present_build. Budget allocation is a heuristic, not a quota: prioritise the parts that matter for the user's stated workload, allocate remaining funds across the platform, and defer to in-stock catalog data."
 ];
 
-export function buildSystemPrompt(config: AppConfig): string {
+export function buildSystemPrompt(
+  config: AppConfig,
+  catalogSummary?: string | GetCatalogResult
+): string {
   const personality = getPersonality(config.personality);
   const researchEnabled = config.tier2Enabled && config.search.provider !== "none";
+  const isINR = config.currency === "INR";
+  const currencySymbol = isINR ? "₹" : config.currency === "USD" ? "$" : config.currency === "EUR" ? "€" : config.currency === "GBP" ? "£" : `${config.currency} `;
+
+  const catalogBlock =
+    typeof catalogSummary === "object" && catalogSummary !== null
+      ? formatCatalogSummary(catalogSummary)
+      : typeof catalogSummary === "string"
+        ? catalogSummary
+        : "";
 
   return [
     "You are PCBuildSage, a PC build consultant powered by local product data and deterministic compatibility checks.",
     "Component cascade: GPU -> CPU -> Motherboard -> RAM -> Storage -> PSU -> Case -> Cooler. You may deviate when the user provides owned parts or hard constraints.",
     `Active scope: country ${config.countryCode}, currency ${config.currency}. All prices returned by tools are standard major currency values (e.g. standard Rupees or Dollars). Present them exactly as returned by the tools without division or scale adjustment.`,
+    catalogBlock,
     ...BRIEF_STRATEGY_LINES,
+    "When useful, call suggest_followups with short, relevant user prompts about unanswered next steps; omit it when none would help.",
     personality ? `Personality prompt: ${personality.prompt}` : "",
-    "Tool protocol: use search_products for purchasable candidates; filters include category, subcategory, price_min, price_max, brands, retailer, in_stock, socket, ddr, form_factor, min_vram_gb, segment, max_tdp_w, max_length_mm, min_capacity_gb (for storage/RAM), interface ('nvme' | 'sata'), min_wattage (for PSU), sort_by, order, limit.",
-    "Constraint-First Budget Allocation & Search Strategy: (1) Identify Priority vs. Support: Lock down explicit user requirements (e.g. 1TB/2TB SSD, 32GB RAM, owned parts, specific platforms) first as hard constraints. For open budget requests, identify primary performance drivers (Gaming: GPU ~40%–48%, CPU ~16%–22%; Workstations: CPU/RAM/Storage). (2) Search Strategy: For Priority components, search top-down (use `order: 'desc'`) near their category budget ceiling to maximize core performance. For Supporting components (Motherboard, PSU, Case, Cooler, baseline Storage), search cost-effective baseline parts (`order: 'asc'` / value tier). For Storage, use `min_capacity_gb: 500` / `1000` and `interface: 'nvme'` to find 500GB+ / 1TB SSDs directly. For PSUs, use `min_wattage: 550` or `650`. (3) Rebalance Headroom Directly in Proposed Builds: Always aim for your build total to land as close to the target budget as possible (targeting 92%–100% of budget, e.g. ₹85,000–₹90,000 on a ₹90k target). If your initial baseline components leave substantial unspent headroom (e.g. > ₹5,000 under budget), you MUST apply the most impactful quality-of-life upgrades (such as stepping up to a 512GB/1TB NVMe SSD via `min_capacity_gb: 500`, stepping up CPU tier, or choosing a better airflow case/cooler) directly into your proposed builds before calling present_build, rather than leaving large unspent gaps.",
+    "For broad build requests: list_models → search_products. Shortlist a few suitable models before looking through their offers. For an exact product or a straightforward filtered purchase request, skip model discovery when direct search is sufficient.",
+    "Search strategy: Respect explicit requirements such as storage capacity, RAM capacity, owned parts, and platform. Prioritize components for the user's workload and rebalance allocations using catalog prices. Search cost-effective supporting parts with `order: 'asc'`; use capacity, interface, wattage, and compatibility filters appropriate to the build.",
+    "When searching for cases for a selected GPU and cooler, use `min_gpu_clearance_mm` and `min_cooler_clearance_mm`.",
+    `CPU Cooler Guidance: When a CPU package includes a stock cooler, show it as included with the CPU at no additional cost (${currencySymbol}0). When cooler inclusion is unknown, keep a separate cooler in the build and explain: 'Check whether this CPU package includes a stock cooler. If included and suitable for your use, you can skip the [price] cooler.'`,
+    "Recommendations can directly state 'my recommended choice' and explain the budget, requirements, and documented specifications behind it (e.g. 'I chose this GPU because it fits the budget and leaves room for the other parts').",
+    "Explain recommendations using available evidence. Don’t claim 'fastest', 'strongest', or 'best-performing' without supporting performance data. When benchmarks are available, limit comparisons to the models and workload covered.",
     "RAM Configuration: Prioritize dual-channel memory kits (e.g. 2×8GB or 2×16GB) over single-stick (1×16GB) configurations to prevent CPU memory bandwidth bottlenecks. If validate_build returns a non-blocking advisory, note it constructively in your explanation.",
-    "Feature Grounding Directive: Do not assert specific proprietary feature versions (e.g., DLSS 3 Frame Gen vs DLSS 2, FSR 3, PCIe 5.0) or socket upgrade longevity unless explicitly supported by the product specs or verified platform data. Stick strictly to facts returned by tools.",
-    "Budget Utilization & Pairing Rule: When a budget is stated (e.g. ₹90,000), you must maximize value by getting as close to the requested amount as possible (e.g. ₹85,000–₹90,000) with well-rounded parts (e.g. 512GB/1TB SSD, dual-channel RAM, capable cooling), rather than leaving large unspent gaps with bare-minimum parts. Never present solely an over-budget build.",
-    "Smart Stretch / Upgrade Tradeoffs: When a modest budget stretch (+5–10%, e.g. ₹95k on a ₹90k target) unlocks a major generational or platform tier upgrade (such as stepping up to an RTX 5060 Ti / RX 7600 XT, or moving to AM5/DDR5 over AM4/DDR4), propose BOTH builds via present_build: one matching/under budget (e.g. 'Best Value') and one with the tier upgrade (e.g. 'Performance Stretch'). In your text response, explain the tradeoff clearly so the user sees why the in-budget build works and what the stretch unlocks.",
-    "Before proposing any build, call get_catalog once to learn which component categories exist and their price ranges. Prefer parts returned by search_products.",
+    "Feature grounding: Do not assert specific proprietary feature versions (e.g., DLSS 3 Frame Gen vs DLSS 2, FSR 3, PCIe 5.0) or socket upgrade longevity unless explicitly supported by the product specs or verified platform data. Stick strictly to facts returned by tools.",
+    `Budget guidance: The recommended build may exceed the user's stated budget or strict cap by a small margin (about 2–3%) only when it buys a clear value jump. Example: a 4060 build at ${currencySymbol}45,000 versus a 4070 build at ${currencySymbol}46,000. Always state the exact extra amount, and never describe an over-budget build as within budget. Whenever a build within the cap exists, include one and label it "Within budget". If none exists, say so instead of inventing one.`,
+    isINR
+      ? "Budget example: For a strict ₹45,000 budget, you can present a within-budget option at ₹45,000 (labeled 'Within budget') alongside a recommended option at ₹46,000 (labeled 'Small upgrade' or 'Recommended', ₹1,000 extra / ~2.2% over cap, explaining the clear value jump). These are illustrative totals, not product prices."
+      : `Budget example: For a strict ${currencySymbol}45,000 budget, you can present a within-budget option at ${currencySymbol}45,000 (labeled 'Within budget') alongside a recommended option at ${currencySymbol}46,000 (labeled 'Small upgrade' or 'Recommended', ${currencySymbol}1,000 extra / ~2.2% over cap, explaining the clear value jump). These are illustrative totals, not product prices.`,
     "When search_products returns category_total: 0, that component category has no catalog data: do not retry it with different prices or filters. When it returns category_price_range, nearest_above, or nearest_below (e.g. when market prices are higher than expected and price_max was set too low), use those boundary hints to immediately correct your price bounds into the available price range instead of guessing or inventing prices.",
     "search_products returns in-stock listings only unless you pass in_stock: false. Build exclusively from in-stock results; a row the last scrape retired is a listing that no longer exists, not a cheaper option. Pass in_stock: false only when the user asks about a specific part that has disappeared, and say plainly that it is no longer listed. When a result set comes back with in_stock_total: 0, the catalog has that category but nothing purchasable: report that rather than falling back to a retired listing, and note that a fresh scrape may restore it.",
-    "Call validate_build before locking each component choice and on complete builds to check compatibility. Pass the component's `registry_key` (if available from search_products) or concise canonical model name (e.g., 'AMD Ryzen 5 7600' or 'NVIDIA RTX 4060'), never raw verbose retailer SKU listing titles.",
-    "MANDATORY BUILD PRESENTATION: You MUST ALWAYS call the `present_build` tool to output any proposed PC build (this renders the interactive Build Card with component tables, retailer buy links, and price calculations). NEVER output raw component markdown tables or part price lists in your text message. Use your text response exclusively to explain component rationale, expected gaming performance, tradeoffs, and upgrade paths.",
+    "Validate each proposed build with validate_build before presenting it. Check earlier when compatibility affects a component choice. Always use the snapshot total from validate_build when checking budget or presenting the build, rather than calculating or guessing your own total. When the user states a budget, pass it as `budget` to validate_build and quote its budget.over_by / under_by, vs_cheapest.more_by and price_summary figures instead of calculating prices or differences yourself. Product IDs are 40-char hashes: search_products shows the first 10 chars, and validate_build/present_build accept any unique prefix of at least 8 chars.",
+    "Treat initial configurations as tentative until catalog prices confirm the total.",
+    "Call `present_build` to present proposed PC builds so the interactive Build Card renders with component tables, retailer links, and verified pricing. Finalize component choices and run compatibility checks before calling present_build. Pass labels matching validate_build from this turn; product_ids are optional prefixes defaulting to the validated snapshot. Include all intended alternatives together in one call with short labels such as 'Within budget' and 'Small upgrade'. If a later correction is needed, present a revised version and explain what changed. Never output raw component markdown tables or part price lists in your text message. Use your text response exclusively to explain component rationale, expected performance for that workload, tradeoffs, and upgrade paths.",
     "If a build is invalid or needs research, run the tools yourself to investigate and resolve it, or explain the compatibility issues clearly to the user. If a component category is unavailable, state this clearly and explain why.",
     researchEnabled
       ? "When validate_build returns needs_research, call consult in component_specs mode for that part, then rerun validate_build. Never guess specs. A part whose specs are unsourced placeholders is treated as unresearched: research it, never reason from its numbers."
       : "Web research (consult tool) is disabled. When validate_build returns needs_research or specs are unknown, do not guess or invent specs. Rely strictly on catalog data, report any spec gaps clearly to the user, and present builds based on verified catalog specifications.",
     "validate_build returns skipped_checks: the compatibility rules it could not run because the build has no part in that slot. Never present a build as verified on a rule that was skipped. State the gap plainly instead, for example 'PSU headroom is not verified - no PSU in the catalog to check against.'",
     researchEnabled ? "Disclose researched specs as not community-verified. Tier 2 build_audit is advisory-only and can never clear a Tier 1 blocking failure." : "",
-    "Computed-requirement rule: For any component category absent from the catalog (count 0 in get_catalog), you must NOT recommend a specific product brand, SKU, or price. Instead, emit only a derived specification based on other components in the build (e.g., 'PSU: 650W, 80+ Bronze, ATX — derived from components'). Never invent a brand, model, SKU, or price for unavailable categories.",
+    "Computed-requirement rule: For any component category absent from the catalog (count 0 in the catalog summary), do not recommend a specific product brand, SKU, or price. Instead, emit only a derived specification based on other components in the build (e.g., 'PSU: 650W, 80+ Bronze, ATX — derived from components'). Never invent a brand, model, SKU, or price for unavailable categories.",
     researchEnabled
       ? "Never make unsourced recency or superiority claims (such as calling a card 'AMD's newest mid-tier GPU' or claiming one CPU is faster than another without evidence). If you want to make such assertions, route them through the consult tool first to obtain grounding facts, or omit them entirely."
       : "Never make unsourced recency or superiority claims without factual backing from the catalog. Omit such assertions entirely.",
-    "Suggest accessories (such as external storage, pen drives, etc.) ONLY when the user explicitly requests them. You may include at most one brief, non-blocking offer line suggesting relevant accessories after presenting the build.",
+    "Suggest accessories (such as external storage, pen drives, etc.) only when the user explicitly requests them. You may include at most one brief, non-blocking offer line suggesting relevant accessories after presenting the build.",
     researchEnabled
       ? (config.freeformConsultEnabled
           ? "The consult tool is available for optional web research on component specs or hardware questions when needed. Do not call consult after presenting a finalized build."
           : "The consult tool is available for optional web research on component specs or hardware audits when needed (freeform consultation is disabled). Do not call consult after presenting a finalized build.")
-      : "Tier 2 web research (consult) is disabled.",
-    "CRITICAL DIRECTIVE ON DATABASE TRUST: You MUST trust the pricing and product data returned by the search_products tool absolutely. Do not assume there is a database error, and do not scale or multiply prices to match prior assumptions of typical hardware costs. E.g., if a CPU is returned as ₹8,640, present it exactly as ₹8,640. Never double-guess or adjust catalog data."
+      : "",
+    `Trust catalog data: Always trust pricing and product data returned by search_products because local catalog snapshots are authoritative. Do not assume database errors or scale prices to match prior assumptions of typical hardware costs. E.g., if a CPU is returned as ${isINR ? "₹8,640" : `${currencySymbol}120`}, present it exactly as ${isINR ? "₹8,640" : `${currencySymbol}120`}. Never second-guess or adjust catalog data.`
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-export async function streamChat(config: AppConfig, messages: ChatMessage[], sessionId?: string, abortSignal?: AbortSignal) {
+export function getSnapshotFromOutput(output: unknown): BuildSnapshot | undefined {
+  if (!output || typeof output !== "object") return undefined;
+  const obj = output as Record<string, unknown>;
+  const val = "value" in obj && obj.value && typeof obj.value === "object" ? (obj.value as Record<string, unknown>) : obj;
+  if ("snapshot" in val && val.snapshot && typeof val.snapshot === "object") {
+    return val.snapshot as BuildSnapshot;
+  }
+  return undefined;
+}
+
+/** Agentic turn budget: the model gets this many tool steps before it must wrap up. */
+const MAX_STEPS = 25;
+/** From this step, late-turn tool use narrows to validation and presentation (research closes). */
+const PRESENT_FORCE_START_STEP = 20;
+/** 0-indexed stepNumber of the final allowed step. */
+const FINAL_STEP = MAX_STEPS - 1;
+
+type StepToolCallLike = {
+  toolName?: unknown;
+  toolCallId?: string;
+};
+
+type StepToolResultLike = {
+  toolName?: unknown;
+  toolCallId?: string;
+  output?: unknown;
+  result?: unknown;
+  error?: unknown;
+};
+
+type StepLike = {
+  text?: string | null;
+  toolCalls?: StepToolCallLike[] | null;
+  toolResults?: StepToolResultLike[] | null;
+};
+
+function unwrapToolOutput(output: unknown): unknown {
+  if (output && typeof output === "object" && "value" in output) {
+    return (output as { value: unknown }).value;
+  }
+  // MCP-backed tools (voice route) return the full CallToolResult; the domain
+  // result lives in structuredContent. Chat tools never emit this shape, so
+  // the default web-chat path is behaviour-identical.
+  if (isCallToolResultShape(output)) {
+    return output.structuredContent;
+  }
+  return output;
+}
+
+function isCallToolResultShape(output: unknown): output is { structuredContent: unknown } {
+  if (!output || typeof output !== "object") return false;
+  const obj = output as Record<string, unknown>;
+  return (
+    Array.isArray(obj.content) &&
+    obj.structuredContent !== null &&
+    typeof obj.structuredContent === "object"
+  );
+}
+
+/**
+ * True when a validate_build result holds a build worth presenting: valid,
+ * no blocking issues, and a whole build (CPU and motherboard at least), not
+ * a spot check such as "will this GPU fit my case?". Invalid results and
+ * spot checks leave the model free to answer in text.
+ */
+function isPresentableValidationOutput(output: unknown): boolean {
+  const val = unwrapToolOutput(output);
+  if (!val || typeof val !== "object") return false;
+  const obj = val as Record<string, unknown>;
+  const entries = obj.builds && typeof obj.builds === "object" ? Object.values(obj.builds) : [obj];
+  return entries.some(isPresentableBuild);
+}
+
+function isPresentableBuild(entry: unknown): boolean {
+  if (!entry || typeof entry !== "object") return false;
+  const build = entry as { valid?: unknown; issues?: unknown; snapshot?: { components?: unknown } };
+  if (build.valid !== true) return false;
+  const issues = Array.isArray(build.issues) ? build.issues : [];
+  if (issues.some((issue) => (issue as { severity?: unknown } | null)?.severity === "blocking")) return false;
+  const components = Array.isArray(build.snapshot?.components) ? build.snapshot.components : [];
+  const categories = new Set(components.map((c) => (c as { category?: unknown } | null)?.category));
+  return categories.has("cpu") && categories.has("motherboard");
+}
+
+/**
+ * True once a validate_build call in the current turn returned a presentable build.
+ * Matches results by tool name, falling back to the tool-call IDs issued
+ * earlier in the turn for providers that omit names on results.
+ */
+export function hasSuccessfulValidation(steps: StepLike[] | undefined | null): boolean {
+  const validateCallIds = new Set<string>();
+  for (const step of steps ?? []) {
+    for (const call of step?.toolCalls ?? []) {
+      if (call?.toolName === "validate_build" && typeof call.toolCallId === "string") {
+        validateCallIds.add(call.toolCallId);
+      }
+    }
+  }
+  for (const step of steps ?? []) {
+    for (const res of step?.toolResults ?? []) {
+      if (!res) continue;
+      const nameMatch = res.toolName === "validate_build";
+      const idMatch = typeof res.toolCallId === "string" && validateCallIds.has(res.toolCallId);
+      if (!nameMatch && !idMatch) continue;
+      if (res.error != null) continue;
+      const raw = res.output ?? res.result;
+      if (isPresentableValidationOutput(raw)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * True when a present_build call's result actually presented a build. A call
+ * the tool rejected (`presented: false`) or that errored (no tool-result at
+ * all) shows the user nothing, so it must not count as presented.
+ */
+function isPresentedResult(res: StepToolResultLike | null | undefined): boolean {
+  if (!res || res.error != null) return false;
+  const out = unwrapToolOutput(res.output ?? res.result);
+  if (!out || typeof out !== "object") return false;
+  return (out as { presented?: unknown }).presented !== false;
+}
+
+/** Tool-call IDs (and, for nameless results, the call names) of a turn. */
+function callNamesById(steps: StepLike[] | undefined | null): Map<string, unknown> {
+  const names = new Map<string, unknown>();
+  for (const step of steps ?? []) {
+    for (const call of step?.toolCalls ?? []) {
+      if (typeof call?.toolCallId === "string") names.set(call.toolCallId, call.toolName);
+    }
+  }
+  return names;
+}
+
+function isPresentResult(res: StepToolResultLike | null | undefined, names: Map<string, unknown>): boolean {
+  if (!res) return false;
+  if (res.toolName === "present_build") return true;
+  return res.toolName == null && typeof res.toolCallId === "string" && names.get(res.toolCallId) === "present_build";
+}
+
+/** True once present_build has successfully presented a build in the current turn. */
+export function hasPresentedBuild(steps: StepLike[] | undefined | null): boolean {
+  const names = callNamesById(steps);
+  return (steps ?? []).some((step) =>
+    (step?.toolResults ?? []).some((res) => isPresentResult(res, names) && isPresentedResult(res))
+  );
+}
+
+/** True once suggest_followups has been called in the current turn. */
+export function hasFollowupsCall(steps: StepLike[] | undefined | null): boolean {
+  return (steps ?? []).some((step) =>
+    (step?.toolCalls ?? []).some((call) => call?.toolName === "suggest_followups")
+  );
+}
+
+/**
+ * End the turn after suggest_followups once the text reply is written,
+ * without breaking force-present: a validated-but-unpresented turn keeps
+ * going so present_build can still be forced.
+ *
+ * Only stops when (a) the turn already has non-empty assistant text, so the
+ * user never gets chips without a reply, and (b) suggest_followups is in the
+ * latest step and every other call in that step needs no model follow-up
+ * (only a successful present_build qualifies): a parallel search_products or
+ * a rejected present_build has results the model still has to read.
+ */
+export function stopAfterFollowups({ steps }: { steps: StepLike[] }): boolean {
+  if (!hasFollowupsCall(steps)) return false;
+  if (hasSuccessfulValidation(steps) && !hasPresentedBuild(steps)) return false;
+  if (!(steps ?? []).some((step) => typeof step?.text === "string" && step.text.trim().length > 0)) return false;
+  const last = steps.at(-1);
+  const calls = last?.toolCalls ?? [];
+  if (!calls.some((call) => call?.toolName === "suggest_followups")) return false;
+  const names = callNamesById(steps);
+  const resultsById = new Map((last?.toolResults ?? []).map((res) => [res?.toolCallId, res]));
+  return calls.every((call) => {
+    if (call?.toolName === "suggest_followups") return true;
+    if (call?.toolName !== "present_build") return false;
+    const res = resultsById.get(call.toolCallId);
+    return isPresentResult(res, names) && isPresentedResult(res);
+  });
+}
+
+/**
+ * Per-step tool forcing so a validated turn can't end on a text reply:
+ * after validate_build returns a presentable build the model must call another tool
+ * (toolChoice "required"), late-turn steps are restricted to validate_build
+ * and present_build, and the final step forces present_build by name.
+ *
+ * When nothing is validated by PRESENT_FORCE_START_STEP, research closes
+ * (see isResearchClosed / gateResearchTools): every tool stays callable so a
+ * late search gets a plain "search is closed" result instead of an SDK error,
+ * the model must call a tool (so it validates what it has), and the final
+ * step allows text only so the turn never ends empty.
+ *
+ * Returns {} (auto) when nothing is validated yet or after presenting, so
+ * the model can research freely and explain afterwards.
+ */
+export function forcePresentDirectives(
+  steps: StepLike[] | undefined | null,
+  stepNumber: number
+): { activeTools?: string[]; toolChoice?: "required" | "none" | { type: "tool"; toolName: string } } {
+  const validated = hasSuccessfulValidation(steps);
+  if (hasPresentedBuild(steps)) return {};
+  if (validated && stepNumber >= FINAL_STEP) {
+    return { activeTools: ["present_build"], toolChoice: { type: "tool", toolName: "present_build" } };
+  }
+  if (stepNumber >= PRESENT_FORCE_START_STEP) {
+    if (validated) return { activeTools: ["validate_build", "present_build"], toolChoice: "required" };
+    return stepNumber >= FINAL_STEP ? { toolChoice: "none" } : { toolChoice: "required" };
+  }
+  if (validated) {
+    return { toolChoice: "required" };
+  }
+  return {};
+}
+
+/** Research tools that close late in a turn that has nothing validated yet. */
+const RESEARCH_TOOLS = ["search_products", "list_models", "consult"] as const;
+
+/**
+ * True when late-turn research is closed: nothing validated or presented yet
+ * and the turn has reached PRESENT_FORCE_START_STEP.
+ */
+export function isResearchClosed(steps: StepLike[] | undefined | null, stepNumber: number): boolean {
+  if (stepNumber < PRESENT_FORCE_START_STEP) return false;
+  return !hasSuccessfulValidation(steps) && !hasPresentedBuild(steps);
+}
+
+/** Steps the model still has after the current one (0-indexed stepNumber). */
+function stepsLeftAfter(stepNumber: number): number {
+  return Math.max(0, FINAL_STEP - stepNumber);
+}
+
+/** Tool result a closed research tool returns in place of running. */
+export function researchClosedMessage(stepsLeft: number): string {
+  return `Search is closed for this turn (${stepsLeft} step${stepsLeft === 1 ? "" : "s"} left). Call validate_build now with the best parts you've already found, then present_build a valid build.`;
+}
+
+/** Instruction appended to the system prompt while research is closed. */
+function researchClosedInstruction(stepsLeft: number): string {
+  return stepsLeft > 0
+    ? `\n\nTurn budget: research is closed (${stepsLeft} step${stepsLeft === 1 ? "" : "s"} left). Do not call search_products, list_models or consult. Call validate_build with the best parts already found, then present_build.`
+    : "\n\nTurn budget: no tool steps left. Answer now in text with the best build you can assemble from the parts already found, and say it was not validated.";
+}
+
+type ClosedResearchOutput = { results: []; search_closed: true; message: string };
+
+function isClosedResearchOutput(output: unknown): output is ClosedResearchOutput {
+  return Boolean(output && typeof output === "object" && (output as { search_closed?: unknown }).search_closed === true);
+}
+
+/**
+ * Wraps the research tools so that, while `closedStepsLeft()` returns a
+ * number, they skip their work and return researchClosedMessage as a normal
+ * tool result (empty `results` keeps UI renderers happy). Other tools and
+ * the open phase are untouched.
+ */
+export function gateResearchTools(tools: ToolSet, closedStepsLeft: () => number | null): ToolSet {
+  const gated: ToolSet = { ...tools };
+  for (const name of RESEARCH_TOOLS) {
+    const original = tools[name];
+    if (!original?.execute) continue;
+    const execute = original.execute;
+    const toModelOutput = original.toModelOutput;
+    gated[name] = {
+      ...original,
+      execute: (async (input: unknown, options: unknown) => {
+        const stepsLeft = closedStepsLeft();
+        if (stepsLeft !== null) {
+          return { results: [], search_closed: true, message: researchClosedMessage(stepsLeft) } satisfies ClosedResearchOutput;
+        }
+        return (execute as (input: unknown, options: unknown) => unknown)(input, options);
+      }) as typeof execute,
+      ...(toModelOutput
+        ? {
+            toModelOutput: ((args: { output: unknown }) =>
+              isClosedResearchOutput(args.output)
+                ? { type: "text", value: args.output.message }
+                : (toModelOutput as (a: unknown) => unknown)(args)) as typeof toModelOutput
+          }
+        : {})
+    } as typeof original;
+  }
+  return gated;
+}
+
+function persistSessionCompactContext(
+  sessionId: string | undefined,
+  messages: ModelMessage[],
+  boundaryMessageId?: string,
+  snapshot?: BuildSnapshot | null
+): void {
+  if (isHosted() || !sessionId) return;
+  saveCompactContext(sessionId, {
+    messages,
+    boundaryMessageId,
+    snapshot: snapshot ?? null
+  });
+}
+
+/**
+ * Response message id for a chat request, mirroring the AI SDK's
+ * getResponseUIMessageId: when the last incoming message is an assistant
+ * message (a continuation after a dropped stream), the response must reuse
+ * its id so the client appends to it; otherwise undefined (fresh id).
+ */
+export function continuationMessageId(messages: ReadonlyArray<{ id?: string; role: string }>): string | undefined {
+  const last = messages.at(-1);
+  return last?.role === "assistant" && typeof last.id === "string" && last.id.length > 0 ? last.id : undefined;
+}
+
+/**
+ * The voice route's injection point: the ONLY way /api/alexa differs from web
+ * chat. `tools` swaps the local registry for MCP-client tools;
+ * `systemPromptPrefix` puts rules that must win over the general guidance
+ * first, `systemPromptSuffix` appends a closing reminder, and `thinking: false`
+ * skips local models' thinking phase. All optional;
+ * when absent the web-chat path is behaviour-identical.
+ */
+export interface StreamChatOverrides {
+  tools?: ToolSet;
+  systemPromptPrefix?: string;
+  systemPromptSuffix?: string;
+  /** false: local models answer without a thinking phase (voice latency). */
+  thinking?: boolean;
+}
+
+export async function streamChat(
+  config: AppConfig,
+  messages: ChatMessage[],
+  sessionId?: string,
+  abortSignal?: AbortSignal,
+  clientCompactContext?: StoredCompactContext | null,
+  responseMessageId?: string,
+  overrides?: StreamChatOverrides
+) {
   const lastUser = messages.filter((message) => message.role === "user").at(-1);
   if (lastUser) {
     await appendChatLog({ role: "user", content: lastUser.content ?? "", session_id: sessionId });
   }
-  let systemPrompt = buildSystemPrompt(config);
-  if (sessionId) {
-    const session = getSession(sessionId);
-    if (session && session.build_state) {
-      systemPrompt += `\n\nCurrent build state (authoritative): ${JSON.stringify(session.build_state)}`;
-    }
+  let systemPrompt = buildSystemPrompt(config, await loadCatalogSummary(config));
+  if (overrides?.systemPromptPrefix) {
+    systemPrompt = `${overrides.systemPromptPrefix}\n\n${systemPrompt}`;
+  }
+  if (overrides?.systemPromptSuffix) {
+    systemPrompt += `\n\n${overrides.systemPromptSuffix}`;
+  }
+  const session = (!isHosted() && sessionId) ? getSession(sessionId) : null;
+  const buildState = session?.build_state ?? deriveBuildState(messages as unknown as UIMessage[]);
+  if (buildState) {
+    systemPrompt += `\n\nCurrent build state (authoritative): ${JSON.stringify(buildState)}`;
   }
   const truncatedSystem = systemPrompt.slice(0, 500) + (systemPrompt.length > 500 ? "..." : "");
   await appendChatLog({ role: "system", content: truncatedSystem, session_id: sessionId });
 
+  const activeEntry = config.llm.roles.chat[0];
+  const contextLimit = getModelContextLimit(activeEntry);
+
+  // Created before replay conversion so history tool results go through each
+  // tool's toModelOutput (the trimmed model view), not the full UI output.
+  // Set by prepareStep: steps left while late-turn research is closed, else null.
+  let researchClosedStepsLeft: number | null = null;
+  const tools = gateResearchTools(overrides?.tools ?? createToolRegistry(config), () => researchClosedStepsLeft);
   const capped = capMessages(messages);
-  const modelMessages = await convertToModelMessages(
+  const rawModelMessages = await convertToModelMessages(
     capped.map((m: ChatMessage) => ({
       id: m.id ?? crypto.randomUUID(),
       role: m.role,
       content: m.content ?? "",
-      parts: m.parts ?? []
-    }))
+      parts: m.parts && m.parts.length > 0
+        ? m.parts
+        : typeof m.content === "string" && m.content
+          ? [{ type: "text", text: m.content }]
+          : []
+    })),
+    { tools }
   );
 
-  return streamTextWithFallback({
+  const assistantMsgId = responseMessageId ?? crypto.randomUUID();
+  const effectiveCompactContext = isHosted()
+    ? (clientCompactContext ?? null)
+    : (session?.compact_context ?? clientCompactContext ?? null);
+
+  let latestCompactContext: StoredCompactContext | null = effectiveCompactContext ? { ...effectiveCompactContext } : null;
+  // The conversation the model actually sees when resuming from compacted
+  // context (earlier summary plus this turn's messages, including the user's
+  // question). onFinish stores it with the final reply as the next context.
+  let compactBase: ModelMessage[] | null = null;
+
+  let initialModelMessages = rawModelMessages;
+  if (effectiveCompactContext && effectiveCompactContext.messages && effectiveCompactContext.messages.length > 0) {
+    const boundaryId = effectiveCompactContext.boundaryMessageId;
+    if (boundaryId) {
+      const boundaryIndex = capped.findIndex((m) => m.id === boundaryId);
+      if (boundaryIndex !== -1) {
+        const sliceIndex =
+          capped[boundaryIndex]?.role === "user" && capped[boundaryIndex + 1]?.role === "assistant"
+            ? boundaryIndex + 1
+            : boundaryIndex;
+        const laterCapped = capped.slice(sliceIndex + 1);
+        if (laterCapped.length > 0) {
+          const laterModelMessages = await convertToModelMessages(
+            laterCapped.map((m: ChatMessage) => ({
+              id: m.id ?? crypto.randomUUID(),
+              role: m.role,
+              content: m.content ?? "",
+              parts: m.parts ?? []
+            })),
+            { tools }
+          );
+          initialModelMessages = [...effectiveCompactContext.messages, ...laterModelMessages];
+        } else {
+          initialModelMessages = [...effectiveCompactContext.messages];
+        }
+        compactBase = initialModelMessages;
+      } else {
+        initialModelMessages = rawModelMessages;
+      }
+    } else {
+      const lastUserMsg = rawModelMessages.filter((m) => m.role === "user").at(-1);
+      initialModelMessages = lastUserMsg
+        ? [...effectiveCompactContext.messages, lastUserMsg]
+        : [...effectiveCompactContext.messages];
+      compactBase = initialModelMessages;
+    }
+  }
+
+  const toolsOverhead = measureToolDefinitionsTokens(tools);
+
+  // Pre-stream compaction check if request already approaches 78–80% context
+  const initialTokens = calculateStepTokens({
+    currentMessages: initialModelMessages,
+    systemPrompt,
+    toolsOverhead
+  });
+  if (shouldTriggerCompaction(initialTokens, contextLimit)) {
+    if (!isHosted() && sessionId) setSessionCompacting(sessionId, true);
+    try {
+      const sessionSnapshot = (buildState as { snapshot?: BuildSnapshot } | null)?.snapshot;
+      const initialCompaction = await compactConversation({
+        chain: config.llm.roles.chat,
+        systemPrompt,
+        messages: initialModelMessages,
+        snapshot: sessionSnapshot,
+        contextLimit,
+        force: true,
+        abortSignal
+      });
+      if (initialCompaction.compacted) {
+        initialModelMessages = initialCompaction.messages;
+        compactBase = initialCompaction.messages;
+        latestCompactContext = {
+          messages: initialModelMessages,
+          boundaryMessageId: assistantMsgId,
+          snapshot: sessionSnapshot ?? null
+        };
+        persistSessionCompactContext(sessionId, initialModelMessages, assistantMsgId, sessionSnapshot);
+      }
+    } finally {
+      if (!isHosted() && sessionId) setSessionCompacting(sessionId, false);
+    }
+  }
+
+  const streamResult = await streamTextWithFallback({
     chain: config.llm.roles.chat,
     system: systemPrompt,
-    messages: modelMessages,
-    tools: createToolRegistry(config),
-    stopWhen: isStepCount(25),
+    messages: initialModelMessages,
+    tools,
+    ...(overrides?.thinking === false ? { thinking: false } : {}),
+    // 25 on purpose: small local models (≤27B quants) and ranking several builds from in-stock parts need the steps; 14 was tested and is too low.
+    stopWhen: (opts) => isStepCount(MAX_STEPS)(opts) || stopAfterFollowups(opts as { steps: StepLike[] }),
     abortSignal,
+    prepareStep: async ({ steps, stepNumber, messages: currentMessages }) => {
+      const currentStep = typeof stepNumber === "number" ? stepNumber : steps.length;
+      // A validated turn must end with present_build, never with a text reply.
+      const forced = forcePresentDirectives(steps, currentStep);
+      researchClosedStepsLeft = isResearchClosed(steps, currentStep) ? stepsLeftAfter(currentStep) : null;
+      // Tell the model research is closed instead of silently narrowing tools.
+      const directives = researchClosedStepsLeft === null
+        ? forced
+        : { ...forced, instructions: systemPrompt + researchClosedInstruction(researchClosedStepsLeft) };
+      const currentTokens = calculateStepTokens({
+        steps,
+        currentMessages,
+        systemPrompt,
+        toolsOverhead
+      });
+      if (shouldTriggerCompaction(currentTokens, contextLimit)) {
+        if (!isHosted() && sessionId) setSessionCompacting(sessionId, true);
+        try {
+          let latestSnapshot = (buildState as { snapshot?: BuildSnapshot } | null)?.snapshot;
+          for (const step of steps) {
+            for (const res of step.toolResults || []) {
+              const snap = getSnapshotFromOutput((res as { output?: unknown }).output);
+              if (snap) latestSnapshot = snap;
+            }
+          }
+
+          const compaction = await compactConversation({
+            chain: config.llm.roles.chat,
+            systemPrompt,
+            messages: currentMessages,
+            snapshot: latestSnapshot,
+            contextLimit,
+            force: true,
+            abortSignal
+          });
+
+          if (compaction.compacted) {
+            compactBase = compaction.messages;
+            latestCompactContext = {
+              messages: compaction.messages,
+              boundaryMessageId: assistantMsgId,
+              snapshot: latestSnapshot ?? null
+            };
+            persistSessionCompactContext(sessionId, compaction.messages, assistantMsgId, latestSnapshot);
+            return { ...directives, messages: compaction.messages };
+          }
+        } finally {
+          if (!isHosted() && sessionId) setSessionCompacting(sessionId, false);
+        }
+      }
+      return directives;
+    },
     onStepFinish: async (step: OnStepFinishEvent<ToolSet>) => {
       const resultsById = new Map((step.toolResults || []).map((result) => [result.toolCallId, result]));
       const promises = [];
@@ -115,6 +693,27 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
       await Promise.all(promises);
     },
     onFinish: async (finish: OnFinishEvent<ToolSet>) => {
+      // Anonymous hosted-only counter: one build_presented per turn that
+      // actually presented a build. Zero behavior change to the turn itself.
+      try {
+        const steps = (finish as unknown as { steps?: StepLike[] }).steps;
+        if (hasPresentedBuild(steps)) recordAnalytics("build_presented", "");
+      } catch {
+        // Never break chat for analytics.
+      }
+      if (compactBase && finish.text && finish.text.trim().length > 0) {
+        latestCompactContext = {
+          messages: [...compactBase, { role: "assistant", content: finish.text.trim() }],
+          boundaryMessageId: assistantMsgId,
+          snapshot: latestCompactContext?.snapshot ?? null
+        };
+        persistSessionCompactContext(
+          sessionId,
+          latestCompactContext.messages,
+          assistantMsgId,
+          latestCompactContext.snapshot as BuildSnapshot | null
+        );
+      }
       await appendChatLog({
         role: "assistant",
         session_id: sessionId,
@@ -125,6 +724,16 @@ export async function streamChat(config: AppConfig, messages: ChatMessage[], ses
       });
     }
   });
+
+  Object.defineProperties(streamResult, {
+    responseMessageId: { value: assistantMsgId, enumerable: true },
+    compactContext: { get: () => latestCompactContext, enumerable: true }
+  });
+
+  return streamResult as typeof streamResult & {
+    responseMessageId: string;
+    compactContext: StoredCompactContext | null;
+  };
 }
 
 function summarizeToolResult(result: unknown) {

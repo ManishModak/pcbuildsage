@@ -11,6 +11,7 @@ export type ChainEntry = {
   baseUrl?: string;
   keySource: KeySource;
   reasoningEffort?: ReasoningEffort;
+  contextLimit?: number;
   /** Present only for keySource "ui"; never rendered back into an input. */
   hasSavedKey?: boolean;
   presetName?: string;
@@ -105,7 +106,19 @@ export type EndpointPreset = {
   launch_flags?: string;
 };
 
-export type DiscoveredModel = { id: string; name?: string };
+export type DiscoveredModel = {
+  id: string;
+  name?: string;
+  contextLimit?: number;
+  /** Raw OpenRouter `supported_parameters` (e.g. includes "tools" when tool calling is supported). */
+  supportedParameters?: string[];
+  /** Raw OpenRouter `pricing` (per-token prices as strings, e.g. "0" for free models). */
+  pricing?: { prompt?: string | number; completion?: string | number };
+  /** True when prompt+completion pricing are both zero. */
+  free?: boolean;
+  /** True when discovery metadata confirms tool calling; undefined when unknown. */
+  toolCapable?: boolean;
+};
 
 export type ScrapeEvent =
   | { type: "started"; id?: string }
@@ -136,10 +149,26 @@ export type BuildIssue = {
   components: string[];
   detail: string;
 };
+export type CheckStatus = "passed" | "failed" | "unverified";
+export type RuleCheckResult = {
+  rule: string;
+  status: CheckStatus;
+  components: string[];
+  message: string;
+};
+export type ValidationSummary = {
+  passed: number;
+  failed: number;
+  unverified: number;
+  text: string;
+};
 export type ValidationResult = {
   valid: boolean;
   issues: BuildIssue[];
   resolved: Record<string, unknown>;
+  checks?: RuleCheckResult[];
+  summary?: ValidationSummary;
+  skipped_checks?: Array<{ rule: string; missing: string[] }>;
 };
 
 // search_products tool output rows.

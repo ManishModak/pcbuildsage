@@ -12,8 +12,9 @@ import {
   TriangleAlert,
   Trash2
 } from "lucide-react";
-import { fetchModels, probeEntry } from "@/lib/api-client";
-import { saveUiKey } from "@/lib/client-config-store";
+import { fetchModels, isHostedMode, probeEntry } from "@/lib/api-client";
+import { hasUiKey, saveUiKey } from "@/lib/client-config-store";
+import { hasByokKey, setByokKey } from "@/lib/llm/client-byok-store";
 import { formatLatency, getErrorMessage } from "@/lib/format";
 import type {
   ChainEntry,
@@ -125,7 +126,12 @@ export function ChainBuilder({
   const commitKey = (entry: ChainEntry) => {
     const draft = keyDraft[entry.id];
     if (draft && draft.trim()) {
-      saveUiKey(entry.provider, draft.trim());
+      const trimmed = draft.trim();
+      if (isHostedMode()) {
+        setByokKey(entry.provider, trimmed, false);
+      } else {
+        saveUiKey(entry.provider, trimmed);
+      }
       update(entry.id, { hasSavedKey: true });
     }
   };
@@ -258,7 +264,7 @@ function ChainCard({
               options={PROVIDERS}
               value={entry.provider}
               onChange={(event) =>
-                onUpdate({ provider: event.target.value as LLMProvider, model: "", ping: undefined, hasSavedKey: false })
+                onUpdate({ provider: event.target.value as LLMProvider, model: "", contextLimit: undefined, ping: undefined, hasSavedKey: false })
               }
             />
           )}
@@ -329,22 +335,33 @@ function ChainCard({
         ) : null}
 
         {entry.keySource === "ui" ? (
-          <Field
-            label="API key"
-            hint={entry.hasSavedKey ? "A key is saved for this provider (write-only)." : "Stored locally, sent only as a request header."}
-          >
-            {(controlProps) => (
-              <Input
-                {...controlProps}
-                type="password"
-                autoComplete="off"
-                value={keyDraft}
-                placeholder={entry.hasSavedKey ? "•••••••• saved" : "paste key"}
-                onChange={(event) => onKeyDraft(event.target.value)}
-                onBlur={onCommitKey}
-              />
-            )}
-          </Field>
+          (() => {
+            const keySaved = Boolean(entry.hasSavedKey || (isHostedMode() ? hasByokKey(entry.provider) : hasUiKey(entry.provider)));
+            return (
+              <Field
+                label="API key"
+                hint={
+                  keySaved
+                    ? "A key is saved for this provider (write-only)."
+                    : isHostedMode()
+                    ? "Stored in ephemeral session storage, sent only as a request header."
+                    : "Stored locally, sent only as a request header."
+                }
+              >
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    type="password"
+                    autoComplete="off"
+                    value={keyDraft}
+                    placeholder={keySaved ? "•••••••• saved" : "paste key"}
+                    onChange={(event) => onKeyDraft(event.target.value)}
+                    onBlur={onCommitKey}
+                  />
+                )}
+              </Field>
+            );
+          })()
         ) : entry.keySource === "env" ? (
           <ReadOnlyValue label="Credential">
             <span className="inline-flex h-11 items-center gap-2 rounded-btn border border-border bg-surface px-3 text-caption text-text-secondary">
@@ -367,7 +384,14 @@ function ChainCard({
               <ModelField
                 inputProps={controlProps}
                 value={entry.model}
-                onChange={(value) => onUpdate({ model: value, ping: undefined })}
+                onChange={(value) => {
+                  const matched = modelState.models.find((m) => m.id === value);
+                  onUpdate({
+                    model: value,
+                    contextLimit: matched?.contextLimit,
+                    ping: undefined
+                  });
+                }}
                 models={modelState.models}
                 loading={modelState.loading}
                 onRefresh={onLoadModels}
@@ -398,6 +422,44 @@ function ChainCard({
             )}
           </Field>
         </div>
+
+        {isLocal ? (
+          <div>
+            <Field
+              label="Context limit (tokens)"
+              hint={
+                !entry.contextLimit
+                  ? "Required: specify the context limit for this local model."
+                  : "Configured context window in tokens."
+              }
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  type="number"
+                  min={512}
+                  step={1024}
+                  placeholder="e.g. 8192, 32768"
+                  value={entry.contextLimit ?? ""}
+                  onChange={(event) => {
+                    const parsed = parseInt(event.target.value, 10);
+                    onUpdate({ contextLimit: Number.isFinite(parsed) && parsed > 0 ? parsed : undefined });
+                  }}
+                />
+              )}
+            </Field>
+          </div>
+        ) : null}
+
+        {isLocal && (!entry.contextLimit || entry.contextLimit <= 0) ? (
+          <div
+            role="alert"
+            className="col-span-full flex items-center gap-2 rounded-btn border border-warn/40 bg-warn/10 p-2.5 text-caption text-warn"
+          >
+            <Icon icon={TriangleAlert} size={15} />
+            <span>Unknown context limit for local provider. Please enter the context limit to avoid unexpected behavior or truncation.</span>
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2.5">

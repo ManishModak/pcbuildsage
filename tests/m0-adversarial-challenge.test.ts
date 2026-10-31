@@ -15,6 +15,7 @@ import { NextRequest } from "next/server";
 import { GET as getStatus } from "@/app/api/status/route";
 import { GET as getHealth } from "@/app/api/health/route";
 import { GET as getMarkets } from "@/app/api/markets/route";
+import { setCatalogRepository, type CatalogRepository } from "@/lib/catalog";
 import { POST as postChat } from "@/app/api/chat/route";
 import { POST as postProbe } from "@/app/api/llm/probe/route";
 import { GET as getModels } from "@/app/api/models/route";
@@ -38,6 +39,7 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
     } else {
       delete process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
     }
+    setCatalogRepository(null);
   });
 
   describe("Category 1: SSRF & LLM Provider URL Validation Attacks", () => {
@@ -191,18 +193,17 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
       expect(validateSearchBaseUrl("http://127.0.0.1:8888", "local").allowed).toBe(true);
     });
 
-    it("assertSafeSearchConfig disallows searxng and unapproved search URLs in hosted-demo mode", () => {
-      expect(() => {
-        assertSafeSearchConfig({ provider: "searxng", crawlEnabled: false }, "hosted-demo");
-      }).toThrow(UnsafeConfigError);
+    it("assertSafeSearchConfig coerces searxng/duckduckgo to none and rejects unapproved keyed search URLs in hosted-demo mode", () => {
+      // Keyless / self-hosted providers never run server-side in hosted mode.
+      expect(assertSafeSearchConfig({ provider: "searxng", crawlEnabled: false }, "hosted-demo").provider).toBe("none");
+      const ddg = assertSafeSearchConfig({ provider: "duckduckgo", baseUrl: "http://169.254.169.254", crawlEnabled: false }, "hosted-demo");
+      expect(ddg.provider).toBe("none");
+      expect(ddg.baseUrl).toBeUndefined();
 
+      // A kept keyed provider still has its baseUrl SSRF-checked.
       expect(() => {
-        assertSafeSearchConfig({ provider: "duckduckgo", baseUrl: "http://169.254.169.254", crawlEnabled: false }, "hosted-demo");
+        assertSafeSearchConfig({ provider: "tavily", apiKey: "k", baseUrl: "http://169.254.169.254", crawlEnabled: false }, "hosted-demo");
       }).toThrow(UnsafeConfigError);
-
-      expect(() => {
-        assertSafeSearchConfig({ provider: "duckduckgo", crawlEnabled: false }, "hosted-demo");
-      }).not.toThrow();
 
       // Local mode permits searxng
       expect(() => {
@@ -274,35 +275,15 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
       expect(response.status).toBe(400);
     });
 
-    it("POST /api/chat rejects searchProvider searxng in hosted-demo mode", async () => {
+    it("POST /api/chat rejects malicious searchBaseUrl for a keyed provider in hosted-demo mode", async () => {
       const request = new Request("http://localhost:3000/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-tavily-api-key": "test-key" },
         body: JSON.stringify({
           messages: [{ role: "user", content: "hello" }],
           config: {
             llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }],
-            searchProvider: "searxng",
-            searchBaseUrl: "http://localhost:8080"
-          }
-        })
-      });
-
-      const response = await postChat(request);
-      expect(response.status).toBe(400);
-      const json = await response.json();
-      expect(JSON.stringify(json)).toContain("searxng");
-    });
-
-    it("POST /api/chat rejects malicious searchBaseUrl in hosted-demo mode", async () => {
-      const request = new Request("http://localhost:3000/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: "hello" }],
-          config: {
-            llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }],
-            searchProvider: "duckduckgo",
+            searchProvider: "tavily",
             searchBaseUrl: "http://169.254.169.254"
           }
         })
@@ -317,7 +298,7 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
     it("POST /api/chat rejects malicious searchBaseUrl via x-pcbuildsage-config header", async () => {
       const maliciousHeader = JSON.stringify({
         llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }],
-        searchProvider: "searxng",
+        searchProvider: "brave",
         searchBaseUrl: "http://127.0.0.1:8080"
       });
 
@@ -325,7 +306,8 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-pcbuildsage-config": maliciousHeader
+          "x-pcbuildsage-config": maliciousHeader,
+          "x-brave-api-key": "test-key"
         },
         body: JSON.stringify({
           messages: [{ role: "user", content: "hello" }]
@@ -553,54 +535,71 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
 
   describe("Category 4: Market Metadata Endpoint & Data Leakage Prevention", () => {
     it("returns clean market metadata conforming strictly to MarketMetadata contract", async () => {
-      const response = await getMarkets();
-      expect(response.status).toBe(200);
+      const fixtureRepo: Partial<CatalogRepository> = {
+        getMarkets: async () => [
+          {
+            code: "IN",
+            name: "India",
+            defaultCurrency: "INR",
+            supportedCurrencies: ["INR"],
+            locale: "en-IN"
+          }
+        ]
+      };
+      setCatalogRepository(fixtureRepo as CatalogRepository);
+      try {
+        const response = await getMarkets();
+        expect(response.status).toBe(200);
 
-      const body = await response.json();
-      expect(body).toHaveProperty("markets");
-      expect(Array.isArray(body.markets)).toBe(true);
-      expect(body.markets.length).toBeGreaterThanOrEqual(5);
+        const body = await response.json();
+        expect(body).toHaveProperty("markets");
+        expect(Array.isArray(body.markets)).toBe(true);
+        expect(body.markets.length).toBeGreaterThanOrEqual(1);
+        expect(body.markets.some((m: { code: string }) => m.code === "IN")).toBe(true);
 
-      const stringified = JSON.stringify(body);
+        const stringified = JSON.stringify(body);
 
-      // Verify absence of scraper selectors, cheerio configs, crawler internals
-      const forbiddenTokens = [
-        "selector",
-        "cheerio",
-        "crawler",
-        "category_url",
-        "search_url",
-        "product_link",
-        "price_selector",
-        "title_selector",
-        "availability_selector",
-        "user_agent",
-        "headers",
-        "cookies",
-        "api_key",
-        "token",
-        "secret",
-        "password",
-        "turso",
-        "sqlite",
-        "dbPath"
-      ];
+        // Verify absence of scraper selectors, cheerio configs, crawler internals
+        const forbiddenTokens = [
+          "selector",
+          "cheerio",
+          "crawler",
+          "category_url",
+          "search_url",
+          "product_link",
+          "price_selector",
+          "title_selector",
+          "availability_selector",
+          "user_agent",
+          "headers",
+          "cookies",
+          "api_key",
+          "token",
+          "secret",
+          "password",
+          "turso",
+          "sqlite",
+          "dbPath"
+        ];
 
-      for (const token of forbiddenTokens) {
-        expect(stringified.toLowerCase()).not.toContain(token.toLowerCase());
-      }
+        for (const token of forbiddenTokens) {
+          expect(stringified.toLowerCase()).not.toContain(token.toLowerCase());
+        }
 
-      // Verify exact keys on every market entry
-      for (const m of body.markets) {
-        const keys = Object.keys(m);
-        expect(keys.sort()).toEqual(["code", "defaultCurrency", "locale", "name", "supportedCurrencies"].sort());
-        expect(typeof m.code).toBe("string");
-        expect(m.code).toMatch(/^[A-Z]{2}$/);
-        expect(typeof m.name).toBe("string");
-        expect(typeof m.defaultCurrency).toBe("string");
-        expect(m.defaultCurrency).toMatch(/^[A-Z]{3}$/);
-        expect(Array.isArray(m.supportedCurrencies)).toBe(true);
-        expect(typeof m.locale).toBe("string");
+        // Verify exact keys on every market entry
+        for (const m of body.markets) {
+          const keys = Object.keys(m);
+          expect(keys.sort()).toEqual(["code", "defaultCurrency", "locale", "name", "supportedCurrencies"].sort());
+          expect(typeof m.code).toBe("string");
+          expect(m.code).toMatch(/^[A-Z]{2}$/);
+          expect(typeof m.name).toBe("string");
+          expect(typeof m.defaultCurrency).toBe("string");
+          expect(m.defaultCurrency).toMatch(/^[A-Z]{3}$/);
+          expect(Array.isArray(m.supportedCurrencies)).toBe(true);
+          expect(typeof m.locale).toBe("string");
+        }
+      } finally {
+        setCatalogRepository(null);
       }
     });
 
@@ -662,7 +661,8 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
       expect(response.status).toBe(200);
 
       const body = await response.json();
-      expect(body.status).toBe("ok");
+      // "ok" with a reachable Turso, "degraded" otherwise; always HTTP 200.
+      expect(["ok", "degraded"]).toContain(body.status);
       expect(body.mode).toBe("hosted-demo");
       expect(body.timestamp).toBeDefined();
       expect(body.database).toBeUndefined();

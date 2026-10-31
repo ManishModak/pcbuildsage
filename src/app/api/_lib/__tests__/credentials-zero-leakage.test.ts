@@ -1,17 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildAppConfig, entryFromRequest, UnsafeConfigError } from "../credentials";
+import { buildAppConfig, entryFromRequest, getCredentialAvailability, UnsafeConfigError } from "../credentials";
 import { POST as chatRoute } from "../../chat/route";
+import { POST as searchProbeRoute } from "../../search/probe/route";
 import * as chatEngine from "@/lib/llm/chat-engine";
+import { createLanguageModel, resolveApiKey } from "@/lib/llm/client";
 
 describe("Server-side zero-leakage & SSRF protection in hosted-demo mode", () => {
-  const originalEnv = process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
+  const savedEnv = { ...process.env };
 
   afterEach(() => {
-    if (originalEnv !== undefined) {
-      process.env.PCBUILDSAGE_DEPLOYMENT_MODE = originalEnv;
-    } else {
-      delete process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
+    for (const key of Object.keys(process.env)) {
+      if (!(key in savedEnv)) {
+        delete process.env[key];
+      }
     }
+    Object.assign(process.env, savedEnv);
     vi.restoreAllMocks();
   });
 
@@ -172,5 +175,92 @@ describe("Server-side zero-leakage & SSRF protection in hosted-demo mode", () =>
     expect(entry.model).toBe("deepseek-r1-distill-llama-70b");
     expect(entry.reasoningEffort).toBe("high");
     expect(entry.apiKey).toBe("gsk_secret123");
+  });
+
+  it("reports all credential availability as false in hosted-demo mode despite server env keys", () => {
+    process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "hosted-demo";
+    process.env.GEMINI_API_KEY = "server-gemini-secret";
+    process.env.BRAVE_API_KEY = "server-brave-secret";
+
+    const availability = getCredentialAvailability(process.env);
+    expect(Object.values(availability.llm).every((v) => v === false)).toBe(true);
+    expect(Object.values(availability.search).every((v) => v === false)).toBe(true);
+  });
+
+  it("fails search probe without header/body keys in hosted-demo mode despite server env key", async () => {
+    process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "hosted-demo";
+    process.env.BRAVE_API_KEY = "server-brave-secret";
+
+    const request = new Request("http://localhost/api/search/probe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ provider: "brave" })
+    });
+
+    const response = await searchProbeRoute(request);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.ok).toBe(false);
+    expect(data.error).toBe("brave search API key is required.");
+  });
+
+  it("never falls back to server env keys for LLM or search in hosted-demo mode", () => {
+    process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "hosted-demo";
+    process.env.GEMINI_API_KEY = "server-gemini-secret";
+    process.env.BRAVE_API_KEY = "server-brave-secret";
+
+    const headers = new Headers();
+    const config = buildAppConfig(headers, {
+      llmChain: [{ provider: "gemini", model: "gemini-2.0-flash", keySource: "env" }],
+      searchProvider: "brave"
+    });
+
+    expect(config.llm.chain[0].apiKey).toBeUndefined();
+    expect(config.search.apiKey).toBeUndefined();
+    expect(resolveApiKey(config.llm.chain[0], "GEMINI_API_KEY")).toBeUndefined();
+  });
+
+  it("does not leak server GOOGLE_GENERATIVE_AI_API_KEY to Gemini model in hosted-demo mode", () => {
+    process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "hosted-demo";
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY = "server-google-env-key";
+    process.env.GEMINI_API_KEY = "server-gemini-env-key";
+
+    const model = createLanguageModel({
+      provider: "gemini",
+      model: "gemini-2.5-flash",
+      keySource: "env"
+    }) as unknown as { config: { headers: () => Record<string, string> } };
+
+    const headers = model.config.headers();
+    expect(headers["x-goog-api-key"]).toBe("");
+  });
+
+  it("does not pass server env keys to streamChat in hosted-demo mode", async () => {
+    process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "hosted-demo";
+    process.env.GEMINI_API_KEY = "server-gemini-secret-12345";
+    process.env.BRAVE_API_KEY = "server-brave-secret-67890";
+
+    const streamSpy = vi.spyOn(chatEngine, "streamChat").mockResolvedValue({
+      toUIMessageStreamResponse: () => new Response("ok")
+    } as unknown as Awaited<ReturnType<typeof chatEngine.streamChat>>);
+
+    const request = new Request("http://localhost/api/chat", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: "hello" }],
+        config: {
+          llmChain: [{ provider: "gemini", model: "gemini-2.0-flash", keySource: "env" }],
+          searchProvider: "brave"
+        }
+      })
+    });
+
+    const response = await chatRoute(request);
+    expect(response.status).toBe(200);
+    expect(streamSpy).toHaveBeenCalledTimes(1);
+    const passedConfig = streamSpy.mock.calls[0][0];
+    expect(passedConfig.llm.chain[0].apiKey).toBeUndefined();
+    expect(passedConfig.search.apiKey).toBeUndefined();
   });
 });

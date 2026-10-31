@@ -49,67 +49,66 @@ export function formatMarkdownTranscript(options: TranscriptOptions): string {
     lines.push("");
 
     const rawContent = (message as unknown as { content?: unknown }).content;
-    const parts = Array.isArray(message.parts)
+    const parts = Array.isArray(message.parts) && message.parts.length > 0
       ? message.parts
       : typeof rawContent === "string"
         ? [{ type: "text" as const, text: rawContent }]
         : [];
 
-    // 1. Thinking / Reasoning trace
-    const reasoningParts = parts.filter(isReasoningPart);
-    for (const part of reasoningParts) {
-      if (part.text && part.text.trim()) {
-        lines.push("<details>");
-        lines.push("<summary>Thinking Process</summary>");
+    let hasRenderedText = false;
+
+    for (const part of parts) {
+      if (isReasoningPart(part)) {
+        if (part.text && part.text.trim()) {
+          lines.push("<details>");
+          lines.push("<summary>Thinking Process</summary>");
+          lines.push("");
+          lines.push(part.text.trim());
+          lines.push("");
+          lines.push("</details>");
+          lines.push("");
+        }
+      } else if (isToolPart(part)) {
+        const toolPart = (part as unknown) as ToolPart;
+        const name = getToolName(toolPart);
+        const stateSuffix = toolPart.state ? ` [${toolPart.state}]` : "";
+        lines.push(`> 🛠️ **Tool Call**: \`${name}\`${stateSuffix}`);
+
+        if (toolPart.input !== undefined) {
+          lines.push("> **Input**:");
+          lines.push("> ```json");
+          const formattedInput = JSON.stringify(toolPart.input, null, 2);
+          for (const inputLine of formattedInput.split("\n")) {
+            lines.push(`> ${inputLine}`);
+          }
+          lines.push("> ```");
+        }
+
+        if (toolPart.output !== undefined) {
+          lines.push("> **Output**:");
+          lines.push("> ```json");
+          const formattedOutput = JSON.stringify(toolPart.output, null, 2);
+          for (const outputLine of formattedOutput.split("\n")) {
+            lines.push(`> ${outputLine}`);
+          }
+          lines.push("> ```");
+        }
+
+        if (toolPart.errorText) {
+          lines.push(`> ⚠️ **Tool Error**: ${toolPart.errorText}`);
+        }
         lines.push("");
-        lines.push(part.text.trim());
-        lines.push("");
-        lines.push("</details>");
-        lines.push("");
+      } else if (isTextPart(part)) {
+        if (part.text && part.text.trim()) {
+          lines.push(part.text.trim());
+          lines.push("");
+          hasRenderedText = true;
+        }
       }
     }
 
-    // 2. Tool calls
-    const toolParts: ToolPart[] = (parts.filter(isToolPart) as unknown[]) as ToolPart[];
-    for (const part of toolParts) {
-      const name = getToolName(part);
-      const stateSuffix = part.state ? ` [${part.state}]` : "";
-      lines.push(`> 🛠️ **Tool Call**: \`${name}\`${stateSuffix}`);
-
-      if (part.input !== undefined) {
-        lines.push("> **Input**:");
-        lines.push("> ```json");
-        const formattedInput = JSON.stringify(part.input, null, 2);
-        for (const inputLine of formattedInput.split("\n")) {
-          lines.push(`> ${inputLine}`);
-        }
-        lines.push("> ```");
-      }
-
-      if (part.output !== undefined) {
-        lines.push("> **Output**:");
-        lines.push("> ```json");
-        const formattedOutput = JSON.stringify(part.output, null, 2);
-        for (const outputLine of formattedOutput.split("\n")) {
-          lines.push(`> ${outputLine}`);
-        }
-        lines.push("> ```");
-      }
-
-      if (part.errorText) {
-        lines.push(`> ⚠️ **Tool Error**: ${part.errorText}`);
-      }
-      lines.push("");
-    }
-
-    // 3. Text content
-    const textParts = parts.filter(isTextPart);
-    const mainText =
-      textParts.map((p) => p.text).join("\n") ||
-      (typeof rawContent === "string" ? rawContent : "");
-
-    if (mainText.trim()) {
-      lines.push(mainText.trim());
+    if (!hasRenderedText && typeof rawContent === "string" && rawContent.trim()) {
+      lines.push(rawContent.trim());
       lines.push("");
     }
   }

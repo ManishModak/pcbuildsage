@@ -1,23 +1,48 @@
 {
   "name": "pcbuildsage",
   "version": "0.1.0",
+  "description": "AI PC build planner for India: builds from in-stock parts at Indian retailers, with exact totals, buy links and rule-checked compatibility.",
+  "keywords": [
+    "pc-builder",
+    "pc-building",
+    "pcpartpicker",
+    "compatibility-checker",
+    "price-comparison",
+    "india",
+    "ai-agent",
+    "tool-calling",
+    "llm",
+    "nextjs"
+  ],
+  "homepage": "https://pcbuildsage.onrender.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ManishModak/pcbuildsage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ManishModak/pcbuildsage/issues"
+  },
+  "license": "MIT",
   "private": true,
   "type": "module",
   "bin": {
     "pcbuildsage": "./bin/pcbuildsage.js"
   },
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "next dev --webpack -H 127.0.0.1",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 127.0.0.1",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node node_modules/vitest/dist/cli.js run",
     "init-db": "tsx scripts/init-db.ts",
     "generate-sample-db": "tsx scripts/generate-sample-db.ts",
     "validate:data": "node --import tsx scripts/validate-data.ts",
+    "analytics": "tsx scripts/analytics.ts",
     "export-research": "tsx scripts/export-research.ts",
-    "publish-catalog": "tsx scripts/publish-catalog.ts"
+    "publish-catalog": "tsx scripts/publish-catalog.ts",
+    "catalog-coverage": "tsx scripts/catalog-coverage.ts",
+    "build-guides": "tsx scripts/build-guides.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.11",
@@ -26,6 +51,9 @@
     "@clack/prompts": "^0.11.0",
     "@floating-ui/react": "^0.27.19",
     "@libsql/client": "^0.18.0",
+    "@modelcontextprotocol/client": "^2.2.0",
+    "@modelcontextprotocol/ext-apps": "^2.0.3",
+    "@modelcontextprotocol/server": "^2.2.0",
     "ai": "^7.0.19",
     "better-sqlite3": "^12.0.0",
     "class-variance-authority": "^0.7.1",
@@ -50,6 +78,7 @@
     "ajv-formats": "^3.0.1",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.2.9",
+    "happy-dom": "^20.14.5",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",

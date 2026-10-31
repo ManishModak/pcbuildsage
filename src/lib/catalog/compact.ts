@@ -1,3 +1,4 @@
+import { parseRamSpecs } from "../spec-parsers";
 import type { NearestMatch, SearchProductItem, SearchProductsResult } from "./repository";
 
 /**
@@ -8,6 +9,7 @@ export const FUNCTIONAL_SPEC_KEYS = new Set([
   // Identification / Branding
   "brand",
   "model",
+  "spec_conflict",
   // Processors / Sockets
   "socket",
   "sockets",
@@ -90,6 +92,8 @@ export interface CompactSearchProductsResult {
   nearest_below?: NearestMatch;
   hint?: string;
   error?: string;
+  /** @deprecated Standardized on `hint`. Retained for backward compatibility. */
+  note?: string;
   valid_filters?: string[];
 }
 
@@ -134,6 +138,12 @@ export function toCompactProductItem(
   const record = item as Record<string, unknown>;
   const isInStock = record.in_stock === 1 || Boolean(record.in_stock || record.inStock);
 
+  const storedSpecs = (record.specs ?? null) as Record<string, unknown> | null;
+  const ramSpecs = record.category === "ram" ? parseRamSpecs(String(record.name ?? "")) : undefined;
+  const specs = ramSpecs?.modules
+    ? { ...storedSpecs, modules: ramSpecs.modules, capacity_gb: ramSpecs.capacity_gb }
+    : storedSpecs;
+
   return {
     id: String(record.id ?? ""),
     name: String(record.name ?? ""),
@@ -146,10 +156,74 @@ export function toCompactProductItem(
     url: String(record.url ?? record.destinationUrl ?? ""),
     in_stock: isInStock,
     registry_key: typeof record.registry_key === "string" ? record.registry_key : null,
-    specs: toCompactFunctionalSpecs((record.specs ?? null) as Record<string, unknown> | null)
+    specs: toCompactFunctionalSpecs(specs)
   };
 }
 
+/**
+ * Model-only view of a product's specs: functional keys only.
+ * Drops the `confidence` provenance string kept in the full compact output
+ * (MCP/UI keep it) and returns undefined when nothing functional remains,
+ * so the row omits `specs` instead of sending an empty/metadata-only object.
+ */
+export function toModelProductSpecs(
+  specs: Record<string, unknown> | null | undefined
+): Record<string, unknown> | undefined {
+  if (!specs || typeof specs !== "object") return undefined;
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(specs)) {
+    if (key === "confidence") continue;
+    cleaned[key] = value;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
+
+/**
+ * Model-only view of a product row: short 10-char ID, no url/currency/
+ * country_code/registry_key, no specs confidence, subcategory only when set,
+ * in_stock only when false, and category only when the search did not
+ * already filter by it. Retailer, name, price, and functional specs stay —
+ * they are what the model needs to compare and pick parts.
+ */
+export function toModelProductItem(
+  item: CompactProductItem,
+  opts?: { dropCategory?: boolean }
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    id: typeof item.id === "string" ? item.id.slice(0, 10) : item.id,
+    name: item.name,
+    price: item.price,
+    retailer: item.retailer
+  };
+  if (!opts?.dropCategory) out.category = item.category;
+  if (item.subcategory != null) out.subcategory = item.subcategory;
+  if (item.in_stock !== true) out.in_stock = item.in_stock;
+  const specs = toModelProductSpecs(item.specs);
+  if (specs !== undefined) out.specs = specs;
+  return out;
+}
+
+/**
+ * Model-only view of a search result: trimmed rows, full metadata kept.
+ * UI and MCP keep the full compact result; only the chat model sees this.
+ * Also runs on replayed history, so an output without a `results` array
+ * (an older saved shape) passes through unchanged instead of throwing.
+ */
+export function toModelSearchResult(
+  result: CompactSearchProductsResult,
+  input?: { category?: string }
+): Record<string, unknown> {
+  if (!result || typeof result !== "object" || !Array.isArray(result.results)) {
+    return result as unknown as Record<string, unknown>;
+  }
+  const dropCategory = Boolean(
+    typeof input?.category === "string" && input.category.trim().length > 0
+  );
+  return {
+    ...result,
+    results: result.results.map((item) => toModelProductItem(item, { dropCategory }))
+  };
+}
 /**
  * Pure compaction of a search result object (used by both live tools and conversation replay).
  * Drops duplicate `items` array and strips non-functional overhead while preserving
@@ -196,6 +270,7 @@ export function toCompactSearchResult(
   if (record.nearest_below) compact.nearest_below = record.nearest_below as NearestMatch;
   if (typeof record.hint === "string") compact.hint = record.hint;
   if (typeof record.error === "string") compact.error = record.error;
+  if (typeof record.note === "string") compact.note = record.note;
   if (Array.isArray(record.valid_filters)) compact.valid_filters = record.valid_filters;
 
   return compact;

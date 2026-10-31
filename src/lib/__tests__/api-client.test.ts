@@ -17,6 +17,7 @@ import {
   saveSession,
   setCachedDeploymentMode
 } from "../api-client";
+import { resetClientStoreState } from "@/lib/sessions/client-store";
 
 const successOutcome = {
   status: "succeeded" as const,
@@ -28,7 +29,32 @@ const successOutcome = {
   errors: []
 };
 
+/** Minimal Storage stand-in: the client store needs a real writable layer. */
+function createMemoryStorage() {
+  const map = new Map<string, string>();
+  return {
+    get length() {
+      return map.size;
+    },
+    key: (index: number) => Array.from(map.keys())[index] ?? null,
+    getItem: (key: string) => map.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      map.set(key, String(value));
+    },
+    removeItem: (key: string) => {
+      map.delete(key);
+    },
+    clear: () => map.clear()
+  };
+}
+
 beforeEach(async () => {
+  // Hosted mode stores chats in the browser. Node has no localStorage, and the
+  // client store no longer accepts an in-memory save as success, so give the
+  // delegation tests a real writable layer.
+  vi.stubGlobal("indexedDB", undefined);
+  vi.stubGlobal("localStorage", createMemoryStorage());
+  resetClientStoreState();
   resetCachedDeploymentMode();
   await clearClientSessions();
 });
@@ -36,6 +62,7 @@ beforeEach(async () => {
 afterEach(async () => {
   resetCachedDeploymentMode();
   await clearClientSessions();
+  resetClientStoreState();
   vi.unstubAllGlobals();
 });
 
@@ -107,6 +134,29 @@ describe("high-risk API contracts", () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: true, revision: 6 })));
 
     await expect(saveSession({ id: "s1", revision: 7, messages: [] })).rejects.toThrow("invalid response");
+  });
+
+  it("never sends compactContext in a local-mode save body: the server owns it", async () => {
+    const bodies: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: unknown, init?: { body?: unknown }) => {
+        bodies.push(String(init?.body ?? ""));
+        return Response.json({ ok: true, revision: 3 });
+      })
+    );
+
+    await saveSession({
+      id: "s1",
+      revision: 3,
+      messages: [],
+      compactContext: { messages: [], boundaryMessageId: "m1" }
+    });
+
+    expect(bodies).toHaveLength(1);
+    const sent = JSON.parse(bodies[0]) as Record<string, unknown>;
+    expect(sent).not.toHaveProperty("compactContext");
+    expect(sent.revision).toBe(3);
   });
 
   it("retries a failed delete", async () => {

@@ -1,6 +1,6 @@
 ---
 name: "Profile Request: <retailer>"
-about: Request a new retailer scraping profile.
+about: Request a new retailer, or a new country, to scrape.
 title: "profile request: [Retailer Name]"
 labels: profile-request
 assignees: ''

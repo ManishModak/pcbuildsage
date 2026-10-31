@@ -1,9 +1,42 @@
 import { hasWattageConflict, resolveComponent, type ComponentCategory, type Confidence, type RegistrySpec, type ResolvedSpec } from "./registry";
+import { canonicalizeSocket } from "./spec-canonical";
+import { checkClearance, checkCooler } from "./rules/clearance";
+import { checkCpuSupport } from "./rules/cpu-support";
+import { checkDdr } from "./rules/ddr";
+import { checkStorage } from "./rules/storage";
+import {
+  confidenceGate,
+  label,
+  lowNames,
+  needsResearch,
+  numberSpec,
+  stringSpec,
+  untrusted,
+  type CheckRecorder,
+} from "./rules/shared";
 
-export type BuildPart = string | { key?: string; name?: string; category?: ComponentCategory };
+export type { CheckRecorder };
+export { isSingleModuleRam, isStockCooler } from "./rules/shared";
+
+export type RuleCheckStatus = "passed" | "failed" | "unverified";
+export type CheckStatus = RuleCheckStatus;
+export type RuleName = "socket" | "cpu_support" | "ddr" | "wattage" | "clearance" | "cooler" | "storage" | "display_output" | "spec_resolution";
+export type RuleCheckResult = {
+  rule: RuleName;
+  status: RuleCheckStatus;
+  components: string[];
+  message: string;
+};
+export type ValidationSummary = {
+  passed: number;
+  failed: number;
+  unverified: number;
+  text: string;
+};
+
+export type BuildPart = string | { product_id?: string; key?: string; name?: string; category?: ComponentCategory };
 export type BuildParts = Partial<Record<ComponentCategory, BuildPart | BuildPart[]>>;
 
-export type RuleName = "socket" | "ddr" | "wattage" | "clearance" | "cooler" | "storage" | "display_output" | "spec_resolution";
 export type IssueSeverity = "blocking" | "needs_research" | "needs_verification" | "advisory";
 export type BuildIssue = {
   severity: IssueSeverity;
@@ -20,11 +53,14 @@ export type ValidationResult = {
    *  categories are a scraping choice, not a build error - but the model must
    *  disclose which guarantees it is therefore NOT making. */
   skipped_checks: SkippedCheck[];
+  checks: RuleCheckResult[];
+  summary: ValidationSummary;
 };
 
 /** Which parts each rule needs before it can say anything at all. */
 const RULE_INPUTS: Array<{ rule: RuleName; needs: ComponentCategory[] }> = [
   { rule: "socket", needs: ["cpu", "motherboard"] },
+  { rule: "cpu_support", needs: ["cpu", "motherboard"] },
   { rule: "ddr", needs: ["motherboard", "ram"] },
   { rule: "wattage", needs: ["cpu", "psu"] },
   { rule: "cooler", needs: ["cpu", "cooler"] },
@@ -33,24 +69,95 @@ const RULE_INPUTS: Array<{ rule: RuleName; needs: ComponentCategory[] }> = [
   { rule: "display_output", needs: ["cpu"] }
 ];
 
-type Resolver = (part: BuildPart, category: ComponentCategory) => ResolvedSpec | undefined;
+export type Resolver = (part: BuildPart, category: ComponentCategory) => ResolvedSpec | undefined;
+export type UnresolvedMessageGetter = (part: BuildPart, category: ComponentCategory) => string | undefined;
 
-export function validateBuild(parts: BuildParts, options: { resolve?: Resolver } = {}): ValidationResult {
+export function recordCheck(
+  checks: RuleCheckResult[],
+  rule: RuleName,
+  status: RuleCheckStatus,
+  components: string[],
+  message: string
+): void {
+  checks.push({ rule, status, components, message });
+}
+
+export function resolveIncludedCooler(
+  cpu: ResolvedSpec | undefined,
+  part: BuildPart | undefined,
+  resolve: Resolver
+): ResolvedSpec {
+  const cpuCoolerName = typeof cpu?.spec?.cooler_name === "string" ? cpu.spec.cooler_name : undefined;
+  const partCoolerName =
+    typeof part === "object" && part && typeof part.name === "string" && !isMarkedIncluded(part)
+      ? part.name
+      : undefined;
+  const candidateName: string | undefined = cpuCoolerName ?? partCoolerName;
+
+  if (candidateName) {
+    const resolvedCustom = resolve({ name: candidateName, category: "cooler" }, "cooler");
+    if (resolvedCustom) return resolvedCustom;
+
+    const resolvedRegistry = resolveComponent({ name: candidateName, category: "cooler" }, { skipDbLookup: true });
+    if (resolvedRegistry) return resolvedRegistry;
+  }
+
+  const modelName: string =
+    typeof part === "string"
+      ? part
+      : (typeof part?.name === "string"
+          ? part.name
+          : (typeof cpu?.spec?.cooler_name === "string" ? cpu.spec.cooler_name : "Stock Cooler"));
+  return {
+    key: "included-stock-cooler",
+    category: "cooler",
+    spec: {
+      brand: "Stock",
+      model: modelName,
+      aliases: ["Stock Cooler", "included"],
+      cooler_type: "air"
+    },
+    confidence: "low",
+    source: "registry"
+  };
+}
+
+export function validateBuild(
+  parts: BuildParts,
+  options: { resolve?: Resolver; getUnresolvedMessage?: UnresolvedMessageGetter } = {}
+): ValidationResult {
   const resolve = options.resolve ?? ((part, category) => resolveComponent(toLookup(part, category)));
-  const issues: BuildIssue[] = [];
+  const extraIssues: BuildIssue[] = [];
   const resolved: ValidationResult["resolved"] = {};
+  const checks: RuleCheckResult[] = [];
+
+  const recordCheckLocal: CheckRecorder = (rule, status, components, message) => {
+    recordCheck(checks, rule, status, components, message);
+  };
 
   const one = (category: ComponentCategory) => {
     const part = parts[category];
     if (!part) return undefined;
     if (Array.isArray(part)) {
-      issues.push(blocking("spec_resolution", part.map(label), `Multiple values provided for single-component slot ${category}.`));
+      recordCheckLocal("spec_resolution", "failed", part.map(label), `Multiple values provided for single-component slot ${category}.`);
       return undefined;
     }
-    const spec = resolve(part, category);
+    let spec = resolve(part, category);
+    if (!spec && category === "cooler" && isMarkedIncluded(part)) {
+      spec = resolveIncludedCooler(cpu, part, resolve);
+    }
     if (!spec) {
-      issues.push(needsResearch([label(part)], `No ${category} specs found in registry or research cache.`));
+      const customMsg = options.getUnresolvedMessage?.(part, category);
+      recordCheckLocal(
+        "spec_resolution",
+        "unverified",
+        [label(part)],
+        customMsg ?? `No ${category} specs found in registry or research cache.`
+      );
       return undefined;
+    }
+    if (typeof spec.spec.spec_conflict === "string") {
+      recordCheckLocal("spec_resolution", "unverified", [spec.key], spec.spec.spec_conflict);
     }
     resolved[category] = spec;
     return spec;
@@ -61,7 +168,13 @@ export function validateBuild(parts: BuildParts, options: { resolve?: Resolver }
     const specs = items.flatMap((part) => {
       const spec = resolve(part, category);
       if (!spec) {
-        issues.push(needsResearch([label(part)], `No ${category} specs found in registry or research cache.`));
+        const customMsg = options.getUnresolvedMessage?.(part, category);
+        recordCheckLocal(
+          "spec_resolution",
+          "unverified",
+          [label(part)],
+          customMsg ?? `No ${category} specs found in registry or research cache.`
+        );
         return [];
       }
       return [spec];
@@ -75,20 +188,35 @@ export function validateBuild(parts: BuildParts, options: { resolve?: Resolver }
   const gpu = one("gpu");
   const psu = one("psu");
   const pcCase = one("case");
-  const cooler = one("cooler");
+  let cooler = one("cooler");
   const ram = one("ram");
   const storage = many("storage");
 
-  checkSocket(cpu, motherboard, issues);
-  checkDdr(cpu, motherboard, ram, issues);
+  if (!cooler && cpu?.spec.cooler_included === "included" && parts.cooler === undefined) {
+    cooler = resolveIncludedCooler(cpu, undefined, resolve);
+    if (cooler) {
+      resolved.cooler = cooler;
+    }
+  }
+
+  checkSocket(cpu, motherboard, recordCheckLocal, extraIssues, parts);
+  checkCpuSupport(cpu, motherboard, recordCheckLocal, extraIssues);
+  checkDdr(cpu, motherboard, ram, recordCheckLocal, extraIssues, parts);
   const hasGpu = parts.gpu !== undefined && parts.gpu !== null;
-  checkWattage(cpu, gpu, psu, hasGpu, issues);
-  checkDisplayOutput(cpu, hasGpu, issues);
-  checkClearance(gpu, pcCase, cooler, motherboard, issues);
-  checkCooler(cpu, cooler, issues);
-  checkStorage(motherboard, storage, issues);
+  checkWattage(cpu, gpu, psu, hasGpu, recordCheckLocal, extraIssues);
+  checkDisplayOutput(cpu, gpu, hasGpu, recordCheckLocal, extraIssues);
+  checkClearance(gpu, pcCase, cooler, motherboard, psu, recordCheckLocal, extraIssues);
+  checkCooler(cpu, cooler, recordCheckLocal, extraIssues);
+  checkStorage(motherboard, storage, recordCheckLocal, extraIssues);
+
+  const isCoolerIncluded =
+    cpu?.spec.cooler_included === "included" ||
+    (parts.cooler !== undefined && isMarkedIncluded(parts.cooler as BuildPart));
 
   const skipped_checks = RULE_INPUTS.flatMap(({ rule, needs }) => {
+    if (rule === "cooler" && isCoolerIncluded) {
+      return [];
+    }
     const missing = needs.filter((category) => {
       const part = parts[category];
       return part === undefined || part === null || (Array.isArray(part) && part.length === 0);
@@ -96,241 +224,217 @@ export function validateBuild(parts: BuildParts, options: { resolve?: Resolver }
     return missing.length ? [{ rule, missing }] : [];
   });
 
-  const dedupedIssues = dedupeIssues(issues);
+  const passed = checks.filter((c) => c.status === "passed").length;
+  const failed = checks.filter((c) => c.status === "failed").length;
+  const unverified = checks.filter((c) => c.status === "unverified").length;
+  let text: string;
+  if (failed > 0) {
+    text = `${failed} check(s) failed · ${passed} passed · ${unverified} unverified`;
+  } else if (unverified > 0) {
+    text = `${passed} checks passed · ${unverified} unverified`;
+  } else {
+    text = `All ${passed} checks passed`;
+  }
+  const summary: ValidationSummary = { passed, failed, unverified, text };
+
+  const derivedIssues: BuildIssue[] = checks.flatMap((check): BuildIssue[] => {
+    if (check.status === "failed") {
+      return [{ severity: "blocking", rule: check.rule, components: check.components, detail: check.message }];
+    }
+    if (check.status === "unverified") {
+      return [{ severity: "needs_verification", rule: check.rule, components: check.components, detail: check.message }];
+    }
+    return [];
+  });
+
+  const dedupedIssues = dedupeIssues([...derivedIssues, ...extraIssues]);
   return {
-    valid: !dedupedIssues.some((issue) => issue.severity === "blocking" || issue.severity === "needs_research"),
+    valid: failed === 0,
     issues: dedupedIssues,
     resolved,
-    skipped_checks
+    skipped_checks,
+    checks,
+    summary
   };
 }
 
-/**
- * True when a spec came from the registry but cannot cite a source.
- *
- * Such an entry is a placeholder (see entryConfidence in registry.ts), and a rule
- * that computes on it produces a confident wrong answer - the worst possible
- * output for a compatibility checker. Refusing to read the spec turns that into a
- * needs_research issue, which is the signal that already drives the consult
- * self-heal loop. A researched spec, even a low-confidence one, cites its sources
- * and is allowed through to confidenceGate; that also stops research -> validate ->
- * research looping forever on a part the web simply has little data about.
- */
-function untrusted(component: ResolvedSpec, issues: BuildIssue[]): boolean {
-  if (component.source !== "registry" || component.confidence !== "low") return false;
-  issues.push(
-    needsResearch(
-      [component.key],
-      `${component.key} has unsourced placeholder specs in the registry. Research it with consult before any compatibility verdict is given.`
-    )
-  );
-  return true;
-}
-
-function checkSocket(cpu: ResolvedSpec | undefined, motherboard: ResolvedSpec | undefined, issues: BuildIssue[]) {
-  if (!cpu || !motherboard) return;
-  const cpuSocket = stringSpec(cpu, "socket", issues);
+function checkSocket(
+  cpu: ResolvedSpec | undefined,
+  motherboard: ResolvedSpec | undefined,
+  recordCheck: CheckRecorder,
+  issues: BuildIssue[],
+  parts?: BuildParts
+) {
+  if (!motherboard) return;
   const boardSocket = stringSpec(motherboard, "socket", issues);
-  if (!cpuSocket || !boardSocket) return;
-  if (canonicalize(cpuSocket) !== canonicalize(boardSocket)) {
-    issues.push(blocking("socket", [cpu.key, motherboard.key], `CPU socket ${cpuSocket} does not match motherboard socket ${boardSocket}.`));
+  if (!boardSocket) {
+    recordCheck(
+      "socket",
+      "unverified",
+      [motherboard.key, ...(cpu ? [cpu.key] : [])],
+      "Socket compatibility couldn't be verified due to missing socket specs."
+    );
+    return;
+  }
+  if (!cpu) {
+    if (parts?.cpu) {
+      recordCheck(
+        "socket",
+        "unverified",
+        [label(parts.cpu as BuildPart), motherboard.key],
+        "CPU compatibility could not be verified from the available data. Check the motherboard’s CPU support list."
+      );
+    }
+    return;
+  }
+  const cpuSocket = stringSpec(cpu, "socket", issues);
+  if (!cpuSocket) {
+    recordCheck(
+      "socket",
+      "unverified",
+      [cpu.key, motherboard.key],
+      "CPU compatibility could not be verified from the available data. Check the motherboard’s CPU support list."
+    );
+    return;
+  }
+  if (canonicalizeSocket(cpuSocket) !== canonicalizeSocket(boardSocket)) {
+    const msg = `CPU socket ${cpuSocket} does not match motherboard socket ${boardSocket}.`;
+    recordCheck("socket", "failed", [cpu.key, motherboard.key], msg);
   } else {
+    recordCheck("socket", "passed", [cpu.key, motherboard.key], `CPU socket ${cpuSocket} matches motherboard socket ${boardSocket}.`);
     confidenceGate("socket", [cpu, motherboard], issues, `Socket match uses low-confidence researched specs for ${lowNames([cpu, motherboard])}.`);
   }
 }
 
-function checkDdr(cpu: ResolvedSpec | undefined, motherboard: ResolvedSpec | undefined, ram: ResolvedSpec | undefined, issues: BuildIssue[]) {
-  if (!motherboard) return;
-  const boardDdr = stringSpec(motherboard, "ddr", issues);
-  const cpuDdr = cpu ? stringSpec(cpu, "ddr", issues) : undefined;
-  if (!boardDdr || (cpu && !cpuDdr)) return;
-  if (cpu && cpuDdr && canonicalize(cpuDdr) !== canonicalize(boardDdr)) {
-    issues.push(blocking("ddr", [cpu.key, motherboard.key], `CPU-supported memory ${cpuDdr} does not match motherboard ${boardDdr}.`));
-    return;
-  }
-  if (!ram) {
-    confidenceGate("ddr", [cpu, motherboard].filter(Boolean) as ResolvedSpec[], issues, `DDR match uses low-confidence researched specs for ${lowNames([cpu, motherboard])}.`);
-    return;
-  }
-  const ramDdr = stringSpec(ram, "ddr", issues);
-  if (!ramDdr) return;
-  if (canonicalize(boardDdr) !== canonicalize(ramDdr)) {
-    issues.push(blocking("ddr", [motherboard.key, ram.key], `RAM ${ramDdr} does not match motherboard ${boardDdr}.`));
-    return;
-  }
-  if (cpu && cpuDdr && canonicalize(cpuDdr) !== canonicalize(ramDdr)) {
-    issues.push(blocking("ddr", [cpu.key, ram.key], `RAM ${ramDdr} does not match CPU-supported memory ${cpuDdr}.`));
-    return;
-  }
-  if (isSingleModuleRam(ram)) {
-    issues.push({
-      severity: "advisory",
-      rule: "ddr",
-      components: [ram.key],
-      detail: `Single-channel RAM detected (${ram.spec.model || ram.key}). Dual-channel memory (e.g. 2×8GB or 2×16GB) is recommended for optimal bandwidth and gaming frame rates.`
-    });
-  }
-  confidenceGate("ddr", [cpu, motherboard, ram].filter(Boolean) as ResolvedSpec[], issues, `DDR match uses low-confidence researched specs for ${lowNames([cpu, motherboard, ram])}.`);
-}
-
-function checkWattage(cpu: ResolvedSpec | undefined, gpu: ResolvedSpec | undefined, psu: ResolvedSpec | undefined, hasGpu: boolean, issues: BuildIssue[]) {
+function checkWattage(
+  cpu: ResolvedSpec | undefined,
+  gpu: ResolvedSpec | undefined,
+  psu: ResolvedSpec | undefined,
+  hasGpu: boolean,
+  recordCheck: CheckRecorder,
+  issues: BuildIssue[]
+) {
   if (!cpu || !psu) return;
-  const cpuTdp = numberSpec(cpu, "tdp_w", issues);
+  if (hasWattageConflict(psu.spec)) {
+    const w = psu.spec.wattage;
+    const wLegacy = psu.spec.wattage_w;
+    recordCheck(
+      "wattage",
+      "unverified",
+      [psu.key],
+      `Conflicting wattage specifications for ${psu.key}: wattage (${w}W) and wattage_w (${wLegacy}W) disagree.`
+    );
+    return;
+  }
+  const cpuPower = cpuPowerW(cpu, issues);
   const gpuTdp = hasGpu ? (gpu ? numberSpec(gpu, "tdp_w", issues) : undefined) : 0;
   const wattage = numberSpec(psu, "wattage", issues);
-  if (cpuTdp === undefined || gpuTdp === undefined || wattage === undefined) return;
-  const required = Math.ceil((cpuTdp + gpuTdp + 50) * 1.2);
   const components = [cpu, gpu, psu].filter((component): component is ResolvedSpec => Boolean(component));
-  if (required > wattage) {
-    issues.push(blocking("wattage", components.map((component) => component.key), `Estimated ${required}W requirement exceeds PSU ${wattage}W.`));
-  } else {
-    confidenceGate("wattage", components, issues, `Wattage pass uses low-confidence researched specs for ${lowNames(components)}.`);
+  if (cpuPower === undefined || gpuTdp === undefined || wattage === undefined) {
+    recordCheck(
+      "wattage",
+      "unverified",
+      components.map((c) => c.key),
+      "Wattage requirement couldn't be verified due to missing power specs."
+    );
+    return;
   }
+  const required = Math.ceil((cpuPower + gpuTdp + 50) * 1.2);
+  if (required > wattage) {
+    const msg = `Estimated ${required}W requirement exceeds PSU ${wattage}W.`;
+    recordCheck("wattage", "failed", components.map((c) => c.key), msg);
+    return;
+  }
+  const recPsu = gpu && typeof gpu.spec.recommended_psu_w === "number" && Number.isFinite(gpu.spec.recommended_psu_w) && gpu.spec.recommended_psu_w > 0
+    ? gpu.spec.recommended_psu_w
+    : undefined;
+  // A GPU maker's recommended PSU assumes a worst-case system and an unknown
+  // PSU, so it overshoots typical budget builds (RTX 4060: 550W recommended vs
+  // ~276W estimated with a Ryzen 5 5600). Only a PSU far below it (under 80%)
+  // blocks; one that covers the estimate but misses the recommendation gets an
+  // advisory naming the recommendation, not a false block.
+  const gpuName = gpu ? gpu.spec.model || gpu.key : "the GPU";
+  if (recPsu !== undefined && wattage < recPsu * 0.8) {
+    const msg = `PSU wattage (${wattage}W) is well below the GPU manufacturer recommendation (${recPsu}W) for ${gpuName}.`;
+    recordCheck("wattage", "failed", components.map((c) => c.key), msg);
+    return;
+  }
+  const belowRec = recPsu !== undefined && wattage < recPsu;
+  if (belowRec) {
+    issues.push({
+      severity: "advisory",
+      rule: "wattage",
+      components: components.map((c) => c.key),
+      detail: `PSU wattage (${wattage}W) covers the estimated ${required}W but is below the GPU maker's ${recPsu}W recommendation for ${gpuName}. It should run this build; a ${recPsu}W unit adds headroom for power spikes.`
+    });
+  }
+  const message = recPsu !== undefined && !belowRec
+    ? `PSU wattage (${wattage}W) covers estimated requirement (${required}W) and meets manufacturer recommendation (${recPsu}W).`
+    : `PSU wattage (${wattage}W) covers estimated requirement (${required}W).`;
+  recordCheck("wattage", "passed", components.map((c) => c.key), message);
+  confidenceGate("wattage", components, issues, `Wattage pass uses low-confidence researched specs for ${lowNames(components)}.`);
 }
 
-function checkDisplayOutput(cpu: ResolvedSpec | undefined, hasGpu: boolean, issues: BuildIssue[]) {
-  if (!cpu || hasGpu) return;
-  if (untrusted(cpu, issues)) return;
+/**
+ * Realistic sustained CPU power for PSU sizing: base TDP understates unlocked
+ * desktop chips under load (14900K: 125W base, 253W Maximum Turbo Power per
+ * Intel ARK). Curated max_power_w (Intel Maximum Turbo Power / AMD socket PPT)
+ * wins when present; otherwise base TDP.
+ */
+function cpuPowerW(cpu: ResolvedSpec, issues: BuildIssue[]): number | undefined {
+  const base = numberSpec(cpu, "tdp_w", issues);
+  if (base === undefined) return undefined;
+  const max = cpu.spec.max_power_w;
+  if (typeof max === "number" && Number.isFinite(max) && max > 0) return Math.max(max, base);
+  return base;
+}
+
+function checkDisplayOutput(
+  cpu: ResolvedSpec | undefined,
+  gpu: ResolvedSpec | undefined,
+  hasGpu: boolean,
+  recordCheck: CheckRecorder,
+  issues: BuildIssue[]
+) {
+  if (!cpu) return;
+  if (hasGpu) {
+    const components = gpu?.key ? [gpu.key] : [cpu.key];
+    recordCheck(
+      "display_output",
+      "passed",
+      components,
+      "Discrete GPU provides display output."
+    );
+    return;
+  }
+  if (untrusted(cpu, issues)) {
+    recordCheck(
+      "display_output",
+      "unverified",
+      [cpu.key],
+      "Display output couldn't be verified because CPU specs are unsourced."
+    );
+    return;
+  }
   if (cpu.spec.igpu === false) {
-    issues.push(blocking("display_output", [cpu.key], "CPU-only build has no display output because the CPU has no integrated GPU."));
+    const msg = "CPU-only build has no display output because the CPU has no integrated GPU.";
+    recordCheck("display_output", "failed", [cpu.key], msg);
+    return;
+  }
+  if (cpu.spec.igpu === true) {
+    recordCheck(
+      "display_output",
+      "passed",
+      [cpu.key],
+      "CPU includes integrated graphics for display output."
+    );
     return;
   }
   if (cpu.spec.igpu === undefined) {
+    const msg = `Integrated GPU status is unknown for ${cpu.key}.`;
+    recordCheck("display_output", "unverified", [cpu.key], msg);
     issues.push(needsResearch([cpu.key], `${cpu.key} is missing required spec "igpu" for CPU-only display output validation.`));
   }
-}
-
-function checkClearance(gpu: ResolvedSpec | undefined, pcCase: ResolvedSpec | undefined, cooler: ResolvedSpec | undefined, motherboard: ResolvedSpec | undefined, issues: BuildIssue[]) {
-  if (gpu && pcCase) {
-    const gpuLength = numberSpec(gpu, "length_mm", issues);
-    const maxGpu = numberSpec(pcCase, "max_gpu_length_mm", issues);
-    if (gpuLength !== undefined && maxGpu !== undefined) {
-      if (gpuLength > maxGpu) issues.push(blocking("clearance", [gpu.key, pcCase.key], `GPU length ${gpuLength}mm exceeds case clearance ${maxGpu}mm.`));
-      else confidenceGate("clearance", [gpu, pcCase], issues, `GPU clearance pass uses low-confidence researched specs for ${lowNames([gpu, pcCase])}.`);
-    }
-  }
-  if (cooler && pcCase) {
-    const height = numberSpec(cooler, "height_mm", issues);
-    const maxHeight = numberSpec(pcCase, "max_cooler_height_mm", issues);
-    if (height !== undefined && maxHeight !== undefined) {
-      if (height > maxHeight) issues.push(blocking("clearance", [cooler.key, pcCase.key], `Cooler height ${height}mm exceeds case clearance ${maxHeight}mm.`));
-      else confidenceGate("clearance", [cooler, pcCase], issues, `Cooler clearance pass uses low-confidence researched specs for ${lowNames([cooler, pcCase])}.`);
-    }
-  }
-  if (motherboard && pcCase) {
-    const formFactor = stringSpec(motherboard, "form_factor", issues);
-    const supported = arraySpec(pcCase, "form_factors", issues);
-    if (formFactor && supported) {
-      if (!supported.map(canonicalize).includes(canonicalize(formFactor))) issues.push(blocking("clearance", [motherboard.key, pcCase.key], `Motherboard ${formFactor} is not supported by the case.`));
-      else confidenceGate("clearance", [motherboard, pcCase], issues, `Form-factor pass uses low-confidence researched specs for ${lowNames([motherboard, pcCase])}.`);
-    }
-  }
-}
-
-function checkCooler(cpu: ResolvedSpec | undefined, cooler: ResolvedSpec | undefined, issues: BuildIssue[]) {
-  if (!cpu || !cooler) return;
-  const cpuTdp = numberSpec(cpu, "tdp_w", issues);
-  const rating = numberSpec(cooler, "tdp_rating_w", issues);
-  const socket = stringSpec(cpu, "socket", issues);
-  const sockets = arraySpec(cooler, "sockets", issues);
-  if (cpuTdp === undefined || rating === undefined || !socket || !sockets) return;
-  if (rating < cpuTdp) {
-    issues.push(blocking("cooler", [cpu.key, cooler.key], `Cooler ${rating}W rating is below CPU ${cpuTdp}W TDP.`));
-    return;
-  }
-  if (!sockets.map(canonicalize).includes(canonicalize(socket))) {
-    issues.push(blocking("cooler", [cpu.key, cooler.key], `Cooler does not list a ${socket} mounting bracket.`));
-    return;
-  }
-  confidenceGate("cooler", [cpu, cooler], issues, `Cooler pass uses low-confidence researched specs for ${lowNames([cpu, cooler])}.`);
-}
-
-function checkStorage(motherboard: ResolvedSpec | undefined, drives: ResolvedSpec[], issues: BuildIssue[]) {
-  if (!motherboard || drives.length === 0) return;
-  const interfaces = drives.map((drive) => ({ drive, value: stringSpec(drive, "interface", issues) }));
-  const nvmeCount = interfaces.filter(({ value }) => canonicalize(value) === "nvme").length;
-  const sataCount = interfaces.filter(({ value }) => canonicalize(value) === "sata").length;
-  const m2Slots = nvmeCount > 0 ? numberSpec(motherboard, "m2_slots", issues) : undefined;
-  const sataPorts = sataCount > 0 ? numberSpec(motherboard, "sata_ports", issues) : undefined;
-  if (nvmeCount > 0 && m2Slots === undefined) return;
-  if (sataCount > 0 && sataPorts === undefined) return;
-  if (nvmeCount > (m2Slots ?? 0)) {
-    issues.push(blocking("storage", [motherboard.key, ...drives.map((drive) => drive.key)], `${nvmeCount} NVMe drives require ${nvmeCount} M.2 slots; motherboard has ${m2Slots}.`));
-    return;
-  }
-  if (sataCount > 0 && sataPorts !== undefined) {
-    if (sataCount > sataPorts) {
-      issues.push(blocking("storage", [motherboard.key, ...drives.map((drive) => drive.key)], `${sataCount} SATA drives require ${sataCount} SATA ports; motherboard has ${sataPorts}.`));
-      return;
-    }
-  }
-  confidenceGate("storage", [motherboard, ...drives], issues, `Storage pass uses low-confidence researched specs for ${lowNames([motherboard, ...drives])}.`);
-}
-
-function stringSpec(component: ResolvedSpec, key: string, issues: BuildIssue[]) {
-  if (untrusted(component, issues)) return undefined;
-  const value = component.spec[key];
-  if (typeof value === "string" && value.length > 0) return value;
-  issues.push(needsResearch([component.key], `${component.key} is missing required spec "${key}".`));
-  return undefined;
-}
-
-function numberSpec(component: ResolvedSpec, key: string, issues: BuildIssue[]) {
-  if (untrusted(component, issues)) return undefined;
-  if (key === "wattage") {
-    const w = component.spec.wattage;
-    const wLegacy = component.spec.wattage_w;
-    if (
-      hasWattageConflict(component.spec)
-    ) {
-      issues.push({
-        severity: "needs_verification",
-        rule: "wattage",
-        components: [component.key],
-        detail: `Conflicting wattage specifications for ${component.key}: wattage (${w}W) and wattage_w (${wLegacy}W) disagree.`
-      });
-      return undefined;
-    }
-    const resolvedWattage = w ?? wLegacy;
-    if (typeof resolvedWattage === "number") return resolvedWattage;
-    if (typeof resolvedWattage === "string" && !Number.isNaN(Number(resolvedWattage))) {
-      return Number(resolvedWattage);
-    }
-  }
-  const value = component.spec[key];
-  if (typeof value === "number") return value;
-  issues.push(needsResearch([component.key], `${component.key} is missing required spec "${key}".`));
-  return undefined;
-}
-
-function arraySpec(component: ResolvedSpec, key: string, issues: BuildIssue[]) {
-  if (untrusted(component, issues)) return undefined;
-  const value = component.spec[key];
-  if (Array.isArray(value) && value.every((item) => typeof item === "string")) return value;
-  issues.push(needsResearch([component.key], `${component.key} is missing required spec "${key}".`));
-  return undefined;
-}
-
-function confidenceGate(rule: RuleName, components: ResolvedSpec[], issues: BuildIssue[], detail: string) {
-  if (components.some((component) => component.confidence === "low")) {
-    issues.push({ severity: "needs_verification", rule, components: components.map((component) => component.key), detail });
-  }
-}
-
-function lowNames(components: Array<ResolvedSpec | undefined>) {
-  return components.filter((component): component is ResolvedSpec => component?.confidence === "low").map((component) => component.key).join(", ");
-}
-
-function blocking(rule: RuleName, components: string[], detail: string): BuildIssue {
-  return { severity: "blocking", rule, components, detail };
-}
-
-function needsResearch(components: string[], detail: string): BuildIssue {
-  return { severity: "needs_research", rule: "spec_resolution", components, detail };
-}
-
-function canonicalize(value: unknown): string {
-  return typeof value === "string" ? value.toLowerCase().replace(/[\s-]+/g, "") : "";
 }
 
 function dedupeIssues(issues: BuildIssue[]): BuildIssue[] {
@@ -347,24 +451,20 @@ function toLookup(part: BuildPart, category: ComponentCategory) {
   return typeof part === "string" ? { key: part, name: part, category } : { ...part, category };
 }
 
-function label(part: BuildPart): string {
-  return typeof part === "string" ? part : part.key ?? part.name ?? "unknown component";
-}
-
 export function makeResolved(key: string, category: ComponentCategory, spec: RegistrySpec, confidence: Confidence = "high", source: "registry" | "research" = "registry"): ResolvedSpec {
   return { key, category, spec, confidence, source };
 }
 
-export function isSingleModuleRam(ram: ResolvedSpec): boolean {
-  const norm = [ram.key, ram.spec.model, ...(ram.spec.aliases || [])].join(" ");
-  if (/\b\d+\s*x\s*\d+\s*gb\b/i.test(norm) && !/\b1\s*x\s*\d+\s*gb\b/i.test(norm)) {
-    return false;
+function isMarkedIncluded(part: BuildPart): boolean {
+  if (!part) return false;
+  if (typeof part === "string") {
+    const p = part.toLowerCase().trim();
+    return p === "included" || p === "stock" || p === "stock cooler" || p === "stock-cooler";
   }
-  if (/\b(2x8gb|2x16gb|2x32gb|2x4gb|4x8gb|4x16gb|kit of 2|kit of 4|dual channel|dual-channel)\b/i.test(norm)) {
-    return false;
-  }
-  if (/\b(1\s*x\s*\d+\s*gb|\d+\s*gb\s*x\s*1|single stick|single channel)\b/i.test(norm)) {
-    return true;
-  }
-  return false;
+  const k = (part.key ?? "").toLowerCase().trim();
+  const n = (part.name ?? "").toLowerCase().trim();
+  return (
+    k === "included" || k === "stock" || k === "stock cooler" || k === "stock-cooler" ||
+    n === "included" || n === "stock" || n === "stock cooler" || n === "stock-cooler"
+  );
 }

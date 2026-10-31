@@ -557,30 +557,13 @@
     "confidence": "high",
     "researched_at": "2026-08-16T15:34:56Z"
   },
-  "g-skill-ripjaws-v-16gb-ddr4-3200": {
-    "brand": "G.Skill",
-    "model": "G.Skill Ripjaws V 16GB (2x8GB) DDR4 3200MHz CL16",
-    "ddr": "DDR4",
-    "speed": "3200MHz",
-    "capacity": "16GB",
-    "aliases": [
-      "G.Skill Ripjaws V 16GB DDR4-3200",
-      "Ripjaws V 16GB DDR4-3200",
-      "G.Skill Ripjaws V 16GB 2x8GB DDR4-3200",
-      "G.Skill Ripjaws V DDR4-3200 16GB"
-    ],
-    "sources": [
-      "https://www.newegg.com/g-skill-ripjaws-v-series-16gb-ddr4-3200-cas-latency-cl16-desktop-memory-black/p/N82E16820231902"
-    ],
-    "confidence": "high",
-    "researched_at": "2026-07-11T17:34:06Z"
-  },
   "g-skill-ripjaws-v-16gb-1x16gb-ddr4-3200": {
     "brand": "G.Skill",
     "model": "G.Skill Ripjaws V 16GB (1x16GB) DDR4 3200MHz CL16",
     "ddr": "DDR4",
     "speed": "3200MHz",
     "capacity": "16GB",
+    "modules": 1,
     "aliases": [
       "G.Skill Ripjaws V 16GB (1x16GB) DDR4-3200",
       "Ripjaws V 16GB 1x16GB DDR4 3200",
@@ -599,12 +582,17 @@
     "ddr": "DDR4",
     "speed": "3200MHz",
     "capacity": "16GB",
+    "modules": 2,
     "aliases": [
       "G.Skill Ripjaws V 16GB (2x8GB) DDR4-3200",
       "Ripjaws V DDR4 3200 16GB",
       "F4-3200C16D-16GVKB",
       "G.Skill Ripjaws V 16GB 2x8GB 3200MHz",
-      "G.Skill 16GB 2x8GB DDR4 3200"
+      "G.Skill 16GB 2x8GB DDR4 3200",
+      "G.Skill Ripjaws V 16GB DDR4-3200",
+      "Ripjaws V 16GB DDR4-3200",
+      "G.Skill Ripjaws V 16GB 2x8GB DDR4-3200",
+      "G.Skill Ripjaws V DDR4-3200 16GB"
     ],
     "sources": [
       "https://www.gskill.com/product/165/74/1535010370/F4-3200C16D-16GVKB"

@@ -27,7 +27,8 @@ describe("GET /api/health", () => {
     const response = await getHealth();
     expect(response.status).toBe(200);
     const body = (await response.json()) as { status: string; mode: string; timestamp: string };
-    expect(body.status).toBe("ok");
+    // "degraded" when Turso is unreachable/unconfigured; never a non-200.
+    expect(["ok", "degraded"]).toContain(body.status);
     expect(body.mode).toBe("hosted-demo");
     expect(new Date(body.timestamp).getTime()).toBeGreaterThan(0);
   });

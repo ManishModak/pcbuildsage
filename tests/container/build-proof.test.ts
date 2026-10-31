@@ -20,7 +20,8 @@ describe("Next.js Standalone Build Proof & Configuration Verification", () => {
     const raw = fs.readFileSync(packageJsonPath, "utf-8");
     const pkg = JSON.parse(raw);
     expect(pkg.scripts?.build).toBe("next build");
-    expect(pkg.scripts?.start).toBe("next start");
+    // Local mode has no login, so the server only listens on loopback.
+    expect(pkg.scripts?.start).toBe("next start -H 127.0.0.1");
   });
 
   it("verifies Dockerfile references server.js emitted by standalone build", () => {

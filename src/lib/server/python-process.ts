@@ -2,6 +2,7 @@ import { spawn, type ChildProcess, type ChildProcessWithoutNullStreams } from "n
 import { existsSync } from "node:fs";
 import path from "node:path";
 import type { ScrapeRunConfig, TestProfileConfig } from "@/contracts/scrape";
+import { isMissingBrowserError } from "./process-errors";
 
 export type PythonCandidate = {
   command: string;
@@ -130,6 +131,21 @@ export function buildModuleArgs(module: string, args: string[] = []): string[] {
 
 type SpawnOptions = { cwd?: string; env?: NodeJS.ProcessEnv };
 
+export function pythonSpawnOptions(
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  stdio: "pipe" | "inherit" = "pipe"
+): { cwd: string; env: NodeJS.ProcessEnv; stdio: ("ignore" | "pipe" | "inherit")[]; detached: boolean } {
+  return {
+    cwd,
+    env,
+    stdio: stdio === "inherit" ? ["ignore", "inherit", "inherit"] : ["ignore", "pipe", "pipe"],
+    // Own process group so killing the scraper also takes Chromium
+    // children spawned by Crawl4AI/Playwright.
+    detached: process.platform !== "win32"
+  };
+}
+
 export function spawnPython(
   resolution: PythonResolution,
   args: string[],
@@ -149,15 +165,116 @@ export function spawnPython(
     throw new Error(resolution.error ?? "Python interpreter is unavailable.");
   }
   const cwd = options.cwd ?? process.cwd();
-  return spawn(resolution.command, [...resolution.args, ...args], {
-    cwd,
-    env: pythonEnvironment(cwd, options.env ?? process.env),
-    stdio: options.stdio === "inherit" ? ["ignore", "inherit", "inherit"] : ["ignore", "pipe", "pipe"]
-  });
+  const baseEnv = pythonEnvironment(cwd, options.env ?? process.env);
+  const env = isCrawlPageModule(args) ? stripProviderKeys(baseEnv) : baseEnv;
+  const child = spawn(
+    resolution.command,
+    [...resolution.args, ...args],
+    pythonSpawnOptions(cwd, env, options.stdio ?? "pipe")
+  );
+  trackPythonChild(child);
+  return child;
+}
+
+// Detached children lead their own process group, so the terminal's Ctrl-C
+// and Node's exit no longer reach them. Track them and signal their groups
+// ourselves, or the scraper and its Chromium outlive Node as orphans.
+const trackedChildren = new Set<ChildProcess>();
+let parentHooksInstalled = false;
+
+function trackPythonChild(child: ChildProcess): void {
+  // win32 spawns attached (detached:false): the console already delivers
+  // Ctrl-C and there is no process group to signal.
+  if (process.platform === "win32" || child.pid === undefined) return;
+  trackedChildren.add(child);
+  child.once("exit", () => trackedChildren.delete(child));
+  installParentHooks();
+}
+
+/** Number of spawned Python children still running (for tests and diagnostics). */
+export function trackedPythonChildCount(): number {
+  return trackedChildren.size;
+}
+
+/** Signal every tracked Python child's process group (Python + Chromium). */
+export function killTrackedPythonChildren(signal: NodeJS.Signals = "SIGTERM"): void {
+  for (const child of trackedChildren) {
+    if (child.exitCode === null && child.signalCode === null) killProcessTree(child, signal);
+  }
+}
+
+function installParentHooks(): void {
+  if (parentHooksInstalled) return;
+  parentHooksInstalled = true;
+  // "exit" handlers must be synchronous: signalling is. SIGTERM lets
+  // Python's handler close browsers; the whole group gets it too.
+  process.once("exit", () => killTrackedPythonChildren("SIGTERM"));
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    const forward = () => {
+      killTrackedPythonChildren(signal);
+      // A signal listener disables Node's default "exit on signal". When no
+      // one else handles it, restore that default by re-raising.
+      if (process.listenerCount(signal) === 1) {
+        process.removeListener(signal, forward);
+        process.kill(process.pid, signal);
+      }
+    };
+    process.on(signal, forward);
+  }
+}
+
+function isCrawlPageModule(args: string[]): boolean {
+  return args.includes("scraper.crawl_page");
+}
+
+const PROVIDER_KEY_PATTERN = /(api[_-]?key|secret|token|password)/i;
+
+export function stripProviderKeys(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const clean = { ...env };
+  for (const key of Object.keys(clean)) {
+    const upper = key.toUpperCase();
+    if (
+      upper === "GEMINI_API_KEY" ||
+      upper === "GOOGLE_API_KEY" ||
+      upper === "OPENROUTER_API_KEY" ||
+      upper === "OPENAI_COMPATIBLE_API_KEY" ||
+      upper === "OPENAI_API_KEY" ||
+      upper === "EXA_API_KEY" ||
+      upper === "TAVILY_API_KEY" ||
+      upper === "BRAVE_API_KEY" ||
+      PROVIDER_KEY_PATTERN.test(key)
+    ) {
+      delete clean[key];
+    }
+  }
+  return clean;
+}
+
+function killProcessTree(
+  child: Pick<ChildProcess, "exitCode" | "kill"> & { pid?: number },
+  signal: NodeJS.Signals
+): void {
+  // With detached:true the child leads its own process group: a negative
+  // pid signals the whole group (Python + Chromium). Fall back to the
+  // direct child kill when group kill is unavailable (Windows, no pid).
+  const pid = child.pid;
+  if (pid !== undefined && process.platform !== "win32") {
+    try {
+      process.kill(-pid, signal);
+      return;
+    } catch {
+      // fall through to direct kill
+    }
+  }
+  try {
+    child.kill(signal);
+  } catch {
+    // child already exited
+  }
 }
 
 export function createProcessTerminator(
-  child: Pick<ChildProcess, "exitCode" | "kill">,
+  child: Pick<ChildProcess, "exitCode" | "kill"> & { pid?: number },
   graceMs = 3000
 ): { readonly requested: boolean; terminate(): void; clear(): void } {
   let requested = false;
@@ -169,9 +286,9 @@ export function createProcessTerminator(
     terminate() {
       if (requested || child.exitCode !== null) return;
       requested = true;
-      child.kill("SIGINT");
+      killProcessTree(child, "SIGINT");
       timer = setTimeout(() => {
-        if (child.exitCode === null) child.kill("SIGKILL");
+        if (child.exitCode === null) killProcessTree(child, "SIGKILL");
       }, graceMs);
     },
     clear() {
@@ -294,3 +411,127 @@ function appendCsv(args: string[], flag: string, value: string[] | undefined): v
 function appendNumber(args: string[], flag: string, value: number | undefined): void {
   if (value !== undefined) args.push(flag, String(value));
 }
+
+export function isTransientCrawlerError(reason?: string): boolean {
+  if (!reason) return false;
+  const lower = reason.toLowerCase();
+  return (
+    lower.includes("timeout") ||
+    lower.includes("timed out") ||
+    lower.includes("deadline") ||
+    lower.includes("abort") ||
+    lower.includes("cancel") ||
+    lower.includes("econnreset") ||
+    lower.includes("etimedout") ||
+    lower.includes("ebusy")
+  );
+}
+
+let crawlerReadinessGeneration = 0;
+let inFlightCrawlerReadiness: Promise<{ ready: boolean; reason?: string }> | undefined;
+let cachedCrawlerReadiness: { ready: boolean; reason?: string } | undefined;
+
+export function resetCrawlerEnvironmentCache(): void {
+  // Same invalidation contract as a forced probe: in-flight completions are
+  // fenced off by the generation bump, so they can neither overwrite fresh
+  // cache nor clear a newer in-flight request.
+  crawlerReadinessGeneration += 1;
+  cachedCrawlerReadiness = undefined;
+  inFlightCrawlerReadiness = undefined;
+}
+
+export async function checkCrawlerEnvironment(options: {
+  force?: boolean;
+  probeFn?: () => Promise<{ ready: boolean; reason?: string }>;
+} = {}): Promise<{ ready: boolean; reason?: string }> {
+  if (options.force) {
+    // A forced probe must produce fresh readiness: invalidate the cache and
+    // fence off any older in-flight completion via the generation bump, so it
+    // can neither overwrite the fresh result nor clear the new request.
+    crawlerReadinessGeneration += 1;
+    cachedCrawlerReadiness = undefined;
+    inFlightCrawlerReadiness = undefined;
+  }
+  if (cachedCrawlerReadiness) {
+    return cachedCrawlerReadiness;
+  }
+  if (inFlightCrawlerReadiness) {
+    return inFlightCrawlerReadiness;
+  }
+
+  const generation = crawlerReadinessGeneration;
+  const probe = options.probeFn ?? checkCrawlerEnvironmentUncached;
+  const flight: { pending?: Promise<{ ready: boolean; reason?: string }> } = {};
+  flight.pending = (async () => {
+    try {
+      const result = await probe();
+      if (generation === crawlerReadinessGeneration && !isTransientCrawlerError(result.reason)) {
+        cachedCrawlerReadiness = result;
+      }
+      return result;
+    } finally {
+      if (inFlightCrawlerReadiness === flight.pending) inFlightCrawlerReadiness = undefined;
+    }
+  })();
+  inFlightCrawlerReadiness = flight.pending;
+
+  return flight.pending;
+}
+
+async function checkCrawlerEnvironmentUncached(): Promise<{ ready: boolean; reason?: string }> {
+  const resolution = await resolvePython();
+  if (!resolution.ok || !resolution.command) {
+    return { ready: false, reason: "Python interpreter is unavailable" };
+  }
+
+  const probeScript = `
+import sys, json, asyncio
+async def check():
+    try:
+        import bs4
+        import crawl4ai
+        from playwright.async_api import async_playwright
+    except ImportError as e:
+        return {"ready": False, "reason": "Missing crawler dependency: " + str(e)}
+
+    try:
+        from playwright.async_api import async_playwright
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            await browser.close()
+        return {"ready": True}
+    except Exception as e:
+        msg = str(e)
+        if "Executable doesn" in msg or "playwright install" in msg:
+            return {"ready": False, "reason": "Chromium is missing"}
+        return {"ready": False, "reason": msg.splitlines()[0]}
+
+try:
+    res = asyncio.run(check())
+    print(json.dumps(res))
+except Exception as e:
+    print(json.dumps({"ready": False, "reason": str(e)}))
+`;
+
+  try {
+    const result = await runPythonCaptured(resolution, ["-c", probeScript], {
+      timeoutMs: 8000,
+      maxOutputBytes: 20_000
+    });
+    const output = result.stdout.trim();
+    if (!output) {
+      const err = result.stderr.trim();
+      if (isMissingBrowserError(err)) {
+        return { ready: false, reason: "Chromium is missing" };
+      }
+      return { ready: false, reason: err.split("\n")[0] || "Crawler probe failed" };
+    }
+    const lastLine = output.split("\n").filter(Boolean).pop() || "";
+    const parsed = JSON.parse(lastLine) as { ready: boolean; reason?: string };
+    return { ready: Boolean(parsed.ready), reason: parsed.reason };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { ready: false, reason: msg };
+  }
+}
+

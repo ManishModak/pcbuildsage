@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { MessageView, type ChatUIMessage } from "../message";
+import { findAllBuildVersions } from "../build-versions";
 
 describe("message actions", () => {
   it("keeps edit actions available on touch layouts and keyboard focus", () => {
@@ -11,7 +12,7 @@ describe("message actions", () => {
     };
 
     const markup = renderToStaticMarkup(
-      <MessageView message={message} currency="USD" onEdit={vi.fn()} />
+      <MessageView message={message} onEdit={vi.fn()} />
     );
 
     expect(markup).toContain("opacity-100");
@@ -48,13 +49,16 @@ describe("message actions", () => {
       ]
     };
 
+    // A message's build button is driven by the versions the panel computed for
+    // it, which is the only way it can hand the panel something it can open.
+    const versions = findAllBuildVersions([message], "INR");
     const markup = renderToStaticMarkup(
-      <MessageView message={message} currency="INR" />
+      <MessageView message={message} versions={versions} />
     );
 
     expect(markup).toContain('type="button"');
     expect(markup).toContain('aria-label="View proposed build: Budget 1080p Gaming"');
-    expect(markup).toContain("Proposed Build");
+    expect(markup).toContain("Version 1");
     expect(markup).toContain("Budget 1080p Gaming");
     expect(markup).toContain("₹39,700");
     expect(markup).toContain("View Details");
@@ -88,8 +92,9 @@ describe("message actions", () => {
       ]
     };
 
+    const versions = findAllBuildVersions([message], "INR");
     const markup = renderToStaticMarkup(
-      <MessageView message={message} currency="INR" />
+      <MessageView message={message} versions={versions} />
     );
 
     expect(markup).toContain("2 variants");

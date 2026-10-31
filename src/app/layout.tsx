@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { AppProvider } from "../components/app/app-provider";
+import { RETURNING_BOOTSTRAP } from "../lib/client-config-store";
+import { SITE_URL } from "../lib/seo";
 import "./globals.css";
 
 const inter = Inter({
@@ -16,10 +18,26 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PCBuildSage — Build Consultant",
+  metadataBase: new URL(SITE_URL),
+  title: "PCBuildSage — AI PC build planner for India",
   description:
-    "A calm expert at a well-lit workbench: local-first PC hardware aggregator and conversational build consultant with verifiable compatibility checks.",
-  applicationName: "PCBuildSage"
+    "Describe your budget and needs in plain language and get PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source.",
+  applicationName: "PCBuildSage",
+  // Google Search Console ownership tag for https://pcbuildsage.onrender.com/ (public by design).
+  verification: { google: "HxDIB8pSIG-iAWHPjFk7ZSAYtIEw652mnLh-Ns1II7w" },
+  openGraph: {
+    type: "website",
+    siteName: "PCBuildSage",
+    title: "PCBuildSage — AI PC build planner for India",
+    description:
+      "PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source."
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PCBuildSage — AI PC build planner for India",
+    description:
+      "PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source."
+  }
 };
 
 export const viewport: Viewport = {
@@ -59,6 +77,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <script dangerouslySetInnerHTML={{ __html: RETURNING_BOOTSTRAP }} />
       </head>
       <body suppressHydrationWarning>
         <AppProvider>{children}</AppProvider>

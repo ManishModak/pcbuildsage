@@ -34,8 +34,13 @@ const saveSchema = z.object({
   title: z.string().optional().nullable(),
   countryCode: z.string().optional().nullable(),
   currency: z.string().optional().nullable()
+  // No compactContext: in local mode the server owns it (the chat engine writes
+  // it via saveCompactContext). A browser copy is stale or empty after a reload,
+  // so accepting it here would overwrite the server's newer context.
 });
 
+export async function GET(request: Request): Promise<Response>;
+export async function GET(): Promise<Response>;
 export async function GET(request: Request = new Request("http://localhost/api/sessions")): Promise<Response> {
   const blocked = guardHostedRoute(request, { customPayload: HOSTED_MODE_FORBIDDEN_RESPONSE });
   if (blocked) return blocked;

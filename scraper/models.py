@@ -34,6 +34,9 @@ class SiteConfig:
     currency: str
     engine: str = "browser"
     max_llm_calls_per_site: int | None = None
+    # Product hrefs embed the listing they were found on (see
+    # normalizer.strip_listing_context); strip it so identity is stable.
+    strip_listing_context: bool = False
 
 
 @dataclass(frozen=True)

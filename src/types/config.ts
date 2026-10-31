@@ -12,6 +12,7 @@ export type LLMChainEntry = {
   apiKey?: string;
   baseUrl?: string;
   reasoningEffort?: ReasoningEffort;
+  contextLimit?: number;
 };
 
 export type ProviderConfig = {
@@ -20,6 +21,7 @@ export type ProviderConfig = {
   baseUrl?: string;
   keySource: KeySource;
   reasoningEffort?: ReasoningEffort;
+  contextLimit?: number;
 };
 
 export type RoleChains = Record<LLMRole, LLMChainEntry[]>;
