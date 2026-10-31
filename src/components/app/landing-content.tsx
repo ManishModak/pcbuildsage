@@ -72,7 +72,7 @@ export function LandingContent() {
         <section className="relative overflow-hidden">
           <AsciiSky />
           <div className="relative mx-auto grid w-full max-w-6xl gap-10 px-4 pb-16 pt-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:gap-14 lg:pb-24 lg:pt-16">
-            <div className="flex flex-col items-start">
+            <div data-sky-quiet="" className="flex flex-col items-start self-start">
               <h1 className="type-display text-[clamp(2.5rem,5.4vw,4rem)] text-text">
                 <RuneText text="Your budget." />
                 <br />
@@ -101,7 +101,9 @@ export function LandingContent() {
               </p>
             </div>
 
-            <SampleConversation currency="INR" className="self-start shadow-[0_30px_80px_-40px_color-mix(in_srgb,var(--bg)_70%,black)]" />
+            <div data-sky-quiet="" className="self-start">
+              <SampleConversation currency="INR" className="shadow-[0_30px_80px_-40px_color-mix(in_srgb,var(--bg)_70%,black)]" />
+            </div>
           </div>
         </section>
 

@@ -16,6 +16,9 @@ import { cn } from "@/components/ui/cn";
  * drawn while the tab is hidden or the canvas is off screen, and the loop
  * stops when the component unmounts. Reduced motion draws one still frame.
  * Mount it only where nobody is reading a conversation.
+ *
+ * Text stays clear: birds fade out as they reach any element marked
+ * `data-sky-quiet` beside the canvas, so they seem to pass behind it.
  */
 
 const FRAME_MS = 1000 / 24;
@@ -27,6 +30,9 @@ const LAYERS = [
   { size: 16, alpha: 0.48, speed: 38, bob: 10 }
 ] as const;
 const POINTER_RADIUS = 110;
+const QUIET_FADE_PX = 28; // birds fade over this distance before marked text
+
+type Box = { left: number; top: number; right: number; bottom: number };
 
 type Bird = {
   layer: number;
@@ -93,6 +99,33 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
     let last = 0;
     let elapsed = 0;
     const pointer = { x: -1e4, y: -1e4 };
+    let quiet: Box[] = [];
+
+    // Boxes of the text the birds pass behind, in canvas coordinates.
+    const measureQuiet = () => {
+      const origin = canvas.getBoundingClientRect();
+      const marked = canvas.parentElement?.querySelectorAll<HTMLElement>("[data-sky-quiet]") ?? [];
+      quiet = Array.from(marked, (element) => {
+        const box = element.getBoundingClientRect();
+        return {
+          left: box.left - origin.left,
+          top: box.top - origin.top,
+          right: box.right - origin.left,
+          bottom: box.bottom - origin.top
+        };
+      });
+    };
+
+    // 1 in open sky, easing to 0 over QUIET_FADE_PX as a bird reaches marked text.
+    const openness = (x: number, y: number) => {
+      let factor = 1;
+      for (const box of quiet) {
+        const dx = Math.max(box.left - x, 0, x - box.right);
+        const dy = Math.max(box.top - y, 0, y - box.bottom);
+        factor = Math.min(factor, Math.hypot(dx, dy) / QUIET_FADE_PX);
+      }
+      return factor;
+    };
 
     const readTheme = () => {
       const styles = getComputedStyle(document.documentElement);
@@ -111,6 +144,7 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
       const count = Math.round(Math.min(14, Math.max(4, ((width * height) / 90_000) * density)));
       while (birds.length < count) birds.push(makeBird(width, height, true));
       birds.length = count;
+      measureQuiet();
     };
 
     const draw = (t: number) => {
@@ -121,20 +155,25 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
       for (let layer = 0; layer < LAYERS.length; layer++) {
         const { size, alpha, bob } = LAYERS[layer];
         ctx.font = `500 ${size}px ${font}`;
-        ctx.globalAlpha = alpha;
         for (const bird of birds) {
           if (bird.layer !== layer) continue;
-          const glyph = bird.flapping > 0 ? FLAP[Math.floor((t + bird.phase) / bird.flapEvery) % FLAP.length] : GLIDE;
           const y = bird.y + Math.sin((t + bird.phase) * 1.3) * bob + bird.lift;
+          const open = openness(bird.x, y);
+          if (open <= 0) continue;
+          ctx.globalAlpha = alpha * open;
+          const glyph = bird.flapping > 0 ? FLAP[Math.floor((t + bird.phase) / bird.flapEvery) % FLAP.length] : GLIDE;
           ctx.fillText(glyph, bird.x, y);
         }
       }
       if (flock) {
         ctx.font = `500 ${LAYERS[1].size}px ${font}`;
-        ctx.globalAlpha = LAYERS[1].alpha;
         for (const member of flock.members) {
-          const glyph = FLAP[Math.floor((t + member.phase) / 0.16) % FLAP.length];
-          ctx.fillText(glyph, flock.x + member.dx, flock.y + member.dy + Math.sin((t + member.phase) * 1.1) * 3);
+          const x = flock.x + member.dx;
+          const y = flock.y + member.dy + Math.sin((t + member.phase) * 1.1) * 3;
+          const open = openness(x, y);
+          if (open <= 0) continue;
+          ctx.globalAlpha = LAYERS[1].alpha * open;
+          ctx.fillText(FLAP[Math.floor((t + member.phase) / 0.16) % FLAP.length], x, y);
         }
       }
       ctx.globalAlpha = 1;
@@ -204,6 +243,13 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
       if (reduceMotion) draw(0);
     });
     resizeObserver.observe(canvas);
+    // Web fonts change text heights after first paint.
+    let disposed = false;
+    void document.fonts?.ready.then(() => {
+      if (disposed) return;
+      measureQuiet();
+      if (reduceMotion) draw(0);
+    });
     const intersection = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
     });
@@ -227,6 +273,7 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
     document.addEventListener("pointerleave", onLeave);
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(raf);
       resizeObserver.disconnect();
       intersection.disconnect();

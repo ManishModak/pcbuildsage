@@ -8,7 +8,7 @@ export default function NotFound() {
   return (
     <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-bg p-6 text-text">
       <AsciiSky />
-      <div className="relative flex max-w-xl flex-col items-start gap-6 sm:flex-row sm:items-center sm:gap-8">
+      <div data-sky-quiet="" className="relative flex max-w-xl flex-col items-start gap-6 sm:flex-row sm:items-center sm:gap-8">
         <AsciiOwl />
         <div className="flex flex-col items-start gap-4">
           <div className="flex flex-col gap-1.5">

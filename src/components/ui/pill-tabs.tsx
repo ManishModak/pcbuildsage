@@ -34,7 +34,9 @@ export function PillTabs({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className="inline-flex flex-wrap gap-1 rounded-pill border border-border bg-surface p-1"
+      // One row that scrolls sideways when it doesn't fit, like a chip row;
+      // wrapping would turn the pill into a lumpy oval on phones.
+      className="inline-flex max-w-full gap-1 overflow-x-auto rounded-pill border border-border bg-surface p-1 [scrollbar-width:none]"
     >
       {tabs.map((tab, index) => {
         const active = tab.value === value;
@@ -50,7 +52,7 @@ export function PillTabs({
             onKeyDown={(event) => onKeyDown(event, index)}
             onClick={() => onChange(tab.value)}
             className={cn(
-              "rounded-pill font-medium transition-colors duration-150",
+              "shrink-0 whitespace-nowrap rounded-pill font-medium transition-colors duration-150",
               size === "sm" ? "min-h-8 px-3 text-caption" : "min-h-9 px-4 text-sm",
               active ? "bg-accent text-on-accent" : "text-text-secondary hover:text-text"
             )}

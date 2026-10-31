@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Ban, Check, ChevronDown, ChevronRight, Copy, ExternalLink, TriangleAlert } from "lucide-react";
 import { RuneSpinner } from "@/components/app/rune-spinner";
+import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
 import { ProgressBar } from "@/components/ui/primitives";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -151,7 +152,13 @@ export function ScrapeProgress({
           </div>
         ) : null}
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-card border border-border bg-surface">
+        {/* Collapsed, the drawer is just its header; it fills the column only when open. */}
+        <div
+          className={cn(
+            "flex min-h-0 flex-col overflow-hidden rounded-card border border-border bg-surface",
+            showLog && "flex-1"
+          )}
+        >
           <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2.5 text-caption text-text-secondary">
             <button
               type="button"

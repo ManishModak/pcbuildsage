@@ -8,7 +8,8 @@ import { SampleConversation } from "./sample-conversation";
 
 // A new chat: what to type, a few ready prompts to start from, and a read-only
 // example build. Empty states say what to do next, not just "No messages".
-// Chat-view draws the birds behind it; none fly once a conversation starts.
+// Chat-view draws the birds; they pass behind this block (data-sky-quiet) and
+// none fly once a conversation starts.
 export function ChatEmptyState({
   onPick,
   currency = "INR"
@@ -26,7 +27,7 @@ export function ChatEmptyState({
     "Check this build: 7800X3D, B650, 32GB DDR5, 650W"
   ];
   return (
-    <div className="flex flex-col items-start gap-6 pt-12 pb-6 sm:pt-16">
+    <div data-sky-quiet="" className="flex flex-col items-start gap-6 pt-12 pb-6 sm:pt-16">
       <AsciiOwl />
       <div className="flex flex-col gap-2">
         <h1 className="type-display text-[clamp(2rem,4vw,2.75rem)] text-text">
