@@ -18,8 +18,7 @@ const EXAMPLE_HOST = /^([a-z0-9-]+\.)*example\.(com|org|net)$/i;
 
 /**
  * True for template profiles: every site points at a reserved example domain
- * (RFC 2606), so the profile documents the format and can never scrape. Same
- * rule as the weekly smoke test.
+ * (RFC 2606), so the profile documents the format and can never scrape.
  */
 function isTemplateProfile(profile: { sites?: unknown }): boolean {
   if (!Array.isArray(profile.sites) || profile.sites.length === 0) return false;

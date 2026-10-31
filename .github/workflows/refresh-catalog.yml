@@ -16,6 +16,13 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      contents: read
+      issues: write
+    env:
+      # PCStudio's Cloudflare returns 403 to GitHub's datacenter IPs (since about
+      # 1 Oct 2026), so the hosted catalog leaves it out; local scrapes keep it.
+      EXCLUDE_SITES: PCStudio
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -37,6 +44,7 @@ jobs:
         run: |
           python -m scraper \
             --profile india \
+            --exclude-sites "$EXCLUDE_SITES" \
             --db "$RUNNER_TEMP/catalog.db" \
             --skip-fresh 20 \
             --concurrency 2 \
@@ -47,6 +55,41 @@ jobs:
           TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
           TURSO_INGEST_TOKEN: ${{ secrets.TURSO_INGEST_TOKEN }}
         run: npm run publish-catalog -- --db "$RUNNER_TEMP/catalog.db"
+
+      # Runs even when the scrape or publish fails, so a crashed or rejected run
+      # still shows which retailers and categories broke.
+      - name: Report catalog coverage
+        id: coverage
+        if: ${{ !cancelled() }}
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_INGEST_TOKEN: ${{ secrets.TURSO_INGEST_TOKEN }}
+        run: |
+          npm run catalog-coverage -- --db "$RUNNER_TEMP/catalog.db" \
+            --profile india --exclude-sites "$EXCLUDE_SITES" \
+            --json "$RUNNER_TEMP/coverage.json" --markdown "$RUNNER_TEMP/coverage.md"
+          cat "$RUNNER_TEMP/coverage.md" >> "$GITHUB_STEP_SUMMARY"
+
+      # One open issue lists the retailer/category scopes with no fresh listings
+      # for 24 h; it is refreshed each run and closes itself once all recover.
+      - name: Open, update or close the coverage issue
+        if: ${{ !cancelled() && steps.coverage.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Catalog coverage: retailer listings going stale"
+          existing=$(gh issue list --state open --label bug --limit 100 --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ "$(jq '.stale | length' "$RUNNER_TEMP/coverage.json")" -gt 0 ]; then
+            if [ -n "$existing" ]; then
+              gh issue edit "$existing" --body-file "$RUNNER_TEMP/coverage.md"
+            else
+              gh issue create --title "$title" --label bug --body-file "$RUNNER_TEMP/coverage.md"
+            fi
+          elif [ -n "$existing" ]; then
+            gh issue close "$existing" --comment \
+              "Every retailer and category has fresh listings again: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi
 
       - name: Upload scraped catalog for guides
         uses: actions/upload-artifact@v4
