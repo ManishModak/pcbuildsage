@@ -34,13 +34,13 @@ export default function OpengraphImage() {
           <span>PCBuildSage</span>
         </div>
         <div style={{ fontSize: 68, fontWeight: 700, marginTop: 28, lineHeight: 1.12 }}>
-          AI PC build planner for India
+          AI PC build planner
         </div>
         <div style={{ fontSize: 32, marginTop: 28, color: "#B79CFF" }}>
           Tell the Sage your budget. Get a build with exact totals and buy links.
         </div>
         <div style={{ fontSize: 26, marginTop: 20, color: "#A2B2A8" }}>
-          Parts from Indian retailers, compatibility checked by code.
+          Parts in stock at retailers today, compatibility checked by code.
         </div>
       </div>
     ),

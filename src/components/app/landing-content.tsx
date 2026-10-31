@@ -82,9 +82,8 @@ export function LandingContent() {
               </h1>
               <p className="mt-6 max-w-[34rem] text-lg leading-relaxed text-text-secondary">
                 Tell PCBuildSage what you&apos;ll use the PC for, what you already own and what you can
-                spend. You get a parts list priced at Indian retailers such as MDComputers, Vedant
-                Computers and Kryptronix, a buy link for every part, and the compatibility checks it
-                passed.
+                spend. You get a parts list priced from in-stock retailer listings, a buy link for every
+                part, and the compatibility checks it passed.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
                 <StartSetupButton>Plan my build</StartSetupButton>

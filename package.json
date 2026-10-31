@@ -1,7 +1,7 @@
 {
   "name": "pcbuildsage",
   "version": "0.1.0",
-  "description": "AI PC build planner for India: builds from in-stock parts at Indian retailers, with exact totals, buy links and rule-checked compatibility.",
+  "description": "AI PC build planner: builds from in-stock parts at retailers, with exact totals, buy links and rule-checked compatibility.",
   "keywords": [
     "pc-builder",
     "pc-building",
