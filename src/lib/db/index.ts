@@ -34,13 +34,21 @@ const LOGS_TABLE_DDL = `
     `;
 
 /**
+ * Makes a database path absolute, but keeps SQLite's ":memory:" (a private
+ * in-memory database) as is: resolved, it would become a file named ":memory:".
+ */
+export function resolveDbPath(dbPath: string): string {
+  return dbPath === ":memory:" ? dbPath : path.resolve(dbPath);
+}
+
+/**
  * Returns a cached database connection for the given path.
  * Connections are keyed by resolved absolute path, so multiple
  * callers with different paths coexist safely without closing
  * each other's connections.
  */
 export function getDb(dbPath = DEFAULT_DB_PATH): Database.Database {
-  const resolvedPath = path.resolve(dbPath);
+  const resolvedPath = resolveDbPath(dbPath);
   let db = activeDbs.get(resolvedPath);
 
   if (!db || !db.open) {
@@ -56,7 +64,7 @@ export function getDb(dbPath = DEFAULT_DB_PATH): Database.Database {
  * same pragmas as db.ts's openDb) and creating the schema on first use.
  */
 export function getLogsDb(dbPath = DEFAULT_LOGS_DB_PATH): Database.Database {
-  const resolvedPath = path.resolve(dbPath);
+  const resolvedPath = resolveDbPath(dbPath);
   let db = activeLogsDbs.get(resolvedPath);
 
   if (!db || !db.open) {
@@ -77,7 +85,7 @@ export function getLogsDb(dbPath = DEFAULT_LOGS_DB_PATH): Database.Database {
  */
 export function closeDb(dbPath?: string): void {
   if (dbPath) {
-    const resolvedPath = path.resolve(dbPath);
+    const resolvedPath = resolveDbPath(dbPath);
     const db = activeDbs.get(resolvedPath);
 
     if (db?.open) {
