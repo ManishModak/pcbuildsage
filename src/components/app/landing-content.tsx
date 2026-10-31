@@ -25,7 +25,7 @@ const PROMISES = [
   {
     title: "Your API key stays yours",
     body:
-      "It's kept in this tab's session storage and sent with each request only to reach your provider. It's never written to disk, stored or logged on the server."
+      "On the hosted demo it's kept in this tab's session storage and sent with each request only so the server can forward it to your provider. The server never writes it to disk, stores or logs it. Run PCBuildSage yourself and only your machine and your provider see it."
   },
   {
     title: "Free, open source, no account",

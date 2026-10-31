@@ -52,6 +52,22 @@ export function newEntry(partial: Partial<ChainEntry> = {}): ChainEntry {
   };
 }
 
+/**
+ * "Key from the server" is offered only when the server has one. An entry
+ * left on it otherwise (every new entry starts there) shows "Paste a key"
+ * with no field to paste into, so it moves to a pasted key, or to no key for
+ * a local server. Returns the same array when nothing changes.
+ */
+export function withAvailableKeySources(chain: ChainEntry[], credentials: CredentialAvailability): ChainEntry[] {
+  const orphaned = (entry: ChainEntry) => entry.keySource === "env" && !credentials.llm?.[entry.provider];
+  if (!chain.some(orphaned)) return chain;
+  return chain.map((entry) => {
+    if (!orphaned(entry)) return entry;
+    const local = entry.provider === "ollama" || entry.provider === "openai-compatible";
+    return { ...entry, keySource: local ? "none" : "ui", ping: undefined };
+  });
+}
+
 type ModelState = { models: DiscoveredModel[]; loading: boolean; error?: string };
 
 export function ChainBuilder({
@@ -72,6 +88,13 @@ export function ChainBuilder({
   const [probing, setProbing] = useState<Record<string, boolean>>({});
   const [keyDraft, setKeyDraft] = useState<Record<string, string>>({});
   const dragIndex = useRef<number | null>(null);
+  const loadSeq = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!credentials) return;
+    const next = withAvailableKeySources(chain, credentials);
+    if (next !== chain) onChange(next);
+  }, [chain, credentials, onChange]);
 
   const update = (id: string, patch: Partial<ChainEntry>) =>
     onChange(chain.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)));
@@ -86,6 +109,16 @@ export function ChainBuilder({
 
   const loadModels = useCallback(
     async (entry: ChainEntry) => {
+      // Only the latest load for an entry may set its list: an earlier one
+      // (another provider or key source) can answer later.
+      const seq = (loadSeq.current[entry.id] ?? 0) + 1;
+      loadSeq.current[entry.id] = seq;
+      // No key to ask with yet: the provider would only refuse (HTTP 403).
+      const keySaved = isHostedMode() ? hasByokKey(entry.provider) : hasUiKey(entry.provider);
+      if (entry.keySource === "ui" && !keyDraft[entry.id] && !keySaved) {
+        setModels((prev) => ({ ...prev, [entry.id]: { models: prev[entry.id]?.models ?? [], loading: false } }));
+        return;
+      }
       setModels((prev) => ({ ...prev, [entry.id]: { models: prev[entry.id]?.models ?? [], loading: true } }));
       try {
         const list = await fetchModels({
@@ -94,8 +127,10 @@ export function ChainBuilder({
           keySource: entry.keySource,
           apiKey: keyDraft[entry.id]
         });
+        if (loadSeq.current[entry.id] !== seq) return;
         setModels((prev) => ({ ...prev, [entry.id]: { models: list, loading: false } }));
       } catch (error) {
+        if (loadSeq.current[entry.id] !== seq) return;
         setModels((prev) => ({
           ...prev,
           [entry.id]: { models: prev[entry.id]?.models ?? [], loading: false, error: (error as Error).message }
@@ -134,6 +169,7 @@ export function ChainBuilder({
         saveUiKey(entry.provider, trimmed);
       }
       update(entry.id, { hasSavedKey: true });
+      void loadModels(entry);
     }
   };
 
@@ -220,14 +256,16 @@ function ChainCard({
 }) {
   const isLocal = entry.provider === "ollama" || entry.provider === "openai-compatible";
   const envAvailable = Boolean(credentials?.llm?.[entry.provider]);
+  const keySaved = Boolean(entry.hasSavedKey || (isHostedMode() ? hasByokKey(entry.provider) : hasUiKey(entry.provider)));
+  const needsKey = entry.keySource === "ui" && !keySaved && !keyDraft;
   const isPrimary = index === 0;
   const toolBlocked = primaryMustSupportTools && isPrimary && entry.ping && !entry.ping.toolCapable;
 
-  // Fetch models the first time a provider is shown / changed.
+  // Fetch models the first time a provider is shown, and when it or the key source changes.
   useEffect(() => {
     onLoadModels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entry.provider, entry.baseUrl]);
+  }, [entry.provider, entry.baseUrl, entry.keySource]);
 
   const keySourceOptions: Array<{ value: KeySource; label: string }> = [
     ...(envAvailable ? [{ value: "env" as KeySource, label: "Key from the server's environment" }] : []),
@@ -336,33 +374,28 @@ function ChainCard({
         ) : null}
 
         {entry.keySource === "ui" ? (
-          (() => {
-            const keySaved = Boolean(entry.hasSavedKey || (isHostedMode() ? hasByokKey(entry.provider) : hasUiKey(entry.provider)));
-            return (
-              <Field
-                label="API key"
-                hint={
-                  keySaved
-                    ? "A key is saved for this provider. Paste a new one to replace it."
-                    : isHostedMode()
-                    ? "Stored in this browser tab's session storage. Sent with each request only so the PCBuildSage server can forward it to this provider."
-                    : "Stored in this browser's local storage. Sent with each request only so the PCBuildSage server can forward it to this provider."
-                }
-              >
-                {(controlProps) => (
-                  <Input
-                    {...controlProps}
-                    type="password"
-                    autoComplete="off"
-                    value={keyDraft}
-                    placeholder={keySaved ? "•••••••• saved" : "Paste your key"}
-                    onChange={(event) => onKeyDraft(event.target.value)}
-                    onBlur={onCommitKey}
-                  />
-                )}
-              </Field>
-            );
-          })()
+          <Field
+            label="API key"
+            hint={
+              keySaved
+                ? "A key is saved for this provider. Paste a new one to replace it."
+                : isHostedMode()
+                ? "Stored in this browser tab's session storage. Sent with each request only so the PCBuildSage server can forward it to this provider."
+                : "Stored in this browser's local storage. Sent with each request only so the PCBuildSage server can forward it to this provider."
+            }
+          >
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                type="password"
+                autoComplete="off"
+                value={keyDraft}
+                placeholder={keySaved ? "•••••••• saved" : "Paste your key"}
+                onChange={(event) => onKeyDraft(event.target.value)}
+                onBlur={onCommitKey}
+              />
+            )}
+          </Field>
         ) : entry.keySource === "env" ? (
           <ReadOnlyValue label="Key status">
             <span className="inline-flex min-h-11 items-center gap-2 text-sm text-text-secondary">
@@ -397,6 +430,7 @@ function ChainCard({
                 loading={modelState.loading}
                 onRefresh={onLoadModels}
                 error={modelState.error}
+                emptyHint={needsKey ? "Paste a key to list its models, or type the model ID." : undefined}
               />
             )}
           </Field>

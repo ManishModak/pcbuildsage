@@ -11,6 +11,8 @@ import { cn } from "@/components/ui/cn";
 /** One provider row inside the "Your API keys" group (see byok-section.tsx). */
 export interface ProviderConfig {
   id: "gemini" | "openrouter" | "groq";
+  /** One line shown beside the name where the provider is picked. */
+  note: string;
   name: string;
   placeholder: string;
   defaultModel: string;

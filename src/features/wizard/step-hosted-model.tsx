@@ -103,11 +103,21 @@ export function StepHostedModel({ onBack, onFinish }: { onBack: () => void; onFi
   return (
     <section className="flex flex-col gap-6">
       <StepHeader title="Connect an AI model">
-        PCBuildSage asks an AI model of your choice to plan the build, using your own key. Google Gemini and
-        OpenRouter both give free keys, and getting one takes about a minute.{" "}
+        PCBuildSage asks an AI model of your choice to plan the build, using your own key. Each provider below gives
+        a free key, and getting one takes about a minute.{" "}
         <Link href="/help/api-key" className="font-medium text-accent hover:underline">
           Step-by-step key guide
         </Link>
+        . For a model on your own machine, such as Ollama or LM Studio,{" "}
+        <a
+          href="https://github.com/ManishModak/pcbuildsage#quick-start-local"
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium text-accent hover:underline"
+        >
+          run PCBuildSage locally
+        </a>
+        .
       </StepHeader>
 
       <ByokSection

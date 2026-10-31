@@ -18,44 +18,58 @@ import {
   setByokModel,
   setByokReasoningEffort
 } from "@/lib/llm/client-byok-store";
-import { Button } from "@/components/ui/primitives";
-import { PillTabs } from "@/components/ui/pill-tabs";
+import { Check } from "lucide-react";
+import { cn } from "@/components/ui/cn";
+import { Icon } from "@/components/ui/icon";
+import { Button, ChoiceControl, ChoiceGroup } from "@/components/ui/primitives";
 import { ByokProviderCard, type ProviderConfig } from "./byok-provider-card";
 import { KeyHandlingNote, KeyHelpPanel } from "./key-help-panel";
 
+// Every per-provider list below is built from this one, so a new provider is
+// one entry here (plus its server adapter).
 const BYOK_PROVIDERS: ProviderConfig[] = [
   {
     id: "gemini",
     name: "Google Gemini",
+    note: "Free key from Google AI Studio",
     placeholder: "AIzaSy...",
     defaultModel: "gemini-2.5-flash",
     docsUrl: "https://aistudio.google.com/app/apikey",
     docsLabel: "Get a Gemini key"
   },
   {
-    id: "groq",
-    name: "Groq",
-    placeholder: "gsk_...",
-    defaultModel: "llama-3.3-70b-versatile",
-    docsUrl: "https://console.groq.com/keys",
-    docsLabel: "Get a Groq key"
-  },
-  {
     id: "openrouter",
     name: "OpenRouter",
+    note: "One key for models from OpenAI, Anthropic, DeepSeek and others, free and paid",
     placeholder: "sk-or-v1-...",
     // No paid default: the model is preselected from live discovery (free +
     // tool-capable) once a key is saved, otherwise the user picks.
     defaultModel: "",
     docsUrl: "https://openrouter.ai/keys",
     docsLabel: "Get an OpenRouter key"
+  },
+  {
+    id: "groq",
+    name: "Groq",
+    note: "Free key, fast open models",
+    placeholder: "gsk_...",
+    defaultModel: "llama-3.3-70b-versatile",
+    docsUrl: "https://console.groq.com/keys",
+    docsLabel: "Get a Groq key"
   }
 ];
 
+type ProviderId = ProviderConfig["id"];
+
+function perProvider<T>(value: (provider: ProviderConfig) => T): Record<string, T> {
+  return Object.fromEntries(BYOK_PROVIDERS.map((provider) => [provider.id, value(provider)]));
+}
+
 /**
  * "settings" lists every provider's key row under a heading and the free-key
- * steps. "onboarding" sits under the step's own title and shows one provider
- * at a time behind tabs, so a first-time visitor sees a single key field.
+ * steps. "onboarding" sits under the step's own title: a list of providers to
+ * pick from, then the picked one's key field, so a first-time visitor sees a
+ * single key field however many providers there are.
  */
 export function ByokSection({
   className,
@@ -68,63 +82,21 @@ export function ByokSection({
   onKeyChange?: (provider: string, hasKey: boolean) => void;
   onModelChange?: (provider: string, model: string, contextLimit?: number) => void;
 }) {
-  const [keys, setKeys] = useState<Record<string, string | undefined>>(() => ({
-    gemini: getByokKey("gemini"),
-    groq: getByokKey("groq"),
-    openrouter: getByokKey("openrouter")
-  }));
-
-  const [drafts, setDrafts] = useState<Record<string, string>>({
-    gemini: "",
-    groq: "",
-    openrouter: ""
-  });
-
-  const [persists, setPersists] = useState<Record<string, boolean>>(() => ({
-    gemini: isByokKeyPersistent("gemini"),
-    groq: isByokKeyPersistent("groq"),
-    openrouter: isByokKeyPersistent("openrouter")
-  }));
-
-  const [editing, setEditing] = useState<Record<string, boolean>>({
-    gemini: false,
-    groq: false,
-    openrouter: false
-  });
-
-  const [showDraft, setShowDraft] = useState<Record<string, boolean>>({
-    gemini: false,
-    groq: false,
-    openrouter: false
-  });
-
-  const [selectedModels, setSelectedModels] = useState<Record<string, string>>(() => ({
-    gemini: getByokModel("gemini") || "gemini-2.5-flash",
-    groq: getByokModel("groq") || "llama-3.3-70b-versatile",
-    // OpenRouter has no default: preselected from discovery (free +
-    // tool-capable) once a key exists, otherwise the user picks.
-    openrouter: getByokModel("openrouter") || ""
-  }));
-
-  const [reasoningEfforts, setReasoningEfforts] = useState<Record<string, ReasoningEffort | undefined>>(() => ({
-    gemini: getByokReasoningEffort("gemini"),
-    groq: getByokReasoningEffort("groq"),
-    openrouter: getByokReasoningEffort("openrouter")
-  }));
+  const [keys, setKeys] = useState(() => perProvider<string | undefined>((p) => getByokKey(p.id)));
+  const [drafts, setDrafts] = useState(() => perProvider(() => ""));
+  const [persists, setPersists] = useState(() => perProvider((p) => isByokKeyPersistent(p.id)));
+  const [editing, setEditing] = useState(() => perProvider(() => false));
+  const [showDraft, setShowDraft] = useState(() => perProvider(() => false));
+  const [selectedModels, setSelectedModels] = useState(() => perProvider((p) => getByokModel(p.id) || p.defaultModel));
+  const [reasoningEfforts, setReasoningEfforts] = useState(() =>
+    perProvider<ReasoningEffort | undefined>((p) => getByokReasoningEffort(p.id))
+  );
 
   const [models, setModels] = useState<Record<string, DiscoveredModel[]>>({});
   const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({});
   const [modelErrors, setModelErrors] = useState<Record<string, string | undefined>>({});
-  const [customInputs, setCustomInputs] = useState<Record<string, boolean>>({
-    gemini: false,
-    groq: false,
-    openrouter: false
-  });
-  const [customDrafts, setCustomDrafts] = useState<Record<string, string>>({
-    gemini: "",
-    groq: "",
-    openrouter: ""
-  });
+  const [customInputs, setCustomInputs] = useState(() => perProvider(() => false));
+  const [customDrafts, setCustomDrafts] = useState(() => perProvider(() => ""));
 
   const [activeProvider, setActiveProviderState] = useState<string | null>(() => getActiveByokProvider() ?? null);
   const onboarding = variant === "onboarding";
@@ -138,7 +110,7 @@ export function ByokSection({
   });
 
   const loadModelsForProvider = useCallback(
-    async (providerId: "gemini" | "openrouter" | "groq", apiKey?: string, forceRefresh = false) => {
+    async (providerId: ProviderId, apiKey?: string, forceRefresh = false) => {
       const keyToUse = apiKey ?? keys[providerId];
       if (!keyToUse) return;
 
@@ -174,14 +146,16 @@ export function ByokSection({
     [keys, models]
   );
 
+  // Load each keyed provider's models once. A failed load waits for Save or
+  // the refresh button: retrying here would loop on a bad key.
   useEffect(() => {
     for (const p of BYOK_PROVIDERS) {
-      if (keys[p.id] && !models[p.id]?.length && !loadingModels[p.id]) {
+      if (keys[p.id] && !models[p.id]?.length && !loadingModels[p.id] && !modelErrors[p.id]) {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- async model fetch triggered when keys are available
         void loadModelsForProvider(p.id, keys[p.id], false);
       }
     }
-  }, [keys, models, loadingModels, loadModelsForProvider]);
+  }, [keys, models, loadingModels, modelErrors, loadModelsForProvider]);
 
   // Preselect a free, tool-capable model from live discovery when the user
   // has not picked one. Falls back to asking the user (no hard-coded IDs).
@@ -206,7 +180,7 @@ export function ByokSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-way preselect; selectedModels/persists read intentionally
   }, [models]);
 
-  const handleSave = (provider: "gemini" | "openrouter" | "groq") => {
+  const handleSave = (provider: ProviderId) => {
     const raw = drafts[provider]?.trim();
     if (!raw) return;
 
@@ -218,13 +192,7 @@ export function ByokSection({
     setActiveByokProvider(provider, persists[provider]);
     setActiveProviderState(provider);
     onKeyChange?.(provider, true);
-    const activeModel =
-      selectedModels[provider] ||
-      (provider === "gemini"
-        ? "gemini-2.5-flash"
-        : provider === "groq"
-          ? "llama-3.3-70b-versatile"
-          : "");
+    const activeModel = selectedModels[provider] || BYOK_PROVIDERS.find((p) => p.id === provider)?.defaultModel;
     if (activeModel) {
       const matched = models[provider]?.find((m) => m.id === activeModel);
       onModelChange?.(provider, activeModel, matched?.contextLimit);
@@ -233,7 +201,7 @@ export function ByokSection({
     void loadModelsForProvider(provider, raw, true);
   };
 
-  const handleClear = (provider: "gemini" | "openrouter" | "groq") => {
+  const handleClear = (provider: ProviderId) => {
     clearByokKey(provider);
     clearByokModel(provider);
     clearByokReasoningEffort(provider);
@@ -246,12 +214,12 @@ export function ByokSection({
     onKeyChange?.(provider, false);
   };
 
-  const handleReasoningEffortChange = (providerId: "gemini" | "openrouter" | "groq", effort?: ReasoningEffort) => {
+  const handleReasoningEffortChange = (providerId: ProviderId, effort?: ReasoningEffort) => {
     setReasoningEfforts((prev) => ({ ...prev, [providerId]: effort }));
     setByokReasoningEffort(providerId, effort, persists[providerId]);
   };
 
-  const handleModelChange = (providerId: "gemini" | "openrouter" | "groq", modelId: string) => {
+  const handleModelChange = (providerId: ProviderId, modelId: string) => {
     const trimmed = modelId.trim();
     if (!trimmed) return;
     userPickedRef.current[providerId] = true;
@@ -264,7 +232,7 @@ export function ByokSection({
     onModelChange?.(providerId, trimmed, matched?.contextLimit);
   };
 
-  const handleActiveProviderChange = (providerId: "gemini" | "openrouter" | "groq") => {
+  const handleActiveProviderChange = (providerId: ProviderId) => {
     setActiveProviderState(providerId);
     setActiveByokProvider(providerId, persists[providerId]);
     const activeModel = selectedModels[providerId];
@@ -277,11 +245,14 @@ export function ByokSection({
   const configuredProviders = BYOK_PROVIDERS.filter((p) => Boolean(keys[p.id]));
   const shownProviders = onboarding ? BYOK_PROVIDERS.filter((p) => p.id === shownProvider) : BYOK_PROVIDERS;
 
-  // Onboarding: the chat follows the tab on screen once that provider has a key.
+  // Onboarding: the step checks the tab on screen, so every switch moves the
+  // chat to it, even before that provider has a key or a model.
   const showProvider = (providerId: string) => {
     setShownProvider(providerId);
-    const provider = BYOK_PROVIDERS.find((p) => p.id === providerId);
-    if (provider && keys[provider.id]) handleActiveProviderChange(provider.id);
+    setActiveProviderState(providerId);
+    setActiveByokProvider(providerId, persists[providerId]);
+    const model = selectedModels[providerId] ?? "";
+    onModelChange?.(providerId, model, models[providerId]?.find((m) => m.id === model)?.contextLimit);
   };
 
   return (
@@ -328,14 +299,42 @@ export function ByokSection({
 
       <div className="flex flex-col gap-3">
         {onboarding ? (
-          <div className="self-start">
-            <PillTabs
-              tabs={BYOK_PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
-              value={shownProvider}
-              onChange={showProvider}
-              ariaLabel="AI provider"
-            />
-          </div>
+          <ChoiceGroup label="AI provider" legendClassName="sr-only">
+            <div className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">
+              {BYOK_PROVIDERS.map((provider) => {
+                const selected = provider.id === shownProvider;
+                return (
+                  <ChoiceControl
+                    key={provider.id}
+                    type="radio"
+                    name="byok-provider"
+                    value={provider.id}
+                    checked={selected}
+                    onChange={() => showProvider(provider.id)}
+                    className={cn(
+                      "flex items-start gap-3 px-4 py-3 text-left transition-colors duration-150",
+                      selected ? "bg-surface-raised" : "hover:bg-surface-raised"
+                    )}
+                  >
+                    {selected ? <span aria-hidden="true" className="absolute inset-y-0 left-0 w-0.5 bg-accent" /> : null}
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-x-4">
+                      <span className="text-[15px] font-medium text-text">{provider.name}</span>
+                      <span className="text-caption text-text-secondary sm:text-right">{provider.note}</span>
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-pill border",
+                        selected ? "border-accent bg-accent text-on-accent" : "border-border"
+                      )}
+                    >
+                      {selected ? <Icon icon={Check} size={12} /> : null}
+                    </span>
+                  </ChoiceControl>
+                );
+              })}
+            </div>
+          </ChoiceGroup>
         ) : (
           <h3 className="type-title text-base text-text">Your API keys</h3>
         )}

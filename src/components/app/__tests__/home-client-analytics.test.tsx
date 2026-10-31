@@ -66,7 +66,10 @@ afterEach(() => {
 describe("M2 client event wiring in HomeClient", () => {
   it("first-time visitors stay on the landing until they open setup", () => {
     const html = renderToStaticMarkup(<HomeClient landing={<div>landing copy</div>} />);
-    expect(html).toContain('<div data-landing=""><div>landing copy</div></div>');
+    // Hydrated: no data-landing, so html[data-returning] can't hide it (a
+    // returning user who reopened setup and pressed Back gets here).
+    expect(html).toContain("<div><div>landing copy</div></div>");
+    expect(html).not.toContain("data-landing");
     expect(html).not.toContain("data-returning-spinner");
     expect(state.wizardOnComplete).toBeNull();
   });

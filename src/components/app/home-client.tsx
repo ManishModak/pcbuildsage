@@ -56,14 +56,17 @@ export function HomeClient({ landing }: { landing: ReactNode }) {
   // First-time visitors get the landing (the same HTML the server rendered, so
   // nothing flashes or swaps) until they choose to set up. Before hydration
   // the landing stays for crawlers and first paint; returning users get the
-  // spinner instead (CSS keyed on html[data-returning], see layout.tsx). The
-  // tree shape is the same in both states so the landing never remounts.
+  // spinner instead (globals.css, keyed on data-landing and the
+  // html[data-returning] that layout.tsx sets). data-landing is dropped once
+  // hydrated, so a returning user
+  // who backs out of setup still sees the landing. The tree shape is the same
+  // in both states so the landing never remounts.
   // The hash is also read here, not only on hashchange: openSetup() sets it in
   // the same click that resets `onboarded`, and this render must already see it.
   if (!ready || (!config.onboarded && !setupOpen && !setupHashPresent())) {
     return (
       <LandingActionsContext.Provider value={landingActions}>
-        <div data-landing="">{landing}</div>
+        <div data-landing={ready ? undefined : ""}>{landing}</div>
         {!ready ? (
           <div data-returning-spinner="" className="min-h-dvh items-center justify-center bg-bg">
             <Spinner size={32} />

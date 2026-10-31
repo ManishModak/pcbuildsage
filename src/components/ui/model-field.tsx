@@ -16,6 +16,7 @@ export function ModelField({
   loading,
   onRefresh,
   error,
+  emptyHint = "This server doesn't list its models. Type the model ID.",
   disabled,
   inputProps
 }: {
@@ -25,6 +26,8 @@ export function ModelField({
   loading?: boolean;
   onRefresh?: () => void;
   error?: string;
+  /** Shown when the list is empty and nothing failed. */
+  emptyHint?: string;
   disabled?: boolean;
   inputProps?: FieldControlProps;
 }) {
@@ -101,7 +104,7 @@ export function ModelField({
             ? "Loading models…"
             : models.length
               ? `${models.length} models found. You can also type any model ID.`
-              : "This server doesn't list its models. Type the model ID."}
+              : emptyHint}
         </p>
       )}
     </div>
