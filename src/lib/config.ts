@@ -49,8 +49,10 @@ export function resolveConfig(uiOrFlags: ConfigInput = {}, savedConfig: ConfigIn
   const searchProvider = source<SearchProvider>("searchProvider", "SEARCH_PROVIDER", "duckduckgo");
   const countryCode = validateCode("countryCode", source("countryCode", "PCBUILDSAGE_COUNTRY", "IN"), /^[A-Z]{2}$/);
   const currency = validateCode("currency", source("currency", "PCBUILDSAGE_CURRENCY", "INR"), /^[A-Z]{3}$/);
+  const dbPath = source("dbPath", "PCBUILDSAGE_DB_PATH", DEFAULT_DB_PATH);
   return {
-    dbPath: path.resolve(source("dbPath", "PCBUILDSAGE_DB_PATH", DEFAULT_DB_PATH)),
+    // SQLite's ":memory:" stays as is; resolved, it would become a file (see resolveDbPath in @/lib/db).
+    dbPath: dbPath === ":memory:" ? dbPath : path.resolve(dbPath),
     activeProfile: source<string | undefined>("activeProfile", "PCBUILDSAGE_PROFILE", undefined),
     countryCode,
     currency,
