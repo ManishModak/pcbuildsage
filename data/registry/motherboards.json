@@ -1185,7 +1185,6 @@
     "ddr": "DDR4",
     "form_factor": "Micro-ATX",
     "m2_slots": 1,
-    "m2_sata_supported": true,
     "sata_ports": 4,
     "ram_slots": 2,
     "pcie_gen": 4,
@@ -1199,8 +1198,7 @@
       "MSI B550M-A PRO AMD B550 Micro-ATX Motherboard"
     ],
     "sources": [
-      "https://www.msi.com/Motherboard/B550M-A-PRO",
-      "https://download-2.msi.com/archive/mnu_exe/mb/B550M-APRO_A520M-APRO100x150.pdf"
+      "https://www.msi.com/Motherboard/B550M-A-PRO"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
@@ -1558,7 +1556,6 @@
     "ddr": "DDR4",
     "form_factor": "Micro-ATX",
     "m2_slots": 1,
-    "m2_sata_supported": true,
     "sata_ports": 4,
     "ram_slots": 2,
     "pcie_gen": 3,
@@ -1570,8 +1567,7 @@
       "MAG A520M VECTOR WIFI"
     ],
     "sources": [
-      "https://www.msi.com/Motherboard/MAG-A520M-VECTOR-WIFI",
-      "https://download-2.msi.com/archive/mnu_exe/mb/E7D14v2.1.pdf"
+      "https://www.msi.com/Motherboard/MAG-A520M-VECTOR-WIFI"
     ],
     "confidence": "high",
     "researched_at": "2026-09-29T17:00:00Z"
