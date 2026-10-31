@@ -12,7 +12,7 @@ interface SampleFixture {
   source: { db: string; scope: { countryCode: string; currency: string } };
   examples: Array<{
     id: string;
-    snapshot: { components: Array<{ name: string; product_id?: string; price: number | null }> };
+    snapshot: { components: Array<{ name: string; product_id?: string; price: number | null; observed_at: string }> };
   }>;
 }
 
@@ -77,7 +77,9 @@ describe("sample conversation", () => {
       expect(fetchSpy).not.toHaveBeenCalled();
       expect(markup).toContain("Example");
       expect(markup).toContain("not your chat");
-      expect(markup).toContain(fixtureData.generated_at.slice(0, 10));
+      // Dated by when the prices were observed, not when the file was written.
+      const observed = fixtureData.examples[0].snapshot.components.map((c) => c.observed_at).sort()[0];
+      expect(markup).toContain(`dateTime="${observed.slice(0, 10)}"`);
       expect(markup).toContain("Nothing here was saved");
       // The real build card rendered from the snapshot.
       expect(markup).toContain("Proposed build");

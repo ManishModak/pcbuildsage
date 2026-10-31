@@ -1,9 +1,9 @@
 {
   "version": 2,
   "example": true,
-  "generated_at": "2026-10-30T16:24:32.381Z",
+  "generated_at": "2026-10-31T05:55:55.792Z",
   "source": {
-    "db": "products-in.db",
+    "db": "products.db",
     "scope": {
       "countryCode": "IN",
       "currency": "INR"
@@ -14,20 +14,10 @@
       "id": "1080p-gaming",
       "label": "1080p gaming",
       "prompt": "A 1080p gaming PC for under ₹90,000.",
-      "answer": "Example answer: a validated \"1080p gaming\" build totalling ₹85,868.00 across 8 catalog parts (prices observed 2026-10-30). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
+      "answer": "Example answer: a validated \"1080p gaming\" build totalling ₹86,243.00 across 8 catalog parts (prices observed 2026-10-31). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
       "validation": {
         "valid": true,
-        "issues": [
-          {
-            "severity": "needs_verification",
-            "rule": "storage",
-            "components": [
-              "cde65be3d9b4a75c94e0098dce124a3393664137",
-              "ae863beabfedc7a79efee3b95d8330a44d38b192"
-            ],
-            "detail": "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
-          }
-        ],
+        "issues": [],
         "resolved": {
           "cpu": {
             "key": "28e670955fc9dd82537e371db57a03a9745ed9da",
@@ -65,17 +55,32 @@
             "category": "motherboard",
             "spec": {
               "brand": "MSI",
-              "model": "MSI B550M-A Pro Motherboard",
-              "aliases": [
-                "MSI B550M-A Pro Motherboard"
-              ],
+              "model": "MSI B550M-A PRO",
               "socket": "AM4",
-              "ddr": "DDR4",
               "chipset": "B550",
-              "form_factor": "Micro-ATX"
+              "ddr": "DDR4",
+              "form_factor": "Micro-ATX",
+              "m2_slots": 1,
+              "sata_ports": 4,
+              "ram_slots": 2,
+              "pcie_gen": 4,
+              "aliases": [
+                "MSI B550M-A PRO",
+                "MSI MSI B550M-A PRO",
+                "MSI B550M-A Pro Motherboard",
+                "msi-b550m-a-pro-motherboard",
+                "B550M-A PRO",
+                "Msi B550M-A Pro Micro Atx Amd Am4 Motherboard (B550M-A-Pro)",
+                "MSI B550M-A PRO AMD B550 Micro-ATX Motherboard"
+              ],
+              "sources": [
+                "https://www.msi.com/Motherboard/B550M-A-PRO"
+              ],
+              "confidence": "high",
+              "researched_at": "2026-09-29T17:00:00Z"
             },
-            "source": "derived",
-            "confidence": "medium"
+            "source": "registry",
+            "confidence": "high"
           },
           "gpu": {
             "key": "4633994a12229f87586da5299272924d25442508",
@@ -217,20 +222,30 @@
           },
           "storage": [
             {
-              "key": "ae863beabfedc7a79efee3b95d8330a44d38b192",
+              "key": "d2bdeea209bf20dbb6687e900582c621bb4fd07b",
               "category": "storage",
               "spec": {
-                "brand": "MiPhi",
-                "model": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
-                "aliases": [
-                  "MiPhi MP300G3 NVMe 1TB Gen3 SSD"
-                ],
-                "capacity_gb": 1000,
+                "brand": "EVM",
+                "model": "EVM 1TB M.2 NVMe Gen3 SSD",
                 "interface": "nvme",
-                "pcie_gen": 3
+                "form_factor": "m2-2280",
+                "capacity_gb": 1000,
+                "pcie_gen": 3,
+                "aliases": [
+                  "EVM 1TB NVMe SSD",
+                  "EVM NVMe 1TB",
+                  "evm 1tb nvme",
+                  "EVM 1TB M.2 PCIe Gen3 SSD",
+                  "EVMPCIE/1000GB"
+                ],
+                "sources": [
+                  "https://evmzone.com/products/evm-m-2-nvme-ssd"
+                ],
+                "confidence": "high",
+                "researched_at": "2026-08-16T10:04:56Z"
               },
-              "source": "derived",
-              "confidence": "medium"
+              "source": "registry",
+              "confidence": "high"
             }
           ]
         },
@@ -329,19 +344,19 @@
           },
           {
             "rule": "storage",
-            "status": "unverified",
+            "status": "passed",
             "components": [
               "cde65be3d9b4a75c94e0098dce124a3393664137",
-              "ae863beabfedc7a79efee3b95d8330a44d38b192"
+              "d2bdeea209bf20dbb6687e900582c621bb4fd07b"
             ],
-            "message": "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+            "message": "Motherboard supports installed storage drives (1 NVMe)."
           }
         ],
         "summary": {
-          "passed": 10,
+          "passed": 11,
           "failed": 0,
-          "unverified": 1,
-          "text": "10 checks passed · 1 unverified"
+          "unverified": 0,
+          "text": "All 11 checks passed"
         },
         "snapshot": {
           "label": "1080p gaming",
@@ -392,13 +407,13 @@
             },
             {
               "category": "storage",
-              "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192",
-              "name": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
-              "price": 13000,
+              "product_id": "d2bdeea209bf20dbb6687e900582c621bb4fd07b",
+              "name": "EVM 1TB NVMe SSD EVMNV/1TB",
+              "price": 13375,
               "currency": "INR",
-              "retailer": "MDComputers",
-              "url": "https://mdcomputers.in/product/miphi-mp300g3-1tb-nvme-ssd-mp5015100t",
-              "observed_at": "2026-10-30T08:44:27Z",
+              "retailer": "PrimeABGB",
+              "url": "https://www.primeabgb.com/online-price-reviews-india/evm-1tb-nvme-ssd-evmnv-1tb/",
+              "observed_at": "2026-10-30T08:48:21Z",
               "included": false
             },
             {
@@ -435,8 +450,8 @@
               "included": false
             }
           ],
-          "total": 85868,
-          "subtotal": 85868,
+          "total": 86243,
+          "subtotal": 86243,
           "currency": "INR",
           "is_complete": true,
           "component_count": 8,
@@ -459,7 +474,7 @@
               "product_id": "23ed2a7d2da9af3e789de1d7877476bad3578388"
             },
             "storage": {
-              "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192"
+              "product_id": "d2bdeea209bf20dbb6687e900582c621bb4fd07b"
             },
             "psu": {
               "product_id": "3a4c7ec8b840db0549cca35d7bb34989c3a0832c"
@@ -473,15 +488,13 @@
           },
           "valid": true,
           "validation_summary": {
-            "passed": 10,
+            "passed": 11,
             "failed": 0,
-            "unverified": 1,
+            "unverified": 0,
             "skipped": 0,
-            "issues": [
-              "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
-            ]
+            "issues": []
           },
-          "created_at": "2026-10-30T16:24:32.624Z"
+          "created_at": "2026-10-31T05:55:56.101Z"
         }
       },
       "snapshot": {
@@ -533,13 +546,13 @@
           },
           {
             "category": "storage",
-            "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192",
-            "name": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
-            "price": 13000,
+            "product_id": "d2bdeea209bf20dbb6687e900582c621bb4fd07b",
+            "name": "EVM 1TB NVMe SSD EVMNV/1TB",
+            "price": 13375,
             "currency": "INR",
-            "retailer": "MDComputers",
-            "url": "https://mdcomputers.in/product/miphi-mp300g3-1tb-nvme-ssd-mp5015100t",
-            "observed_at": "2026-10-30T08:44:27Z",
+            "retailer": "PrimeABGB",
+            "url": "https://www.primeabgb.com/online-price-reviews-india/evm-1tb-nvme-ssd-evmnv-1tb/",
+            "observed_at": "2026-10-30T08:48:21Z",
             "included": false
           },
           {
@@ -576,8 +589,8 @@
             "included": false
           }
         ],
-        "total": 85868,
-        "subtotal": 85868,
+        "total": 86243,
+        "subtotal": 86243,
         "currency": "INR",
         "is_complete": true,
         "component_count": 8,
@@ -600,7 +613,7 @@
             "product_id": "23ed2a7d2da9af3e789de1d7877476bad3578388"
           },
           "storage": {
-            "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192"
+            "product_id": "d2bdeea209bf20dbb6687e900582c621bb4fd07b"
           },
           "psu": {
             "product_id": "3a4c7ec8b840db0549cca35d7bb34989c3a0832c"
@@ -614,35 +627,23 @@
         },
         "valid": true,
         "validation_summary": {
-          "passed": 10,
+          "passed": 11,
           "failed": 0,
-          "unverified": 1,
+          "unverified": 0,
           "skipped": 0,
-          "issues": [
-            "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
-          ]
+          "issues": []
         },
-        "created_at": "2026-10-30T16:24:32.624Z"
+        "created_at": "2026-10-31T05:55:56.101Z"
       }
     },
     {
       "id": "1440p-gaming",
       "label": "1440p gaming",
       "prompt": "A 1440p gaming PC on the newer AM5 platform.",
-      "answer": "Example answer: a validated \"1440p gaming\" build totalling ₹1,54,669.00 across 8 catalog parts (prices observed 2026-10-30). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
+      "answer": "Example answer: a validated \"1440p gaming\" build totalling ₹1,55,044.00 across 8 catalog parts (prices observed 2026-10-31). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
       "validation": {
         "valid": true,
-        "issues": [
-          {
-            "severity": "needs_verification",
-            "rule": "storage",
-            "components": [
-              "1f8ea8e7799d041e498785d51e05c9ed851be74d",
-              "ae863beabfedc7a79efee3b95d8330a44d38b192"
-            ],
-            "detail": "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
-          }
-        ],
+        "issues": [],
         "resolved": {
           "cpu": {
             "key": "a77b1bd955600638bca02a276fd9c661d8875bc7",
@@ -680,17 +681,32 @@
             "category": "motherboard",
             "spec": {
               "brand": "MSI",
-              "model": "MSI Pro B650M-E Motherboard",
-              "aliases": [
-                "MSI Pro B650M-E Motherboard"
-              ],
+              "model": "MSI PRO B650M-E",
               "socket": "AM5",
-              "ddr": "DDR5",
               "chipset": "B650",
-              "form_factor": "Micro-ATX"
+              "ddr": "DDR5",
+              "form_factor": "Micro-ATX",
+              "m2_slots": 1,
+              "sata_ports": 4,
+              "ram_slots": 2,
+              "pcie_gen": 4,
+              "aliases": [
+                "MSI PRO B650M-E",
+                "MSI MSI PRO B650M-E",
+                "Msi Pro B650M-E AM5 Micro-ATX Motherboard",
+                "msi-pro-b650m-e-am5-micro-atx-motherboard",
+                "PRO B650M-E",
+                "MSI Pro B650M-E Motherboard",
+                "MSI Pro B650M-E M-ATX Motherboard"
+              ],
+              "sources": [
+                "https://www.msi.com/Motherboard/PRO-B650M-E/Specification"
+              ],
+              "confidence": "high",
+              "researched_at": "2026-09-29T17:00:00Z"
             },
-            "source": "derived",
-            "confidence": "medium"
+            "source": "registry",
+            "confidence": "high"
           },
           "gpu": {
             "key": "5e02764d63c2395392d489d04f6d62a235dac55d",
@@ -822,20 +838,30 @@
           },
           "storage": [
             {
-              "key": "ae863beabfedc7a79efee3b95d8330a44d38b192",
+              "key": "d2bdeea209bf20dbb6687e900582c621bb4fd07b",
               "category": "storage",
               "spec": {
-                "brand": "MiPhi",
-                "model": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
-                "aliases": [
-                  "MiPhi MP300G3 NVMe 1TB Gen3 SSD"
-                ],
-                "capacity_gb": 1000,
+                "brand": "EVM",
+                "model": "EVM 1TB M.2 NVMe Gen3 SSD",
                 "interface": "nvme",
-                "pcie_gen": 3
+                "form_factor": "m2-2280",
+                "capacity_gb": 1000,
+                "pcie_gen": 3,
+                "aliases": [
+                  "EVM 1TB NVMe SSD",
+                  "EVM NVMe 1TB",
+                  "evm 1tb nvme",
+                  "EVM 1TB M.2 PCIe Gen3 SSD",
+                  "EVMPCIE/1000GB"
+                ],
+                "sources": [
+                  "https://evmzone.com/products/evm-m-2-nvme-ssd"
+                ],
+                "confidence": "high",
+                "researched_at": "2026-08-16T10:04:56Z"
               },
-              "source": "derived",
-              "confidence": "medium"
+              "source": "registry",
+              "confidence": "high"
             }
           ]
         },
@@ -925,19 +951,19 @@
           },
           {
             "rule": "storage",
-            "status": "unverified",
+            "status": "passed",
             "components": [
               "1f8ea8e7799d041e498785d51e05c9ed851be74d",
-              "ae863beabfedc7a79efee3b95d8330a44d38b192"
+              "d2bdeea209bf20dbb6687e900582c621bb4fd07b"
             ],
-            "message": "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+            "message": "Motherboard supports installed storage drives (1 NVMe)."
           }
         ],
         "summary": {
-          "passed": 9,
+          "passed": 10,
           "failed": 0,
-          "unverified": 1,
-          "text": "9 checks passed · 1 unverified"
+          "unverified": 0,
+          "text": "All 10 checks passed"
         },
         "snapshot": {
           "label": "1440p gaming",
@@ -988,13 +1014,13 @@
             },
             {
               "category": "storage",
-              "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192",
-              "name": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
-              "price": 13000,
+              "product_id": "d2bdeea209bf20dbb6687e900582c621bb4fd07b",
+              "name": "EVM 1TB NVMe SSD EVMNV/1TB",
+              "price": 13375,
               "currency": "INR",
-              "retailer": "MDComputers",
-              "url": "https://mdcomputers.in/product/miphi-mp300g3-1tb-nvme-ssd-mp5015100t",
-              "observed_at": "2026-10-30T08:44:27Z",
+              "retailer": "PrimeABGB",
+              "url": "https://www.primeabgb.com/online-price-reviews-india/evm-1tb-nvme-ssd-evmnv-1tb/",
+              "observed_at": "2026-10-30T08:48:21Z",
               "included": false
             },
             {
@@ -1031,8 +1057,8 @@
               "included": false
             }
           ],
-          "total": 154669,
-          "subtotal": 154669,
+          "total": 155044,
+          "subtotal": 155044,
           "currency": "INR",
           "is_complete": true,
           "component_count": 8,
@@ -1055,7 +1081,7 @@
               "product_id": "0ad63e11e822dbba056c26ed611db3b1097f2783"
             },
             "storage": {
-              "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192"
+              "product_id": "d2bdeea209bf20dbb6687e900582c621bb4fd07b"
             },
             "psu": {
               "product_id": "34584ee3cf88db239ca84f0a7ee6493d19073b77"
@@ -1069,15 +1095,13 @@
           },
           "valid": true,
           "validation_summary": {
-            "passed": 9,
+            "passed": 10,
             "failed": 0,
-            "unverified": 1,
+            "unverified": 0,
             "skipped": 0,
-            "issues": [
-              "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
-            ]
+            "issues": []
           },
-          "created_at": "2026-10-30T16:24:46.230Z"
+          "created_at": "2026-10-31T05:56:06.346Z"
         }
       },
       "snapshot": {
@@ -1129,13 +1153,13 @@
           },
           {
             "category": "storage",
-            "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192",
-            "name": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
-            "price": 13000,
+            "product_id": "d2bdeea209bf20dbb6687e900582c621bb4fd07b",
+            "name": "EVM 1TB NVMe SSD EVMNV/1TB",
+            "price": 13375,
             "currency": "INR",
-            "retailer": "MDComputers",
-            "url": "https://mdcomputers.in/product/miphi-mp300g3-1tb-nvme-ssd-mp5015100t",
-            "observed_at": "2026-10-30T08:44:27Z",
+            "retailer": "PrimeABGB",
+            "url": "https://www.primeabgb.com/online-price-reviews-india/evm-1tb-nvme-ssd-evmnv-1tb/",
+            "observed_at": "2026-10-30T08:48:21Z",
             "included": false
           },
           {
@@ -1172,8 +1196,8 @@
             "included": false
           }
         ],
-        "total": 154669,
-        "subtotal": 154669,
+        "total": 155044,
+        "subtotal": 155044,
         "currency": "INR",
         "is_complete": true,
         "component_count": 8,
@@ -1196,7 +1220,7 @@
             "product_id": "0ad63e11e822dbba056c26ed611db3b1097f2783"
           },
           "storage": {
-            "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192"
+            "product_id": "d2bdeea209bf20dbb6687e900582c621bb4fd07b"
           },
           "psu": {
             "product_id": "34584ee3cf88db239ca84f0a7ee6493d19073b77"
@@ -1210,22 +1234,20 @@
         },
         "valid": true,
         "validation_summary": {
-          "passed": 9,
+          "passed": 10,
           "failed": 0,
-          "unverified": 1,
+          "unverified": 0,
           "skipped": 0,
-          "issues": [
-            "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
-          ]
+          "issues": []
         },
-        "created_at": "2026-10-30T16:24:46.230Z"
+        "created_at": "2026-10-31T05:56:06.346Z"
       }
     },
     {
       "id": "compact-no-gpu",
       "label": "Compact, no GPU",
       "prompt": "A small, quiet PC for work and light games, no graphics card.",
-      "answer": "Example answer: a validated \"Compact, no GPU\" build totalling ₹86,815.00 across 7 catalog parts (prices observed 2026-10-30). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
+      "answer": "Example answer: a validated \"Compact, no GPU\" build totalling ₹87,190.00 across 7 catalog parts (prices observed 2026-10-31). Every part below is a real catalog listing and compatibility was checked by the deterministic engine.",
       "validation": {
         "valid": true,
         "issues": [
@@ -1236,15 +1258,6 @@
               "bc4a62a52c0f603e02812ec92dd0983d0bac2d20"
             ],
             "detail": "No case specs found in registry or research cache for 'Antec ST20M M-ATX Mini Tower Case'."
-          },
-          {
-            "severity": "needs_verification",
-            "rule": "storage",
-            "components": [
-              "1f8ea8e7799d041e498785d51e05c9ed851be74d",
-              "ae863beabfedc7a79efee3b95d8330a44d38b192"
-            ],
-            "detail": "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
           }
         ],
         "resolved": {
@@ -1284,17 +1297,32 @@
             "category": "motherboard",
             "spec": {
               "brand": "MSI",
-              "model": "MSI Pro B650M-E Motherboard",
-              "aliases": [
-                "MSI Pro B650M-E Motherboard"
-              ],
+              "model": "MSI PRO B650M-E",
               "socket": "AM5",
-              "ddr": "DDR5",
               "chipset": "B650",
-              "form_factor": "Micro-ATX"
+              "ddr": "DDR5",
+              "form_factor": "Micro-ATX",
+              "m2_slots": 1,
+              "sata_ports": 4,
+              "ram_slots": 2,
+              "pcie_gen": 4,
+              "aliases": [
+                "MSI PRO B650M-E",
+                "MSI MSI PRO B650M-E",
+                "Msi Pro B650M-E AM5 Micro-ATX Motherboard",
+                "msi-pro-b650m-e-am5-micro-atx-motherboard",
+                "PRO B650M-E",
+                "MSI Pro B650M-E Motherboard",
+                "MSI Pro B650M-E M-ATX Motherboard"
+              ],
+              "sources": [
+                "https://www.msi.com/Motherboard/PRO-B650M-E/Specification"
+              ],
+              "confidence": "high",
+              "researched_at": "2026-09-29T17:00:00Z"
             },
-            "source": "derived",
-            "confidence": "medium"
+            "source": "registry",
+            "confidence": "high"
           },
           "psu": {
             "key": "ec6edb6dafb0148ce397bed94fd0e5ac35a59b1b",
@@ -1371,20 +1399,30 @@
           },
           "storage": [
             {
-              "key": "ae863beabfedc7a79efee3b95d8330a44d38b192",
+              "key": "d2bdeea209bf20dbb6687e900582c621bb4fd07b",
               "category": "storage",
               "spec": {
-                "brand": "MiPhi",
-                "model": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
-                "aliases": [
-                  "MiPhi MP300G3 NVMe 1TB Gen3 SSD"
-                ],
-                "capacity_gb": 1000,
+                "brand": "EVM",
+                "model": "EVM 1TB M.2 NVMe Gen3 SSD",
                 "interface": "nvme",
-                "pcie_gen": 3
+                "form_factor": "m2-2280",
+                "capacity_gb": 1000,
+                "pcie_gen": 3,
+                "aliases": [
+                  "EVM 1TB NVMe SSD",
+                  "EVM NVMe 1TB",
+                  "evm 1tb nvme",
+                  "EVM 1TB M.2 PCIe Gen3 SSD",
+                  "EVMPCIE/1000GB"
+                ],
+                "sources": [
+                  "https://evmzone.com/products/evm-m-2-nvme-ssd"
+                ],
+                "confidence": "high",
+                "researched_at": "2026-08-16T10:04:56Z"
               },
-              "source": "derived",
-              "confidence": "medium"
+              "source": "registry",
+              "confidence": "high"
             }
           ]
         },
@@ -1445,19 +1483,19 @@
           },
           {
             "rule": "storage",
-            "status": "unverified",
+            "status": "passed",
             "components": [
               "1f8ea8e7799d041e498785d51e05c9ed851be74d",
-              "ae863beabfedc7a79efee3b95d8330a44d38b192"
+              "d2bdeea209bf20dbb6687e900582c621bb4fd07b"
             ],
-            "message": "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+            "message": "Motherboard supports installed storage drives (1 NVMe)."
           }
         ],
         "summary": {
-          "passed": 5,
+          "passed": 6,
           "failed": 0,
-          "unverified": 2,
-          "text": "5 checks passed · 2 unverified"
+          "unverified": 1,
+          "text": "6 checks passed · 1 unverified"
         },
         "snapshot": {
           "label": "Compact, no GPU",
@@ -1497,13 +1535,13 @@
             },
             {
               "category": "storage",
-              "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192",
-              "name": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
-              "price": 13000,
+              "product_id": "d2bdeea209bf20dbb6687e900582c621bb4fd07b",
+              "name": "EVM 1TB NVMe SSD EVMNV/1TB",
+              "price": 13375,
               "currency": "INR",
-              "retailer": "MDComputers",
-              "url": "https://mdcomputers.in/product/miphi-mp300g3-1tb-nvme-ssd-mp5015100t",
-              "observed_at": "2026-10-30T08:44:27Z",
+              "retailer": "PrimeABGB",
+              "url": "https://www.primeabgb.com/online-price-reviews-india/evm-1tb-nvme-ssd-evmnv-1tb/",
+              "observed_at": "2026-10-30T08:48:21Z",
               "included": false
             },
             {
@@ -1540,8 +1578,8 @@
               "included": false
             }
           ],
-          "total": 86815,
-          "subtotal": 86815,
+          "total": 87190,
+          "subtotal": 87190,
           "currency": "INR",
           "is_complete": true,
           "component_count": 7,
@@ -1561,7 +1599,7 @@
               "product_id": "0ad63e11e822dbba056c26ed611db3b1097f2783"
             },
             "storage": {
-              "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192"
+              "product_id": "d2bdeea209bf20dbb6687e900582c621bb4fd07b"
             },
             "psu": {
               "product_id": "ec6edb6dafb0148ce397bed94fd0e5ac35a59b1b"
@@ -1575,16 +1613,15 @@
           },
           "valid": true,
           "validation_summary": {
-            "passed": 5,
+            "passed": 6,
             "failed": 0,
-            "unverified": 2,
+            "unverified": 1,
             "skipped": 0,
             "issues": [
-              "No case specs found in registry or research cache for 'Antec ST20M M-ATX Mini Tower Case'.",
-              "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+              "No case specs found in registry or research cache for 'Antec ST20M M-ATX Mini Tower Case'."
             ]
           },
-          "created_at": "2026-10-30T16:24:58.379Z"
+          "created_at": "2026-10-31T05:56:16.322Z"
         }
       },
       "snapshot": {
@@ -1625,13 +1662,13 @@
           },
           {
             "category": "storage",
-            "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192",
-            "name": "MiPhi MP300G3 NVMe 1TB Gen3 SSD",
-            "price": 13000,
+            "product_id": "d2bdeea209bf20dbb6687e900582c621bb4fd07b",
+            "name": "EVM 1TB NVMe SSD EVMNV/1TB",
+            "price": 13375,
             "currency": "INR",
-            "retailer": "MDComputers",
-            "url": "https://mdcomputers.in/product/miphi-mp300g3-1tb-nvme-ssd-mp5015100t",
-            "observed_at": "2026-10-30T08:44:27Z",
+            "retailer": "PrimeABGB",
+            "url": "https://www.primeabgb.com/online-price-reviews-india/evm-1tb-nvme-ssd-evmnv-1tb/",
+            "observed_at": "2026-10-30T08:48:21Z",
             "included": false
           },
           {
@@ -1668,8 +1705,8 @@
             "included": false
           }
         ],
-        "total": 86815,
-        "subtotal": 86815,
+        "total": 87190,
+        "subtotal": 87190,
         "currency": "INR",
         "is_complete": true,
         "component_count": 7,
@@ -1689,7 +1726,7 @@
             "product_id": "0ad63e11e822dbba056c26ed611db3b1097f2783"
           },
           "storage": {
-            "product_id": "ae863beabfedc7a79efee3b95d8330a44d38b192"
+            "product_id": "d2bdeea209bf20dbb6687e900582c621bb4fd07b"
           },
           "psu": {
             "product_id": "ec6edb6dafb0148ce397bed94fd0e5ac35a59b1b"
@@ -1703,16 +1740,15 @@
         },
         "valid": true,
         "validation_summary": {
-          "passed": 5,
+          "passed": 6,
           "failed": 0,
-          "unverified": 2,
+          "unverified": 1,
           "skipped": 0,
           "issues": [
-            "No case specs found in registry or research cache for 'Antec ST20M M-ATX Mini Tower Case'.",
-            "Storage topology could not be verified: NVMe drive form factor is not specified as M.2."
+            "No case specs found in registry or research cache for 'Antec ST20M M-ATX Mini Tower Case'."
           ]
         },
-        "created_at": "2026-10-30T16:24:58.379Z"
+        "created_at": "2026-10-31T05:56:16.322Z"
       }
     }
   ]

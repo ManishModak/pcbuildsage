@@ -27,9 +27,21 @@ interface SampleConversationFixture {
 
 const data = fixture as unknown as SampleConversationFixture;
 
-/** The day the example prices were observed, e.g. "30 Oct 2026". */
+/** A day as "30 Oct 2026". */
 function exampleDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+/**
+ * When the example's prices were read from the retailers: its oldest part
+ * observation, not when the fixture file was generated (that can be later).
+ */
+export function examplePricedAt(example: { snapshot: BuildSnapshot }, fallback: string): string {
+  const observed = example.snapshot.components
+    .map((component) => component.observed_at)
+    .filter((at): at is string => Boolean(at))
+    .sort();
+  return observed[0] ?? fallback;
 }
 
 // Read-only example builds rendered from a static catalog snapshot: the
@@ -49,7 +61,7 @@ export function SampleConversation({ currency, className }: { currency?: string;
     }),
     [example, currency]
   );
-  const date = data.generated_at.slice(0, 10);
+  const pricedAt = examplePricedAt(example, data.generated_at);
 
   return (
     <section
@@ -75,8 +87,8 @@ export function SampleConversation({ currency, className }: { currency?: string;
       </div>
       <BuildCard key={example.id} builds={[build]} />
       <p className="text-caption text-text-muted">
-        Prices from the catalog on <time dateTime={date}>{exampleDate(data.generated_at)}</time>; they have
-        changed since. Nothing here was saved.
+        Prices from the catalog on <time dateTime={pricedAt.slice(0, 10)}>{exampleDate(pricedAt)}</time>; they
+        have changed since. Nothing here was saved.
       </p>
     </section>
   );
