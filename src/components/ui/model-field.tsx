@@ -47,8 +47,8 @@ export function ModelField({
                 onClick={() => onChange(model.id)}
                 disabled={disabled}
                 title={model.id}
-                className={"text-caption " + cn(
-                  "inline-flex items-center gap-1.5 rounded-chip border px-2 py-0.5 transition-colors duration-150 cursor-pointer",
+                className={cn(
+                  "text-caption inline-flex items-center gap-1.5 rounded-chip border px-2 py-0.5 transition-colors duration-150 cursor-pointer",
                   value === model.id
                     ? "border-accent bg-accent/10 text-accent"
                     : "border-border bg-surface text-text-secondary hover:text-text hover:border-text-muted"

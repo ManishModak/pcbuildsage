@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app/app-provider";
 import { AppShell } from "@/components/app/app-shell";
 import { LandingActionsContext } from "@/components/app/landing-actions";
+import { clearSetupHash, SETUP_HASH, setupHashPresent } from "@/components/app/setup-hash";
 import { ChatWorkspace } from "@/features/chat/chat-workspace";
 import { Wizard } from "@/features/wizard/wizard";
 import { Spinner } from "@/components/ui/primitives";
@@ -29,19 +30,6 @@ export function resetHomeClientEventsForTesting(): void {
 /** landing_view counts first-time visitors only, once the saved config is known. */
 export function landingViewDue(ready: boolean, onboarded: boolean): boolean {
   return ready && !onboarded;
-}
-
-/** Setup is open while the URL hash is #setup, so Back returns to the landing. */
-const SETUP_HASH = "#setup";
-
-function setupHashPresent(): boolean {
-  return typeof window !== "undefined" && window.location.hash === SETUP_HASH;
-}
-
-function clearSetupHash(): void {
-  if (window.location.hash === SETUP_HASH) {
-    window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
-  }
 }
 
 export function HomeClient({ landing }: { landing: ReactNode }) {
@@ -70,7 +58,9 @@ export function HomeClient({ landing }: { landing: ReactNode }) {
   // the landing stays for crawlers and first paint; returning users get the
   // spinner instead (CSS keyed on html[data-returning], see layout.tsx). The
   // tree shape is the same in both states so the landing never remounts.
-  if (!ready || (!config.onboarded && !setupOpen)) {
+  // The hash is also read here, not only on hashchange: openSetup() sets it in
+  // the same click that resets `onboarded`, and this render must already see it.
+  if (!ready || (!config.onboarded && !setupOpen && !setupHashPresent())) {
     return (
       <LandingActionsContext.Provider value={landingActions}>
         <div data-landing="">{landing}</div>

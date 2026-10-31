@@ -254,8 +254,8 @@ export function SearchableModelSelect({
                           key={item.label}
                           type="button"
                           onClick={() => setActiveTag(isSelected ? null : item.tag)}
-                          className={"text-caption " + cn(
-                            "shrink-0 rounded-chip border px-2 py-0.5 transition-colors duration-150 cursor-pointer",
+                          className={cn(
+                            "text-caption shrink-0 rounded-chip border px-2 py-0.5 transition-colors duration-150 cursor-pointer",
                             isSelected
                               ? "border-accent bg-accent/10 text-accent"
                               : "border-border text-text-secondary hover:border-text-muted hover:text-text"

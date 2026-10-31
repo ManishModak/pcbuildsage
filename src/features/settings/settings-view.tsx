@@ -16,6 +16,7 @@ import type { CredentialAvailability, EndpointPreset, LLMProvider, Personality, 
 import { saveUiKey, type KeyMap } from "@/lib/client-config-store";
 import { getErrorMessage } from "@/lib/format";
 import { themeLabel } from "@/lib/theme";
+import { openSetup } from "@/components/app/setup-hash";
 import { ChainBuilder } from "@/features/llm/chain-builder";
 import { MarketPreferenceSection } from "./market-preference-section";
 import { ByokSection } from "./byok-section";
@@ -822,7 +823,10 @@ function SettingsLayout({
                 <Button
                   variant="ghost"
                   iconLeft={Wand2}
-                  onClick={() => updateConfig({ onboarded: false })}
+                  onClick={() => {
+                    updateConfig({ onboarded: false });
+                    openSetup();
+                  }}
                   className="self-start"
                 >
                   Open catalog setup

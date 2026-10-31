@@ -15,6 +15,7 @@ import type { ClientConfig, StatusResponse } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/components/ui/cn";
 import { AsciiSky } from "@/components/app/ascii-sky";
+import { openSetup } from "@/components/app/setup-hash";
 import { RuneSpinner } from "@/components/app/rune-spinner";
 import { Composer } from "./composer";
 import { ChatEmptyState } from "./empty-state";
@@ -1064,7 +1065,10 @@ export function ChatView({
                   Prices from your local catalog{relativeTime ? `, updated ${relativeTime}` : ""}.{" "}
                   <button
                     type="button"
-                    onClick={() => updateConfig({ onboarded: false })}
+                    onClick={() => {
+                      updateConfig({ onboarded: false });
+                      openSetup();
+                    }}
                     className="ml-1 cursor-pointer font-medium text-accent hover:underline"
                   >
                     Update prices

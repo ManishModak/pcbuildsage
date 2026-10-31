@@ -242,8 +242,8 @@ export function ByokProviderCard({
                       type="button"
                       aria-pressed={isSelected}
                       onClick={() => onReasoningEffortChange?.(effort === "default" ? undefined : effort)}
-                      className={"text-caption " + cn(
-                        "min-h-9 border-l border-border px-3 transition-colors duration-150 cursor-pointer first:border-l-0",
+                      className={cn(
+                        "text-caption min-h-9 border-l border-border px-3 transition-colors duration-150 cursor-pointer first:border-l-0",
                         isSelected
                           ? "bg-accent/10 font-medium text-accent"
                           : "bg-surface text-text-secondary hover:bg-surface-raised hover:text-text"
