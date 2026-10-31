@@ -64,8 +64,9 @@ export function KeyHandlingNote({ className }: { className?: string }) {
     <div className={className}>
       <h3 className="type-label text-caption text-text-secondary">What happens to your key</h3>
       <p className="mt-1 text-caption leading-relaxed text-text-muted">
-        {KEY_HANDLING_SENTENCES.join(" ")} If you turn on &ldquo;Remember for this browser&rdquo;, it&apos;s kept in this
-        browser&apos;s local storage instead, until you clear it.
+        {`${KEY_HANDLING_SENTENCES.join(" ")} `}
+        If you turn on &ldquo;Remember for this browser&rdquo;, it&apos;s kept in this browser&apos;s local storage
+        instead, until you clear it.
       </p>
     </div>
   );

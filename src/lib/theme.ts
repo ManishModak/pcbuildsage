@@ -88,3 +88,9 @@ export function applyTheme(theme: ResolvedTheme): void {
 }
 
 export const DEFAULT_THEME = SAGE_DARK;
+
+/** Readable name for a theme id in menus: "sage-dark" → "Sage dark". */
+export function themeLabel(name: string): string {
+  const words = name.replace(/[-_]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}

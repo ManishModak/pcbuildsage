@@ -23,6 +23,7 @@ import {
   type SessionDetail
 } from "./sessions/client-store";
 import { markInterruptedToolCalls } from "./sessions/interrupted-tools";
+import { mapProviderErrorToPlainLanguage } from "@/content/api-key-help";
 
 export class HttpError extends Error {
   constructor(
@@ -168,6 +169,18 @@ export async function fetchEndpoints(): Promise<EndpointPreset[]> {
   return data.endpoints;
 }
 
+/** A failed model-list request in plain words: a known key or limit problem, else the server's message. */
+async function modelListFailure(response: Response): Promise<string> {
+  const body = (await response.json().catch(() => null)) as { message?: unknown; code?: unknown } | null;
+  const message = typeof body?.message === "string" ? body.message : "";
+  // The demo's own rate limit is told apart from a provider limit by its code.
+  const code = typeof body?.code === "string" ? body.code : "";
+  return (
+    mapProviderErrorToPlainLanguage({ status: response.status, message: `${code} ${message}`.trim() }) ??
+    (message || `The provider didn't send its model list (HTTP ${response.status}).`)
+  );
+}
+
 export async function fetchModels(entry: {
   provider: string;
   baseUrl?: string;
@@ -179,7 +192,7 @@ export async function fetchModels(entry: {
   const headers: Record<string, string> = { accept: "application/json" };
   if (entry.apiKey) headers[`x-pcbuildsage-api-key-${entry.provider}`] = entry.apiKey;
   const response = await fetch(`/api/models?${params.toString()}`, { headers });
-  if (!response.ok) throw new Error(`Model discovery failed: HTTP ${response.status}`);
+  if (!response.ok) throw new Error(await modelListFailure(response));
   const data = (await response.json()) as { models: DiscoveredModel[] };
   return data.models;
 }

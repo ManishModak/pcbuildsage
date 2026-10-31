@@ -104,7 +104,7 @@ describe("theme resolution", () => {
     const partial: ThemeFile = { id: "partial", tokens: { "--bg": "#000000" } };
     const resolved = resolveTheme(partial);
     expect(resolved.tokens["--bg"]).toBe("#000000");
-    expect(resolved.tokens["--accent"]).toBe("#7DC383");
+    expect(resolved.tokens["--accent"]).toBe("#B79CFF");
   });
 
   it("picks a named theme when present", () => {

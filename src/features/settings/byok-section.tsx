@@ -19,6 +19,7 @@ import {
   setByokReasoningEffort
 } from "@/lib/llm/client-byok-store";
 import { Button } from "@/components/ui/primitives";
+import { PillTabs } from "@/components/ui/pill-tabs";
 import { ByokProviderCard, type ProviderConfig } from "./byok-provider-card";
 import { KeyHandlingNote, KeyHelpPanel } from "./key-help-panel";
 
@@ -51,12 +52,19 @@ const BYOK_PROVIDERS: ProviderConfig[] = [
   }
 ];
 
+/**
+ * "settings" lists every provider's key row under a heading and the free-key
+ * steps. "onboarding" sits under the step's own title and shows one provider
+ * at a time behind tabs, so a first-time visitor sees a single key field.
+ */
 export function ByokSection({
   className,
+  variant = "settings",
   onKeyChange,
   onModelChange
 }: {
   className?: string;
+  variant?: "settings" | "onboarding";
   onKeyChange?: (provider: string, hasKey: boolean) => void;
   onModelChange?: (provider: string, model: string, contextLimit?: number) => void;
 }) {
@@ -119,6 +127,8 @@ export function ByokSection({
   });
 
   const [activeProvider, setActiveProviderState] = useState<string | null>(() => getActiveByokProvider() ?? null);
+  const onboarding = variant === "onboarding";
+  const [shownProvider, setShownProvider] = useState<string>(() => getActiveByokProvider() ?? BYOK_PROVIDERS[0].id);
 
   // Models the user explicitly picked — auto-preselect never overrides these.
   const userPickedRef = useRef<Record<string, boolean>>({});
@@ -265,19 +275,29 @@ export function ByokSection({
   };
 
   const configuredProviders = BYOK_PROVIDERS.filter((p) => Boolean(keys[p.id]));
+  const shownProviders = onboarding ? BYOK_PROVIDERS.filter((p) => p.id === shownProvider) : BYOK_PROVIDERS;
+
+  // Onboarding: the chat follows the tab on screen once that provider has a key.
+  const showProvider = (providerId: string) => {
+    setShownProvider(providerId);
+    const provider = BYOK_PROVIDERS.find((p) => p.id === providerId);
+    if (provider && keys[provider.id]) handleActiveProviderChange(provider.id);
+  };
 
   return (
     <section className={`flex flex-col gap-5 ${className ?? ""}`} data-testid="byok-section">
-      <div className="flex flex-col gap-1">
-        <h2 className="type-title text-xl text-text">AI model</h2>
-        <p className="text-sm text-text-secondary">
-          Add your own key for Google Gemini, Groq or OpenRouter, then pick the model that answers your chats.
-        </p>
-      </div>
+      {!onboarding ? (
+        <div className="flex flex-col gap-1">
+          <h2 className="type-title text-xl text-text">AI model</h2>
+          <p className="text-sm text-text-secondary">
+            Add your own key for Google Gemini, Groq or OpenRouter, then pick the model that answers your chats.
+          </p>
+        </div>
+      ) : null}
 
-      <KeyHelpPanel />
+      {!onboarding ? <KeyHelpPanel /> : null}
 
-      {configuredProviders.length > 1 && (
+      {!onboarding && configuredProviders.length > 1 && (
         <div
           className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4"
           data-testid="byok-active-provider-card"
@@ -307,9 +327,20 @@ export function ByokSection({
       )}
 
       <div className="flex flex-col gap-3">
-        <h3 className="type-title text-base text-text">Your API keys</h3>
+        {onboarding ? (
+          <div className="self-start">
+            <PillTabs
+              tabs={BYOK_PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
+              value={shownProvider}
+              onChange={showProvider}
+              ariaLabel="AI provider"
+            />
+          </div>
+        ) : (
+          <h3 className="type-title text-base text-text">Your API keys</h3>
+        )}
         <div className="divide-y divide-border rounded-card border border-border bg-surface">
-          {BYOK_PROVIDERS.map((provider) => (
+          {shownProviders.map((provider) => (
             <ByokProviderCard
               key={provider.id}
               provider={provider}

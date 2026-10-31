@@ -3,6 +3,7 @@ import {
   clearClientSessions,
   deleteSession,
   fetchHealth,
+  fetchModels,
   fetchSession,
   fetchSessions,
   fetchStatus,
@@ -18,6 +19,7 @@ import {
   setCachedDeploymentMode
 } from "../api-client";
 import { resetClientStoreState } from "@/lib/sessions/client-store";
+import { DEMO_RATE_LIMIT_COPY, KEY_REJECTED_COPY } from "@/content/api-key-help";
 
 const successOutcome = {
   status: "succeeded" as const,
@@ -415,3 +417,30 @@ function sseResponse(frames: Array<[string, unknown]>): Response {
     .join("");
   return new Response(body, { headers: { "content-type": "text/event-stream" } });
 }
+
+describe("fetchModels failures", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function failWith(status: number, body: unknown) {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(body), { status })));
+    return fetchModels({ provider: "gemini", keySource: "ui", apiKey: "test-key" });
+  }
+
+  it("names the demo's own rate limit, not a provider limit", async () => {
+    await expect(
+      failWith(429, { message: "Rate limit exceeded. Please retry shortly.", code: "HOSTED_RATE_LIMITED" })
+    ).rejects.toThrow(DEMO_RATE_LIMIT_COPY);
+  });
+
+  it("turns a provider's bad-key reply into plain words", async () => {
+    await expect(failWith(500, { message: "API key not valid. Please pass a valid API key." })).rejects.toThrow(
+      KEY_REJECTED_COPY
+    );
+  });
+
+  it("keeps the server's message when it isn't a known key or limit problem", async () => {
+    await expect(failWith(500, { message: "Unexpected token in model list" })).rejects.toThrow(
+      "Unexpected token in model list"
+    );
+  });
+});

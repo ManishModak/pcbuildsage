@@ -162,7 +162,7 @@ export function StepLLM({
             </span>
           ) : null}
           <Button iconRight={ArrowRight} onClick={onNext} disabled={!canAdvance}>
-            Continue
+            Start building
           </Button>
         </div>
       </div>

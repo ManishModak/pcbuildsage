@@ -15,6 +15,7 @@ import {
 import type { CredentialAvailability, EndpointPreset, LLMProvider, Personality, SearchProvider } from "@/types/client";
 import { saveUiKey, type KeyMap } from "@/lib/client-config-store";
 import { getErrorMessage } from "@/lib/format";
+import { themeLabel } from "@/lib/theme";
 import { ChainBuilder } from "@/features/llm/chain-builder";
 import { MarketPreferenceSection } from "./market-preference-section";
 import { ByokSection } from "./byok-section";
@@ -693,7 +694,7 @@ function SettingsLayout({
                   empty={themeCatalog.status === "ready" && themeCatalog.themes.length === 0}
                   loadingText="Loading themes…"
                   errorTitle="Couldn't load themes"
-                  emptyText="No themes are installed. The built-in sage-dark colors stay on."
+                  emptyText="No themes are installed. The built-in Sage dark colors stay on."
                 />
                 {themeCatalog.status === "ready" && themes.length > 0 ? (
                   <ChoiceGroup label="Theme" legendClassName="sr-only" className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">
@@ -714,7 +715,7 @@ function SettingsLayout({
                         )}
                       >
                         <Icon icon={theme.mode === "light" ? Sun : Moon} size={16} className="text-text-secondary" />
-                        <span className={cn("flex-1 text-sm", active ? "font-medium text-text" : "text-text")}>{name}</span>
+                        <span className={cn("flex-1 text-sm", active ? "font-medium text-text" : "text-text")}>{themeLabel(name)}</span>
                         <ThemeSwatch tokens={theme.tokens} />
                         {active ? <Icon icon={Check} size={15} className="text-accent" /> : null}
                       </ChoiceControl>

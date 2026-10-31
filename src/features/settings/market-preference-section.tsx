@@ -18,10 +18,13 @@ import { Icon } from "@/components/ui/icon";
 export function MarketPreferenceSection({
   onChange,
   className,
+  heading = true,
   initialMarkets
 }: {
   onChange?: (pref: MarketPreference) => void;
   className?: string;
+  /** Onboarding has its own step title, so it hides this one. */
+  heading?: boolean;
   initialMarkets?: readonly MarketMetadata[];
 }) {
   const [pref, setPref] = useState<MarketPreference>(() => getMarketPreference());
@@ -126,12 +129,14 @@ export function MarketPreferenceSection({
 
   return (
     <section className={`flex flex-col gap-4 ${className ?? ""}`} data-testid="market-preference-section">
-      <div className="flex flex-col gap-1">
-        <h2 className="type-title text-xl text-text">Region and currency</h2>
-        <p className="text-sm text-text-secondary">
-          Sets which retailers and prices the Sage uses, and any regional compatibility rules.
-        </p>
-      </div>
+      {heading ? (
+        <div className="flex flex-col gap-1">
+          <h2 className="type-title text-xl text-text">Region and currency</h2>
+          <p className="text-sm text-text-secondary">
+            Sets which retailers and prices the Sage uses, and any regional compatibility rules.
+          </p>
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-4 rounded-card border border-border bg-surface p-4">
         {markets.length === 0 && (

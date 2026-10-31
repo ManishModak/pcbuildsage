@@ -44,10 +44,9 @@ const TOOLS_UNSUPPORTED_PATTERN =
 // API key is missing. …") and OpenRouter's 401 ("No cookie auth credentials found").
 const KEY_MISSING_PATTERN = /api key is missing|no (cookie )?auth credentials found/i;
 
-// Provider replies to a bad key that the shared AUTH_FAILURE_PATTERN misses:
-// Gemini "API key not valid. Please pass a valid API key." (also matched in
-// src/lib/tools/consult.ts) and OpenRouter "User not found.".
-const BAD_KEY_PATTERN = /api key not valid|api_key_invalid|^user not found\.?$/i;
+// OpenRouter's reply to a bad key, "User not found.", which the shared
+// AUTH_FAILURE_PATTERN in api-key-help.ts doesn't match without the 401 status.
+const BAD_KEY_PATTERN = /^user not found\.?$/i;
 
 // probeToolCapability's timeout copy, plus raw abort/timeout errors.
 const TIMEOUT_PATTERN = /didn't finish in time|timeout|timed out|aborted/i;
@@ -99,4 +98,17 @@ export function describeProbeResult(result: PingResult): ProbeOutcome {
   if (result.reachable && !hint) return { kind: "tools", message: MESSAGES.tools };
   if (ALL_FAILED_PATTERN.test(hint)) return { kind: "unknown", message: MESSAGES.noAnswer };
   return { kind: "unknown", message: MESSAGES.unknown };
+}
+
+/**
+ * The hint /api/llm/probe sends when the model didn't answer. A one-entry
+ * chain still throws "All fallback LLM providers failed" on fallbackable
+ * errors (404, 429, 5xx, timeout, network), which hides the cause; the cause
+ * is what describeProbeResult needs to tell a dead server from a bad key.
+ */
+export function probeFailureHint(error: unknown): string {
+  let cause = error instanceof AggregateError && error.errors.length === 1 ? error.errors[0] : error;
+  // Chain errors are re-wrapped with a "[chain 1/1 provider:model]" prefix; the original sits in `cause`.
+  if (cause !== error && cause instanceof Error && cause.cause instanceof Error) cause = cause.cause;
+  return cause instanceof Error ? cause.message : String(cause);
 }

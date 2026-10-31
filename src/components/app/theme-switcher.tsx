@@ -7,6 +7,7 @@ import { Icon } from "../ui/icon";
 import { IconButton } from "../ui/primitives";
 import { SidebarMenuButton } from "@/components/animate-ui/components/radix/sidebar";
 import { useApp } from "./app-provider";
+import { themeLabel } from "@/lib/theme";
 
 // Compact theme picker. In the app shell header it's an icon button whose menu
 // opens downward; in the sidebar footer (`variant="sidebar"`) it's a labeled
@@ -55,7 +56,7 @@ export function ThemeSwitcher({ variant = "bar" }: { variant?: "bar" | "sidebar"
                     )}
                   >
                     <Icon icon={theme.mode === "light" ? Sun : Moon} size={15} />
-                    <span className="flex-1 truncate">{name}</span>
+                    <span className="flex-1 truncate">{themeLabel(name)}</span>
                     <DropdownMenu.ItemIndicator>
                       <Icon icon={Check} size={15} className="text-accent" />
                     </DropdownMenu.ItemIndicator>

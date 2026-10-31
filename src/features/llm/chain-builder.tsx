@@ -15,8 +15,7 @@ import {
 import { fetchModels, isHostedMode, probeEntry } from "@/lib/api-client";
 import { hasUiKey, saveUiKey } from "@/lib/client-config-store";
 import { hasByokKey, setByokKey } from "@/lib/llm/client-byok-store";
-import { formatLatency, getErrorMessage } from "@/lib/format";
-import { describeProbeResult } from "@/lib/llm/probe-outcome";
+import { getErrorMessage } from "@/lib/format";
 import type {
   ChainEntry,
   CredentialAvailability,
@@ -31,7 +30,7 @@ import { Icon } from "@/components/ui/icon";
 import { Button, Field, IconButton, Input, Spinner } from "@/components/ui/primitives";
 import { ModelField } from "@/components/ui/model-field";
 import { Select } from "@/components/ui/select";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { ProbeResultView } from "./probe-result-view";
 
 const PROVIDERS: Array<{ value: LLMProvider; label: string }> = [
   { value: "gemini", label: "Google Gemini" },
@@ -471,7 +470,7 @@ function ChainCard({
           </Button>
           {probing ? <Spinner size={14} /> : null}
         </div>
-        {entry.ping ? <PingResultView entry={entry} /> : null}
+        {entry.ping ? <ProbeResultView ping={entry.ping} /> : null}
         {toolBlocked ? (
           <p className="inline-flex items-center gap-1.5 text-caption text-blocking">
             <Icon icon={TriangleAlert} size={14} className="shrink-0" />
@@ -490,44 +489,4 @@ function ReadOnlyValue({ label, children }: { label: string; children: ReactNode
       {children}
     </div>
   );
-}
-
-const OUTCOME_LABEL = {
-  key: "Key problem",
-  quota: "Limit reached",
-  tools: "No tool use",
-  network: "Not reachable",
-  unknown: "Check failed"
-} as const;
-
-// One plain outcome per check (see describeProbeResult); the raw provider
-// hint follows as the detail.
-function PingResultView({ entry }: { entry: ChainEntry }) {
-  const ping = entry.ping!;
-  const outcome = describeProbeResult(ping);
-  if (outcome.kind === "ok") {
-    return (
-      <p className="flex flex-wrap items-center gap-2 text-caption text-text-secondary" aria-live="polite">
-        <StatusBadge kind="ok" label="Works" />
-        <span>Answered in <span className="font-mono">{formatLatency(ping.latencyMs)}</span> and can use tools.</span>
-      </p>
-    );
-  }
-  return (
-    <div className="flex flex-col gap-1" aria-live="polite">
-      <p className="flex flex-wrap items-center gap-2 text-caption text-text">
-        <StatusBadge kind="warn" label={OUTCOME_LABEL[outcome.kind]} />
-        <span>{outcome.message}</span>
-      </p>
-      {ping.hint ? (
-        <p className="text-caption text-text-muted" title={ping.hint}>
-          Details: {truncate(ping.hint)}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function truncate(value: string, max = 140): string {
-  return value.length > max ? `${value.slice(0, max)}…` : value;
 }

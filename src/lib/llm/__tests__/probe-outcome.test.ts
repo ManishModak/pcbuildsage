@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeProbeResult } from "../probe-outcome";
+import { describeProbeResult, probeFailureHint } from "../probe-outcome";
 import type { PingResult } from "@/types/client";
 import { ACCESS_BLOCKED_COPY, FREE_LIMIT_COPY, KEY_REJECTED_COPY } from "@/content/api-key-help";
 
@@ -60,5 +60,19 @@ describe("describeProbeResult", () => {
     expect(outcome.kind).toBe("unknown");
     expect(outcome.message).toMatch(/model name/);
     expect(describeProbeResult(down("Provider 'ollama' is not supported in hosted-demo mode.")).kind).toBe("unknown");
+  });
+});
+
+describe("probeFailureHint", () => {
+  it("unwraps a one-entry chain failure so a dead server reads as network", () => {
+    const original = new Error("Cannot connect to API: connect ECONNREFUSED 127.0.0.1:8080");
+    const annotated = new Error(`[chain 1/1 openai-compatible:x] ${original.message}`, { cause: original });
+    const hint = probeFailureHint(new AggregateError([annotated], "All fallback LLM providers failed (1/1 openai-compatible:x)."));
+    expect(hint).toBe(original.message);
+    expect(describeProbeResult({ reachable: false, latencyMs: 0, toolCapable: false, hint }).kind).toBe("network");
+  });
+
+  it("keeps a direct error's message", () => {
+    expect(probeFailureHint(new Error("API key not valid. Please pass a valid API key."))).toMatch(/^API key not valid/);
   });
 });
