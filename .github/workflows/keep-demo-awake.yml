@@ -1,0 +1,35 @@
+name: Keep demo awake
+
+# Render's free plan puts the demo to sleep after 15 idle minutes, and the next
+# visitor waits about 25 s for it to wake. A request every 10 minutes keeps it
+# awake (about 744 of the account's 750 free instance-hours a month). The run
+# fails, so GitHub emails the owner, when /api/health doesn't report status ok
+# (it reports "degraded" while the hosted catalog is unreachable).
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      HEALTH_URL: https://pcbuildsage.onrender.com/api/health
+    steps:
+      - name: Check the demo is up and its catalog is reachable
+        run: |
+          # Three tries, so a cold start, a deploy or a slow catalog ping doesn't alert.
+          for attempt in 1 2 3; do
+            body=$(curl -sS --max-time 90 "$HEALTH_URL" || true)
+            if echo "$body" | jq -e '.status == "ok"' > /dev/null 2>&1; then
+              echo "ok: $body"
+              exit 0
+            fi
+            echo "attempt $attempt: ${body:-no response}"
+            [ "$attempt" -lt 3 ] && sleep 20
+          done
+          echo "::error::$HEALTH_URL did not report status ok"
+          exit 1
