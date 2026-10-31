@@ -140,6 +140,9 @@ export function printHumanSummary(
   log(`Total Products: ${stats?.totalProducts ?? result.publishedCount ?? 0}`);
   if (!result.dryRun) {
     log(`Published:      ${result.publishedCount}`);
+    if (result.rewrittenCount !== undefined) {
+      log(`Rewritten:      ${result.rewrittenCount} (new or changed; the rest only had their check time moved)`);
+    }
   }
   if (result.staleCount !== undefined) {
     log(`Stale Swept:    ${result.staleCount} (marked out of stock)`);
@@ -292,6 +295,7 @@ export async function runPublishCatalog(
           dryRun: Boolean(result.dryRun || parsed.dryRun),
           dbPath: parsed.db,
           publishedCount: result.publishedCount,
+          rewrittenCount: result.rewrittenCount ?? null,
           runId: result.runId ?? null,
           stats: result.stats ?? null,
           errors: result.errors ?? []

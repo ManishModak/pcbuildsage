@@ -6,7 +6,8 @@
  * sweeps stale listings (marking in_stock = 0) only for (country, retailer, category) scopes whose
  * scrape job the scraper recorded as 'complete' in `scrape_jobs`, preserves listings for partial,
  * failed or unrecorded scopes (with warnings), and commits upserts + audit run atomically in a
- * single write transaction with rollback on failure.
+ * single write transaction with rollback on failure. Listings whose content is unchanged only
+ * have `last_scraped` moved, which keeps each refresh well inside Turso's free write quota.
  */
 
 import { createClient, type Client, type InStatement, type Transaction } from "@libsql/client";
@@ -43,6 +44,12 @@ export interface PublishOptions {
 export interface PublishResult {
   success: boolean;
   publishedCount: number;
+  /**
+   * Products written in full because they are new or something besides their
+   * check time changed. The rest of `publishedCount` only had `last_scraped`
+   * moved forward.
+   */
+  rewrittenCount?: number;
   runId?: string;
   dryRun?: boolean;
   errors?: string[];
@@ -150,6 +157,46 @@ export function readSweepScopes(db: Database.Database): { scopes: SweepScope[]; 
 
 function scopeKey(countryCode: string, retailer: string, category: string): string {
   return JSON.stringify([countryCode, retailer, category]);
+}
+
+/** Products columns in upsert order; `upsertArgs` returns values in the same order. */
+const PRODUCT_COLUMNS = [
+  "id", "name", "normalized_name", "registry_key", "price", "currency",
+  "country_code", "retailer", "url", "image_url", "in_stock", "category",
+  "subcategory", "specs", "first_seen", "last_scraped"
+] as const;
+
+/**
+ * Columns that decide whether a listing changed. `first_seen` and
+ * `last_scraped` are left out: every fresh snapshot sets them to the run's
+ * time, so comparing them would rewrite every row.
+ */
+const CONTENT_COLUMNS = PRODUCT_COLUMNS.slice(0, PRODUCT_COLUMNS.indexOf("first_seen"));
+
+/** Normalises a candidate products row into upsert values (PRODUCT_COLUMNS order). */
+function upsertArgs(r: Record<string, unknown>): Array<string | number | null> {
+  return [
+    String(r.id),
+    String(r.name ?? ""),
+    r.normalized_name != null ? String(r.normalized_name) : null,
+    r.registry_key != null ? String(r.registry_key) : null,
+    r.price != null ? Number(r.price) : null,
+    String(r.currency ?? "USD"),
+    String(r.country_code ?? "US"),
+    String(r.retailer ?? ""),
+    String(r.url ?? ""),
+    r.image_url != null ? String(r.image_url) : null,
+    Number(r.in_stock ?? 1) ? 1 : 0,
+    String(r.category ?? ""),
+    r.subcategory != null ? String(r.subcategory) : null,
+    typeof r.specs === "object" && r.specs !== null
+      ? JSON.stringify(r.specs)
+      : r.specs != null
+      ? String(r.specs)
+      : null,
+    String(r.first_seen ?? new Date().toISOString()),
+    String(r.last_scraped ?? new Date().toISOString())
+  ];
 }
 
 /**
@@ -387,44 +434,37 @@ export async function publishCatalogSnapshot(
         }
       }
 
-      // 2. Batch upsert candidate products
+      // 2. Split the snapshot into listings that changed and listings that
+      //    didn't. A replace writes the row and all five indexes (6 rows
+      //    against Turso's monthly write quota); moving only last_scraped
+      //    writes 2, so most listings take the cheap path.
       const batchSize = Math.max(1, options.batchSize ?? 100);
-      let publishedCount = 0;
+      const candidates = rows.map(upsertArgs);
+      const countryIdx = PRODUCT_COLUMNS.indexOf("country_code");
+      const lastScrapedIdx = PRODUCT_COLUMNS.indexOf("last_scraped");
+      const candidateCountries = [...new Set(candidates.map((args) => String(args[countryIdx])))];
+      const existingRes = await tx.execute({
+        sql: `SELECT ${CONTENT_COLUMNS.join(", ")} FROM products WHERE country_code IN (${candidateCountries.map(() => "?").join(", ")})`,
+        args: candidateCountries
+      });
+      const existing = new Map<string, Record<string, unknown>>();
+      for (const row of existingRes.rows) existing.set(String(row.id), row as Record<string, unknown>);
 
-      const upsertSql = `INSERT OR REPLACE INTO products (
-        id, name, normalized_name, registry_key, price, currency,
-        country_code, retailer, url, image_url, in_stock, category,
-        subcategory, specs, first_seen, last_scraped
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const changed: Array<Array<string | number | null>> = [];
+      const unchangedIdsByLastScraped = new Map<string, string[]>();
+      for (const args of candidates) {
+        const prev = existing.get(String(args[0]));
+        if (prev && CONTENT_COLUMNS.every((col, i) => prev[col] === args[i])) {
+          const lastScraped = String(args[lastScrapedIdx]);
+          const ids = unchangedIdsByLastScraped.get(lastScraped) ?? [];
+          ids.push(String(args[0]));
+          unchangedIdsByLastScraped.set(lastScraped, ids);
+        } else {
+          changed.push(args);
+        }
+      }
 
-      for (let i = 0; i < rows.length; i += batchSize) {
-        const chunk = rows.slice(i, i + batchSize);
-        const statements: InStatement[] = chunk.map((r) => ({
-          sql: upsertSql,
-          args: [
-            String(r.id),
-            String(r.name ?? ""),
-            r.normalized_name != null ? String(r.normalized_name) : null,
-            r.registry_key != null ? String(r.registry_key) : null,
-            r.price != null ? Number(r.price) : null,
-            String(r.currency ?? "USD"),
-            String(r.country_code ?? "US"),
-            String(r.retailer ?? ""),
-            String(r.url ?? ""),
-            r.image_url != null ? String(r.image_url) : null,
-            Number(r.in_stock ?? 1) ? 1 : 0,
-            String(r.category ?? ""),
-            r.subcategory != null ? String(r.subcategory) : null,
-            typeof r.specs === "object" && r.specs !== null
-              ? JSON.stringify(r.specs)
-              : r.specs != null
-              ? String(r.specs)
-              : null,
-            String(r.first_seen ?? new Date().toISOString()),
-            String(r.last_scraped ?? new Date().toISOString())
-          ]
-        }));
-
+      const runStatements = async (statements: InStatement[]) => {
         if (typeof tx.batch === "function") {
           await tx.batch(statements);
         } else {
@@ -432,11 +472,31 @@ export async function publishCatalogSnapshot(
             await tx.execute(stmt);
           }
         }
+      };
 
-        publishedCount += chunk.length;
+      // 3. Replace new and changed listings in full.
+      const upsertSql = `INSERT OR REPLACE INTO products (${PRODUCT_COLUMNS.join(", ")}) VALUES (${PRODUCT_COLUMNS.map(() => "?").join(", ")})`;
+      for (let i = 0; i < changed.length; i += batchSize) {
+        await runStatements(changed.slice(i, i + batchSize).map((args) => ({ sql: upsertSql, args })));
       }
 
-      // 3. Write audit record to catalog_runs
+      // 4. Unchanged listings: move last_scraped forward only, since it drives
+      //    price age and the week-unseen sweep above. A snapshot holds one
+      //    value per scrape scope, so grouping by it keeps statements few.
+      for (const [lastScraped, ids] of unchangedIdsByLastScraped) {
+        const statements: InStatement[] = [];
+        for (let i = 0; i < ids.length; i += batchSize) {
+          const chunk = ids.slice(i, i + batchSize);
+          statements.push({
+            sql: `UPDATE products SET last_scraped = ? WHERE id IN (${chunk.map(() => "?").join(", ")}) AND last_scraped IS NOT ?`,
+            args: [lastScraped, ...chunk, lastScraped]
+          });
+        }
+        await runStatements(statements);
+      }
+      const publishedCount = candidates.length;
+
+      // 5. Write audit record to catalog_runs
       const runId = `run_${Date.now()}_${randomUUID().slice(0, 8)}`;
       const publishedAt = new Date().toISOString();
       const sourceDbHash = computeDatabaseHash(options.dbPath);
@@ -446,7 +506,8 @@ export async function publishCatalogSnapshot(
         durationMs: Date.now() - startTime,
         stats: validation.stats,
         warnings,
-        staleCount: staleIds.length
+        staleCount: staleIds.length,
+        rewrittenCount: changed.length
       });
 
       await tx.execute({
@@ -454,12 +515,13 @@ export async function publishCatalogSnapshot(
         args: [runId, publishedAt, publishedCount, sourceDbHash, "success", metadata]
       });
 
-      // 4. Commit write transaction
+      // 6. Commit write transaction
       await tx.commit();
 
       return {
         success: true,
         publishedCount,
+        rewrittenCount: changed.length,
         runId,
         warnings,
         staleCount: staleIds.length,
