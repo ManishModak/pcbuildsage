@@ -193,12 +193,16 @@ def make_product(raw: RawProduct, site: SiteConfig, category: str, matcher: Regi
 
     A listing without a parseable positive price ("call for price") is
     dropped: the snapshot validator rejects null prices, and a complete
-    crawl's stale sweep retires the row normally.
+    crawl's stale sweep retires the row normally. So is an out-of-stock
+    placeholder of all nines from 999999 up: EZPZ lists unavailable RTX 5090s
+    at ₹9,99,999.
     """
     if not raw.title or not raw.url:
         return None
     price = parse_price(raw.price_text)
     if price is None or price <= 0:
+        return None
+    if not raw.in_stock and price >= 999999 and set(str(int(price))) == {"9"}:
         return None
     specs: dict[str, Any] = {}
     if category == "cpu":

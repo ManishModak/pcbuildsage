@@ -164,6 +164,18 @@ def test_make_product_drops_listing_without_price() -> None:
     assert product is not None and product.price == 150000.0
 
 
+def test_make_product_drops_out_of_stock_placeholder_price() -> None:
+    matcher = RegistryMatcher()
+
+    def raw(price: str, in_stock: bool) -> RawProduct:
+        return RawProduct(title="MSI RTX 5090 Suprim OC 32GB", price_text=price, url="https://example.com/x", image_url=None, in_stock=in_stock)
+
+    assert make_product(raw("999999", False), _site(), "gpu", matcher, "2026-10-31T00:00:00Z") is None
+    # A real ₹99,999 price, and any in-stock price, are kept.
+    assert make_product(raw("99999", False), _site(), "gpu", matcher, "2026-10-31T00:00:00Z") is not None
+    assert make_product(raw("999999", True), _site(), "gpu", matcher, "2026-10-31T00:00:00Z") is not None
+
+
 # --- Item 5: price parsing -----------------------------------------------------
 
 
