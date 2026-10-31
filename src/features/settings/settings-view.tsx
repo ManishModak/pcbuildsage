@@ -62,37 +62,56 @@ const NAV = {
     label: "AI model",
     icon: Sparkles,
     group: "Assistant",
-    keywords: "provider key api model server backup fallback context reasoning ollama gemini openrouter groq"
+    keywords: "chat models main backup fallback provider api key server address context window reasoning effort ollama gemini openrouter groq"
   },
   search: {
     id: "search",
     label: "Web research",
     icon: Search,
     group: "Assistant",
-    keywords: "search web brave tavily exa searxng duckduckgo page reader crawl research model"
+    keywords: "web search with api key read top result page reader crawl research model test brave tavily exa searxng duckduckgo"
   },
   personalization: {
     id: "personalization",
     label: "Look and tone",
     icon: Sliders,
     group: "Preferences",
-    keywords: "theme appearance dark light colours colors tone personality voice region currency country"
+    keywords: "appearance theme dark light colours colors tone personality voice country region currency"
   },
   market: {
     id: "market",
     label: "Region and currency",
     icon: Globe,
     group: "Preferences",
-    keywords: "region country currency market prices retailers"
+    keywords: "country region currency market prices retailers"
   },
   database: {
     id: "database",
     label: "Catalog",
     icon: Database,
     group: "Data",
-    keywords: "catalog prices products database scrape retailers spec research export"
+    keywords: "spec research share researched specs export product catalog setup prices products database scrape retailers"
   }
 } satisfies Record<SettingsTab, SettingsNavItem>;
+
+const SEARCH_FILLER = new Set(["a", "an", "and", "or", "the", "of", "to", "for", "in", "my"]);
+
+/**
+ * The pages the nav search shows: every word of the query must appear in a
+ * page's label or keywords, in any order ("API key", "key api"). Filler words
+ * like "or" are skipped, and an empty query shows every page.
+ */
+export function findSettingsPages(items: SettingsNavItem[], query: string): SettingsNavItem[] {
+  const words = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word && !SEARCH_FILLER.has(word));
+  if (!words.length) return items;
+  return items.filter((item) => {
+    const text = `${item.label} ${item.keywords}`.toLowerCase();
+    return words.every((word) => text.includes(word));
+  });
+}
 
 // Tab ids are URL values (?tab=…) and stay fixed; only the labels are user-facing.
 export const LOCAL_NAV_ITEMS: SettingsNavItem[] = [NAV.llm, NAV.search, NAV.personalization, NAV.database];
@@ -111,7 +130,8 @@ const SEARCH_PROVIDER_NAMES: Record<string, string> = { brave: "Brave Search", t
 export function settingsTabFromSearch(search: string, hosted = isHostedMode()): SettingsTab {
   const requested = new URLSearchParams(search).get("tab");
   if (hosted && (requested === "database" || requested === "scrape")) return "market";
-  if (requested === "market") return "market";
+  // Locally, region and currency live on Look and tone.
+  if (requested === "market") return hosted ? "market" : "personalization";
   if (requested === "byok") return "llm";
   const items = hosted ? HOSTED_NAV_ITEMS : LOCAL_NAV_ITEMS;
   return items.some((item) => item.id === requested) ? (requested as SettingsTab) : (hosted ? "market" : "llm");
@@ -842,10 +862,7 @@ function SettingsNav({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const needle = query.trim().toLowerCase();
-  const matches = needle
-    ? items.filter((item) => `${item.label} ${item.keywords}`.toLowerCase().includes(needle))
-    : items;
+  const matches = findSettingsPages(items, query);
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col gap-4 border-r border-border bg-surface p-3 md:flex">

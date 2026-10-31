@@ -33,7 +33,8 @@ import {
   SettingsView,
   settingsTabFromSearch,
   LOCAL_NAV_ITEMS,
-  HOSTED_NAV_ITEMS
+  HOSTED_NAV_ITEMS,
+  findSettingsPages
 } from "../settings-view";
 import { MarketPreferenceSection } from "../market-preference-section";
 import { ByokSection } from "../byok-section";
@@ -134,6 +135,18 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
     it("routes ?tab=market to market tab in hosted-demo mode", () => {
       const resolved = settingsTabFromSearch("?tab=market", true);
       expect(resolved).toBe("market");
+    });
+
+    it("routes ?tab=market to Look and tone locally, where region and currency live", () => {
+      expect(settingsTabFromSearch("?tab=market", false)).toBe("personalization");
+    });
+
+    it("finds a page by any setting name, in any word order", () => {
+      const ids = (items: typeof LOCAL_NAV_ITEMS, query: string) => findSettingsPages(items, query).map((item) => item.id);
+      expect(ids(LOCAL_NAV_ITEMS, "API key")).toEqual(["llm", "search"]);
+      expect(ids(LOCAL_NAV_ITEMS, "Country or region")).toEqual(["personalization"]);
+      expect(ids(HOSTED_NAV_ITEMS, "Country or region")).toContain("market");
+      expect(ids(LOCAL_NAV_ITEMS, "  ")).toHaveLength(LOCAL_NAV_ITEMS.length);
     });
   });
 
