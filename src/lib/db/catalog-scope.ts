@@ -24,7 +24,7 @@ export const COMPONENT_CATEGORIES: ComponentCategory[] = [
   "cooler"
 ];
 
-/** Storage rows split by build role; other categories carry a NULL subcategory. */
+/** Storage rows split by build role; other categories are NULL or `accessory`. */
 export const STORAGE_SUBCATEGORIES = ["internal", "external", "removable", "accessory"] as const;
 export type StorageSubcategory = (typeof STORAGE_SUBCATEGORIES)[number];
 
@@ -32,8 +32,9 @@ export type StorageSubcategory = (typeof STORAGE_SUBCATEGORIES)[number];
 export const BUILD_SUBCATEGORY = "internal";
 
 /**
- * SQL predicate for rows usable in a build. A NULL subcategory means the category
- * has no build/accessory split (cpu, gpu, ram...), so those rows always qualify.
+ * SQL predicate for rows usable in a build. Outside storage a row is NULL unless
+ * the scraper tagged it `accessory` (case fans on a cooler shelf, UPS units on a
+ * PSU shelf, laptop RAM), so ordinary cpu, gpu, ram... rows always qualify.
  */
 export const BUILD_RELEVANT_SQL = "(subcategory IS NULL OR subcategory = 'internal')";
 

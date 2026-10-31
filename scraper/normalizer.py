@@ -54,6 +54,20 @@ _INTERNAL = re.compile(
 )
 _ACCESSORY = re.compile(r"\bnas\b|rail\s*kit|\bcaddy\b|\bbracket\b", re.IGNORECASE)
 
+# Other shelves hold non-build items too: Vishal Peripherals' cooler collection
+# lists case-fan packs, its PSU shelf lists UPS units, and most stores' RAM
+# shelves include laptop SO-DIMMs. These rows are tagged `accessory` so build
+# searches skip them. A fan is only tagged when the title names no CPU cooler
+# ("Cooler Master" is a brand, not a cooler).
+_FAN = re.compile(r"\bfans?\b", re.IGNORECASE)
+_CPU_COOLER = re.compile(r"cooler|\baio\b|liquid|tower|heat\s*sink|\bcpu\b|radiator|freezer", re.IGNORECASE)
+_COOLER_MASTER = re.compile(r"cooler\s*master", re.IGNORECASE)
+_UPS = re.compile(r"\bups\b|\b\d+\s*va\b", re.IGNORECASE)
+# Mirrors statesSodimm in src/lib/spec-parsers.ts.
+_SODIMM = re.compile(r"\bso[-\s]?dimms?\b", re.IGNORECASE)
+_LAPTOP = re.compile(r"\b(?:laptop|notebook)s?\b", re.IGNORECASE)
+_NOT_LAPTOP = re.compile(r"\bdesktops?\b|\b(?:not|non)[-\s]+(?:for[-\s]+)?(?:a[-\s]+)?(?:laptop|notebook)", re.IGNORECASE)
+
 
 # A card needs the "graphics card" phrase AND a GPU model number: Corsair's
 # "Titan 360 RX LCD" is a CPU cooler, and an "RTX 4090 Water Block" is a cooling
@@ -99,8 +113,18 @@ def classify_subcategory(name: str, category: str) -> str | None:
     HDD" (a real internal drive) reads as a NAS box. Storage titles that match
     nothing default to `internal`: hiding a genuine SSD from a build is a worse
     failure than admitting an unknown, and misclassification here is one UPDATE
-    to undo, whereas exclusion is silent.
+    to undo, whereas exclusion is silent. Outside storage only clear non-build
+    items get a subcategory; every other row stays None.
     """
+    if category == "cooler":
+        if _FAN.search(name) and not _CPU_COOLER.search(_COOLER_MASTER.sub("", name)):
+            return "accessory"
+        return None
+    if category == "psu":
+        return "accessory" if _UPS.search(name) else None
+    if category == "ram":
+        laptop = _SODIMM.search(name) or (_LAPTOP.search(name) and not _NOT_LAPTOP.search(name))
+        return "accessory" if laptop else None
     if category != "storage":
         return None
     if _REMOVABLE.search(name):
