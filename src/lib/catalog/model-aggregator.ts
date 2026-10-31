@@ -190,6 +190,7 @@ export function aggregateModels(
     min_price: number | null;
     max_price: number | null;
     listing_count: number;
+    registry_key?: string;
   };
 
   const modelMap = new Map<string, ModelAccumulator>();
@@ -220,6 +221,9 @@ export function aggregateModels(
     if (input.min_capacity_gb !== undefined && Number(spec?.capacity_gb ?? -1) < input.min_capacity_gb) {
       continue;
     }
+    if (input.model_ids?.length && !input.model_ids.some((id) => matchesModelId(product, spec, id, regKey))) {
+      continue;
+    }
 
     const modelId = buildCanonicalModelId(product, spec, regKey);
     const existing = modelMap.get(modelId);
@@ -248,7 +252,8 @@ export function aggregateModels(
         specs: cleanSpecs,
         min_price: price,
         max_price: price,
-        listing_count: 1
+        listing_count: 1,
+        ...(regKey ? { registry_key: regKey } : {})
       });
     }
   }
@@ -262,7 +267,8 @@ export function aggregateModels(
       min: acc.min_price,
       max: acc.max_price
     },
-    listing_count: acc.listing_count
+    listing_count: acc.listing_count,
+    ...(acc.registry_key ? { registry_key: acc.registry_key } : {})
   }));
 
   allModels.sort((a, b) => {
