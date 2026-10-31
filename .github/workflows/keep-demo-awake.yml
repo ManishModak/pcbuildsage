@@ -2,12 +2,14 @@ name: Keep demo awake
 
 # Render's free plan puts the demo to sleep after 15 idle minutes, and the next
 # visitor waits about 25 s for it to wake. A request every 10 minutes keeps it
-# awake (about 744 of the account's 750 free instance-hours a month). The run
-# fails, so GitHub emails the owner, when /api/health doesn't report status ok
-# (it reports "degraded" while the hosted catalog is unreachable).
+# awake, best effort since GitHub can delay scheduled runs (about 744 of the
+# account's 750 free instance-hours a month). The run fails when /api/health
+# doesn't report status ok (it reports "degraded" while the hosted catalog is
+# unreachable); GitHub notifies whoever last edited this schedule.
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # Off the top of the hour, when GitHub delays or drops the most scheduled runs.
+    - cron: "3-59/10 * * * *"
   workflow_dispatch:
 
 permissions: {}
@@ -15,7 +17,7 @@ permissions: {}
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
     env:
       HEALTH_URL: https://pcbuildsage.onrender.com/api/health
     steps:
