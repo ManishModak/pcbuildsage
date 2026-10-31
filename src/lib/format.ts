@@ -134,6 +134,18 @@ export function titleCase(value: string): string {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+// Retailers whose scraper key (site_name in data/profiles, stored with every
+// listing) runs words together that the shop itself writes apart.
+const RETAILER_NAMES: Record<string, string> = {
+  VedantComputers: "Vedant Computers",
+  PCStudio: "PC Studio"
+};
+
+/** A retailer's name as the shop writes it, for display only. */
+export function formatRetailerName(siteName: string): string {
+  return RETAILER_NAMES[siteName] ?? siteName;
+}
+
 export function getErrorMessageText(msg: string): string {
   if (!msg) return "";
   if (msg.includes("Headers Timeout Error")) {

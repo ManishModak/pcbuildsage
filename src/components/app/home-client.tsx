@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app/app-provider";
 import { AppShell } from "@/components/app/app-shell";
 import { LandingActionsContext } from "@/components/app/landing-actions";
-import { clearSetupHash, SETUP_HASH, setupHashPresent } from "@/components/app/setup-hash";
+import { clearSetupHash, pushSetupHash, setupHashPresent } from "@/components/app/setup-hash";
 import { ChatWorkspace } from "@/features/chat/chat-workspace";
 import { Wizard } from "@/features/wizard/wizard";
 import { Spinner } from "@/components/ui/primitives";
@@ -40,14 +40,19 @@ export function HomeClient({ landing }: { landing: ReactNode }) {
     if (landingViewDue(ready, config.onboarded)) fireOnce("landing_view");
   }, [ready, config.onboarded]);
 
+  // Back and Forward between the landing and #setup.
   useEffect(() => {
     const sync = () => setSetupOpen(setupHashPresent());
+    window.addEventListener("popstate", sync);
     window.addEventListener("hashchange", sync);
-    return () => window.removeEventListener("hashchange", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("hashchange", sync);
+    };
   }, []);
 
   const startSetup = useCallback(() => {
-    window.location.hash = SETUP_HASH;
+    pushSetupHash();
     setSetupOpen(true);
     window.scrollTo(0, 0);
   }, []);

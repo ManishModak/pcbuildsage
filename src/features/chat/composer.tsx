@@ -36,6 +36,7 @@ export function Composer({
   disabled,
   placeholder,
   badge,
+  status,
   initialValue = ""
 }: {
   onSend: (text: string) => void;
@@ -44,6 +45,8 @@ export function Composer({
   disabled?: boolean;
   placeholder?: string;
   badge?: React.ReactNode;
+  /** Shown left of the send button: which model answers and whether it's busy. */
+  status?: React.ReactNode;
   /** Prefilled draft (read once on mount); the user still has to send it. */
   initialValue?: string;
 }) {
@@ -79,12 +82,14 @@ export function Composer({
     if (ref.current) ref.current.style.height = "auto";
   };
 
+  const canSend = !disabled && !sendBlocked && value.trim().length > 0;
+
   return (
-    <div className="rounded-card border border-border bg-surface p-2 focus-within:border-accent">
-      {badge ? <div className="mb-1 px-1">{badge}</div> : null}
+    <div className="composer rounded-dialog border border-border bg-surface p-1.5 shadow-[0_18px_40px_-24px_color-mix(in_srgb,var(--bg)_70%,black)] transition-colors duration-150">
+      {badge ? <div className="mb-1 px-1.5 pt-1">{badge}</div> : null}
       {sendBlocked ? (
         <div
-          className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-btn border border-warn/40 bg-warn/10 px-3 py-2 text-caption text-text"
+          className="mb-1.5 flex flex-wrap items-center justify-between gap-2 rounded-card border border-warn/40 bg-warn/10 px-3 py-2 text-caption text-text"
           data-testid="byok-missing-prompt"
           role="alert"
         >
@@ -94,48 +99,47 @@ export function Composer({
           </a>
         </div>
       ) : null}
-      <div className="flex items-end gap-2">
-        <textarea
-          ref={ref}
-          rows={1}
-          value={value}
-          disabled={disabled}
-          placeholder={placeholder ?? "Describe the PC you want…"}
-          onChange={(event) => {
-            setValue(event.target.value);
-            const el = event.target;
-            el.style.height = "auto";
-            el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              submit();
-            }
-          }}
-          className="max-h-52 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-base leading-relaxed text-text outline-none placeholder:text-text-muted"
-          aria-label="Message the sage"
-        />
+      <textarea
+        ref={ref}
+        rows={1}
+        value={value}
+        disabled={disabled}
+        placeholder={placeholder ?? "Describe the PC you want…"}
+        onChange={(event) => {
+          setValue(event.target.value);
+          const el = event.target;
+          el.style.height = "auto";
+          el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            submit();
+          }
+        }}
+        className="block max-h-52 min-h-12 w-full resize-none bg-transparent px-2.5 pb-1 pt-2.5 text-base leading-relaxed text-text outline-none placeholder:text-text-muted"
+        aria-label="Message the sage"
+      />
+      <div className="flex min-h-10 items-center justify-between gap-2">
+        <div className="min-w-0">{status}</div>
         {streaming ? (
           <button
             type="button"
             onClick={onStop}
             aria-label="Stop generating"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-btn border border-border text-text-secondary transition-colors duration-150 hover:bg-surface-raised hover:text-text"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-btn border border-border text-text-secondary transition-colors duration-150 hover:bg-surface-raised hover:text-text"
           >
-            <Icon icon={Square} size={16} />
+            <Icon icon={Square} size={15} />
           </button>
         ) : (
           <button
             type="button"
             onClick={submit}
-            disabled={disabled || sendBlocked || value.trim().length === 0}
+            disabled={!canSend}
             aria-label="Send message"
             className={cn(
-              "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition-colors duration-150",
-              value.trim().length === 0 || disabled || sendBlocked
-                ? "bg-surface-raised text-text-muted"
-                : "bg-accent text-on-accent hover:opacity-90"
+              "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-btn transition-colors duration-150",
+              canSend ? "bg-accent text-on-accent hover:opacity-90" : "bg-surface-raised text-text-muted"
             )}
           >
             <Icon icon={ArrowUp} size={18} />

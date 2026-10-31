@@ -2,7 +2,7 @@
 
 import { useState, useId } from "react";
 import { AlertCircle, ExternalLink, FlaskConical, RefreshCw } from "lucide-react";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatRetailerName } from "@/lib/format";
 import { Icon } from "@/components/ui/icon";
 import { PillTabs } from "@/components/ui/pill-tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -110,13 +110,16 @@ export function BuildCard({
   }));
   const total = resolveBuildTotal(active);
   const strip = validationStrip(active.validation);
+  // A text-derived build's caveat is shown once, in the body below. The side
+  // panel's header already says "Proposed build", so it needs no fallback.
+  const title =
+    active.label ?? (active.textDerived ? undefined : currentVersionObj?.label) ?? (inSidePanel ? undefined : "Proposed build");
 
   return (
     <section
-      className={cn(
-        "overflow-hidden rounded-card border border-border bg-surface",
-        !inSidePanel && "my-3"
-      )}
+      // The side panel is already a bordered surface with its own title, so
+      // there the build is drawn flat rather than as a card inside a card.
+      className={cn(!inSidePanel && "my-3 overflow-hidden rounded-card border border-border bg-surface")}
       aria-label="Proposed build"
     >
       {availableVersions.length > 1 ? (
@@ -170,14 +173,11 @@ export function BuildCard({
             ariaLabel="Build strategy"
           />
         </div>
-      ) : (
+      ) : title ? (
         <div className="border-b border-border px-4 pb-3 pt-4">
-          <h3 className="type-title text-lg text-text">
-            {/* A text-derived build's caveat is shown once, in the body below. */}
-            {active.label ?? (active.textDerived ? undefined : currentVersionObj?.label) ?? "Proposed build"}
-          </h3>
+          <h3 className="type-title text-lg text-text">{title}</h3>
         </div>
-      )}
+      ) : null}
 
       <div className="px-4 py-3">
         {unavailable ? (
@@ -256,11 +256,11 @@ function BuildComponentsList({
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-caption text-accent hover:underline"
                       >
-                        {component.retailer}
+                        {formatRetailerName(component.retailer)}
                         <Icon icon={ExternalLink} size={12} />
                       </a>
                     ) : (
-                      <span className="text-caption text-text-secondary">{component.retailer}</span>
+                      <span className="text-caption text-text-secondary">{formatRetailerName(component.retailer)}</span>
                     )
                   ) : (
                     <span className="text-caption text-text-muted italic">Derived requirement</span>

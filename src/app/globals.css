@@ -52,11 +52,18 @@
   --color-sidebar-border: var(--border);
   --color-sidebar-ring: var(--accent);
 
-  /* Radii follow hierarchy: panels > controls > chips. Status pills stay round. */
-  --radius-card: 8px;
-  --radius-btn: 6px;
-  --radius-chip: 4px;
+  /* Radii follow hierarchy: dialogs > panels > controls > chips. A control
+   * inside a panel sits about 4px in, so its corner follows the panel's.
+   * Status pills stay round. shadcn's sm/md/lg/xl map onto the same steps. */
+  --radius-dialog: 16px;
+  --radius-card: 12px;
+  --radius-btn: 8px;
+  --radius-chip: 6px;
   --radius-pill: 999px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
   /* Anek Latin (Ek Type, Mumbai) carries all readable text; its width axis does
    * the display work. JetBrains Mono is for prices, ids and the ASCII sky only. */
@@ -165,6 +172,22 @@ kbd {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+/* A box around a bare input (the settings search) carries the input's ring. */
+.field-box:has(:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.field-box :focus-visible {
+  outline: none;
+}
+/* The chat composer is focused most of the time, so its border turns accent
+ * instead of a ring around the box. */
+.composer:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+.composer textarea:focus-visible {
+  outline: none;
+}
 
 ::selection {
   background: color-mix(in srgb, var(--accent) 34%, transparent);
@@ -183,6 +206,13 @@ kbd {
 *::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 999px;
+}
+/* Strips that scroll sideways by touch or trackpad show no bar. */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 @keyframes pcbs-slide-in-left {
@@ -227,8 +257,11 @@ kbd {
   position: relative;
   animation: rune-letter 0s var(--rune-at, 0ms) backwards;
 }
+/* The rune is decoration: `/ ""` gives it empty alt text, so screen readers
+ * and copy-paste get only the real letter underneath. */
 .rune-ch::before {
   content: attr(data-rune);
+  content: attr(data-rune) / "";
   position: absolute;
   left: 50%;
   top: 50%;
@@ -250,18 +283,31 @@ kbd {
   to { opacity: 0; visibility: hidden; }
 }
 @keyframes rune-flicker {
-  0% { content: "ᚠ"; }
-  20% { content: "ᚱ"; }
-  40% { content: "ᛟ"; }
-  60% { content: "ᚷ"; }
-  80% { content: "ᛉ"; }
+  0% { content: "ᚠ"; content: "ᚠ" / ""; }
+  20% { content: "ᚱ"; content: "ᚱ" / ""; }
+  40% { content: "ᛟ"; content: "ᛟ" / ""; }
+  60% { content: "ᚷ"; content: "ᚷ" / ""; }
+  80% { content: "ᛉ"; content: "ᛉ" / ""; }
 }
+
+/* A streaming reply's newest letters (src/features/chat/markdown.tsx): each
+ * arrives as a rune and settles into its letter a beat later, so the reply's
+ * leading edge reads as runes resolving. */
+.rune-stream {
+  --rune-at: 240ms;
+  --rune-ticks: 3;
+}
+/* Neighbouring letters start the flicker at different runes. */
+.rune-stream:nth-child(5n + 1) { --rune-skew: -24ms; }
+.rune-stream:nth-child(5n + 2) { --rune-skew: -72ms; }
+.rune-stream:nth-child(5n + 3) { --rune-skew: -48ms; }
+.rune-stream:nth-child(5n + 4) { --rune-skew: -96ms; }
 
 /* The leading edge of a streaming reply: a few runes that keep changing, like
  * words still settling. Appended to the last block of the reply. */
 .rune-caret > :last-child:not(ul, ol, pre, table)::after,
 .rune-caret > :is(ul, ol):last-child > li:last-child::after {
-  content: "ᚠᚱᛟ";
+  content: "ᚠᚱᛟ"; content: "ᚠᚱᛟ" / "";
   margin-left: 0.3em;
   font-family: var(--font-runic);
   font-size: 0.9em;
@@ -270,17 +316,17 @@ kbd {
   animation: rune-caret 540ms steps(1) infinite;
 }
 @keyframes rune-caret {
-  0% { content: "ᚠᚱᛟ"; }
-  17% { content: "ᚷᛉᚠ"; }
-  33% { content: "ᛞᚨᚷ"; }
-  50% { content: "ᚹᛟᛁ"; }
-  67% { content: "ᛊᚦᚹ"; }
-  83% { content: "ᚱᛗᛞ"; }
+  0% { content: "ᚠᚱᛟ"; content: "ᚠᚱᛟ" / ""; }
+  17% { content: "ᚷᛉᚠ"; content: "ᚷᛉᚠ" / ""; }
+  33% { content: "ᛞᚨᚷ"; content: "ᛞᚨᚷ" / ""; }
+  50% { content: "ᚹᛟᛁ"; content: "ᚹᛟᛁ" / ""; }
+  67% { content: "ᛊᚦᚹ"; content: "ᛊᚦᚹ" / ""; }
+  83% { content: "ᚱᛗᛞ"; content: "ᚱᛗᛞ" / ""; }
 }
 
 /* A single flickering rune in place of a spinner (src/components/app/rune-spinner.tsx). */
 .rune-spinner::before {
-  content: "ᚠ";
+  content: "ᚠ"; content: "ᚠ" / "";
   display: inline-block;
   min-width: 1ch;
   text-align: center;
@@ -290,12 +336,12 @@ kbd {
   animation: rune-spin 660ms steps(1) infinite;
 }
 @keyframes rune-spin {
-  0% { content: "ᚠ"; }
-  17% { content: "ᚱ"; }
-  33% { content: "ᛟ"; }
-  50% { content: "ᚷ"; }
-  67% { content: "ᛉ"; }
-  83% { content: "ᛞ"; }
+  0% { content: "ᚠ"; content: "ᚠ" / ""; }
+  17% { content: "ᚱ"; content: "ᚱ" / ""; }
+  33% { content: "ᛟ"; content: "ᛟ" / ""; }
+  50% { content: "ᚷ"; content: "ᚷ" / ""; }
+  67% { content: "ᛉ"; content: "ᛉ" / ""; }
+  83% { content: "ᛞ"; content: "ᛞ" / ""; }
 }
 
 /* The verdict seal on a build (src/features/chat/verdict-seal.tsx) stamps

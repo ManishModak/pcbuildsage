@@ -149,13 +149,39 @@ export function parseOllamaModelContextLimit(showResponse: {
   return undefined;
 }
 
+/**
+ * Why a provider refused a request, in its own words (its JSON `error.message`
+ * or `message`, or a short plain-text body), so a bad key reads "API key not
+ * valid" instead of a bare status. The key is never echoed back, whether it
+ * went in a header or in the URL (Gemini's `?key=`).
+ */
+export async function providerFailure(response: Response, what: string, url: string, apiKey?: string): Promise<Error> {
+  const text = await response.text().catch(() => "");
+  let reason = text.trimStart().startsWith("<") ? "" : text;
+  try {
+    const body = JSON.parse(text) as { error?: unknown; message?: unknown };
+    const error = body.error as { message?: unknown } | string | undefined;
+    const candidate =
+      typeof error === "string" ? error : typeof error?.message === "string" ? error.message : body.message;
+    reason = typeof candidate === "string" ? candidate : "";
+  } catch {
+    // Not JSON: keep a plain-text body as it is.
+  }
+  // Redact before shortening, so a cut can't leave the start of a key behind.
+  for (const secret of [apiKey, new URL(url).searchParams.get("key")]) {
+    if (secret) reason = reason.split(secret).join("[key]");
+  }
+  reason = reason.replace(/\s+/g, " ").trim().slice(0, 240);
+  return new Error(`${what} failed with HTTP ${response.status}${reason ? `: ${reason}` : ""}`);
+}
+
 async function getJson<T>(url: string, fetchImpl: typeof fetch, apiKey?: string): Promise<T> {
   const timeout = getDiscoveryTimeoutMs();
   const response = await fetchImpl(url, {
     headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
     signal: AbortSignal.timeout(timeout)
   });
-  if (!response.ok) throw new Error(`Model discovery failed with HTTP ${response.status}`);
+  if (!response.ok) throw await providerFailure(response, "Model discovery", url, apiKey);
   return (await response.json()) as T;
 }
 
@@ -173,7 +199,7 @@ async function postJson<T>(url: string, body: unknown, fetchImpl: typeof fetch, 
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(timeout)
   });
-  if (!response.ok) throw new Error(`Model inspection failed with HTTP ${response.status}`);
+  if (!response.ok) throw await providerFailure(response, "Model inspection", url, apiKey);
   return (await response.json()) as T;
 }
 

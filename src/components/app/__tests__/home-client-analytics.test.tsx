@@ -93,7 +93,13 @@ describe("M2 client event wiring in HomeClient", () => {
     // the same click that resets onboarded.
     const win = {
       location: { hash: "", pathname: "/", search: "", assign: vi.fn() },
-      history: { state: null, replaceState: vi.fn() }
+      history: {
+        state: null,
+        replaceState: vi.fn(),
+        pushState: vi.fn((_state: unknown, _title: string, url: string) => {
+          win.location.hash = url;
+        })
+      }
     };
     vi.stubGlobal("window", win);
     openSetup();

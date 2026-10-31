@@ -103,7 +103,7 @@ export function ModelField({
           {loading
             ? "Loading models…"
             : models.length
-              ? `${models.length} models found. You can also type any model ID.`
+              ? `${models.length} ${models.length === 1 ? "model" : "models"} found. You can also type any model ID.`
               : emptyHint}
         </p>
       )}

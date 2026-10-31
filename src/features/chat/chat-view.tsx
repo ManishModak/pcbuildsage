@@ -103,15 +103,15 @@ function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedB
   return null;
 }
 
-// The header's model line: which model answers and whether it's busy. The dot
-// is the only colour; a rune spinner stands in for animated dots while busy.
+// The composer's model line: which model answers and whether it's busy. The
+// dot is the only colour; a rune spinner stands in for animated dots while busy.
 function ModelStatus({ modelName, streaming, isCompacting }: { modelName: string; streaming: boolean; isCompacting?: boolean }) {
   const displayName = useMemo(() => formatModelName(modelName), [modelName]);
   const busy = streaming || isCompacting;
 
   return (
     <div
-      className="flex min-w-0 max-w-[240px] select-none items-center gap-2 text-caption text-text-muted sm:max-w-xs md:max-w-md"
+      className="flex min-w-0 select-none items-center gap-2 px-1.5 text-caption text-text-muted"
       title={modelName ? `Model: ${modelName}` : undefined}
     >
       <span
@@ -641,7 +641,9 @@ export function ChatView({
     setHeaderSuffix(
       <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
-          <ModelStatus modelName={activeModel} streaming={streaming} isCompacting={activeIsCompacting} />
+          <span className={cn("truncate text-sm font-medium", messages.length > 0 ? "text-text" : "text-text-muted")}>
+            {deriveTitle(messages)}
+          </span>
           {notSavedYet ? (
             <span
               className="shrink-0 rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary"
@@ -651,7 +653,7 @@ export function ChatView({
             </span>
           ) : null}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {messages.length > 0 ? (
             <TranscriptMenu
               id={sessionId}
@@ -663,16 +665,6 @@ export function ChatView({
               countryCode={config.countryCode}
             />
           ) : null}
-          <a
-            href="https://github.com/ManishModak/pcbuildsage"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="View source on GitHub"
-            title="View source on GitHub"
-            className="inline-flex items-center justify-center rounded-btn border border-border bg-surface p-1.5 text-text-muted hover:text-text hover:border-text-secondary/40 transition-colors duration-150 shrink-0"
-          >
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.37.81 1.1.81 2.22l-.01 3.29c0 .31.21.69.82.57A12 12 0 0 0 12 .3"/></svg>
-          </a>
           {displayBuilds && displayBuilds.length > 0 && headerBuildPrice ? (
             <button
               type="button"
@@ -686,7 +678,7 @@ export function ChatView({
                   : "Open proposed build panel"
               }
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-btn px-2.5 py-1 text-caption font-medium transition-colors duration-150 border cursor-pointer select-none shrink-0",
+                "inline-flex h-8 items-center gap-1.5 rounded-btn px-2.5 text-caption font-medium transition-colors duration-150 border cursor-pointer select-none shrink-0",
                 sidePanelOpen
                   ? "border-accent bg-accent/10 text-accent font-semibold"
                   : "border-border bg-surface text-text hover:border-accent hover:text-accent"
@@ -698,6 +690,16 @@ export function ChatView({
               </span>
             </button>
           ) : null}
+          <a
+            href="https://github.com/ManishModak/pcbuildsage"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View source on GitHub"
+            title="View source on GitHub"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-btn text-text-muted transition-colors duration-150 hover:bg-surface-raised hover:text-text"
+          >
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.37.81 1.1.81 2.22l-.01 3.29c0 .31.21.69.82.57A12 12 0 0 0 12 .3"/></svg>
+          </a>
         </div>
       </div>
     );
@@ -927,7 +929,13 @@ export function ChatView({
     <div className="flex h-full min-w-0 flex-1 overflow-hidden relative">
       {/* Left / Center: Chat messages & composer */}
       <div className="flex flex-1 flex-col min-w-0 h-full">
-        <div ref={scrollRef} onScroll={handleScroll} className="relative flex-1 overflow-y-auto">
+        {/* Gutters on both sides keep the messages centred on the composer below
+            whether or not the scrollbar shows. */}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="relative flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]"
+        >
           {/* Birds only while nothing is being read: gone once a chat starts,
               and on narrow screens, where they would cross the prompts. */}
           {!isLoading && messages.length === 0 ? <AsciiSky density={0.6} className="hidden md:block" /> : null}
@@ -1042,40 +1050,45 @@ export function ChatView({
           </div>
         </div>
 
-        <div className="border-t border-border bg-bg shrink-0">
-          <div className="mx-auto w-full max-w-[760px] px-4 py-3">
-            <Composer
-              onSend={send}
-              onStop={() => {
-                recovery.cancel();
-                setIsCompacting(false);
-                void stop();
-              }}
-              // A half-loaded chat must not be messaged into: the transcript it
-              // would be appended to is not the one the user is looking at.
-              disabled={isLoading}
-              streaming={streaming || activeIsCompacting}
-              initialValue={initialPrompt}
-            />
-            <p className="mt-2 text-center text-caption text-text-muted">
-              {isHostedMode() ? (
-                <>Prices in {config.currency} from the catalog{relativeTime ? `, updated ${relativeTime}` : ""}. Confirm them at checkout.</>
-              ) : (
-                <>
-                  Prices from your local catalog{relativeTime ? `, updated ${relativeTime}` : ""}.{" "}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateConfig({ onboarded: false });
-                      openSetup();
-                    }}
-                    className="ml-1 cursor-pointer font-medium text-accent hover:underline"
-                  >
-                    Update prices
-                  </button>
-                </>
-              )}
-            </p>
+        {/* The composer floats over the end of the chat: messages fade out
+            above it instead of stopping at a ruled line. */}
+        <div className="relative shrink-0 bg-bg before:pointer-events-none before:absolute before:inset-x-0 before:-top-8 before:h-8 before:bg-linear-to-t before:from-bg before:to-transparent before:content-['']">
+          <div className="overflow-hidden [scrollbar-gutter:stable_both-edges]">
+            <div className="mx-auto w-full max-w-[760px] px-4 pb-3">
+              <Composer
+                onSend={send}
+                onStop={() => {
+                  recovery.cancel();
+                  setIsCompacting(false);
+                  void stop();
+                }}
+                // A half-loaded chat must not be messaged into: the transcript it
+                // would be appended to is not the one the user is looking at.
+                disabled={isLoading}
+                streaming={streaming || activeIsCompacting}
+                initialValue={initialPrompt}
+                status={<ModelStatus modelName={activeModel} streaming={streaming} isCompacting={activeIsCompacting} />}
+              />
+              <p className="mt-2 text-center text-caption text-text-muted">
+                {isHostedMode() ? (
+                  <>Prices in {config.currency} from the catalog{relativeTime ? `, updated ${relativeTime}` : ""}. Confirm them at checkout.</>
+                ) : (
+                  <>
+                    Prices from your local catalog{relativeTime ? `, updated ${relativeTime}` : ""}.{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateConfig({ onboarded: false });
+                        openSetup();
+                      }}
+                      className="ml-1 cursor-pointer font-medium text-accent hover:underline"
+                    >
+                      Update prices
+                    </button>
+                  </>
+                )}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -1151,7 +1164,7 @@ export function ChatView({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto py-1">
               <BuildErrorBoundary resetKeys={[safeSelectedVersionId, safeAlternativeIndex]}>
                 <BuildCard
                   builds={displayBuilds ?? undefined}
@@ -1201,7 +1214,7 @@ export function ChatView({
               Proposed PC build components, prices, and compatibility verification
             </SheetDescription>
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto py-1">
             {displayBuilds && (
               <BuildErrorBoundary resetKeys={[safeSelectedVersionId, safeAlternativeIndex]}>
                 <BuildCard

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { discoverModels, getDiscoveryTimeoutMs, DISCOVERY_CONCURRENCY } from "@/lib/llm/discovery";
+import { discoverModels, getDiscoveryTimeoutMs, DISCOVERY_CONCURRENCY, providerFailure } from "@/lib/llm/discovery";
 
 describe("discovery timeouts", () => {
   it("defaults to a bounded timeout and honours env", () => {
@@ -39,5 +39,26 @@ describe("discovery concurrency", () => {
     expect(models).toHaveLength(10);
     expect(peak).toBeLessThanOrEqual(DISCOVERY_CONCURRENCY);
     expect(peak).toBeGreaterThan(1);
+  });
+});
+
+describe("discovery failures", () => {
+  it("keeps the provider's reason and never echoes the key", async () => {
+    const key = "AIzaFAKE-test-key-0000";
+    const fetchMock = vi.fn(async () =>
+      Response.json(
+        { error: { code: 400, message: `API key not valid. Please pass a valid API key. (${key})`, status: "INVALID_ARGUMENT" } },
+        { status: 400 }
+      )
+    );
+    const failure = discoverModels({ provider: "gemini", model: "x", keySource: "ui", apiKey: key }, fetchMock);
+    await expect(failure).rejects.toThrow("Model discovery failed with HTTP 400: API key not valid. Please pass a valid API key. ([key])");
+  });
+
+  it("leaves no part of the key when a long reason is shortened", async () => {
+    const key = "sk-FAKE-0123456789abcdef";
+    const response = Response.json({ error: { message: `${"x".repeat(230)} ${key}` } }, { status: 401 });
+    const error = await providerFailure(response, "Model discovery", "https://example.test/v1/models", key);
+    expect(error.message).not.toContain("sk-FAKE");
   });
 });

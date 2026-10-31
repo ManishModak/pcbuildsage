@@ -22,6 +22,26 @@ describe("Markdown tables", () => {
   });
 });
 
+describe("Markdown streaming runes", () => {
+  const text = (html: string) => html.replace(/<[^>]+>/g, "");
+
+  it("draws only the newest blocks of a streaming reply as rune letters, with the text intact", () => {
+    const reply = "First block.\n\nSecond **block**.\n\nThird  block";
+    const html = renderToStaticMarkup(<Markdown text={reply} streaming />);
+    const paragraphs = html.match(/<p>.*?<\/p>/g) ?? [];
+    expect(paragraphs[0]).not.toContain("rune-ch");
+    expect(paragraphs[1]).toContain("rune-ch");
+    expect(paragraphs[2]).toContain("rune-ch");
+    // One real space per run, as HTML would collapse it.
+    expect(text(paragraphs[2])).toBe("Third block");
+    expect(text(paragraphs[1])).toBe("Second block.");
+  });
+
+  it("draws a finished reply as plain text", () => {
+    expect(renderToStaticMarkup(<Markdown text={"Done.\n\nAll of it."} />)).not.toContain("rune-ch");
+  });
+});
+
 describe("ToolChip status", () => {
   it("shows the rune spinner while running and a status icon once done", () => {
     const running = renderToStaticMarkup(<ToolChip part={{ type: "tool-search_products", state: "input-available" }} />);

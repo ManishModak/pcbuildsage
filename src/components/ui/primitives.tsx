@@ -87,7 +87,7 @@ const FIELD_BASE =
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { mono?: boolean }>(
   function Input({ className, mono, ...props }, ref) {
-    return <input ref={ref} className={cn(FIELD_BASE, mono && "font-mono", className)} {...props} />;
+    return <input ref={ref} className={cn(FIELD_BASE, mono && "font-mono text-[13px]", className)} {...props} />;
   }
 );
 
@@ -218,7 +218,7 @@ export function Toggle({
           if (!disabled) onChange(!checked);
         }}
       >
-        <span id={labelId} className="text-sm text-text">{label}</span>
+        <span id={labelId} className="text-sm font-medium text-text">{label}</span>
         {description ? (
           <span id={descriptionId} className="text-caption text-text-secondary">
             {description}
@@ -240,8 +240,8 @@ export function Toggle({
       >
         <span
           className={cn(
-            "inline-block h-4 w-4 rounded-pill bg-bg transition-transform duration-150",
-            checked ? "translate-x-6" : "translate-x-1"
+            "inline-block h-4 w-4 rounded-pill transition-transform duration-150",
+            checked ? "translate-x-6" : "translate-x-1 bg-text-muted"
           )}
           style={checked ? { backgroundColor: "var(--on-accent)" } : undefined}
         />

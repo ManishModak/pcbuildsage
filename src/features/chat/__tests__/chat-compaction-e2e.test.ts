@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "@/lib/llm/messages";
 import type { AppConfig } from "@/types";
 import * as sessionsModule from "@/lib/sessions";
@@ -7,6 +7,16 @@ import * as clientModule from "@/lib/llm/client";
 import { streamChat } from "@/lib/llm/chat-engine";
 import { GET as sessionsGet, POST as sessionsPost } from "@/app/api/sessions/route";
 import { GET as sessionDetailGet } from "@/app/api/sessions/[id]/route";
+
+// The sessions route below writes real rows: keep them in an in-memory
+// database instead of the developer's data/sessions.db. Hoisted, because the
+// sessions module reads the path once, when it is imported.
+vi.hoisted(() => {
+  vi.stubEnv("PCBUILDSAGE_SESSIONS_DB_PATH", ":memory:");
+});
+afterAll(() => {
+  vi.unstubAllEnvs();
+});
 
 // Mock client and logger modules
 vi.mock("@/lib/llm/client", async () => {

@@ -10,7 +10,11 @@ import { cn } from "@/components/ui/cn";
  * models, just a few dozen fillText calls a frame. Birds cross at three
  * depths (far ones smaller, fainter and slower), flap in bursts and glide in
  * between, bob on the air, and lift away from the pointer. Now and then a
- * V of geese crosses on wide screens.
+ * V of geese crosses on wide screens. Faint clouds drift behind them, and on
+ * a dark theme the sky is a night sky: stars twinkle above.
+ *
+ * Everything lives within the first screen of the canvas, so a tall section
+ * doesn't spread the sky below the fold.
  *
  * Performance: capped at 24 fps, device pixel ratio capped at 2, nothing is
  * drawn while the tab is hidden or the canvas is off screen, and the loop
@@ -31,6 +35,14 @@ const LAYERS = [
 ] as const;
 const POINTER_RADIUS = 110;
 const QUIET_FADE_PX = 28; // birds fade over this distance before marked text
+// A cloud fades as a whole, over CLOUD.fade px, before it reaches marked text.
+const CLOUDS = [
+  ["   .--.", " .(    ).", "(___.__)__)"],
+  ["        .-~~-.", "  .-~~-(      )-.", " (                )", "  `-.__.--.__.--'"],
+  ["   _.-~~-._    _.-~-._", ".-'        `--'       `-.", "`-.___________________.-'"]
+];
+const CLOUD = { size: 13, alpha: 0.2, fade: 60 } as const;
+const STAR_GLYPHS = [".", ".", ".", "·", "·", "+", "*"];
 
 type Box = { left: number; top: number; right: number; bottom: number };
 
@@ -47,6 +59,10 @@ type Bird = {
 };
 
 type Flock = { x: number; y: number; dir: 1 | -1; members: Array<{ dx: number; dy: number; phase: number }> };
+
+type Cloud = { shape: string[]; cols: number; x: number; y: number; dir: 1 | -1; speed: number };
+
+type Star = { x: number; y: number; glyph: string; alpha: number; phase: number; rate: number };
 
 function rand(min: number, max: number): number {
   return min + Math.random() * (max - min);
@@ -78,6 +94,37 @@ function makeFlock(width: number, height: number): Flock {
   return { x: dir === 1 ? -120 : width + 120, y: rand(height * 0.12, height * 0.45), dir, members };
 }
 
+// Clouds ride the same wind as most birds: mostly right to left, slowly.
+// `charWidth` is the cloud font's letter width, to start one fully off screen;
+// `others` are the clouds already up, so two never share a shape.
+function makeCloud(width: number, height: number, anywhere: boolean, charWidth: number, others: Cloud[]): Cloud {
+  const free = CLOUDS.filter((shape) => !others.some((cloud) => cloud.shape === shape));
+  const shape = free[Math.floor(Math.random() * free.length)] ?? CLOUDS[0];
+  const dir: 1 | -1 = Math.random() < 0.8 ? -1 : 1;
+  const cols = Math.max(...shape.map((line) => line.length));
+  const span = cols * charWidth;
+  return {
+    shape,
+    cols,
+    x: anywhere ? rand(0, width - span) : dir === 1 ? -span - 20 : width + 20,
+    y: rand(height * 0.06, height * 0.85),
+    dir,
+    speed: rand(4, 8)
+  };
+}
+
+function makeStars(width: number, height: number, density: number): Star[] {
+  const count = Math.round(Math.min(48, Math.max(12, (width * height) / 26_000)) * density);
+  return Array.from({ length: count }, () => ({
+    x: rand(0, width),
+    y: rand(0, height * 0.75),
+    glyph: STAR_GLYPHS[Math.floor(Math.random() * STAR_GLYPHS.length)],
+    alpha: rand(0.18, 0.5),
+    phase: rand(0, 10),
+    rate: rand(0.4, 1.4)
+  }));
+}
+
 export function AsciiSky({ className, density = 1 }: { className?: string; density?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
@@ -89,9 +136,14 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let width = 0;
     let height = 0;
+    let sky = 0; // the first screen of the canvas, where everything flies
     const birds: Bird[] = [];
     let flock: Flock | null = null;
     let nextFlockAt = rand(6, 14);
+    const clouds: Cloud[] = [];
+    let cloudCharWidth = 8;
+    let stars: Star[] = [];
+    let night = false;
     let color = "#e8eee8";
     let font = "monospace";
     let visible = true;
@@ -116,13 +168,14 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
       });
     };
 
-    // 1 in open sky, easing to 0 over QUIET_FADE_PX as a bird reaches marked text.
-    const openness = (x: number, y: number) => {
+    // 1 in open sky, easing to 0 over `fade` px as a point (a bird) or an
+    // area (a cloud) reaches marked text.
+    const openness = (left: number, top: number, right = left, bottom = top, fade: number = QUIET_FADE_PX) => {
       let factor = 1;
       for (const box of quiet) {
-        const dx = Math.max(box.left - x, 0, x - box.right);
-        const dy = Math.max(box.top - y, 0, y - box.bottom);
-        factor = Math.min(factor, Math.hypot(dx, dy) / QUIET_FADE_PX);
+        const dx = Math.max(box.left - right, 0, left - box.right);
+        const dy = Math.max(box.top - bottom, 0, top - box.bottom);
+        factor = Math.min(factor, Math.hypot(dx, dy) / fade);
       }
       return factor;
     };
@@ -131,19 +184,27 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
       const styles = getComputedStyle(document.documentElement);
       color = styles.getPropertyValue("--text").trim() || color;
       font = styles.getPropertyValue("--font-mono-jb").trim() || "monospace";
+      night = document.documentElement.dataset.themeMode !== "light";
+      ctx.font = `400 ${CLOUD.size}px ${font}`;
+      cloudCharWidth = ctx.measureText("M").width;
     };
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
       width = rect.width;
       height = rect.height;
+      sky = Math.min(height, window.innerHeight || height);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const count = Math.round(Math.min(14, Math.max(4, ((width * height) / 90_000) * density)));
-      while (birds.length < count) birds.push(makeBird(width, height, true));
+      const count = Math.round(Math.min(14, Math.max(4, ((width * sky) / 90_000) * density)));
+      while (birds.length < count) birds.push(makeBird(width, sky, true));
       birds.length = count;
+      const cloudCount = width >= 700 ? 2 : 1;
+      while (clouds.length < cloudCount) clouds.push(makeCloud(width, sky, true, cloudCharWidth, clouds));
+      clouds.length = cloudCount;
+      stars = makeStars(width, sky, density);
       measureQuiet();
     };
 
@@ -152,6 +213,27 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
       ctx.fillStyle = color;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
+      if (night) {
+        ctx.font = `400 11px ${font}`;
+        for (const star of stars) {
+          const open = openness(star.x, star.y);
+          if (open <= 0) continue;
+          ctx.globalAlpha = star.alpha * (0.6 + 0.4 * Math.sin((t + star.phase) * star.rate)) * open;
+          ctx.fillText(star.glyph, star.x, star.y);
+        }
+      }
+      ctx.font = `400 ${CLOUD.size}px ${font}`;
+      ctx.textAlign = "left";
+      const lineHeight = CLOUD.size * 1.15;
+      for (const cloud of clouds) {
+        const right = cloud.x + cloud.cols * cloudCharWidth;
+        const bottom = cloud.y + cloud.shape.length * lineHeight;
+        const open = openness(cloud.x, cloud.y - lineHeight, right, bottom, CLOUD.fade);
+        if (open <= 0) continue;
+        ctx.globalAlpha = CLOUD.alpha * open;
+        cloud.shape.forEach((line, row) => ctx.fillText(line, cloud.x, cloud.y + row * lineHeight));
+      }
+      ctx.textAlign = "center";
       for (let layer = 0; layer < LAYERS.length; layer++) {
         const { size, alpha, bob } = LAYERS[layer];
         ctx.font = `500 ${size}px ${font}`;
@@ -199,7 +281,15 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
           bird.flapping = Math.max(bird.flapping, 0.5);
         }
         bird.lift *= 1 - Math.min(1, dt * 0.6);
-        if (bird.x < -60 || bird.x > width + 60) birds[i] = makeBird(width, height, false);
+        if (bird.x < -60 || bird.x > width + 60) birds[i] = makeBird(width, sky, false);
+      }
+      for (let i = 0; i < clouds.length; i++) {
+        const cloud = clouds[i];
+        cloud.x += cloud.dir * cloud.speed * dt;
+        const span = cloud.cols * cloudCharWidth;
+        if (cloud.x + span < -20 || cloud.x > width + 20) {
+          clouds[i] = makeCloud(width, sky, false, cloudCharWidth, clouds.filter((other) => other !== cloud));
+        }
       }
       if (flock) {
         flock.x += flock.dir * LAYERS[1].speed * 1.6 * dt;
@@ -208,7 +298,7 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
           nextFlockAt = elapsed + rand(25, 45);
         }
       } else if (width >= 900 && elapsed > nextFlockAt) {
-        flock = makeFlock(width, height);
+        flock = makeFlock(width, sky);
       }
     };
 
@@ -247,6 +337,7 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
     let disposed = false;
     void document.fonts?.ready.then(() => {
       if (disposed) return;
+      readTheme();
       measureQuiet();
       if (reduceMotion) draw(0);
     });
@@ -259,7 +350,7 @@ export function AsciiSky({ className, density = 1 }: { className?: string; densi
       readTheme();
       if (reduceMotion) draw(0);
     });
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "style"] });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-theme-mode", "style"] });
     const onPointer = (event: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
       pointer.x = event.clientX - rect.left;
