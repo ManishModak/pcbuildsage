@@ -62,14 +62,14 @@ const NAV = {
     label: "AI model",
     icon: Sparkles,
     group: "Assistant",
-    keywords: "chat models main backup fallback provider api key server address context window reasoning effort ollama gemini openrouter groq"
+    keywords: "chat models main model backup provider saved server address api key status reasoning effort context window tokens check add remember browser ollama gemini openrouter groq"
   },
   search: {
     id: "search",
     label: "Web research",
     icon: Search,
     group: "Assistant",
-    keywords: "web search with api key read top result page reader crawl research model test brave tavily exa searxng duckduckgo"
+    keywords: "web search with searxng address api key read the top result page reader research model test brave tavily exa duckduckgo crawl"
   },
   personalization: {
     id: "personalization",
@@ -90,21 +90,21 @@ const NAV = {
     label: "Catalog",
     icon: Database,
     group: "Data",
-    keywords: "spec research share researched specs export product catalog setup prices products database scrape retailers"
+    keywords: "spec research missing specs show research in chat answer open questions catalog share researched specs export product catalog setup prices products database scrape retailers"
   }
 } satisfies Record<SettingsTab, SettingsNavItem>;
 
-const SEARCH_FILLER = new Set(["a", "an", "and", "or", "the", "of", "to", "for", "in", "my"]);
+const SEARCH_FILLER = new Set(["a", "an", "and", "or", "the", "of", "to", "for", "in", "on", "my", "your", "this"]);
 
 /**
  * The pages the nav search shows: every word of the query must appear in a
- * page's label or keywords, in any order ("API key", "key api"). Filler words
- * like "or" are skipped, and an empty query shows every page.
+ * page's label or keywords, in any order ("API key", "key api"). Punctuation
+ * and filler words like "or" are skipped, and an empty query shows every page.
  */
 export function findSettingsPages(items: SettingsNavItem[], query: string): SettingsNavItem[] {
   const words = query
     .toLowerCase()
-    .split(/\s+/)
+    .split(/[^\p{L}\p{N}]+/u)
     .filter((word) => word && !SEARCH_FILLER.has(word));
   if (!words.length) return items;
   return items.filter((item) => {

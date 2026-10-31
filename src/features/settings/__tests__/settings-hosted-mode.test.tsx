@@ -141,10 +141,19 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
       expect(settingsTabFromSearch("?tab=market", false)).toBe("personalization");
     });
 
-    it("finds a page by any setting name, in any word order", () => {
+    it("finds each page by the names of the settings on it, in any word order", () => {
       const ids = (items: typeof LOCAL_NAV_ITEMS, query: string) => findSettingsPages(items, query).map((item) => item.id);
-      expect(ids(LOCAL_NAV_ITEMS, "API key")).toEqual(["llm", "search"]);
-      expect(ids(LOCAL_NAV_ITEMS, "Country or region")).toEqual(["personalization"]);
+      // The row titles each page shows; keep in sync with settings-view.tsx.
+      const titles: Record<string, string[]> = {
+        llm: ["Chat models", "Main model", "Provider", "Saved server", "Server address", "Key status", "Reasoning effort", "Context window (tokens)", "Check model", "Add backup model", "AI provider", "API key", "Remember for this browser"],
+        search: ["Web search", "Search with", "SearXNG address", "API key", "Read the top result", "Page reader", "Research model", "Test search"],
+        personalization: ["Country or region", "Currency", "Appearance", "Theme", "Tone"],
+        database: ["Spec research", "Research missing specs", "Show research in chat", "Answer open questions", "Share researched specs", "Product catalog"]
+      };
+      for (const [page, names] of Object.entries(titles)) {
+        for (const name of names) expect(ids(LOCAL_NAV_ITEMS, name), name).toContain(page);
+      }
+      expect(ids(LOCAL_NAV_ITEMS, "key api")).toEqual(["llm", "search"]);
       expect(ids(HOSTED_NAV_ITEMS, "Country or region")).toContain("market");
       expect(ids(LOCAL_NAV_ITEMS, "  ")).toHaveLength(LOCAL_NAV_ITEMS.length);
     });
