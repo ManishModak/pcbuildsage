@@ -167,10 +167,11 @@ export async function providerFailure(response: Response, what: string, url: str
   } catch {
     // Not JSON: keep a plain-text body as it is.
   }
-  reason = reason.replace(/\s+/g, " ").trim().slice(0, 240);
+  // Redact before shortening, so a cut can't leave the start of a key behind.
   for (const secret of [apiKey, new URL(url).searchParams.get("key")]) {
     if (secret) reason = reason.split(secret).join("[key]");
   }
+  reason = reason.replace(/\s+/g, " ").trim().slice(0, 240);
   return new Error(`${what} failed with HTTP ${response.status}${reason ? `: ${reason}` : ""}`);
 }
 
