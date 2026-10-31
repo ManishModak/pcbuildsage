@@ -25,7 +25,7 @@ import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
 import { Button, ChoiceControl, ChoiceGroup, Input, IconButton } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/select";
-import { SettingsGroup, SettingsRow, SettingsToggleRow } from "./settings-rows";
+import { SettingsActionRow, SettingsGroup, SettingsRow, SettingsToggleRow } from "./settings-rows";
 
 export type SettingsTab = "market" | "llm" | "search" | "personalization" | "database";
 type EndpointCatalogState =
@@ -573,7 +573,7 @@ function SettingsLayout({
                       label="Read the top result"
                       description="Opens the top search result and pulls out its main text for more detail. Uses Crawl4AI."
                     />
-                    <SettingsRow
+                    <SettingsActionRow
                       title="Page reader"
                       description={
                         crawlerProbeState.busy
@@ -585,19 +585,14 @@ function SettingsLayout({
                               : "Checks that Crawl4AI can open pages."
                       }
                     >
-                      {(controlProps) => (
-                        <div className="flex sm:justify-end">
-                          <Button
-                            {...controlProps}
-                            variant="ghost"
-                            disabled={crawlerProbeState.busy}
-                            onClick={() => handleProbeCrawler(true)}
-                          >
-                            {crawlerProbeState.busy ? "Checking…" : "Check page reader"}
-                          </Button>
-                        </div>
-                      )}
-                    </SettingsRow>
+                      <Button
+                        variant="ghost"
+                        disabled={crawlerProbeState.busy}
+                        onClick={() => handleProbeCrawler(true)}
+                      >
+                        {crawlerProbeState.busy ? "Checking…" : "Check page reader"}
+                      </Button>
+                    </SettingsActionRow>
                   </>
                 )}
 
@@ -638,7 +633,7 @@ function SettingsLayout({
                 )}
 
                 {config.searchProvider !== "none" && (
-                  <SettingsRow
+                  <SettingsActionRow
                     title="Test search"
                     description="Runs one search to check the provider and key. No AI model is used."
                     footer={
@@ -649,14 +644,10 @@ function SettingsLayout({
                       ) : null
                     }
                   >
-                    {(controlProps) => (
-                      <div className="flex sm:justify-end">
-                        <Button {...controlProps} variant="ghost" disabled={probeState.busy} onClick={handleTestSearch}>
-                          {probeState.busy ? "Searching…" : probeState.status ? "Test again" : "Test search"}
-                        </Button>
-                      </div>
-                    )}
-                  </SettingsRow>
+                    <Button variant="ghost" disabled={probeState.busy} onClick={handleTestSearch}>
+                      {probeState.busy ? "Searching…" : probeState.status ? "Test again" : "Test search"}
+                    </Button>
+                  </SettingsActionRow>
                 )}
               </SettingsGroup>
             )}
@@ -773,7 +764,7 @@ function SettingsLayout({
                 </SettingsGroup>
 
                 <SettingsGroup title="Catalog">
-                  <SettingsRow
+                  <SettingsActionRow
                     title="Share researched specs"
                     description="Exports the specs research found so they can be added to the shared catalog."
                     footer={
@@ -792,34 +783,25 @@ function SettingsLayout({
                       ) : null
                     }
                   >
-                    {(controlProps) => (
-                      <div className="flex sm:justify-end">
-                        <Button {...controlProps} variant="ghost" iconLeft={Download} loading={exportState.busy} onClick={runExport}>
-                          Export
-                        </Button>
-                      </div>
-                    )}
-                  </SettingsRow>
-                  <SettingsRow
+                    <Button variant="ghost" iconLeft={Download} loading={exportState.busy} onClick={runExport}>
+                      Export
+                    </Button>
+                  </SettingsActionRow>
+                  <SettingsActionRow
                     title="Product catalog"
                     description="Set up the local product database and scrape retailer listings."
                   >
-                    {(controlProps) => (
-                      <div className="flex sm:justify-end">
-                        <Button
-                          {...controlProps}
-                          variant="ghost"
-                          iconLeft={Wand2}
-                          onClick={() => {
-                            updateConfig({ onboarded: false });
-                            openSetup();
-                          }}
-                        >
-                          Open catalog setup
-                        </Button>
-                      </div>
-                    )}
-                  </SettingsRow>
+                    <Button
+                      variant="ghost"
+                      iconLeft={Wand2}
+                      onClick={() => {
+                        updateConfig({ onboarded: false });
+                        openSetup();
+                      }}
+                    >
+                      Open catalog setup
+                    </Button>
+                  </SettingsActionRow>
                 </SettingsGroup>
               </>
             )}

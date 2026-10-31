@@ -73,6 +73,35 @@ export function SettingsRow({
   );
 }
 
+/**
+ * A row whose control is a button (check, export, open setup). The title is
+ * plain text, not a label: a label would press the button when clicked.
+ */
+export function SettingsActionRow({
+  title,
+  description,
+  children,
+  footer
+}: {
+  title: string;
+  description?: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3 px-4 py-3.5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="text-sm font-medium text-text">{title}</p>
+          {description ? <p className="text-caption text-text-secondary">{description}</p> : null}
+        </div>
+        <div className="flex shrink-0 sm:justify-end">{children}</div>
+      </div>
+      {footer}
+    </div>
+  );
+}
+
 /** A switch row: name and description on the left, the switch on the right. */
 export function SettingsToggleRow(props: Parameters<typeof Toggle>[0]) {
   return (
