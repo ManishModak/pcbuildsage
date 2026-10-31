@@ -54,6 +54,29 @@ _INTERNAL = re.compile(
 )
 _ACCESSORY = re.compile(r"\bnas\b|rail\s*kit|\bcaddy\b|\bbracket\b", re.IGNORECASE)
 
+# Other shelves hold non-build items too: Vishal Peripherals' cooler collection
+# lists case-fan packs, its PSU shelf lists UPS units, and most stores' RAM
+# shelves include laptop SO-DIMMs. These rows are tagged `accessory` so build
+# searches skip them. A fan needs positive evidence (case/radiator fan, a pack
+# or kit, a size in mm) and no claim of a CPU cooler: "ANT ESPORTS ICE-C200 V2
+# LED FAN" is a CPU cooler, and so is PrimeABGB's "Deepcool AK620 G2 120mm
+# Cabinet FAN" (DeepCool's AK/AG model numbers are air coolers).
+_FAN = re.compile(r"\bfans?\b", re.IGNORECASE)
+_FAN_EVIDENCE = re.compile(
+    r"\b(?:case|cabinet|chassis|radiator|system)\s+fans?\b|\bfans?\s+(?:pack|kit)\b"
+    r"|\b(?:single|dual|twin|triple|quad|\d)\s*[-\s]?(?:pack|in[-\s]?1)\b|\b\d{2,3}\s*mm\b",
+    re.IGNORECASE,
+)
+_CPU_COOLER = re.compile(
+    r"\bcpu\b|\b(?:air|liquid|water)\s+cooler\b|\baio\b|heat\s*sink|\btower\b|\bdeepcool\s+a[gk]\d{3}\b",
+    re.IGNORECASE,
+)
+_UPS = re.compile(r"\bups\b|\b\d+\s*va\b", re.IGNORECASE)
+# Mirrors statesSodimm in src/lib/spec-parsers.ts.
+_SODIMM = re.compile(r"\bso[-\s]?dimms?\b", re.IGNORECASE)
+_LAPTOP = re.compile(r"\b(?:laptop|notebook)s?\b", re.IGNORECASE)
+_NOT_LAPTOP = re.compile(r"\bdesktops?\b|\b(?:not|non)[-\s]+(?:for[-\s]+)?(?:a[-\s]+)?(?:laptop|notebook)", re.IGNORECASE)
+
 
 # A card needs the "graphics card" phrase AND a GPU model number: Corsair's
 # "Titan 360 RX LCD" is a CPU cooler, and an "RTX 4090 Water Block" is a cooling
@@ -99,8 +122,18 @@ def classify_subcategory(name: str, category: str) -> str | None:
     HDD" (a real internal drive) reads as a NAS box. Storage titles that match
     nothing default to `internal`: hiding a genuine SSD from a build is a worse
     failure than admitting an unknown, and misclassification here is one UPDATE
-    to undo, whereas exclusion is silent.
+    to undo, whereas exclusion is silent. Outside storage only clear non-build
+    items get a subcategory; every other row stays None.
     """
+    if category == "cooler":
+        if _FAN.search(name) and _FAN_EVIDENCE.search(name) and not _CPU_COOLER.search(name):
+            return "accessory"
+        return None
+    if category == "psu":
+        return "accessory" if _UPS.search(name) else None
+    if category == "ram":
+        laptop = _SODIMM.search(name) or (_LAPTOP.search(name) and not _NOT_LAPTOP.search(name))
+        return "accessory" if laptop else None
     if category != "storage":
         return None
     if _REMOVABLE.search(name):
