@@ -84,13 +84,13 @@ export function Composer({
       {badge ? <div className="mb-1 px-1">{badge}</div> : null}
       {sendBlocked ? (
         <div
-          className="mb-2 flex items-center justify-between gap-2 rounded-btn border border-warn/40 bg-warn/10 px-3 py-2 text-caption text-text"
+          className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-btn border border-warn/40 bg-warn/10 px-3 py-2 text-caption text-text"
           data-testid="byok-missing-prompt"
           role="alert"
         >
           <span>Add your API key to continue.</span>
           <a href="/settings?tab=llm" className="font-medium text-accent hover:underline">
-            BYOK settings
+            Add a key in Settings
           </a>
         </div>
       ) : null}
@@ -100,7 +100,7 @@ export function Composer({
           rows={1}
           value={value}
           disabled={disabled}
-          placeholder={placeholder ?? "Describe your build goal, budget, or paste a part list…"}
+          placeholder={placeholder ?? "Describe the PC you want…"}
           onChange={(event) => {
             setValue(event.target.value);
             const el = event.target;

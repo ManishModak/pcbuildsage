@@ -24,7 +24,8 @@ import {
   SidebarMenuAction,
   SidebarFooter,
   SidebarRail,
-  SidebarTrigger
+  SidebarTrigger,
+  useSidebar
 } from "@/components/animate-ui/components/radix/sidebar";
 import { SettingsDialog } from "@/features/settings/settings-dialog";
 
@@ -60,6 +61,9 @@ export function ChatSidebar({
 }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // On phones the sidebar is a drawer over the chat: close it once a chat is
+  // picked or started, so the user sees the chat they chose.
+  const { setOpenMobile } = useSidebar();
 
   return (
     <>
@@ -80,7 +84,14 @@ export function ChatSidebar({
           <SidebarGroup className="group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:px-0">
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton tooltip="New chat" onClick={onNew} className="rounded-btn">
+                <SidebarMenuButton
+                  tooltip="New chat"
+                  onClick={() => {
+                    onNew();
+                    setOpenMobile(false);
+                  }}
+                  className="rounded-btn"
+                >
                   <Icon icon={MessageSquarePlus} size={16} />
                   <span className="group-data-[collapsible=icon]:hidden">New chat</span>
                 </SidebarMenuButton>
@@ -115,7 +126,10 @@ export function ChatSidebar({
                           size="lg"
                           isActive={active}
                           tooltip={title}
-                          onClick={() => onSelect(session.id)}
+                          onClick={() => {
+                            onSelect(session.id);
+                            setOpenMobile(false);
+                          }}
                           aria-current={active ? "true" : undefined}
                           className="rounded-btn data-[active=true]:bg-surface-raised data-[active=true]:text-text"
                         >

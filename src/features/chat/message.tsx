@@ -13,6 +13,7 @@ import { BuildErrorBoundary } from "./build-error-boundary";
 import { FailoverPill } from "./failover-pill";
 import { Markdown } from "./markdown";
 import { ToolChip } from "./tool-chip";
+import { RuneSpinner } from "@/components/app/rune-spinner";
 import { isFollowupsPart } from "@/lib/followups";
 import { isTextPart, isReasoningPart, isToolPart } from "@/lib/message-parts";
 
@@ -24,7 +25,7 @@ export type ChatUIMessage = UIMessage<ChatMetadata> & {
  * The collapsible reasoning trace.
  *
  * `live` is the part's own state: a finished message keeps its trace but must
- * stop looking like work in progress, so the pulse and the busy state both
+ * stop looking like work in progress, so the rune spinner and the busy state both
  * follow it. The accessible name is the same either way, so a screen reader is
  * told the trace exists and, through aria-busy, whether it is still running.
  */
@@ -35,28 +36,30 @@ function ThinkingTrace({ text, live }: { text: string; live: boolean }) {
   if (!text) return null;
 
   return (
-    <div className="mb-3 overflow-hidden border rounded-card border-border bg-surface-muted/30">
+    <div className="mb-3 overflow-hidden rounded-card border border-border">
       <button
         type="button"
         aria-expanded={isExpanded}
         aria-controls={contentId}
         aria-busy={live}
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-text-muted hover:bg-surface-muted/50 transition-colors"
+        className="flex w-full cursor-pointer items-center justify-between px-3.5 py-2 text-left text-sm text-text-muted transition-colors duration-150 hover:bg-surface-raised hover:text-text-secondary"
       >
-        <div className="flex items-center gap-2">
-          <Icon icon={Brain} className={cn("text-primary/70", live && "animate-pulse")} />
-          <span className="font-medium text-text-muted">Sage thinking process...</span>
-        </div>
+        <span className="flex items-center gap-2">
+          {live ? <RuneSpinner /> : <Icon icon={Brain} size={15} />}
+          <span>How the sage reasoned</span>
+        </span>
         <Icon
           icon={ChevronDown}
-          className={cn("text-text-muted transition-transform duration-200", {
-            "rotate-180": isExpanded
-          })}
+          size={15}
+          className={cn("transition-transform duration-200", isExpanded && "rotate-180")}
         />
       </button>
       {isExpanded && (
-        <div id={contentId} className="border-t border-border/50 bg-surface-muted/10 px-4 py-3 font-mono text-sm leading-relaxed text-text-muted/80 whitespace-pre-wrap">
+        <div
+          id={contentId}
+          className="whitespace-pre-wrap border-t border-border bg-surface px-3.5 py-3 text-sm leading-relaxed text-text-secondary"
+        >
           {text}
         </div>
       )}
@@ -166,7 +169,7 @@ export function MessageView({
                 onClick={handleSave}
                 disabled={!editText.trim()}
               >
-                Save & Submit
+                Save and send
               </Button>
             </div>
           </div>
@@ -177,8 +180,10 @@ export function MessageView({
     const textParts = parts.filter(isTextPart);
 
     return (
-      <div className="flex flex-col items-end gap-1.5 group w-full">
-        <div className="max-w-[85%] rounded-card border border-border bg-surface px-4 py-2.5">
+      // Desktop keeps Edit and Resend beside the bubble (shown on hover or
+      // focus) instead of reserving an empty row under every message.
+      <div className="group flex w-full flex-col items-end gap-1.5 md:flex-row-reverse md:items-center md:justify-start md:gap-2">
+        <div className="max-w-[85%] rounded-card rounded-br-chip bg-surface-raised px-4 py-2.5">
           {textParts.length > 0 ? (
             textParts.map((part, index) => (
               <p key={index} className="whitespace-pre-wrap text-base leading-relaxed text-text">
@@ -218,6 +223,9 @@ export function MessageView({
     );
   }
 
+  // While streaming, the rune caret sits at the end of the newest text.
+  const lastTextIndex = isStreaming ? parts.map((part) => isTextPart(part)).lastIndexOf(true) : -1;
+
   return (
     <div className="flex flex-col">
       <FailoverPill meta={message.metadata} />
@@ -235,7 +243,7 @@ export function MessageView({
           }
         }
         if (isTextPart(part)) {
-          return <Markdown key={index} text={part.text} />;
+          return <Markdown key={index} text={part.text} streaming={index === lastTextIndex} />;
         }
         if (isFollowupsPart(part)) return null;
         if (isToolPart(part)) {
@@ -264,9 +272,7 @@ export function MessageView({
                     </div>
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-baseline gap-2 truncate">
-                        <span className="text-caption font-semibold uppercase tracking-wider text-text-secondary">
-                          {v.label}
-                        </span>
+                        <span className="type-label text-caption text-text-secondary">{v.label}</span>
                         {v.builds.length > 1 ? (
                           <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-[11px] font-medium text-text-muted">
                             {v.builds.length} variants
@@ -275,14 +281,14 @@ export function MessageView({
                       </div>
                       <span className="truncate text-sm font-medium text-text">
                         {primaryBuild.label ? `${primaryBuild.label} · ` : ""}
-                        <span className="font-mono font-semibold text-accent">
+                        <span className="font-mono font-semibold text-text">
                           {formatPrice(resolveBuildTotal(primaryBuild), primaryBuild.currency)}
                         </span>
                       </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0 text-caption font-medium text-text-secondary group-hover:text-accent transition-colors">
-                    <span className="hidden sm:inline">View Details</span>
+                    <span className="hidden sm:inline">Open build</span>
                     <Icon
                       icon={ArrowRight}
                       size={16}

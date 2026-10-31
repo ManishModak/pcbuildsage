@@ -14,6 +14,8 @@ import { resolveActiveModel, resolveChatRequestBody } from "./chat-config-resolv
 import type { ClientConfig, StatusResponse } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/components/ui/cn";
+import { AsciiSky } from "@/components/app/ascii-sky";
+import { RuneSpinner } from "@/components/app/rune-spinner";
 import { Composer } from "./composer";
 import { ChatEmptyState } from "./empty-state";
 import { MessageView, type ChatUIMessage } from "./message";
@@ -100,38 +102,26 @@ function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedB
   return null;
 }
 
+// The header's model line: which model answers and whether it's busy. The dot
+// is the only colour; a rune spinner stands in for animated dots while busy.
 function ModelStatus({ modelName, streaming, isCompacting }: { modelName: string; streaming: boolean; isCompacting?: boolean }) {
-  const [dots, setDots] = useState("...");
   const displayName = useMemo(() => formatModelName(modelName), [modelName]);
-
-  useEffect(() => {
-    if (!streaming && !isCompacting) return;
-    const interval = setInterval(() => {
-      setDots((prev) => {
-        if (prev === "...") return ".";
-        if (prev === ".") return "..";
-        if (prev === "..") return "...";
-        return "...";
-      });
-    }, 500);
-    return () => clearInterval(interval);
-  }, [streaming, isCompacting]);
+  const busy = streaming || isCompacting;
 
   return (
     <div
-      className="flex items-center gap-2 text-sm font-medium text-text-muted select-none min-w-0 max-w-[240px] sm:max-w-xs md:max-w-md"
+      className="flex min-w-0 max-w-[240px] select-none items-center gap-2 text-caption text-text-muted sm:max-w-xs md:max-w-md"
       title={modelName ? `Model: ${modelName}` : undefined}
     >
       <span
-        className={`h-2 w-2 rounded-full shrink-0 ${streaming || isCompacting ? "animate-pulse" : ""}`}
-        style={{
-          backgroundColor: isCompacting ? "#f59e0b" : "#10b981",
-          boxShadow: streaming || isCompacting ? (isCompacting ? "0 0 8px #f59e0b" : "0 0 8px #10b981") : undefined
-        }}
+        aria-hidden
+        className={cn("h-2 w-2 shrink-0 rounded-full", isCompacting ? "bg-warn" : streaming ? "bg-accent" : "bg-ok")}
       />
-      <span className="font-mono text-caption text-text-muted truncate">
-        <span className="text-text-secondary">{displayName}</span> · {isCompacting ? `compacting context${dots}` : streaming ? `thinking${dots}` : "idle"}
+      <span className="truncate">
+        <span className="font-mono text-text-secondary">{displayName}</span>{" "}
+        {isCompacting ? "is shortening the chat" : streaming ? "is answering" : "ready"}
       </span>
+      {busy ? <RuneSpinner /> : null}
     </div>
   );
 }
@@ -702,7 +692,9 @@ export function ChatView({
               )}
             >
               <Icon icon={Package} size={14} className="shrink-0" />
-              <span className="truncate">Proposed Build ({headerBuildPrice})</span>
+              <span className="truncate">
+                Build <span className="font-mono">{headerBuildPrice}</span>
+              </span>
             </button>
           ) : null}
         </div>
@@ -934,8 +926,11 @@ export function ChatView({
     <div className="flex h-full min-w-0 flex-1 overflow-hidden relative">
       {/* Left / Center: Chat messages & composer */}
       <div className="flex flex-1 flex-col min-w-0 h-full">
-        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[760px] px-4 pb-6">
+        <div ref={scrollRef} onScroll={handleScroll} className="relative flex-1 overflow-y-auto">
+          {/* Birds only while nothing is being read: gone once a chat starts,
+              and on narrow screens, where they would cross the prompts. */}
+          {!isLoading && messages.length === 0 ? <AsciiSky density={0.6} className="hidden md:block" /> : null}
+          <div className="relative mx-auto w-full max-w-[760px] px-4 pb-6">
             {isLoading ? (
               // An existing chat whose messages are still being fetched. Showing
               // the new-chat screen here would look like an empty history and
@@ -979,7 +974,8 @@ export function ChatView({
                   );
                 })}
                 {status === "submitted" ? (
-                  <p className="text-caption text-text-muted" role="status">
+                  <p className="flex items-center gap-2 text-caption text-text-muted" role="status">
+                    <RuneSpinner />
                     The sage is thinking…
                   </p>
                 ) : null}
@@ -1062,10 +1058,10 @@ export function ChatView({
             />
             <p className="mt-2 text-center text-caption text-text-muted">
               {isHostedMode() ? (
-                <>Prices live from cloud catalog ({config.currency}){relativeTime ? ` · Updated ${relativeTime}` : ""}</>
+                <>Prices in {config.currency} from the catalog{relativeTime ? `, updated ${relativeTime}` : ""}. Confirm them at checkout.</>
               ) : (
                 <>
-                  Prices live from local database{relativeTime ? ` · Updated ${relativeTime}` : ""}.{" "}
+                  Prices from your local catalog{relativeTime ? `, updated ${relativeTime}` : ""}.{" "}
                   <button
                     type="button"
                     onClick={() => updateConfig({ onboarded: false })}
@@ -1109,7 +1105,7 @@ export function ChatView({
             <div className="flex h-12 items-center justify-between border-b border-border px-4 shrink-0 bg-surface">
               <div className="flex items-center gap-2 min-w-0">
                 <Icon icon={Package} size={18} className="text-accent shrink-0" />
-                <h2 className="text-sm font-semibold text-text truncate">Proposed Build</h2>
+                <h2 className="type-title truncate text-sm text-text">Proposed build</h2>
                 {allBuildVersions.length > 1 ? (
                   <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
                     v{safeSelectedVersionId ? allBuildVersions.find((v) => v.id === safeSelectedVersionId)?.version ?? 1 : 1} of {allBuildVersions.length}
@@ -1186,7 +1182,7 @@ export function ChatView({
           <SheetHeader className="h-14 flex-row items-center justify-between border-b border-border px-4 py-0 shrink-0 pr-12">
             <div className="flex items-center gap-2 min-w-0">
               <Icon icon={Package} size={18} className="text-accent shrink-0" />
-              <SheetTitle className="text-sm font-semibold text-text truncate">Proposed Build</SheetTitle>
+              <SheetTitle className="type-title truncate text-sm text-text">Proposed build</SheetTitle>
               {allBuildVersions.length > 1 ? (
                 <span className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption font-medium text-text-secondary shrink-0">
                   v{safeSelectedVersionId ? allBuildVersions.find((v) => v.id === safeSelectedVersionId)?.version ?? 1 : 1} of {allBuildVersions.length}

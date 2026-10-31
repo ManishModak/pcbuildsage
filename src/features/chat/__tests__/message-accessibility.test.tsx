@@ -61,7 +61,7 @@ describe("message actions", () => {
     expect(markup).toContain("Version 1");
     expect(markup).toContain("Budget 1080p Gaming");
     expect(markup).toContain("₹39,700");
-    expect(markup).toContain("View Details");
+    expect(markup).toContain("Open build");
     // Ensure the massive table component row structure is NOT inside the chat message bubble
     expect(markup).not.toContain("Derived requirement");
   });
@@ -99,5 +99,26 @@ describe("message actions", () => {
 
     expect(markup).toContain("2 variants");
     expect(markup).toContain("Performance Build");
+  });
+});
+
+describe("streaming caret", () => {
+  const reply: ChatUIMessage = {
+    id: "a-stream",
+    role: "assistant",
+    parts: [
+      { type: "text", text: "First thought." },
+      { type: "text", text: "Still writing" }
+    ]
+  };
+
+  it("marks only the newest text while the reply streams", () => {
+    const markup = renderToStaticMarkup(<MessageView message={reply} isStreaming />);
+    expect(markup.match(/rune-caret/g)).toHaveLength(1);
+    expect(markup.indexOf("rune-caret")).toBeGreaterThan(markup.indexOf("First thought."));
+  });
+
+  it("drops the caret once the reply is done", () => {
+    expect(renderToStaticMarkup(<MessageView message={reply} />)).not.toContain("rune-caret");
   });
 });

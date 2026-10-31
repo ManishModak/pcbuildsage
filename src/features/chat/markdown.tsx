@@ -63,10 +63,11 @@ function renderTable(lines: string[], key: number, renderInlineFn: (text: string
   );
 }
 
-export function Markdown({ text }: { text: string }) {
+/** `streaming` puts a cycling rune caret after the last block while a reply arrives. */
+export function Markdown({ text, streaming = false }: { text: string; streaming?: boolean }) {
   const blocks = parseBlocks(text);
   return (
-    <div className="flex flex-col gap-4 text-base leading-[1.65] text-text">
+    <div className={cn("flex flex-col gap-4 text-base leading-[1.65] text-text", streaming && "rune-caret")}>
       {blocks.map((block, index) => {
         if (block.type === "code") {
           return (
