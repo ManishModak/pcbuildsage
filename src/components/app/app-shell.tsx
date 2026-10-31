@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { Settings } from "lucide-react";
 import { IconButton } from "../ui/primitives";
-import { LeafMark, Wordmark } from "./brand";
+import { OwlMark, Wordmark } from "./brand";
 import { ThemeSwitcher } from "./theme-switcher";
 import { SettingsDialog } from "@/features/settings/settings-dialog";
 
@@ -51,7 +51,7 @@ export function AppShell({
       <header className="sticky top-0 z-30 border-b border-border bg-bg/95 backdrop-blur-sm">
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-3 px-4">
           <Link href="/" className="flex items-center gap-2 rounded-btn" aria-label="PCBuildSage home">
-            <LeafMark size={22} />
+            <OwlMark size={26} />
             <Wordmark className="text-base" />
           </Link>
           {headerSuffix}

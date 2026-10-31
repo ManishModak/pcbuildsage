@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AsciiSky } from "./ascii-sky";
-import { LeafMark, Wordmark } from "./brand";
+import { OwlMark, Wordmark } from "./brand";
 import { StartSetupButton } from "./landing-actions";
 import { RuneText } from "./rune-text";
 import { ThemeSwitcher } from "./theme-switcher";
@@ -44,7 +44,7 @@ export function LandingContent() {
     <div className="min-h-dvh bg-bg text-text">
       <header className="relative z-10 mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 rounded-btn" aria-label="PCBuildSage home">
-          <LeafMark size={24} />
+          <OwlMark size={28} />
           <Wordmark className="text-lg" />
         </Link>
         <nav className="ml-auto flex items-center gap-1 text-sm" aria-label="Site">

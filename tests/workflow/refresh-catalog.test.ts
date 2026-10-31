@@ -110,24 +110,24 @@ describe("GitHub Actions Workflow: Refresh Hosted Catalog (.github/workflows/ref
   describe("Workflow Steps", () => {
     const steps: WorkflowStep[] = parsedWorkflow.jobs.refresh.steps ?? [];
 
-    it("checks out repository using actions/checkout@v4", () => {
+    it("checks out repository using actions/checkout@v7", () => {
       const checkoutStep = steps.find((s) => s.uses?.startsWith("actions/checkout"));
       expect(checkoutStep).toBeDefined();
-      expect(checkoutStep!.uses).toBe("actions/checkout@v4");
+      expect(checkoutStep!.uses).toBe("actions/checkout@v7");
     });
 
-    it("configures Python 3.11 with pip caching using actions/setup-python@v5", () => {
+    it("configures Python 3.11 with pip caching using actions/setup-python@v7", () => {
       const pythonStep = steps.find((s) => s.uses?.startsWith("actions/setup-python"));
       expect(pythonStep).toBeDefined();
-      expect(pythonStep!.uses).toBe("actions/setup-python@v5");
+      expect(pythonStep!.uses).toBe("actions/setup-python@v7");
       expect(String(pythonStep!.with?.["python-version"])).toBe("3.11");
       expect(pythonStep!.with?.cache).toBe("pip");
     });
 
-    it("configures Node.js 22 with npm caching using actions/setup-node@v4", () => {
+    it("configures Node.js 22 with npm caching using actions/setup-node@v7", () => {
       const nodeStep = steps.find((s) => s.uses?.startsWith("actions/setup-node"));
       expect(nodeStep).toBeDefined();
-      expect(nodeStep!.uses).toBe("actions/setup-node@v4");
+      expect(nodeStep!.uses).toBe("actions/setup-node@v7");
       expect(String(nodeStep!.with?.["node-version"])).toBe("22");
       expect(nodeStep!.with?.cache).toBe("npm");
     });

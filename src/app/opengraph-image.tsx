@@ -1,9 +1,10 @@
 import { ImageResponse } from "next/og";
+import { OWL_PATH, OWL_TRANSFORM, OWL_VIEWBOX } from "@/components/app/brand";
 
 // Generated preview image for Open Graph + Twitter cards. Pure code (no
 // external assets or fonts) so it renders on free hosting with no network.
 // ImageResponse cannot read the app's CSS variables, so the palette is inline:
-// ink background, moonlight text, rune-violet accent, leaf green for the mark.
+// ink background, moonlight text, rune-violet accent, sage green for the owl mark.
 export const size = {
   width: 1200,
   height: 630
@@ -27,12 +28,8 @@ export default function OpengraphImage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 40, color: "#7FCB8C" }}>
-          <svg width="56" height="56" viewBox="0 0 64 64">
-            <g fill="none" stroke="#7FCB8C" strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round">
-              <path d="M32 53c-11-2.4-19-11.5-19-24.5C13 17 21.5 10 32 10s19 7 19 18.5C51 41.5 43 50.6 32 53Z" />
-              <path d="M32 51V17" />
-              <path d="M32 29 24 24.5M32 39 23.5 34M32 34.5l8-5M32 41l8.5-5.5" />
-            </g>
+          <svg width="35" height="56" viewBox={OWL_VIEWBOX}>
+            <path d={OWL_PATH} transform={OWL_TRANSFORM} fill="#7FCB8C" />
           </svg>
           <span>PCBuildSage</span>
         </div>
