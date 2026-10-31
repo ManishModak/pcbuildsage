@@ -36,13 +36,27 @@
               }
             }
           },
-          "else": { "required": ["browser_config", "selectors"] }
+          "else": {
+            "if": { "properties": { "scraping_type": { "const": "woocommerce_json" } } },
+            "then": {
+              "properties": {
+                "categories": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": { "path": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } }
+                  }
+                }
+              }
+            },
+            "else": { "required": ["browser_config", "selectors"] }
+          }
         }
       ],
       "properties": {
         "site_name": { "type": "string", "minLength": 1 },
         "base_url": { "type": "string", "format": "uri" },
-        "scraping_type": { "enum": ["category", "search", "shopify_json"] },
+        "scraping_type": { "enum": ["category", "search", "shopify_json", "woocommerce_json"] },
         "browser_config": { "$ref": "#/$defs/browserConfig" },
         "categories": {
           "type": "object",
