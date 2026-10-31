@@ -16,6 +16,7 @@ export function SettingsDialog({
   onOpenChange,
   defaultTab
 }: SettingsDialogProps) {
+  const contentRef = React.useRef<HTMLDivElement>(null);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -24,10 +25,17 @@ export function SettingsDialog({
         />
         <DialogPrimitive.Content
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 flex h-[90vh] max-h-[850px] w-[95vw] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-card border border-border bg-bg shadow-[0_18px_40px_-20px_color-mix(in_srgb,var(--bg)_80%,black)] outline-none duration-150",
+            "fixed left-1/2 top-1/2 z-50 flex h-[90dvh] max-h-[860px] w-[calc(100vw-2rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-dialog border border-border bg-bg shadow-[0_18px_40px_-20px_color-mix(in_srgb,var(--bg)_80%,black)] outline-none duration-150",
             "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
           )}
           aria-describedby={undefined}
+          ref={contentRef}
+          // Open on the close button, not the search box: a focused text box
+          // always shows its ring. "/" still jumps to the search.
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            contentRef.current?.querySelector<HTMLElement>('[aria-label="Close settings"]')?.focus();
+          }}
         >
           <DialogPrimitive.Title className="sr-only">Settings</DialogPrimitive.Title>
           <SettingsView

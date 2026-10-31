@@ -21,6 +21,8 @@ import { shouldSkipMarketStep } from "./hosted-gating";
 // Setup ends on the AI model step: the sage's tone is a Settings choice, not
 // something to ask before the first build.
 const LOCAL_STEPS = ["Data source", "Fetch data", "AI model"];
+// An existing database needs no fetch, so its setup goes straight to the model.
+const LOCAL_STEPS_EXISTING = ["Data source", "AI model"];
 const HOSTED_STEPS = ["Region and currency", "AI model"];
 
 export function Wizard({ onComplete, onExit }: { onComplete: () => void; onExit?: () => void }) {
@@ -70,7 +72,7 @@ export function Wizard({ onComplete, onExit }: { onComplete: () => void; onExit?
       (statusState.data.deploymentMode === "hosted-demo" || statusState.data.mode === "hosted-demo")) ||
     isHostedMode();
 
-  const steps = isHosted ? HOSTED_STEPS : LOCAL_STEPS;
+  const steps = isHosted ? HOSTED_STEPS : dataSource === "existing" ? LOCAL_STEPS_EXISTING : LOCAL_STEPS;
 
   const go = (next: number) => {
     setStep(next);
@@ -164,21 +166,15 @@ export function Wizard({ onComplete, onExit }: { onComplete: () => void; onExit?
                   onNext={() => go(1)}
                 />
               ) : null}
-              {step === 1 ? (
-                <StepScrape
-                  dataSource={dataSource}
-                  onBack={() => go(0)}
-                  onNext={() => go(2)}
-                />
-              ) : null}
-              {step === 2 ? (
+              {steps[step] === "Fetch data" ? <StepScrape onBack={() => go(0)} onNext={() => go(step + 1)} /> : null}
+              {steps[step] === "AI model" ? (
                 <StepLLM
                   chain={chain}
                   onChange={setChain}
                   credentials={credentials}
                   endpointState={endpointState}
                   onRetryEndpoints={loadEndpoints}
-                  onBack={() => go(1)}
+                  onBack={() => go(step - 1)}
                   onNext={finish}
                   canAdvance={primaryReady}
                 />

@@ -2,7 +2,7 @@
 
 import { useState, useId } from "react";
 import { AlertCircle, ExternalLink, FlaskConical, RefreshCw } from "lucide-react";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatRetailerName } from "@/lib/format";
 import { Icon } from "@/components/ui/icon";
 import { PillTabs } from "@/components/ui/pill-tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -256,11 +256,11 @@ function BuildComponentsList({
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-caption text-accent hover:underline"
                       >
-                        {component.retailer}
+                        {formatRetailerName(component.retailer)}
                         <Icon icon={ExternalLink} size={12} />
                       </a>
                     ) : (
-                      <span className="text-caption text-text-secondary">{component.retailer}</span>
+                      <span className="text-caption text-text-secondary">{formatRetailerName(component.retailer)}</span>
                     )
                   ) : (
                     <span className="text-caption text-text-muted italic">Derived requirement</span>

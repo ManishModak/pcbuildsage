@@ -11,9 +11,10 @@ import {
   type MarketPreference
 } from "@/lib/market/client-market-store";
 import { useOptionalApp } from "@/components/app/app-provider";
-import { Field } from "@/components/ui/primitives";
+import { cn } from "@/components/ui/cn";
 import { Select } from "@/components/ui/select";
 import { Icon } from "@/components/ui/icon";
+import { SettingsRow } from "./settings-rows";
 
 export function MarketPreferenceSection({
   onChange,
@@ -127,75 +128,64 @@ export function MarketPreferenceSection({
     label: c
   }));
 
+  const summary =
+    markets.length === 0 ? (
+      <>
+        Prices show in <span className="font-mono text-text">{pref.currencyCode}</span>. Saved in this browser.
+      </>
+    ) : (
+      <>
+        Showing {activeMarket?.name ?? pref.countryCode} prices in{" "}
+        <span className="font-mono text-text">{pref.currencyCode}</span>. Saved in this browser.
+      </>
+    );
+
   return (
-    <section className={`flex flex-col gap-4 ${className ?? ""}`} data-testid="market-preference-section">
+    <section className={cn("flex flex-col gap-3", className)} data-testid="market-preference-section">
       {heading ? (
-        <div className="flex flex-col gap-1">
-          <h2 className="type-title text-xl text-text">Region and currency</h2>
+        <div className="flex flex-col gap-1 px-1">
+          <h2 className="type-title text-lg text-text">Region and currency</h2>
           <p className="text-sm text-text-secondary">
             Sets which retailers and prices the Sage uses, and any regional compatibility rules.
           </p>
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-4 rounded-card border border-border bg-surface p-4">
+      <div className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">
         {markets.length === 0 && (
-          <div
-            className="flex items-center gap-2 text-caption text-warn"
-            data-testid="catalog-unavailable"
-          >
+          <div className="flex items-center gap-2 px-4 py-3 text-caption text-warn" data-testid="catalog-unavailable">
             <Icon icon={Globe} size={15} className="shrink-0" />
             <span>Catalog unavailable: no regions are set up on this server.</span>
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Country or region">
-            {(controlProps) => (
-              <Select
-                {...controlProps}
-                data-testid="country-select"
-                aria-label="Country or region"
-                disabled={markets.length === 0}
-                value={activeMarket ? activeMarket.code : ""}
-                onChange={(e) => handleCountryChange(e.target.value)}
-                options={
-                  markets.length === 0
-                    ? [{ value: "", label: "Catalog unavailable" }]
-                    : countryOptions
-                }
-              />
-            )}
-          </Field>
+        <SettingsRow title="Country or region" description="Which retailers the Sage prices from.">
+          {(controlProps) => (
+            <Select
+              {...controlProps}
+              className="bg-bg"
+              data-testid="country-select"
+              disabled={markets.length === 0}
+              value={activeMarket ? activeMarket.code : ""}
+              onChange={(e) => handleCountryChange(e.target.value)}
+              options={markets.length === 0 ? [{ value: "", label: "Catalog unavailable" }] : countryOptions}
+            />
+          )}
+        </SettingsRow>
 
-          <Field label="Currency">
-            {(controlProps) => (
-              <Select
-                {...controlProps}
-                data-testid="currency-select"
-                aria-label="Currency"
-                disabled={markets.length === 0}
-                value={pref.currencyCode}
-                onChange={(e) => handleCurrencyChange(e.target.value)}
-                options={currencyOptions}
-              />
-            )}
-          </Field>
-        </div>
-
-        <p className="border-t border-border pt-3 text-caption text-text-secondary">
-          {markets.length === 0 ? (
-            <>
-              Prices show in <span className="font-mono text-text">{pref.currencyCode}</span>.
-            </>
-          ) : (
-            <>
-              Showing {activeMarket?.name ?? pref.countryCode} prices in{" "}
-              <span className="font-mono text-text">{pref.currencyCode}</span>.
-            </>
-          )}{" "}
-          Saved in this browser.
-        </p>
+        <SettingsRow title="Currency" description={summary}>
+          {(controlProps) => (
+            <Select
+              {...controlProps}
+              className="bg-bg"
+              data-testid="currency-select"
+              disabled={markets.length === 0}
+              value={pref.currencyCode}
+              onChange={(e) => handleCurrencyChange(e.target.value)}
+              options={currencyOptions}
+            />
+          )}
+        </SettingsRow>
       </div>
     </section>
   );

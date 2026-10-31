@@ -16,42 +16,40 @@ export function runeFor(char: string, index: number): string {
 /**
  * Text that arrives as runes and settles into letters, once, when it mounts.
  * The animation is CSS only (.rune-ch in globals.css): this lays out one span
- * per letter with its rune and timing. Screen readers and tests read the plain
- * text; the animated copy is aria-hidden. Change `key` to play it again.
+ * per letter with its rune and timing. The letters are the only copy of the
+ * text (the rune is CSS content with empty alt text), so screen readers, copy
+ * and crawlers read it once. Change `key` to play it again.
  */
 export function RuneText({ text, delay = 0 }: { text: string; delay?: number }) {
   let position = 0;
   const words = text.split(" ");
   return (
     <>
-      <span className="sr-only">{text}</span>
-      <span aria-hidden="true">
-        {words.map((word, w) => {
-          const wordStart = delay + SETTLE_MS + WORD_STAGGER_MS * w;
-          const letters = Array.from(word).map((char, c) => {
-            const at = wordStart + STAGGER_MS * c;
-            const skew = (position * 37) % FLICKER_MS;
-            const style = {
-              "--rune-at": `${at}ms`,
-              "--rune-skew": `-${skew}ms`,
-              "--rune-ticks": Math.ceil((at + skew) / FLICKER_MS) + 1
-            } as CSSProperties;
-            const rune = runeFor(char, position);
-            position += 1;
-            return (
-              <span key={c} className="rune-ch" data-rune={rune} style={style}>
-                {char}
-              </span>
-            );
-          });
+      {words.map((word, w) => {
+        const wordStart = delay + SETTLE_MS + WORD_STAGGER_MS * w;
+        const letters = Array.from(word).map((char, c) => {
+          const at = wordStart + STAGGER_MS * c;
+          const skew = (position * 37) % FLICKER_MS;
+          const style = {
+            "--rune-at": `${at}ms`,
+            "--rune-skew": `-${skew}ms`,
+            "--rune-ticks": Math.ceil((at + skew) / FLICKER_MS) + 1
+          } as CSSProperties;
+          const rune = runeFor(char, position);
+          position += 1;
           return (
-            <span key={w}>
-              {w > 0 ? " " : null}
-              <span className="whitespace-nowrap">{letters}</span>
+            <span key={c} className="rune-ch" data-rune={rune} style={style}>
+              {char}
             </span>
           );
-        })}
-      </span>
+        });
+        return (
+          <span key={w}>
+            {w > 0 ? " " : null}
+            <span className="whitespace-nowrap">{letters}</span>
+          </span>
+        );
+      })}
     </>
   );
 }

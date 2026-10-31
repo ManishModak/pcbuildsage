@@ -3,6 +3,7 @@ import {
   estimateScrapeMinutes,
   formatClock,
   formatLatency,
+  formatRetailerName,
   formatPrice,
   formatRelativeTime,
   minorDigits,
@@ -292,3 +293,10 @@ describe("formatStarterBudget", () => {
   });
 });
 
+
+describe("formatRetailerName", () => {
+  it("writes run-together scraper keys the way the shop does", () => {
+    expect(formatRetailerName("VedantComputers")).toBe("Vedant Computers");
+    expect(formatRetailerName("MDComputers")).toBe("MDComputers");
+  });
+});

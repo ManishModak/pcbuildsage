@@ -41,3 +41,17 @@ describe("discovery concurrency", () => {
     expect(peak).toBeGreaterThan(1);
   });
 });
+
+describe("discovery failures", () => {
+  it("keeps the provider's reason and never echoes the key", async () => {
+    const key = "AIzaFAKE-test-key-0000";
+    const fetchMock = vi.fn(async () =>
+      Response.json(
+        { error: { code: 400, message: `API key not valid. Please pass a valid API key. (${key})`, status: "INVALID_ARGUMENT" } },
+        { status: 400 }
+      )
+    );
+    const failure = discoverModels({ provider: "gemini", model: "x", keySource: "ui", apiKey: key }, fetchMock);
+    await expect(failure).rejects.toThrow("Model discovery failed with HTTP 400: API key not valid. Please pass a valid API key. ([key])");
+  });
+});

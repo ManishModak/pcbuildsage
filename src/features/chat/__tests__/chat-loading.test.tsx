@@ -7,6 +7,9 @@ import { applySessionSelection, type PoolEntry } from "../session-selection";
 import { SessionSaveQueue, sessionSignature } from "../session-save-queue";
 import type { ChatUIMessage } from "../message";
 
+// The empty state's heading arrives as runes, one span per letter: read the text.
+const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
+
 /**
  * The chat's messages come from `useChat`; this suite is about which of the
  * three states (loading / empty / loaded) the view renders, so the hook is
@@ -64,13 +67,13 @@ describe("ChatView loading state", () => {
     expect(markup).toContain("Loading chat");
     expect(markup).toContain('role="status"');
     // ChatEmptyState's copy, which is indistinguishable from a genuinely new chat.
-    expect(markup).not.toContain("What are we building?");
+    expect(textOf(markup)).not.toContain("What are we building?");
   });
 
   it("still renders the new-chat screen when isLoading is absent (old behaviour preserved)", () => {
     const markup = renderVisibleChat();
 
-    expect(markup).toContain("What are we building?");
+    expect(textOf(markup)).toContain("What are we building?");
     expect(markup).not.toContain("Loading chat");
   });
 
@@ -119,7 +122,7 @@ describe("ChatView loading state", () => {
 
     expect(markup).toContain("Loading chat");
     expect(markup).not.toContain("secret chat A content");
-    expect(markup).not.toContain("What are we building?");
+    expect(textOf(markup)).not.toContain("What are we building?");
     expect(markup).toMatch(/<textarea[^>]*disabled/);
   });
 });
