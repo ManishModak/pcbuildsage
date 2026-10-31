@@ -1,347 +1,206 @@
-# Implementation Plan: Component Benchmarks & Relative Performance Ranks
+# Plan: benchmark scores in `list_models`
 
-> **Status:** Specification & Planning Phase — **Implementation has not started.**  
-> **Author / Architect:** Manish Modak & Pair AI  
-> **Target PR:** Draft / Architecture Spec  
+> **Status:** plan only; nothing is built yet.
+> **History:** first written 13 Sep 2026. Reworked 31 Oct 2026 against current master: it now names a data source, uses `list_models` instead of a new tool, and stores provenance once per dataset. See [What changed from the 13 Sep plan](#what-changed-from-the-13-sep-plan).
 
----
+## Problem
 
-## 1. Executive Summary & Problem Statement
+Models don't know parts released after their training cutoff (RTX 50-series, RX 9000-series, Ryzen 9000, Core Ultra 200). They guess performance tiers, and they can't say how much faster one shortlisted part is or what it costs per unit of performance. PCBuildSage should answer that from local, cited data, and say plainly when it has none.
 
-LLMs evaluating PC components are constrained by training knowledge cutoffs. When evaluating newer components (e.g., NVIDIA RTX 50-series, AMD Ryzen 9000-series, Intel Core Ultra 200) or comparing parts across differing architecture generations, models frequently hallucinate relative performance tiers, misjudge bottleneck risks, or struggle to calculate price-to-performance tradeoffs.
+## Decisions
 
-This plan specifies a deterministic, local-first benchmark ranking subsystem integrated into PCBuildSage. It provides:
-1. **Curated relative performance indices** in the offline component registry (`data/registry/`).
-2. **Passive enrichment & optional performance sorting** in the existing `search_products` tool.
-3. **A dedicated `compare_components` tool** for side-by-side delta and price-to-performance calculations after narrowing the eligible options to 3–5 finalists.
-4. **Strict missing-data and research guards**: benchmarks are optional; missing data returns `unset`/`unavailable` and **never blocks** recommendations or validation.
-
----
-
-## 2. Agreed Design Decisions
-
-| Decision Area | Agreed Choice | Rationale |
+| Area | Decision | Why |
 | :--- | :--- | :--- |
-| **Scoring Scale** | Relative performance index with fixed baseline = 100 (scores can exceed 100). | Intuitive, linear, and matches established hardware aggregation hierarchies (TechPowerUp, Tom's Hardware). |
-| **GPU Baseline** | `NVIDIA GeForce RTX 4060 8GB` = 100. | Modern, ubiquitous, mid-range 1080p/1440p anchor. |
-| **CPU Baseline** | `AMD Ryzen 5 7600` = 100. | Modern, ubiquitous, 6-core AM5 gaming/productivity anchor. |
-| **Metric Separation** | GPUs by resolution (`p1080`, `p1440`, `p2160`); CPUs by workload (`gaming`, `multicore`, `single_core`). | Prevents deceptive cross-workload conflation (e.g., high core count does not equal high FPS). |
-| **Provenance** | Each metric includes `baseline`, `dataset_id`, `source`, and `benchmark_date`. | A fixed baseline alone does not establish comparability; datasets identify a frozen suite, settings, and test methodology. |
-| **Missing Data** | Return `unset` / `unavailable`. Never hallucinate or synthesize estimated numbers. | Preserves absolute trust in the system's output. |
-| **Shortlist Before Comparison** | Discover eligible options with compact search results, finalize 3–5 candidates in a category, then compare that shortlist together. Two candidates are sufficient when only two are relevant. | Focuses detailed benchmark retrieval on actual finalists without fixed comparison-call quotas. |
-| **Tool Surface** | **Hybrid**: Passive `perf_score` + optional `sort_by: "perf"` in `search_products`; new dedicated `compare_components` tool. | Gives instant context during search, and detailed arithmetic during explicit comparisons. |
-| **Build Validation** | **Deferred**: CPU/GPU balance advice is non-blocking and deferred until workload-specific, evidence-backed rules exist. | Avoids ungrounded heuristics or comparing CPU and GPU scores directly. |
+| Unit of scoring | One score per **chip** (e.g. `nvidia-rtx-5060-ti-8gb`), not per board-partner card. | Partner cards of one chip perform within a few percent; benchmarks report chips. |
+| Scale | Relative index, baseline = 100. GPU baseline `nvidia-rtx-4060`, CPU baseline `amd-ryzen-5-7600`. | Linear and easy to read; both baselines are common current parts. |
+| Metrics | `rendering` (CPU and GPU) now. `gaming_1080p`, `gaming_1440p`, `gaming_4k` (GPU) and `gaming` (CPU) are reserved until a gaming source is settled. | Only rendering has an openly licensed source today (see [Data sources](#data-sources)). |
+| Separation | A score is only compared with scores of the same metric from the same dataset. Rendering scores never answer a gaming question. | In Blender the RX 9070 XT scores about the same as an RTX 4060, yet in games it's in a much higher class. Mixing metrics would mislead. |
+| Provenance | Stored once per dataset file (source, licence, snapshot date, method, baseline), not on every registry entry. | The 13 Sep plan repeated baseline, dataset, source and date on every metric of every part. |
+| Missing data | A part without a score gets `perf: null`. It is never filtered out, never blocks validation, and never triggers web research. | Scores are optional enrichment. |
+| Tool surface | Extend `list_models`. No new tool, and no changes to `search_products`, `validate_build` or `present_build`. | `list_models` already returns one row per model with its price range, and the prompt already sends the model there before `search_products`. Each tool adds context to every chat turn and MCP session, which matters for small local models. Decided 31 Oct. |
+| CPU/GPU balance | Deferred, unchanged from the 13 Sep plan. | No evidence-backed pairing rules yet; CPU and GPU indices are never compared with each other. |
 
----
+## Data sources
 
-## 3. Scope & Non-Goals
+### Rendering: Blender Open Data (chosen)
 
-### In Scope
-- Schema additions to `data/schemas/registry.schema.json`.
-- Seed a small verified set in `data/registry/gpus.json` and `data/registry/cpus.json`; extend generation coverage incrementally as comparable sources become available.
-- Propagating benchmark metrics through `src/lib/catalog/compact.ts` into `FUNCTIONAL_SPEC_KEYS`.
-- Adding optional `sort_by: "perf"` with mandatory resolution/workload context to `search_products`.
-- Creating `src/lib/tools/compare-components.ts` and registering it in `src/lib/tools/index.ts`.
-- Value ratio (performance per unit price) computation when both catalog prices and comparable benchmarks exist.
-- Unit and integration tests covering schema validation, tool execution, and edge-case handling.
+- **Licence:** CC0 (public domain), stated on <https://opendata.blender.org/download/> and in the archive's `LICENSE.txt`. Confirmed 31 Oct 2026.
+- **What it is:** a daily snapshot (about 100 MB zipped, 1.9 GB JSONL) of Blender Benchmark runs uploaded by users: Blender version, scene, device, backend (OptiX, CUDA, HIP, oneAPI, Metal, CPU) and samples per minute.
+- **Coverage, checked on the 31 Oct snapshot** (Blender 4.2–5.2, `monster` scene, median samples per minute, number of runs):
 
-### Non-Goals
-- **No automatic web research for missing benchmarks**: missing benchmarks will not trigger background crawls or external API calls.
-- **No synthetic benchmarking or simulation engine**: PCBuildSage will not calculate theoretical FLOPS, clock math, or simulated FPS.
-- **No CPU/GPU cross-index math**: CPU and GPU performance indices will never be compared directly against each other.
-- **No benchmark-based exclusion**: missing scores do not affect search eligibility or build validity; normal stock, compatibility, and user constraints still apply.
+  | Part | Backend | Median | Runs |
+  | :--- | :--- | ---: | ---: |
+  | RTX 4060 | OptiX | 1497 | 4072 |
+  | RTX 5060 | OptiX | 1568 | 1446 |
+  | RTX 5060 Ti | OptiX | 1990 | 1468 |
+  | RTX 5070 | OptiX | 2762 | 2418 |
+  | RX 9060 XT | HIP | 795 | 407 |
+  | RX 9070 XT | HIP | 1558 | 1842 |
+  | Arc B580 | oneAPI | 1033 | 375 |
+  | Ryzen 5 7600 | CPU | 88 | 311 |
+  | Ryzen 7 9800X3D | CPU | 151 | 2826 |
+  | Core i5-14400F | CPU | 91 | 124 |
+  | Core Ultra 7 265K | CPU | 217 | 881 |
 
----
+  These mix several Blender versions and are only a coverage check, not the method below.
+- **Limits:** device names don't carry VRAM size (RX 9060 XT 8 GB and 16 GB report the same name), and the data measures Cycles path tracing only.
 
-## 4. Proposed Contracts & Schemas
+### Gaming: open decision
 
-### 4.1. Registry Schema (`data/schemas/registry.schema.json`)
+No openly licensed gaming benchmark dataset was found (searched 31 Oct 2026):
 
-The optional `benchmarks` property maps category-appropriate metrics to records. A missing metric is omitted in the registry and returned as `null` by tools. Use these logical types to implement the JSON schema in the existing registry schema structure:
+- **TechPowerUp, Tom's Hardware, 3DCenter:** on `DENIED_CRAWL_DOMAINS` (`src/lib/web-search.ts`) because their terms forbid scraping or text and data mining. TechPowerUp's footer says "All rights reserved"; no terms page granting reuse was found.
+- **PassMark:** staff on its forum say the data may not be copied, but they offer to discuss a licence.
+- **GPU Ark** (Hugging Face, CC BY 4.0): its 993 benchmark results are compute tests (llama.cpp, Hashcat) taken from OpenBenchmarking, not games.
+- **Kaggle "GPUs FPS" sets:** tagged CC0 but scraped from gpucheck.com, so the tag can't be relied on.
+- **Open Game Benchmarks** (GitHub) and similar projects: tools for collecting results, not maintained datasets.
 
-```ts
-type GpuMetric = "p1080" | "p1440" | "p2160";
-type CpuMetric = "gaming" | "multicore" | "single_core";
-interface BenchmarkMetric {
-  score: number; // finite, strictly positive; baseline is 100
-  baseline: string; // canonical registry key for the reference component
-  dataset_id: string; // immutable comparison group, including metric/methodology revision
-  source: string; // exact source URL or versioned source artifact
-  benchmark_date: string; // YYYY-MM-DD: source measurement/publication date
-}
-type GpuBenchmarks = Partial<Record<GpuMetric, BenchmarkMetric>>;
-type CpuBenchmarks = Partial<Record<CpuMetric, BenchmarkMetric>>;
-```
+That the project is open source doesn't change this: our code's licence gives us no right to another site's data. The options are:
+1. Ask a reviewer for a licence with credit (TechPowerUp's relative performance, or PassMark).
+2. Have a person enter scores by hand from several cited reviews, never scraped. Measured numbers are facts, but sites' terms and EU database rights may still apply. This isn't legal advice.
+3. Collect our own results later.
 
-Schema validation rejects wrong-category metric keys, non-positive scores, unknown record properties, and malformed dates. A present benchmark map must contain at least one metric. Keep `benchmarks` optional so existing registry entries remain valid.
+The data format below already supports a gaming dataset; adding one is a data change plus new values in the metric enum.
 
-Each dataset must document its suite/version, aggregation and normalization formula, test platform, settings, and reference measurement. GPU indices describe raster gaming at the named resolution; CPU gaming, multicore, and single-core indices each identify a specific suite. Cinebench and Blender results cannot be interchanged under one generic metric. Calculate `100 * measured_result / baseline_result` only for higher-is-better measurements within the same dataset; unsupported measurement types remain unset.
+## Data format
 
-Two scores are comparable only when category, metric, baseline, and `dataset_id` match. Matching publisher names, baseline names, or dates alone is insufficient. Changing suite composition or methodology creates a new dataset; retain provenance per metric. Start with one curated active dataset per category/metric, documented alongside seed data. Search uses that dataset consistently; do not combine unrelated review indices to fill coverage gaps.
+One JSON file per dataset in `data/benchmarks/`, validated by a new `data/schemas/benchmark.schema.json`:
 
-### 4.2. Compact Spec Whitelist (`src/lib/catalog/compact.ts`)
-
-- `perf_score`: selected context's score, or null when unavailable.
-- `perf_metric`: the selected metric, returned alongside the score.
-- `perf_provenance`: baseline, dataset ID, source, and benchmark date for that score.
-
-When search supplies resolution/workload, use that context even if sorting by price. For ordinary searches without context, omit performance enrichment rather than silently selecting 1440p/gaming. Comparison reads full metric records from the registry directly; ordinary search does not need to return the entire benchmark map for every product. Whitelisting alone does not derive these fields: explicitly project them from the resolved registry record before compaction.
-
-### 4.3. `search_products` Tool Contract Updates
-
-#### Input Schema additions:
-```ts
-sort_by: z
-  .enum(["price", "name", "retailer", "last_scraped", "perf"])
-  .default("price")
-  .describe("Sort field. Use 'perf' to rank by performance (requires 'resolution' for GPUs or 'workload' for CPUs)."),
-resolution: z
-  .enum(["1080p", "1440p", "4k"])
-  .optional()
-  .describe("Target resolution context when sorting GPUs by performance."),
-workload: z
-  .enum(["gaming", "multicore", "single_core"])
-  .optional()
-  .describe("Target workload context when sorting CPUs by performance.")
-```
-
-#### Output behavior when `sort_by === "perf"`:
-1. Validates that `category` is `"gpu"` or `"cpu"`, and matching `resolution`/`workload` is provided.
-2. Sorts comparable scores descending by default for `perf`; honor an explicit `asc`. Keep existing defaults for other sorts. Use a stable product-ID tie-breaker.
-3. Items lacking a score in the active comparison dataset are **not filtered out**; place them after comparable scored items in either direction. Treat incompatible datasets as unscored for ranking, with a diagnostic.
-4. Response metadata includes:
-   ```json
-   {
-     "benchmark_coverage": {
-       "scored": 6,
-       "unscored": 2,
-       "metric": "p1440",
-       "baseline": "<canonical RTX 4060 registry key>",
-       "dataset_id": "<active p1440 dataset>",
-       "scope": "all_matching_products_before_limit"
-     }
-   }
-   ```
-
-Coverage counts apply to the full eligible result set after market, stock, price, and spec filters, before limiting results. Unscored products remain eligible but may fall outside the returned page; the LLM must not describe the top scored result as definitively fastest when coverage is incomplete.
-
-**Repository execution path:** benchmark scores currently come from registry resolution after SQL retrieval. The current scan may stop at `limit + 1` matches, so sorting that shortlist is incorrect. For the initial implementation, retain the existing path for non-performance sorts. For `perf`, scan all SQL-filtered candidates in batches, resolve specs and apply registry filters, project comparable scores, sort globally, then apply the result limit. Calculate coverage from that same eligible set. Do not add an SQL score sort unless scores are actually materialized there. Measure this path with the current catalog; a materialized score index is future optimization if needed. Test a highest-scoring match located beyond the first SQL batch.
-
-### 4.4. `compare_components` Tool Contract
-
-#### Input Schema:
-```ts
-export const compareComponentsInputSchema = z.object({
-  parts: z
-    .array(z.string())
-    .min(2)
-    .max(5)
-    .describe("2 to 5 distinct shortlisted component names or registry keys to compare (e.g. ['RTX 4070 Super', 'RTX 5070'] or ['Ryzen 5 7600', 'Ryzen 7 7800X3D'])."),
-  category: z
-    .enum(["cpu", "gpu"])
-    .describe("Component category to compare. Comparisons must belong to the same category."),
-  resolution: z
-    .enum(["1080p", "1440p", "4k", "all"])
-    .optional()
-    .describe("For GPUs: required resolution; all only when explicitly requested by the user."),
-  workload: z
-    .enum(["gaming", "multicore", "single_core", "all"])
-    .optional()
-    .describe("For CPUs: required workload; all only when explicitly requested by the user.")
-});
-```
-
-Validate the category-matching context and reject the wrong category's context. There is no implicit `all` default. Resolve aliases deterministically, then reject duplicate canonical keys. Ambiguous names return candidate identities without guessing a SKU. Unknown names return an unavailable component entry. Missing benchmark data is a successful result, not a retry signal.
-
-#### Output Schema:
-```ts
-export interface ComponentComparisonResult {
-  category: "cpu" | "gpu";
-  components: Array<{
-    name: string;
-    registry_key: string | null;
-    metrics: Record<string, {
-      benchmark: BenchmarkMetric | null;
-      value_ratio: number | null; // (score / price) * 1000, for this metric
-    }>;
-    offer: {
-      product_id: string;
-      price: number;
-      currency: string;
-      retailer: string;
-      last_scraped: string;
-    } | null;
-  }>;
-  comparisons: Array<{
-    metric: string;
-    dataset_id: string | null;
-    leader: string | null;
-    relative_deltas: Array<{
-      component: string;
-      delta_pct_vs_leader: number | null;
-    }>;
-    best_value: string | null;
-  }>;
-  warnings: string[];
+```jsonc
+// data/benchmarks/blender-5.2-rendering.json
+{
+  "$schema": "../schemas/benchmark.schema.json",
+  "id": "blender-5.2-rendering",
+  "metric": "rendering",
+  "source": {
+    "name": "Blender Open Data",
+    "url": "https://opendata.blender.org/",
+    "licence": "CC0-1.0",
+    "snapshot": "2026-10-31"
+  },
+  "method": "Blender 5.2.0; scenes monster, junkshop, classroom; median samples per minute per scene over at least 20 runs; geometric mean of the three scenes; GPUs on their vendor's fastest backend (OptiX, HIP, oneAPI).",
+  "baselines": { "gpu": "nvidia-rtx-4060", "cpu": "amd-ryzen-5-7600" },
+  "scores": {
+    "gpu": { "nvidia-rtx-4060": 100, "nvidia-rtx-5070": "<score>" },
+    "cpu": { "amd-ryzen-5-7600": 100, "amd-ryzen-7-9800x3d": "<score>" }
+  },
+  "runs": { "nvidia-rtx-4060": 4072 }
 }
 ```
 
-Return only requested metrics. `delta_pct_vs_leader = 100 * (score / leader_score - 1)`; this expresses how far a part falls below the leader, not how much faster the leader is relative to that part. Pick leaders and best value only within the active comparable group; require at least two eligible components, otherwise return null. Preserve each metric's provenance even when comparison is unavailable. Retain precision for calculations and round only output values.
+- Keys in `scores` are chip-level registry keys in `gpus.json` or `cpus.json`.
+- **Board-partner cards:** `gpus.json` holds about 42 partner entries (e.g. `msi-rtx-5060-ti-shadow-2x-oc-plus-8gb`) with no link to their chip. Add an optional `chip` field holding the chip's registry key (`nvidia-rtx-5060-ti-8gb`). Lookup is `scores[entry.chip ?? key]`.
+- **VRAM variants:** when the source can't tell them apart (Blender), the importer gives both chip keys the same score and lists them in the dataset's `method`.
+- `npm run validate:data` checks that every score key and `chip` exists in the right registry file, each baseline scores exactly 100, scores are positive, and `metric` is one of the known values.
 
-Select the lowest positive-priced, in-stock catalog offer for the exact resolved part in the active country/currency, breaking ties by newest scrape then product ID. Do not substitute a similar model, MSRP, or foreign-market offer. Return the offer identity, price and scrape time used. Value results require at least two comparable benchmarks with eligible same-currency offers; other entries remain null. Calculate and identify best value separately for each metric. A missing offer never blocks performance comparison.
+## Rendering importer
 
----
+`scripts/import-blender-benchmarks.ts <snapshot.zip>` is run by hand when a new Blender version has enough runs. It's never run in CI and never downloads anything itself.
 
-## 5. Missing-Data & Research Boundaries
+1. Stream the JSONL from the zip and keep runs of one pinned Blender version.
+2. GPUs: keep each vendor's fastest backend. CPUs: keep `CPU` runs with a single CPU socket.
+3. Map device names to registry keys through registry aliases, plus a small checked-in map for names that don't match.
+4. For each part and scene: the median samples per minute, only with at least 20 runs. A part's score is the geometric mean over the three scenes, normalised to its category's baseline.
+5. Write the dataset file and print the device names it couldn't map, so coverage gaps are visible.
 
-1. **Deterministic Resolution Only**:  
-   `compare_components` resolves parts against `data/registry/` and active catalog products. It does not invoke search crawlers.
-2. **Strict Non-Blocking Rule**:  
-   If a component is unbenchmarked:
-   - `metrics[metric].benchmark = null`
-   - `warnings.push("Benchmark score for <part> is unavailable.")`
-   - The tool succeeds and returns comparative data for the remaining parts.
-3. **No Cross-Baseline Comparison**:  
-   If two parts have benchmark scores from differing baselines or incompatible test suites, delta calculations return `null` with an explanatory notice identifying the actual baseline or dataset mismatch.
-4. **Value Ratios**:  
-   Follow the per-metric, comparable-group and offer-selection rules in §4.4. Never estimate prices from MSRP or foreign currencies.
+The median resists outlier runs (overclocks, throttled laptops), and the geometric mean is the standard way to combine ratios.
 
-### 5.1. Discover, shortlist, then compare
+## `list_models` contract
 
-1. **Discover eligible options:** use `search_products` to identify candidates matching the user's budget, availability, compatibility constraints, and intended workload. Use compact specs and optional contextual performance scores to narrow the field. Discovery does not mean enumerating every catalog product or fetching detailed benchmarks for every search result.
-2. **Finalize a shortlist:** select 3–5 distinct candidates within the category being decided, with a clear reason each remains competitive. Deduplicate retailer listings for the same part. Do not pad the shortlist when only two relevant options exist; when one option already satisfies the decision, skip comparison. Missing benchmark data alone must not disqualify an otherwise suitable finalist.
-3. **Compare the finalists together:** send the complete shortlist to `compare_components` in one batch for the relevant workload/resolution. The tool resolves detailed benchmark records only for those supplied parts. Do not run pairwise comparisons across the catalog, or compare every intermediate search batch.
-4. **Choose and reuse:** use the batch result to make the recommendation. Reuse available results in follow-up discussion. Revisit the shortlist when the user's requirements, availability, prices, or a material unresolved tradeoff change the decision; do not keep rotating candidates for marginal gains after the choice is supported.
+### New inputs
 
-There are no fixed per-request comparison or benchmark-research call quotas, persistent budget counters, or budget-exhaustion responses in this feature. The tool schema enforces a maximum of five distinct candidates per batch; tool descriptions and chat guidance direct the intended workflow, verified with representative conversation evaluations. The batch-size check alone does not guarantee the model follows the workflow.
-
-Benchmarks remain optional enrichment. Search returns compact context, not full benchmark records for all products. Optional server-side performance sorting may examine local scores across eligible matches to rank correctly, but that does not expose every product's detailed benchmarks to the LLM or invoke comparison/research.
-
-Targeted research through `consult` remains optional, when enabled and explicitly requested or necessary to resolve a material uncertainty about a finalist. Missing benchmarks alone do not trigger it. Do not research the entire candidate pool to complete benchmark coverage. Existing compatibility/specification research behavior remains unchanged.
-
----
-
-## 6. Affected Files & Architecture Map
-
-```
-pcbuildsage/
-├── data/
-│   ├── schemas/
-│       └── registry.schema.json              # [MODIFY] Add 'benchmarks' schema definition
-│   └── registry/
-│       ├── gpus.json                         # [MODIFY] Seed benchmark scores for major GPUs
-│       └── cpus.json                         # [MODIFY] Seed benchmark scores for major CPUs
-├── src/
-│   └── lib/
-│       ├── catalog/
-│       │   ├── compact.ts                    # [MODIFY] Add perf keys to FUNCTIONAL_SPEC_KEYS
-│       │   ├── repository.ts                 # [MODIFY] Support perf sort in searchProducts
-│       │   └── sql-repository.ts             # [MODIFY] Global registry-aware perf ranking before limit
-│       ├── registry.ts                       # [MODIFY] Existing registry types and benchmark records
-│       ├── llm/chat-engine.ts                # [MODIFY] Discover, shortlist, compare directives
-│       └── tools/
-│           ├── search-products.ts            # [MODIFY] Expose 'perf' in sort_by & coverage meta
-│           ├── compare-components.ts         # [NEW] Dedicated comparison tool implementation
-│           └── index.ts                      # [MODIFY] Register compare_components tool
-└── tests/                                   # Proposed tests; align with existing colocated conventions
-    ├── tools/
-    │   ├── compare-components.test.ts        # [NEW] Unit tests for comparison & delta arithmetic
-    │   └── search-products-perf.test.ts      # [NEW] Tests for perf sorting & fallback behavior
-    └── data/
-        └── registry-schema.test.ts           # [VERIFY] Verify validate:data passes schema checks
+```ts
+performance: z
+  .enum(["rendering"]) // gaming values are added when a gaming dataset exists
+  .optional()
+  .describe("Add benchmark scores for this workload and rank by them. GPU or CPU only. Rendering scores say nothing about gaming."),
+model_ids: z
+  .array(z.string())
+  .min(2)
+  .max(5)
+  .optional()
+  .describe("Compare these finalists only: model_id values from an earlier list_models result.")
 ```
 
----
+- `performance` needs `category` set to `gpu` or `cpu`; anything else returns an error with a hint, like other invalid filters.
+- `model_ids` reuses `matchesModelId` (`src/lib/catalog/model-aggregator.ts`), which `search_products` already uses for its `model_id` filter.
 
-## 7. Phased Implementation Tasks & Dependencies
+### New outputs (only when `performance` is set)
 
-```mermaid
-graph TD
-    T1[Task 1: Registry Schema & TypeScript Types] --> T2[Task 2: Seed Benchmark Data in cpus.json and gpus.json]
-    T1 --> T3[Task 3: Catalog Projection & Compaction]
-    T3 --> T4[Task 4: Implement compare_components Tool]
-    T3 --> T5[Task 5: Add Performance Sorting to search_products]
-    T4 --> T6[Task 6: Registration & LLM Guidance]
-    T2 --> T7
-    T5 --> T6
-    T6 --> T7[Task 7: Automated Integration Tests & CI Verification]
+Each model gets:
+
+```ts
+perf: {
+  score: number;          // the dataset's index, baseline = 100
+  vs_leader_pct: number;  // 100 * (score / leader_score - 1); 0 for the leader, negative for the others
+  per_1k: number | null;  // score per 1,000 units of the local currency at price_range.min; null without a price
+} | null                  // null: no score in this dataset
 ```
 
-The existing registry type file is `src/lib/registry.ts`. Shortlist selection guidance belongs in tool descriptions and `src/lib/llm/chat-engine.ts`; this feature does not require new request-budget persistence.
+The result gets one `perf_info` block, rather than repeating provenance on every row:
 
-### Phase 1: Data Contracts & Seeding
-- [ ] **Task 1: Schema Updates**
-  - Update `data/schemas/registry.schema.json` with the `benchmarks` schema.
-  - Update `src/lib/registry.ts` with per-metric benchmark types.
-  - Define shared score projection, comparison-group selection, and 2–5-candidate batch contracts.
-- [ ] **Task 2: Seed Benchmarks**
-  - Document immutable dataset definitions and normalization inputs. Start with a small verified set; broader generation coverage is incremental and not a prerequisite for tool development.
-  - Seed baseline = 100 for `NVIDIA GeForce RTX 4060 8GB` (`gpus.json`) and `AMD Ryzen 5 7600` (`cpus.json`).
-  - Populate verified relative scores for common modern GPUs (RTX 40/50-series, RX 7000-series) and CPUs (Ryzen 7000/9000, Intel 13th/14th Gen).
-  - Run `npm run validate:data` to verify zero schema regressions.
+```ts
+perf_info: {
+  metric: "rendering";
+  dataset: string;        // e.g. "blender-5.2-rendering"
+  source: string;         // "Blender Open Data (CC0), snapshot 2026-10-31"
+  baseline: string;       // registry key scoring 100
+  leader: string | null;  // model_id with the top score
+  scored: number;
+  unscored: number;       // counted over all matching models, before the limit
+}
+```
 
-### Phase 2: Catalog Integration & Comparison Engine
-- [ ] **Task 3: Catalog Spec Propagation**
-  - Project `perf_score`, `perf_metric`, and selected provenance from resolved registry metrics; add those keys to compaction. Leave no-context search unchanged.
-- [ ] **Task 4: `compare_components` Tool**
-  - Implement `src/lib/tools/compare-components.ts` with strict delta math, value ratios, and missing-data guards.
-  - Add comprehensive unit tests in `tests/tools/compare-components.test.ts`.
+When `unscored > 0`, the hint says so and warns against calling the top scored model the fastest.
 
-### Phase 3: Search Sorting & LLM Prompting
-- [ ] **Task 5: `search_products` Performance Sort**
-  - Update `searchProductsInputSchema` to accept `sort_by: "perf"` with `resolution` or `workload`.
-  - Implement global registry-aware ranking before limiting as specified in §4.3, with full eligible-set coverage and existing non-performance sort behavior preserved.
-- [ ] **Task 6: Registration & LLM Directives**
-  - Register `compare_components` in `src/lib/tools/index.ts`.
-  - Update `src/lib/llm/chat-engine.ts` and tool descriptions with the discover → shortlist → batch comparison workflow in §5.1. Detailed benchmark retrieval is for finalists only; comparison remains optional.
+### Ranking
 
-Tasks 2 and 3 can proceed independently after Task 1 contracts are agreed, using fixtures. Tasks 4 and 5 can proceed in parallel after Task 3; Task 6 integrates both. Verification includes real seed data from Task 2. Contributors should own separate modules and coordinate shared contract changes through Task 1.
+- Scored models sort by score, highest first. Unscored models follow in today's order (lowest price first). The leader and percentages are computed over every matching model, before the limit.
+- This uses the existing path in `runListModels` that fetches every matching model, filters, then applies the limit (`hasToolFilters`, `src/lib/tools/list-models.ts`). At current catalog sizes that's cheap; materialise scores only if a measurement says it's needed.
+- Without `performance`, `list_models` behaves exactly as today.
 
-### Phase 4: Verification & Hardening
-- [ ] **Task 7: Comprehensive Verification**
-  - Full test suite execution: `npm test` and `npm run typecheck`.
-  - Edge case validation: unbenchmarked components, missing prices, duplicate canonical models, single-component requests, and successful batches of 3, 4, and 5 candidates.
-  - Evaluate representative chat traces for shortlist-first behavior, compact discovery payloads, optional comparison, and relevant follow-up changes.
+## Prompt changes
 
----
+- `src/lib/llm/chat-engine.ts:111`, the `list_models → search_products` line: for rendering or 3D work, pass `performance: "rendering"`, and compare finalists with `model_ids`. There are no gaming scores yet, so don't use rendering scores to rank gaming parts.
+- `chat-engine.ts:116` already forbids "fastest" claims without data, so it stays.
+- The voice backend and the MCP server pick up the new inputs through `createToolRegistry`; no separate change.
 
-## 8. Acceptance Criteria
+## Phases
 
-1. **Data Validity**:
-   - `npm run validate:data` passes without any schema validation errors.
-2. **Missing-Data Resilience**:
-   - Querying or comparing parts with missing benchmark data returns `null` / `unavailable` and **never** throws an exception or halts conversation.
-   - Missing benchmarks never prevent a part from being selected or validated in `validate_build`.
-3. **Accuracy of Calculations**:
-   - `compare_components` deltas accurately reflect mathematical percentage differences relative to the leader.
-   - Value ratios are only computed when both catalog price and benchmark score are present and non-zero.
-4. **Performance Sorting Integrity**:
-   - `search_products` with `sort_by: "perf"` sorts highest performing parts first, places unbenchmarked parts at the bottom, and indicates coverage in the metadata.
-5. **Comparable Data and Context**:
-   - Same-baseline but different-dataset scores never participate in shared ranking/deltas/value winners.
-   - Search scores identify the requested metric; missing context never silently selects a different workload. Comparison requires context, and `all` is explicit.
-   - Each returned metric retains its own provenance; value ratios are metric-specific and use eligible same-currency catalog offers.
-6. **Shortlist-First Tool Use**:
-   - Discovery returns compact specs/context rather than detailed benchmark maps for every result.
-   - Representative build conversations narrow eligible options to 3–5 distinct finalists per relevant category before one batch comparison; two viable options need no padding and one clear option needs no comparison.
-   - The comparison tool accepts 3-, 4-, and 5-part batches, rejects more than five or duplicate canonical parts, and reads detailed benchmarks only for supplied finalists.
-   - Chat evaluations cover avoiding comparisons of every search batch, exhaustive pairwise comparisons, and research of the entire pool. Follow-ups reuse results unless relevant inputs or the decision change.
-   - Missing data never blocks a recommendation or initiates research by itself. No fixed call quotas or budget-state machinery are introduced.
-7. **Global Ranking**:
-   - A best-scoring candidate beyond the first SQL batch still ranks first before limit; both explicit sort directions put unscored entries last.
-   - Coverage describes all eligible matches, including unreturned unscored entries. Existing non-performance search behavior remains intact.
-8. **Zero Web Bloat**:
-   - No benchmark comparison initiates network requests or web search unless explicitly requested through the separate `consult` workflow.
+1. **Data contract.** Add `benchmark.schema.json`, the `chip` field on partner GPU entries, and the new `validate:data` checks.
+2. **Importer and first dataset.** Write the importer, run it on a current snapshot, and commit `blender-<version>-rendering.json` with its list of unmapped devices.
+3. **`list_models`.** Add the inputs, outputs and ranking above, with tests:
+   - Missing scores.
+   - The leader and percentage maths.
+   - `per_1k` is null without a price.
+   - Unscored models come last and are counted.
+   - The `model_ids` filter.
+   - The category guard.
+   - The top-scoring model ranks first even when it lies beyond the default limit of 20.
+4. **Prompt and evaluation.** Update the prompt line and run three chats on a local model (Ornith): a creator build that uses rendering scores, a gaming build that doesn't use them, and a comparison of finalists.
+5. **Gaming dataset.** Once a source is settled: the same format, new metric values and the matching prompt change.
 
----
+Phases 1 and 2 must land before phase 3 can show real scores, but phase 3 can be built against a test fixture in parallel.
 
-## 9. Unresolved Decisions & Future Work
+## Acceptance criteria
 
-- **CPU/GPU Bottleneck & Balance Heuristics**:
-  - *Status:* **Deferred.**
-  - Direct mathematical comparison between CPU and GPU scores was rejected as ungrounded.
-  - Future implementation may introduce an advisory rule in `validate_build` only when evidence-backed, resolution-specific pairing matrices (e.g. minimum CPU gaming index recommended for tier of GPU at 1080p vs 4K) are compiled from empirical reviews.
+- `npm run validate:data` passes, and every score traces to a dataset file with source, licence and method.
+- Missing scores never throw, never filter a model out and never block `validate_build`. Unscored models are sorted last and counted in `perf_info`.
+- The top-scoring model ranks first even when it lies beyond the default limit.
+- `list_models` makes no network calls for scores.
+- Existing `list_models` tests pass unchanged, so behaviour without `performance` is identical.
+- In the evaluation chats, the model doesn't use rendering scores to rank gaming parts.
 
-- **Implementation checkpoints (not permission to omit requirements):**
-  - Choose the initial source suites and verify reference coverage before seeding; do not invent scores to meet generation targets.
-  - Assess full-candidate performance sorting against the current catalog size. Add materialization only if measured cost warrants it.
+## Open decisions
+
+1. **Gaming source:** ask for a licence, enter scores by hand from cited reviews, or wait (see [Gaming: open decision](#gaming-open-decision)).
+2. **Re-import cadence:** proposed on each new Blender release once its baseline parts have at least 20 runs per scene; manual.
+3. **CPU/GPU balance advice:** deferred. It may come back only with evidence-backed, resolution-specific pairing data.
+
+## What changed from the 13 Sep plan
+
+- **Tool surface:** dropped the `compare_components` tool and the `search_products` performance sort. `list_models` didn't exist when the plan was written. It now does the model-level ranking, and its `model_ids` filter covers comparing finalists, with the same arithmetic.
+- **Provenance:** moved from every registry metric into one file per dataset.
+- **Data source:** named Blender Open Data for rendering; gaming is an explicit open decision instead of "curated scores".
+- **Board-partner cards:** added the `chip` link they need, since the registry now holds about 42 of them.
+- **Dropped details:** `perf_*` keys in compact specs, `resolution` and `workload` inputs on `search_products`, and the `all` metric option. The missing-data, no-web-research and no-CPU/GPU-cross-comparison rules are kept.
