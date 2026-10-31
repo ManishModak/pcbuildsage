@@ -24,12 +24,12 @@ jobs:
       # 1 Oct 2026), so the hosted catalog leaves it out; local scrapes keep it.
       EXCLUDE_SITES: PCStudio
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -92,7 +92,7 @@ jobs:
           fi
 
       - name: Upload scraped catalog for guides
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: scraped-catalog
           path: ${{ runner.temp }}/catalog.db
@@ -103,8 +103,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -113,7 +113,7 @@ jobs:
         run: npm ci
 
       - name: Fetch freshly scraped catalog
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: scraped-catalog
           path: ${{ runner.temp }}/guides-in
@@ -124,7 +124,7 @@ jobs:
           npm run build-guides -- --db "$RUNNER_TEMP/catalog.db" --out site
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
@@ -140,4 +140,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

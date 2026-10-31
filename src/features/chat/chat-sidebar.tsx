@@ -9,7 +9,7 @@ import { copyToClipboard, formatMarkdownTranscript } from "./transcript";
 import type { SessionSummary } from "@/types/client";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
-import { LeafMark, Wordmark } from "@/components/app/brand";
+import { OwlMark, Wordmark } from "@/components/app/brand";
 import { ThemeSwitcher } from "@/components/app/theme-switcher";
 import {
   Sidebar,
@@ -74,7 +74,7 @@ export function ChatSidebar({
             className="flex items-center gap-2 rounded-btn px-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center"
             aria-label="PCBuildSage home"
           >
-            <LeafMark size={22} />
+            <OwlMark size={26} />
             <Wordmark className="text-base group-data-[collapsible=icon]:hidden" />
           </Link>
           <SidebarTrigger className={cn("group-data-[collapsible=icon]:hidden", TRIGGER_HOVER)} />
