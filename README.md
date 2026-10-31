@@ -1,6 +1,6 @@
 # PCBuildSage 🧙‍♂️🖥️
 
-**Plan a PC in plain language, using only parts in stock at Indian retailers today, with exact totals, buy links, and compatibility checked by code, not the AI.**
+**Plan a PC in plain language, using only parts in stock at retailers today, with exact totals, buy links, and compatibility checked by code, not the AI.**
 
 India is supported today. More countries are coming, and contributions are welcome: a retailer is one JSON profile, no code required.
 

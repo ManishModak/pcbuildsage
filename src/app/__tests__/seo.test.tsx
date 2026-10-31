@@ -30,7 +30,7 @@ describe("G1 search basics: crawler-visible landing on /", () => {
   it("server HTML contains the landing copy, not just a spinner", () => {
     const html = crawlerHtml();
     expect(html).toContain("PCBuildSage");
-    expect(html).toContain("Indian retailers");
+    expect(html).toContain("in-stock retailer listings");
     expect(html).toContain("Exact totals");
     expect(html).toContain("Buy links");
     expect(html).toMatch(/compatib/i);

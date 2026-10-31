@@ -30,24 +30,24 @@ const notoRunic = Noto_Sans_Runic({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "PCBuildSage — AI PC build planner for India",
+  title: "PCBuildSage — AI PC build planner",
   description:
-    "Describe your budget and needs in plain language and get PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source.",
+    "Describe your budget and needs in plain language and get PC builds from parts in stock at retailers today, with exact totals, buy links and compatibility checked by code. Free and open source.",
   applicationName: "PCBuildSage",
   // Google Search Console ownership tag for https://pcbuildsage.onrender.com/ (public by design).
   verification: { google: "HxDIB8pSIG-iAWHPjFk7ZSAYtIEw652mnLh-Ns1II7w" },
   openGraph: {
     type: "website",
     siteName: "PCBuildSage",
-    title: "PCBuildSage — AI PC build planner for India",
+    title: "PCBuildSage — AI PC build planner",
     description:
-      "PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source."
+      "PC builds from parts in stock at retailers today, with exact totals, buy links and compatibility checked by code. Free and open source."
   },
   twitter: {
     card: "summary_large_image",
-    title: "PCBuildSage — AI PC build planner for India",
+    title: "PCBuildSage — AI PC build planner",
     description:
-      "PC builds from parts in stock at Indian retailers today, with exact totals, buy links and compatibility checked by code. Free and open source."
+      "PC builds from parts in stock at retailers today, with exact totals, buy links and compatibility checked by code. Free and open source."
   }
 };
 
