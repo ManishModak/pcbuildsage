@@ -1,11 +1,13 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { ArrowRight, Database, Info, Radio, TriangleAlert } from "lucide-react";
+import { ArrowRight, Check, Database, Info, Radio, TriangleAlert } from "lucide-react";
 import type { StatusResponse } from "@/types/client";
 import { cn } from "@/components/ui/cn";
+import { RuneSpinner } from "@/components/app/rune-spinner";
 import { Icon } from "@/components/ui/icon";
-import { Button, Card, ChoiceControl, ChoiceGroup, Spinner } from "@/components/ui/primitives";
+import { Button, Card, ChoiceControl, ChoiceGroup } from "@/components/ui/primitives";
+import { StepHeader } from "./simple-panel";
 
 export type DataSourceChoice = "existing" | "scrape";
 export type StatusLoadState =
@@ -28,26 +30,23 @@ export function StepDataSource({
 }) {
   return (
     <section className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-text">Where should the data come from?</h1>
-        <p className="text-base text-text-secondary">
-          PCBuildSage works entirely from a local product database. Pick how to fill it — you can re-scrape or
-          swap sources any time from settings.
-        </p>
-      </header>
+      <StepHeader title="Where should the data come from?">
+        PCBuildSage works from a local product database. Load the one you have or fetch a fresh copy. You can
+        change this any time from settings.
+      </StepHeader>
 
       {statusState.status === "loading" ? (
         <Card className="flex items-center gap-3 p-4 text-sm text-text-secondary" aria-live="polite">
-          <Spinner />
+          <RuneSpinner />
           Checking Python and your local catalog…
         </Card>
       ) : statusState.status === "error" ? (
         <Card className="flex flex-col items-start gap-3 p-4" role="alert">
           <div>
-            <p className="text-sm font-medium text-text">Could not inspect this computer</p>
+            <p className="text-sm font-medium text-text">Could not check this computer</p>
             <p className="text-caption text-text-secondary">{statusState.message}</p>
           </div>
-          <Button variant="ghost" onClick={onRetry}>Retry status check</Button>
+          <Button variant="ghost" onClick={onRetry}>Check again</Button>
         </Card>
       ) : (
         <DataSourceChoices
@@ -78,7 +77,6 @@ function DataSourceChoices({
 
   return (
     <>
-
       {!pythonOk ? (
         <div
           className="flex items-start gap-3 rounded-card border px-4 py-3 text-sm"
@@ -90,28 +88,29 @@ function DataSourceChoices({
         >
           <Icon icon={TriangleAlert} size={18} />
           <div className="flex flex-col gap-1 text-text">
-            <p className="font-medium text-text">No Python interpreter was found.</p>
+            <p className="font-medium text-text">Python was not found.</p>
             <p className="text-caption text-text-secondary">
-              Scraping runs a Python process. Install Python 3 (or set <code className="font-mono">PYTHON_PATH</code>,
-              or create a <code className="font-mono">.venv</code>) to enable it. Loading an existing database
+              Fetching runs as a Python process. Install Python 3, set <code className="font-mono">PYTHON_PATH</code>{" "}
+              or create a <code className="font-mono">.venv</code> to turn it on. Loading an existing database
               still works.
             </p>
           </div>
         </div>
       ) : null}
 
-      <ChoiceGroup label="Data source" legendClassName="sr-only" className="grid gap-3">
+      <ChoiceGroup label="Data source" legendClassName="sr-only">
+        <div className="overflow-hidden rounded-card border border-border bg-surface divide-y divide-border">
         <SourceCard
           icon={Database}
           selected={choice === "existing"}
           disabled={!dbExists}
           onSelect={() => onChoose("existing")}
           title="Load existing database"
-          estimate="instant"
+          estimate="Instant"
           description={
             dbExists
               ? `${totalRows.toLocaleString()} products already indexed${status.database.path ? ` at ${shortPath(status.database.path)}` : ""}.`
-              : "No local database found yet — scrape to create one."
+              : "No local database found yet. Fetch fresh data to create one."
           }
         />
         <SourceCard
@@ -119,10 +118,11 @@ function DataSourceChoices({
           selected={choice === "scrape"}
           disabled={!pythonOk}
           onSelect={() => onChoose("scrape")}
-          title="Scrape fresh"
-          estimate="~10 min"
-          description="Crawl retailer sites now for the newest prices. Configurable per site, category, and depth."
+          title="Fetch fresh data"
+          estimate="About 10 min"
+          description="Crawl retailer sites now for the newest prices. You choose the sites, categories and depth."
         />
+        </div>
       </ChoiceGroup>
 
       {dbExists ? (
@@ -167,11 +167,13 @@ function SourceCard({
       disabled={disabled}
       onChange={onSelect}
       className={cn(
-        "flex items-start gap-4 rounded-card border bg-surface p-4 text-left transition-colors duration-150",
-        selected ? "border-accent" : "border-border hover:border-text-muted",
-        disabled && "cursor-not-allowed opacity-50 hover:border-border"
+        "flex items-start gap-4 p-4 text-left transition-colors duration-150",
+        selected && "bg-surface-raised",
+        !selected && !disabled && "hover:bg-surface-raised",
+        disabled && "cursor-not-allowed opacity-50"
       )}
     >
+      {selected ? <span aria-hidden="true" className="absolute inset-y-0 left-0 w-0.5 bg-accent" /> : null}
       <span
         className={cn(
           "flex h-10 w-10 shrink-0 items-center justify-center rounded-btn border",
@@ -181,13 +183,20 @@ function SourceCard({
         <Icon icon={icon} size={20} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="flex items-center gap-2">
-          <span className="text-base font-medium text-text">{title}</span>
-          <span className="rounded-chip bg-surface-raised px-2 py-0.5 font-mono text-caption text-text-secondary">
-            {estimate}
-          </span>
+        <span className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-x-3">
+          <span className="type-title text-base text-text">{title}</span>
+          <span className="text-caption text-text-secondary">{estimate}</span>
         </span>
         <span className="text-caption text-text-secondary">{description}</span>
+      </span>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-pill border",
+          selected ? "border-accent bg-accent text-on-accent" : "border-border"
+        )}
+      >
+        {selected ? <Icon icon={Check} size={12} /> : null}
       </span>
     </ChoiceControl>
   );

@@ -7,6 +7,7 @@ import type { ChainEntry, CredentialAvailability, EndpointPreset, SearchProvider
 import { ChainBuilder, newEntry } from "@/features/llm/chain-builder";
 import { Icon } from "@/components/ui/icon";
 import { Button, Card, Toggle } from "@/components/ui/primitives";
+import { StepHeader } from "./simple-panel";
 
 export type EndpointLoadState =
   | { status: "loading" }
@@ -30,7 +31,7 @@ export function researchDefaultForSearch(
     return { enabled: false, reason: "Research is off: no search provider configured." };
   }
   if (probeOk === false) {
-    return { enabled: false, reason: "Research is off: the search probe failed — configure search first." };
+    return { enabled: false, reason: "Research is off: the search check failed. Configure search first." };
   }
   if (probeOk === null) {
     return { enabled: false, reason: "Research is off: search not verified yet." };
@@ -106,43 +107,42 @@ export function StepLLM({
 
   return (
     <section className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-text">Connect your AI providers</h1>
-        <p className="text-base text-text-secondary">
-          Build an ordered fallback chain. The first tool-capable provider serves chat; the rest catch transient
-          failures. Keys entered here are stored locally and sent only as request headers — never rendered back.
-        </p>
-      </header>
+      <StepHeader title="Set up your AI model">
+        The first model that supports tool calling answers in chat. Add more as backups for when it fails. Keys
+        are stored on this device, sent only as request headers and never shown again.
+      </StepHeader>
 
       {endpointState.status === "loading" ? (
-        <p className="text-caption text-text-muted" aria-live="polite">Loading local endpoint presets…</p>
+        <p className="text-caption text-text-muted" aria-live="polite">Loading local server presets…</p>
       ) : endpointState.status === "error" ? (
         <Card className="flex items-start justify-between gap-3 p-3" role="alert">
           <div>
-            <p className="text-caption font-medium text-text">Could not load local endpoint presets</p>
+            <p className="text-caption font-medium text-text">Could not load local server presets</p>
             <p className="text-caption text-text-secondary">{endpointState.message}</p>
           </div>
-          <Button variant="ghost" size="sm" onClick={onRetryEndpoints}>Retry</Button>
+          <Button variant="ghost" size="sm" onClick={onRetryEndpoints}>Load again</Button>
         </Card>
       ) : endpointState.endpoints.length === 0 ? (
-        <p className="text-caption text-text-muted">No local endpoint presets are configured. Custom endpoints remain available.</p>
+        <p className="text-caption text-text-muted">No local server presets are configured. You can still add a custom endpoint.</p>
       ) : null}
 
       <ChainBuilder chain={chain} onChange={onChange} credentials={credentials} endpoints={endpoints} />
 
-      <div className="flex items-start gap-2 rounded-card border border-border bg-surface px-4 py-3 text-caption text-text-secondary">
-        <Icon icon={Info} size={15} className="mt-0.5 text-text-muted" />
-        This app is tool-driven, so the chat primary must support tool calling. Local servers usually need a launch
-        flag (e.g. vLLM <code className="font-mono">--enable-auto-tool-choice --tool-call-parser …</code>) — the probe
-        reports the exact one.
-      </div>
+      <p className="flex items-start gap-2 text-caption text-text-secondary">
+        <Icon icon={Info} size={15} className="mt-0.5 shrink-0 text-text-muted" />
+        <span>
+          Chat relies on tool calling, so the main model must support it. Local servers usually need a launch flag
+          (for vLLM: <code className="font-mono">--enable-auto-tool-choice --tool-call-parser …</code>). The check
+          reports the exact one.
+        </span>
+      </p>
 
       <div className="flex flex-col gap-4 rounded-card border border-border bg-surface px-4 py-4">
         <Toggle
           checked={config.tier2Enabled}
           onChange={(value: boolean) => updateConfig({ tier2Enabled: value })}
-          label="Tier 2 research subagents"
-          description="Let the sage research unknown specs and run advisory build audits. Advisory only — never overrides Tier 1 blocks."
+          label="Research helpers"
+          description="Let the sage research unknown specs and run build audits. These are advice only and never override the compatibility rules."
         />
         {researchOffReason ? (
           <p className="text-caption text-text-muted" data-testid="research-off-reason">
@@ -158,11 +158,11 @@ export function StepLLM({
         <div className="flex items-center gap-3">
           {!canAdvance ? (
             <span className="text-caption text-text-muted" data-testid="llm-continue-reason">
-              Run &apos;Ping &amp; probe tools&apos; first: the model must be reachable and support tool calling.
+              Run &apos;Check model&apos; first: the model must be reachable and support tool calling.
             </span>
           ) : null}
           <Button iconRight={ArrowRight} onClick={onNext} disabled={!canAdvance}>
-            Continue
+            Start building
           </Button>
         </div>
       </div>

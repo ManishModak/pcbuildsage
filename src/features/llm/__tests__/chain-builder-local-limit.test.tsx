@@ -39,12 +39,12 @@ describe("ChainBuilder local model context limit warning and entry", () => {
     );
 
     // Warning is prominently shown
-    expect(html).toContain("Unknown context limit for local provider");
+    expect(html).toContain("Context window unknown");
     expect(html).toContain('role="alert"');
 
     // Context limit input field is available to let user enter the limit
-    expect(html).toContain("Context limit (tokens)");
-    expect(html).toContain("Required: specify the context limit for this local model.");
+    expect(html).toContain("Context window (tokens)");
+    expect(html).toContain("Required. Enter how many tokens this model can read at once.");
     expect(html).toContain('type="number"');
   });
 
@@ -67,9 +67,9 @@ describe("ChainBuilder local model context limit warning and entry", () => {
       />
     );
 
-    expect(html).toContain("Unknown context limit for local provider");
+    expect(html).toContain("Context window unknown");
     expect(html).toContain('role="alert"');
-    expect(html).toContain("Context limit (tokens)");
+    expect(html).toContain("Context window (tokens)");
   });
 
   it("hides warning when local provider context limit is known or entered", () => {
@@ -92,13 +92,13 @@ describe("ChainBuilder local model context limit warning and entry", () => {
     );
 
     // Warning is NOT displayed when limit is known
-    expect(html).not.toContain("Unknown context limit for local provider");
+    expect(html).not.toContain("Context window unknown");
     expect(html).not.toContain('role="alert"');
 
     // Context limit field displays configured value
-    expect(html).toContain("Context limit (tokens)");
+    expect(html).toContain("Context window (tokens)");
     expect(html).toContain('value="8192"');
-    expect(html).toContain("Configured context window in tokens.");
+    expect(html).toContain("How many tokens this model can read at once.");
   });
 
   it("does not show local unknown limit warning for cloud providers (e.g. Gemini)", () => {
@@ -118,7 +118,7 @@ describe("ChainBuilder local model context limit warning and entry", () => {
       />
     );
 
-    expect(html).not.toContain("Unknown context limit for local provider");
-    expect(html).not.toContain("Context limit (tokens)");
+    expect(html).not.toContain("Context window unknown");
+    expect(html).not.toContain("Context window (tokens)");
   });
 });

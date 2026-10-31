@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Database, Download, Globe, Moon, Sliders, Sparkles, Sun, Wand2, X } from "lucide-react";
+import { ArrowLeft, Check, Database, Download, Globe, Moon, Search, Sliders, Sparkles, Sun, Wand2, X } from "lucide-react";
 import { useApp } from "@/components/app/app-provider";
 import {
   exportResearch,
@@ -15,12 +15,15 @@ import {
 import type { CredentialAvailability, EndpointPreset, LLMProvider, Personality, SearchProvider } from "@/types/client";
 import { saveUiKey, type KeyMap } from "@/lib/client-config-store";
 import { getErrorMessage } from "@/lib/format";
+import { themeLabel } from "@/lib/theme";
+import { openSetup } from "@/components/app/setup-hash";
 import { ChainBuilder } from "@/features/llm/chain-builder";
 import { MarketPreferenceSection } from "./market-preference-section";
 import { ByokSection } from "./byok-section";
+import { KEY_HANDLING_SENTENCES } from "./key-help-panel";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
-import { Button, Card, ChoiceControl, ChoiceGroup, Toggle, Input, Field, IconButton } from "@/components/ui/primitives";
+import { Button, ChoiceControl, ChoiceGroup, Toggle, Input, Field, IconButton } from "@/components/ui/primitives";
 import { Select } from "@/components/ui/select";
 import { LeafMark, Wordmark } from "@/components/app/brand";
 import { ThemeSwitcher } from "@/components/app/theme-switcher";
@@ -60,19 +63,23 @@ import {
   setByokKey
 } from "@/lib/llm/client-byok-store";
 
+// Tab ids are URL values (?tab=…) and stay fixed; only the labels are user-facing.
 export const LOCAL_NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Sparkles }[] = [
-  { id: "llm", label: "LLM Provider Chain", icon: Sparkles },
-  { id: "search", label: "Web Search", icon: Globe },
-  { id: "personalization", label: "Sage Personalization", icon: Sliders },
-  { id: "database", label: "Scraping & Local Catalog", icon: Database }
+  { id: "llm", label: "AI model", icon: Sparkles },
+  { id: "search", label: "Web research", icon: Search },
+  { id: "personalization", label: "Look and tone", icon: Sliders },
+  { id: "database", label: "Catalog", icon: Database }
 ];
 
 export const HOSTED_NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Sparkles }[] = [
-  { id: "market", label: "Market Preference", icon: Globe },
-  { id: "llm", label: "LLM & BYOK Keys", icon: Sparkles },
-  { id: "search", label: "Web Research", icon: Globe },
-  { id: "personalization", label: "Sage Personalization", icon: Sliders }
+  { id: "market", label: "Region and currency", icon: Globe },
+  { id: "llm", label: "AI model", icon: Sparkles },
+  { id: "search", label: "Web research", icon: Search },
+  { id: "personalization", label: "Look and tone", icon: Sliders }
 ];
+
+// Display names for search providers that take a key.
+const SEARCH_PROVIDER_NAMES: Record<string, string> = { brave: "Brave Search", tavily: "Tavily", exa: "Exa" };
 
 /**
  * Deep links like /settings?tab=database open straight to that panel. Read as
@@ -180,14 +187,14 @@ function SettingsLayout({
         setProbeState({
           busy: false,
           status: "ready",
-          message: `Ready (${data.resultCount ?? 0} results returned).`,
+          message: `Works. The test search returned ${data.resultCount ?? 0} results.`,
           isError: false
         });
       } else {
         setProbeState({
           busy: false,
           status: "unavailable",
-          message: data.error || "Search probe failed.",
+          message: data.error || "The test search failed.",
           isError: true
         });
       }
@@ -195,7 +202,7 @@ function SettingsLayout({
       setProbeState({
         busy: false,
         status: "unavailable",
-        message: err instanceof Error ? err.message : "Network error during search probe.",
+        message: err instanceof Error ? err.message : "Couldn't reach the server. Check your connection and try again.",
         isError: true
       });
     }
@@ -374,14 +381,14 @@ function SettingsLayout({
 
       {/* Main Settings Content */}
       <div className="flex h-full min-w-0 flex-1 flex-col bg-bg overflow-hidden">
-        <header className="flex h-14 items-center justify-between gap-3 border-b border-border px-8 shrink-0 bg-surface">
-          <div className="flex items-center gap-3">
+        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-bg px-4 sm:px-8">
+          <div className="flex min-w-0 items-center gap-3">
             {/* Mobile-only opener: on phones the sidebar collapses to a Sheet
                 whose own trigger is hidden, so surface one in the header. */}
             <SidebarTrigger className={cn("md:hidden", TRIGGER_HOVER)} />
-            <div className="flex flex-col gap-0.5">
-              <h1 className="text-md font-semibold text-text">Settings</h1>
-              <p className="text-xs text-text-secondary">Providers, appearance, and build preferences.</p>
+            <div className="flex min-w-0 items-baseline gap-3">
+              <h1 className="type-title text-xl text-text">Settings</h1>
+              <p className="hidden truncate text-caption text-text-muted sm:block">Most changes save as you make them.</p>
             </div>
           </div>
           {onClose ? (
@@ -389,7 +396,7 @@ function SettingsLayout({
           ) : null}
         </header>
 
-        <div className="flex-1 overflow-y-auto px-8 py-6 max-w-4xl w-full mx-auto scrollbar-none">
+        <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto px-4 py-8 sm:px-8 scrollbar-none">
           {activeTab === "market" && (
             <MarketPreferenceSection />
           )}
@@ -414,14 +421,17 @@ function SettingsLayout({
                   }}
                 />
               ) : (
-                <Section title="LLM provider chain" description="Ordered failover chain. Reorder by dragging or with the up/down buttons.">
+                <Section
+                  title="AI model"
+                  description="The main model answers your chats. If it fails, the backup models take over in order."
+                >
                   <CatalogNotice
                     status={endpointCatalog.status}
                     error={endpointCatalog.status === "error" ? endpointCatalog.message : undefined}
                     empty={endpointCatalog.status === "ready" && endpointCatalog.endpoints.length === 0}
-                    loadingText="Loading local endpoint presets…"
-                    errorTitle="Could not load local endpoint presets"
-                    emptyText="No local endpoint presets are configured. Custom endpoints remain available."
+                    loadingText="Loading saved servers…"
+                    errorTitle="Couldn't load saved servers"
+                    emptyText="No saved servers are set up. You can still type a server address."
                     onRetry={loadEndpoints}
                   />
                   <ChainBuilder
@@ -437,15 +447,11 @@ function SettingsLayout({
 
           {activeTab === "search" && (
             <Section
-              title={isHosted ? "Web research" : "Web search"}
-              description={
-                isHosted
-                  ? "Configure optional live web research for technical component specifications."
-                  : "Configure web search providers and crawling options."
-              }
+              title="Web research"
+              description="Lets the Sage search the web for part specs it doesn't have. Optional."
             >
-              <Card className="flex flex-col gap-4 p-4">
-                <Field label="Search provider">
+              <div className="flex flex-col gap-4 rounded-card border border-border bg-surface p-4">
+                <Field label="Search with">
                   {(controlProps) => (
                     <Select
                       {...controlProps}
@@ -460,19 +466,19 @@ function SettingsLayout({
                       options={
                         isHosted
                           ? [
-                              { value: "none", label: "None (Research disabled)" },
-                              { value: "tavily", label: "Tavily Search API" },
-                              { value: "exa", label: "Exa AI Search" },
-                              { value: "brave", label: "Brave Search API" }
+                              { value: "none", label: "Off" },
+                              { value: "tavily", label: "Tavily" },
+                              { value: "exa", label: "Exa" },
+                              { value: "brave", label: "Brave Search" }
                             ]
                           : [
-                              { value: "none", label: "None (Disable search)" },
-                              { value: "duckduckgo", label: "DuckDuckGo (HTML scraping)" },
-                              { value: "searxng", label: "SearXNG (Self-hosted)" },
-                              { value: "brave", label: "Brave Search API" },
-                              { value: "tavily", label: "Tavily Search API" },
-                              { value: "exa", label: "Exa AI Search" },
-                              { value: "gemini-native", label: "Gemini Native Google Search" }
+                              { value: "none", label: "Off" },
+                              { value: "duckduckgo", label: "DuckDuckGo (no key needed)" },
+                              { value: "searxng", label: "SearXNG (self-hosted)" },
+                              { value: "brave", label: "Brave Search" },
+                              { value: "tavily", label: "Tavily" },
+                              { value: "exa", label: "Exa" },
+                              { value: "gemini-native", label: "Google Search through Gemini" }
                             ]
                       }
                     />
@@ -480,7 +486,7 @@ function SettingsLayout({
                 </Field>
 
                 {!isHosted && config.searchProvider === "searxng" && (
-                  <Field label="SearXNG Base URL" hint="Example: http://localhost:8888">
+                  <Field label="SearXNG address" hint="For example http://localhost:8888">
                     {(controlProps) => (
                       <Input
                         {...controlProps}
@@ -494,13 +500,13 @@ function SettingsLayout({
                 )}
 
                 {isHosted && ["brave", "tavily", "exa"].includes(config.searchProvider) && (
-                  <div className="flex flex-col gap-3 rounded-card border border-border/60 bg-surface-raised p-3">
+                  <div className="flex flex-col gap-3 border-t border-border pt-4">
                     <Field
-                      label={`${config.searchProvider.toUpperCase()} API Key`}
+                      label={`${SEARCH_PROVIDER_NAMES[config.searchProvider] ?? config.searchProvider} API key`}
                       hint={
                         isByokKeyPersistent(config.searchProvider)
-                          ? "Stored in browser localStorage."
-                          : "Stored in browser sessionStorage (cleared when tab closes)."
+                          ? `Your key is kept in this browser's local storage until you clear it. ${KEY_HANDLING_SENTENCES.slice(1).join(" ")}`
+                          : KEY_HANDLING_SENTENCES.join(" ")
                       }
                     >
                       {(controlProps) => (
@@ -512,7 +518,7 @@ function SettingsLayout({
                               placeholder={
                                 getByokKey(config.searchProvider)
                                   ? "••••••••••••••••"
-                                  : `Enter ${config.searchProvider} API key`
+                                  : `Paste your ${SEARCH_PROVIDER_NAMES[config.searchProvider] ?? config.searchProvider} key`
                               }
                               value={hostedSearchKeyDraft}
                               onChange={(e) => setHostedSearchKeyDraft(e.target.value)}
@@ -533,7 +539,7 @@ function SettingsLayout({
                               }}
                               disabled={!hostedSearchKeyDraft.trim()}
                             >
-                              Save Key
+                              Save key
                             </Button>
                             {getByokKey(config.searchProvider) && (
                               <Button
@@ -545,16 +551,16 @@ function SettingsLayout({
                                   updateConfig({ tier2Enabled: false });
                                 }}
                               >
-                                Clear
+                                Clear key
                               </Button>
                             )}
                           </div>
-                          <label className="flex items-center gap-2 text-caption text-text-muted cursor-pointer">
+                          <label className="flex items-center gap-2 text-caption text-text-secondary cursor-pointer">
                             <input
                               type="checkbox"
                               checked={hostedSearchRemember}
                               onChange={(e) => setHostedSearchRemember(e.target.checked)}
-                              className="rounded border-border"
+                              className="accent-[var(--accent)]"
                             />
                             <span>Remember for this browser</span>
                           </label>
@@ -565,12 +571,15 @@ function SettingsLayout({
                 )}
 
                 {!isHosted && ["brave", "tavily", "exa"].includes(config.searchProvider) && (
-                  <Field label="API key" hint="Saved locally in your browser.">
+                  <Field
+                    label={`${SEARCH_PROVIDER_NAMES[config.searchProvider] ?? config.searchProvider} API key`}
+                    hint="Stored in this browser's local storage. Sent with each request only so the PCBuildSage server can forward it to this provider."
+                  >
                     {(controlProps) => (
                       <Input
                         {...controlProps}
                         type="password"
-                        placeholder="Enter API key"
+                        placeholder="Paste your key"
                         value={uiKeys[config.searchProvider] || ""}
                         onChange={(e) => handleKeyChange(config.searchProvider, e.target.value)}
                       />
@@ -583,33 +592,28 @@ function SettingsLayout({
                     <Toggle
                       checked={config.crawlEnabled}
                       onChange={(value) => updateConfig({ crawlEnabled: value })}
-                      label="Enable page crawling (Crawl4AI)"
-                      description="Extracts main content from top search result for deeper context."
+                      label="Read the top result"
+                      description="Opens the top search result and pulls out its main text for more detail. Uses Crawl4AI."
                     />
-                    <div className="flex items-center gap-3 pl-1">
+                    <div className="flex flex-wrap items-center gap-3">
                       <Button
                         variant="ghost"
                         size="sm"
                         disabled={crawlerProbeState.busy}
                         onClick={() => handleProbeCrawler(true)}
                       >
-                        {crawlerProbeState.busy ? "Checking…" : "Check again"}
+                        {crawlerProbeState.busy ? "Checking…" : "Check page reader"}
                       </Button>
-                      {crawlerProbeState.busy && (
-                        <span className="text-caption text-text-muted">Checking…</span>
-                      )}
                       {!crawlerProbeState.busy && crawlerProbeState.status === "ready" && (
-                        <span className="text-caption font-medium text-emerald-500">Ready</span>
-                      )}
-                      {!crawlerProbeState.busy && crawlerProbeState.status === "unavailable" && (
-                        <span className="text-caption font-medium text-blocking">
-                          Unavailable: {crawlerProbeState.reason || "Chromium is missing"}
+                        <span className="inline-flex items-center gap-1 text-caption text-ok">
+                          <Icon icon={Check} size={13} />
+                          Page reader ready
                         </span>
                       )}
                     </div>
                     {!crawlerProbeState.busy && crawlerProbeState.status === "unavailable" && (
-                      <p className="text-caption text-text-muted pl-1">
-                        Page crawling unavailable: {crawlerProbeState.reason || "Chromium is missing"}. Web search is available.
+                      <p className="text-caption text-warn">
+                        Page reader unavailable: {crawlerProbeState.reason || "Chromium is missing"}. Web search still works.
                       </p>
                     )}
                   </div>
@@ -618,7 +622,7 @@ function SettingsLayout({
                 {config.searchProvider !== "none" && (
                   <Field
                     label="Research model"
-                    hint="Using 'Same as chat' shares model usage allowances with your chat conversation."
+                    hint="“Same as chat” shares your chat model's usage limits."
                   >
                     {(controlProps) => (
                       <Select
@@ -643,9 +647,9 @@ function SettingsLayout({
                           }
                         }}
                         options={[
-                          { value: "same-as-chat", label: "Same as chat (Shares model usage allowances)" },
+                          { value: "same-as-chat", label: "Same as chat" },
                           ...(config.chatChain?.[0]?.model
-                            ? [{ value: config.chatChain[0].model, label: `${config.chatChain[0].model} (Chat model)` }]
+                            ? [{ value: config.chatChain[0].model, label: `${config.chatChain[0].model} (your chat model)` }]
                             : [])
                         ]}
                       />
@@ -654,53 +658,47 @@ function SettingsLayout({
                 )}
 
                 {config.searchProvider !== "none" && (
-                  <div className="pt-2 border-t border-border flex flex-col gap-2">
-                    <div className="flex items-center gap-3">
+                  <div className="flex flex-col gap-2 border-t border-border pt-4">
+                    <div className="flex flex-wrap items-center gap-3">
                       <Button
                         variant="ghost"
                         size="sm"
                         disabled={probeState.busy}
                         onClick={handleTestSearch}
                       >
-                        {probeState.busy ? "Testing connection..." : probeState.status ? "Check again" : "Test connection"}
+                        {probeState.busy ? "Searching…" : probeState.status ? "Test again" : "Test search"}
                       </Button>
-                      {probeState.busy && (
-                        <span className="text-caption text-text-muted">Checking…</span>
-                      )}
                       {!probeState.busy && probeState.message && (
                         <span
-                          className={cn(
-                            "text-caption font-medium",
-                            probeState.isError ? "text-blocking" : "text-emerald-500"
-                          )}
+                          className={`text-caption ${probeState.isError ? "text-warn" : "text-ok"}`}
                         >
                           {probeState.message}
                         </span>
                       )}
                     </div>
                     <p className="text-caption text-text-muted">
-                      Distinguishes network/authentication failure from empty search results without invoking an LLM.
+                      Runs one search to check the provider and key. No AI model is used.
                     </p>
                   </div>
                 )}
-              </Card>
+              </div>
             </Section>
           )}
 
           {activeTab === "personalization" && (
-            <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-10">
               {!isHosted && <MarketPreferenceSection />}
-              <Section title="Theme" description="Switching swaps the color set instantly — no reload.">
+              <Section title="Theme" description="Pick the colors. They change right away.">
                 <CatalogNotice
                   status={themeCatalog.status}
                   error={themeCatalog.status === "error" ? themeCatalog.message : undefined}
                   empty={themeCatalog.status === "ready" && themeCatalog.themes.length === 0}
                   loadingText="Loading themes…"
-                  errorTitle="Could not load themes"
-                  emptyText="No themes are installed. The built-in sage-dark colors remain active."
+                  errorTitle="Couldn't load themes"
+                  emptyText="No themes are installed. The built-in Sage dark colors stay on."
                 />
                 {themeCatalog.status === "ready" && themes.length > 0 ? (
-                  <ChoiceGroup label="Theme" legendClassName="sr-only" className="grid gap-2 sm:grid-cols-2">
+                  <ChoiceGroup label="Theme" legendClassName="sr-only" className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">
                     {themes.map((theme) => {
                     const name = theme.theme_name ?? theme.id;
                     const active = name === config.theme;
@@ -713,12 +711,12 @@ function SettingsLayout({
                         checked={active}
                         onChange={() => setTheme(name)}
                         className={cn(
-                          "flex items-center gap-3 rounded-card border bg-surface p-3 text-left transition-colors duration-150 cursor-pointer",
-                          active ? "border-accent" : "border-border hover:border-text-muted"
+                          "flex min-h-12 items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 cursor-pointer",
+                          active ? "bg-accent/10" : "hover:bg-surface-raised"
                         )}
                       >
                         <Icon icon={theme.mode === "light" ? Sun : Moon} size={16} className="text-text-secondary" />
-                        <span className="flex-1 text-sm text-text">{name}</span>
+                        <span className={cn("flex-1 text-sm", active ? "font-medium text-text" : "text-text")}>{themeLabel(name)}</span>
                         <ThemeSwatch tokens={theme.tokens} />
                         {active ? <Icon icon={Check} size={15} className="text-accent" /> : null}
                       </ChoiceControl>
@@ -728,18 +726,18 @@ function SettingsLayout({
                 ) : null}
               </Section>
 
-              <Section title="Personality" description="The tone the sage speaks in.">
+              <Section title="Tone" description="How the Sage talks to you.">
                 <CatalogNotice
                   status={personalityCatalog.status}
                   error={personalityCatalog.status === "error" ? personalityCatalog.message : undefined}
                   empty={personalityCatalog.status === "ready" && personalityCatalog.personalities.length === 0}
-                  loadingText="Loading personalities…"
-                  errorTitle="Could not load personalities"
-                  emptyText="No personalities are installed."
+                  loadingText="Loading tones…"
+                  errorTitle="Couldn't load tones"
+                  emptyText="No tones are installed."
                   onRetry={loadPersonalities}
                 />
                 {personalityCatalog.status === "ready" && personalities.length > 0 ? (
-                  <ChoiceGroup label="Personality" legendClassName="sr-only" className="grid gap-2 sm:grid-cols-2">
+                  <ChoiceGroup label="Tone" legendClassName="sr-only" className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">
                     {personalities.map((personality) => {
                     const active = config.personality === personality.id;
                     return (
@@ -751,12 +749,15 @@ function SettingsLayout({
                         checked={active}
                         onChange={() => updateConfig({ personality: personality.id })}
                         className={cn(
-                          "flex flex-col gap-0.5 rounded-card border bg-surface p-3 text-left transition-colors duration-150 cursor-pointer",
-                          active ? "border-accent" : "border-border hover:border-text-muted"
+                          "flex items-start gap-3 px-4 py-3 text-left transition-colors duration-150 cursor-pointer",
+                          active ? "bg-accent/10" : "hover:bg-surface-raised"
                         )}
                       >
-                        <span className="text-sm font-medium text-text">{personality.name}</span>
-                        <span className="text-caption text-text-secondary">{personality.description}</span>
+                        <span className="flex flex-1 flex-col gap-0.5">
+                          <span className="text-sm font-medium text-text">{personality.name}</span>
+                          <span className="text-caption text-text-secondary">{personality.description}</span>
+                        </span>
+                        {active ? <Icon icon={Check} size={15} className="mt-0.5 text-accent" /> : null}
                       </ChoiceControl>
                     );
                     })}
@@ -767,67 +768,68 @@ function SettingsLayout({
           )}
 
           {activeTab === "database" && !isHosted && (
-            <div className="flex flex-col gap-8">
-              <Section title="Research (Tier 2)" description="Advisory subagents — never override deterministic Tier 1 blocks.">
-                <Card className="flex flex-col gap-4 p-4">
+            <div className="flex flex-col gap-10">
+              <Section title="Spec research" description="Lets the Sage look up specs the catalog is missing. Research only advises; it never overrides a compatibility block.">
+                <div className="flex flex-col divide-y divide-border rounded-card border border-border bg-surface [&>*]:px-4 [&>*]:py-3.5">
                   <Toggle
                     checked={config.tier2Enabled}
                     onChange={(value) => updateConfig({ tier2Enabled: value })}
-                    label="Enable research subagents"
-                    description="Research unknown specs and run advisory build audits."
+                    label="Research missing specs"
+                    description="Looks up unknown specs and runs an advisory check of the build."
                   />
                   <Toggle
                     checked={config.auditVisible}
                     onChange={(value) => updateConfig({ auditVisible: value })}
                     label="Show research in chat"
-                    description="Surface consult tool chips and advisory audit notes inline."
+                    description="Shows research steps and check notes in the conversation."
                     disabled={!config.tier2Enabled}
                   />
                   <Toggle
                     checked={config.freeformConsultEnabled}
                     onChange={(value) => updateConfig({ freeformConsultEnabled: value })}
-                    label="Freeform consultation"
-                    description="Allow ad-hoc grounded questions beyond the build cascade."
+                    label="Answer open questions"
+                    description="Lets you ask sourced spec questions outside a build."
                     disabled={!config.tier2Enabled}
                   />
-                </Card>
+                </div>
               </Section>
 
-              <Section title="Research registry" description="Export community-researched specs to contribute back.">
-                <Card className="flex flex-col gap-3 p-4">
+              <Section title="Share researched specs" description="Export the specs research found so they can be added to the shared catalog.">
+                <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="flex items-center gap-2 text-sm text-text">
-                      <Icon icon={Sparkles} size={16} className="text-unverified" />
-                      Export researched specs
-                    </span>
+                    <span className="text-sm text-text">Researched specs</span>
                     <Button variant="ghost" iconLeft={Download} loading={exportState.busy} onClick={runExport}>
                       Export
                     </Button>
                   </div>
                   {exportState.files ? (
-                    <ul className="border-t border-border pt-3 font-mono text-caption text-text-secondary">
-                      {exportState.files.length ? (
-                        exportState.files.map((file) => <li key={file}>{file}</li>)
-                      ) : (
-                        <li>No researched specs to export yet.</li>
-                      )}
-                    </ul>
+                    exportState.files.length ? (
+                      <ul className="border-t border-border pt-3 font-mono text-caption text-text-secondary">
+                        {exportState.files.map((file) => <li key={file}>{file}</li>)}
+                      </ul>
+                    ) : (
+                      <p className="border-t border-border pt-3 text-caption text-text-secondary">No researched specs to export yet.</p>
+                    )
                   ) : null}
                   {exportState.error ? (
-                    <p className="border-t border-border pt-3 text-caption" style={{ color: "var(--warn)" }}>
+                    <p className="border-t border-border pt-3 text-caption text-warn">
                       {exportState.error}
                     </p>
                   ) : null}
-                </Card>
+                </div>
               </Section>
 
-              <Section title="Scraping & Local Catalog Setup" description="Configure local product database and launch scraping jobs.">
+              <Section title="Product catalog" description="Set up the local product database and scrape retailer listings.">
                 <Button
                   variant="ghost"
                   iconLeft={Wand2}
-                  onClick={() => updateConfig({ onboarded: false })}
+                  onClick={() => {
+                    updateConfig({ onboarded: false });
+                    openSetup();
+                  }}
+                  className="self-start"
                 >
-                  Launch Scraping & Setup Wizard
+                  Open catalog setup
                 </Button>
               </Section>
             </div>
@@ -901,24 +903,25 @@ function CatalogNotice({
   }
   if (status === "error") {
     return (
-      <Card className="flex items-start justify-between gap-3 p-3" role="alert">
+      <div className="flex items-start justify-between gap-3 rounded-card border border-border bg-surface p-3" role="alert">
         <div>
-          <p className="text-caption font-medium text-text">{errorTitle}</p>
+          <p className="text-caption font-medium text-warn">{errorTitle}</p>
           {error ? <p className="text-caption text-text-secondary">{error}</p> : null}
         </div>
-        {onRetry ? <Button variant="ghost" size="sm" onClick={onRetry}>Retry</Button> : null}
-      </Card>
+        {onRetry ? <Button variant="ghost" size="sm" onClick={onRetry}>Try again</Button> : null}
+      </div>
     );
   }
   return <p className="text-caption text-text-muted">{emptyText}</p>;
 }
 
+/** One settings section: a type-title heading, a one-line description, then its controls. */
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-col gap-0.5">
-        <h2 className="text-lg font-semibold text-text">{title}</h2>
-        {description ? <p className="text-caption text-text-secondary">{description}</p> : null}
+      <div className="flex flex-col gap-1">
+        <h2 className="type-title text-xl text-text">{title}</h2>
+        {description ? <p className="text-sm text-text-secondary">{description}</p> : null}
       </div>
       {children}
     </section>
@@ -932,7 +935,7 @@ function ThemeSwatch({ tokens }: { tokens: Record<string, string> }) {
       {keys.map((key) => (
         <span
           key={key}
-          className="h-4 w-4 rounded-full border border-border"
+          className="h-4 w-4 rounded-chip border border-border"
           style={{ backgroundColor: tokens[key] ?? "transparent" }}
         />
       ))}

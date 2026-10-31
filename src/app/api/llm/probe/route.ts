@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { generateTextWithFallback, probeToolCapability, PROBE_TIMEOUT_MS } from "@/lib/llm/client";
 import { isHostedDemo, validateChatProviderUrl } from "@/lib/config/deployment";
+import { probeFailureHint } from "@/lib/llm/probe-outcome";
 import { entryFromRequest } from "../../_lib/credentials";
 import { badRequest, json } from "../../_lib/responses";
 
@@ -57,7 +58,7 @@ export async function POST(request: Request): Promise<Response> {
         reachable: false,
         latencyMs: Date.now() - started,
         toolCapable: false,
-        hint: error instanceof Error ? error.message : String(error)
+        hint: probeFailureHint(error)
       });
     }
   } catch (error) {

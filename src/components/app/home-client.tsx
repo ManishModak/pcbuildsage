@@ -1,9 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app/app-provider";
 import { AppShell } from "@/components/app/app-shell";
+import { LandingActionsContext } from "@/components/app/landing-actions";
+import { clearSetupHash, SETUP_HASH, setupHashPresent } from "@/components/app/setup-hash";
 import { ChatWorkspace } from "@/features/chat/chat-workspace";
 import { Wizard } from "@/features/wizard/wizard";
 import { Spinner } from "@/components/ui/primitives";
@@ -32,29 +34,61 @@ export function landingViewDue(ready: boolean, onboarded: boolean): boolean {
 
 export function HomeClient({ landing }: { landing: ReactNode }) {
   const { config, ready } = useApp();
+  const [setupOpen, setSetupOpen] = useState(setupHashPresent);
 
   useEffect(() => {
     if (landingViewDue(ready, config.onboarded)) fireOnce("landing_view");
   }, [ready, config.onboarded]);
 
-  // Not yet hydrated from localStorage: keep the server-rendered landing in
-  // the HTML so crawlers and first paint see real content. Returning users
-  // get the spinner instead (CSS keyed on html[data-returning], see layout.tsx).
-  if (!ready) {
+  useEffect(() => {
+    const sync = () => setSetupOpen(setupHashPresent());
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
+
+  const startSetup = useCallback(() => {
+    window.location.hash = SETUP_HASH;
+    setSetupOpen(true);
+    window.scrollTo(0, 0);
+  }, []);
+  const landingActions = useMemo(() => ({ startSetup }), [startSetup]);
+
+  // First-time visitors get the landing (the same HTML the server rendered, so
+  // nothing flashes or swaps) until they choose to set up. Before hydration
+  // the landing stays for crawlers and first paint; returning users get the
+  // spinner instead (globals.css, keyed on data-landing and the
+  // html[data-returning] that layout.tsx sets). data-landing is dropped once
+  // hydrated, so a returning user
+  // who backs out of setup still sees the landing. The tree shape is the same
+  // in both states so the landing never remounts.
+  // The hash is also read here, not only on hashchange: openSetup() sets it in
+  // the same click that resets `onboarded`, and this render must already see it.
+  if (!ready || (!config.onboarded && !setupOpen && !setupHashPresent())) {
     return (
-      <>
-        <div data-landing="">{landing}</div>
-        <div data-returning-spinner="" className="min-h-dvh items-center justify-center bg-bg">
-          <Spinner size={32} />
-        </div>
-      </>
+      <LandingActionsContext.Provider value={landingActions}>
+        <div data-landing={ready ? undefined : ""}>{landing}</div>
+        {!ready ? (
+          <div data-returning-spinner="" className="min-h-dvh items-center justify-center bg-bg">
+            <Spinner size={32} />
+          </div>
+        ) : null}
+      </LandingActionsContext.Provider>
     );
   }
 
   if (!config.onboarded) {
     return (
       <AppShell showSettings={false}>
-        <Wizard onComplete={() => fireOnce("onboarding_completed")} />
+        <Wizard
+          onComplete={() => {
+            clearSetupHash();
+            fireOnce("onboarding_completed");
+          }}
+          onExit={() => {
+            clearSetupHash();
+            setSetupOpen(false);
+          }}
+        />
       </AppShell>
     );
   }

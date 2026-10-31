@@ -10,7 +10,10 @@ import fixture from "../../../../data/fixtures/sample-conversation.json";
 interface SampleFixture {
   generated_at: string;
   source: { db: string; scope: { countryCode: string; currency: string } };
-  snapshot: { components: Array<{ name: string; product_id?: string; price: number | null }> };
+  examples: Array<{
+    id: string;
+    snapshot: { components: Array<{ name: string; product_id?: string; price: number | null; observed_at: string }> };
+  }>;
 }
 
 const fixtureData: SampleFixture = fixture as unknown as SampleFixture;
@@ -47,7 +50,8 @@ describe("sample conversation", () => {
   });
 
   it.skipIf(!repo)("references only product IDs that exist in the real catalog", async () => {
-    const ids = fixtureData.snapshot.components
+    const components = fixtureData.examples.flatMap((example) => example.snapshot.components);
+    const ids = components
       .map((component) => component.product_id)
       .filter((id): id is string => Boolean(id));
     expect(ids.length).toBeGreaterThan(0);
@@ -63,9 +67,7 @@ describe("sample conversation", () => {
     const found = new Set(resolved.results.map((product) => product.id));
     expect(ids.filter((id) => !found.has(id))).toEqual([]);
     // Every example part is priced, so the card shows an honest total.
-    expect(
-      fixtureData.snapshot.components.every((component) => component.price !== null)
-    ).toBe(true);
+    expect(components.every((component) => component.price !== null)).toBe(true);
   });
 
   it("renders the example statically, labelled, with no network calls", () => {
@@ -75,11 +77,13 @@ describe("sample conversation", () => {
       expect(fetchSpy).not.toHaveBeenCalled();
       expect(markup).toContain("Example");
       expect(markup).toContain("not your chat");
-      expect(markup).toContain(fixtureData.generated_at.slice(0, 10));
+      // Dated by when the prices were observed, not when the file was written.
+      const observed = fixtureData.examples[0].snapshot.components.map((c) => c.observed_at).sort()[0];
+      expect(markup).toContain(`dateTime="${observed.slice(0, 10)}"`);
       expect(markup).toContain("Nothing here was saved");
       // The real build card rendered from the snapshot.
       expect(markup).toContain("Proposed build");
-      expect(markup).toContain(fixtureData.snapshot.components[0].name);
+      expect(markup).toContain(fixtureData.examples[0].snapshot.components[0].name);
     } finally {
       fetchSpy.mockRestore();
     }

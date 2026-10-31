@@ -43,7 +43,7 @@ export function SaveAlert({ message }: { message: string }) {
       role="alert"
     >
       <Icon icon={TriangleAlert} size={16} className="mt-0.5 shrink-0" />
-      <span className="flex-1 whitespace-pre-wrap leading-relaxed">{message}</span>
+      <span className="flex-1 whitespace-pre-wrap leading-[1.55]">{message}</span>
     </div>
   );
 }

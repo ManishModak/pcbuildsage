@@ -10,31 +10,37 @@ export const metadata: Metadata = pageSeo(
 
 export default function HelpPage() {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-text">Help</h1>
-        <p className="text-sm text-text-secondary">Short guides for getting PCBuildSage running.</p>
+    <main className="mx-auto flex w-full max-w-[68ch] flex-col gap-8 px-6 py-12">
+      <div className="flex flex-col gap-2">
+        <h1 className="type-title text-2xl text-text">Help</h1>
+        <p className="text-base leading-[1.65] text-text-secondary">Short guides for getting PCBuildSage running.</p>
       </div>
-      <nav className="flex flex-col gap-3" aria-label="Help topics">
-        <Link
-          href="/help/api-key"
-          className="rounded-card border border-border bg-surface p-4 transition-colors hover:border-accent"
-        >
-          <span className="block text-base font-semibold text-text">Get a free API key in 2 minutes</span>
-          <span className="mt-0.5 block text-sm text-text-secondary">
-            Gemini and OpenRouter setup steps, what a key costs, whether it is safe, and what to do when a key is
-            rejected or the free limit is hit.
-          </span>
-        </Link>
-        <Link
-          href="/settings?tab=llm"
-          className="rounded-card border border-border bg-surface p-4 transition-colors hover:border-accent"
-        >
-          <span className="block text-base font-semibold text-text">Open Settings</span>
-          <span className="mt-0.5 block text-sm text-text-secondary">
-            Paste or clear provider keys and pick the model chat uses.
-          </span>
-        </Link>
+      <nav aria-label="Help topics">
+        <ul className="divide-y divide-border overflow-hidden rounded-card border border-border">
+          <li>
+            <Link
+              href="/help/api-key"
+              className="block px-4 py-4 transition-colors duration-150 hover:bg-surface-raised"
+            >
+              <span className="type-title block text-base text-text">Get a free API key in 2 minutes</span>
+              <span className="mt-1 block text-sm leading-relaxed text-text-secondary">
+                Gemini and OpenRouter setup steps, what a key costs, whether it is safe, and what to do when a key is
+                rejected or the free limit is hit.
+              </span>
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/settings?tab=llm"
+              className="block px-4 py-4 transition-colors duration-150 hover:bg-surface-raised"
+            >
+              <span className="type-title block text-base text-text">Open settings</span>
+              <span className="mt-1 block text-sm leading-relaxed text-text-secondary">
+                Paste or clear provider keys and pick the model chat uses.
+              </span>
+            </Link>
+          </li>
+        </ul>
       </nav>
     </main>
   );

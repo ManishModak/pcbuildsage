@@ -1,28 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Radio } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { useApp } from "@/components/app/app-provider";
-import { fetchCredentials, fetchEndpoints, fetchMarkets, fetchStatus, isHostedMode, probeEntry } from "@/lib/api-client";
+import { fetchCredentials, fetchEndpoints, fetchMarkets, fetchStatus, isHostedMode } from "@/lib/api-client";
 import { getErrorMessage } from "@/lib/format";
-import type { ChainEntry, CredentialAvailability, LLMProvider, MarketMetadata, PingResult } from "@/types/client";
+import type { ChainEntry, CredentialAvailability, MarketMetadata } from "@/types/client";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
 import { Button, Card, Spinner } from "@/components/ui/primitives";
 import { MarketPreferenceSection } from "@/features/settings/market-preference-section";
-import { ByokSection } from "@/features/settings/byok-section";
-import { getByokKey, hasByokKey } from "@/lib/llm/client-byok-store";
 import { setMarketPreference } from "@/lib/market/client-market-store";
-import { StepChat } from "./step-chat";
 import { StepDataSource, type DataSourceChoice, type StatusLoadState } from "./step-data-source";
+import { StepHostedModel } from "./step-hosted-model";
 import { StepLLM, type EndpointLoadState } from "./step-llm";
 import { StepScrape } from "./step-scrape";
-import { hostedByokCanAdvance, hostedProbeIsCurrent, isHostedByokProvider, shouldSkipMarketStep } from "./hosted-gating";
+import { StepHeader } from "./simple-panel";
+import { shouldSkipMarketStep } from "./hosted-gating";
 
-const LOCAL_STEPS = ["Data source", "Fetch data", "AI providers", "Personalize"];
-const HOSTED_STEPS = ["Market", "AI Provider", "Personalize"];
+// Setup ends on the AI model step: the sage's tone is a Settings choice, not
+// something to ask before the first build.
+const LOCAL_STEPS = ["Data source", "Fetch data", "AI model"];
+const HOSTED_STEPS = ["Region and currency", "AI model"];
 
-export function Wizard({ onComplete }: { onComplete: () => void }) {
+export function Wizard({ onComplete, onExit }: { onComplete: () => void; onExit?: () => void }) {
   const { config, updateConfig } = useApp();
   const [step, setStep] = useState(0);
 
@@ -32,16 +33,6 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
   const [dataSource, setDataSource] = useState<DataSourceChoice | null>(null);
   const [chain, setChain] = useState<ChainEntry[]>(config.chatChain);
   const [markets, setMarkets] = useState<MarketMetadata[] | null>(null);
-
-  // Hosted BYOK gate: key + chosen model must pass the /api/llm/probe check
-  // (reachable + tool-capable) before Continue unlocks.
-  const [hostedProbe, setHostedProbe] = useState<PingResult | null>(null);
-  const [hostedProbedFor, setHostedProbedFor] = useState<{ provider: string; model: string } | null>(null);
-  const [hostedProbing, setHostedProbing] = useState(false);
-  const configRef = useRef(config);
-  useEffect(() => {
-    configRef.current = config;
-  });
 
   const requestStatus = useCallback(
     () => fetchStatus()
@@ -105,64 +96,10 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
   const primary = chain[0];
   const primaryReady = Boolean(primary?.model) && Boolean(primary?.ping?.toolCapable);
 
-  // Hosted BYOK selection: ByokSection keeps config.chatChain current via onModelChange.
-  const hostedEntry = config.chatChain[0] && isHostedByokProvider(config.chatChain[0].provider)
-    ? config.chatChain[0]
-    : null;
-  const hostedSelection = hostedEntry ? { provider: hostedEntry.provider, model: hostedEntry.model } : null;
-  const hostedHasKey = hostedEntry ? hasByokKey(hostedEntry.provider) : false;
-  const hostedProbeCurrent =
-    hostedEntry && hostedProbeIsCurrent(hostedProbe, hostedProbedFor, hostedSelection);
-  const hostedReady = Boolean(
-    hostedEntry?.model && hostedHasKey && hostedProbeCurrent && hostedByokCanAdvance(hostedProbe)
-  );
-
-  const runHostedProbe = useCallback(async () => {
-    const entry = configRef.current.chatChain[0];
-    if (!entry || !isHostedByokProvider(entry.provider) || !entry.model) return;
-    const key = getByokKey(entry.provider);
-    if (!key) return;
-    setHostedProbing(true);
-    try {
-      const result = await probeEntry(
-        { provider: entry.provider as LLMProvider, model: entry.model, keySource: "ui" },
-        key
-      );
-      setHostedProbe(result);
-      setHostedProbedFor({ provider: entry.provider, model: entry.model });
-      if (result.reachable && result.toolCapable) {
-        const current = configRef.current;
-        updateConfig({
-          chatChain: current.chatChain.map((item, index) =>
-            index === 0 ? { ...item, ping: result } : item
-          )
-        });
-      }
-    } catch (error) {
-      setHostedProbe({
-        reachable: false,
-        latencyMs: 0,
-        toolCapable: false,
-        hint: getErrorMessage(error instanceof Error ? error : new Error(String(error)))
-      });
-      setHostedProbedFor({ provider: entry.provider, model: entry.model });
-    } finally {
-      setHostedProbing(false);
-    }
-  }, [updateConfig]);
-
-  const canAdvance = useMemo(() => {
-    if (isHosted) return step === 1 ? hostedReady : true;
-    if (step === 0) return dataSource !== null;
-    if (step === 2) return primaryReady;
-    return true;
-  }, [isHosted, step, dataSource, primaryReady, hostedReady]);
-
+  // Hosted: StepHostedModel calls this only after its model check passed, and
+  // ByokSection already keeps config.chatChain current. Local: the chain built
+  // on the AI model step, which only continues once the main model passed.
   const finish = () => {
-    // Hosted: the chain is maintained by ByokSection via onModelChange and the
-    // BYOK step gate guarantees a probed, tool-capable entry. Never finish
-    // without it — the first message would otherwise fail.
-    if (isHosted && !hostedReady) return;
     updateConfig({ onboarded: true, ...(!isHosted ? { chatChain: chain } : {}) });
     onComplete();
   };
@@ -191,7 +128,7 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:py-12 md:flex-row md:gap-10">
-      <Stepper steps={steps} step={step} onJump={(index) => index < step && go(index)} />
+      <Stepper steps={steps} step={step} onJump={(index) => index < step && go(index)} onExit={onExit} />
 
       <div className="min-w-0 flex-1">
         {/* Fade (no slide/remount jump) over a reserved min-height so the next
@@ -201,110 +138,20 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
             <>
               {step === 0 ? (
                 <section className="flex flex-col gap-6">
-                  <header className="flex flex-col gap-1">
-                    <h1 className="text-2xl font-semibold text-text">Choose your market</h1>
-                    <p className="text-base text-text-secondary">
-                      PCBuildSage queries live hardware offers tailored to your region. Select your country and native currency.
-                    </p>
-                  </header>
+                  <StepHeader title="Choose your region">
+                    Retailers, prices and currency follow the region you pick. You can change it later in Settings.
+                  </StepHeader>
 
-                  <Card className="p-5">
-                    <MarketPreferenceSection />
-                  </Card>
+                  <MarketPreferenceSection heading={false} />
 
                   <div className="flex items-center justify-end border-t border-border pt-4">
                     <Button iconRight={ArrowRight} onClick={() => go(1)}>
-                      Continue to AI Provider
+                      Continue
                     </Button>
                   </div>
                 </section>
               ) : null}
-
-              {step === 1 ? (
-                <section className="flex flex-col gap-6">
-                  <header className="flex flex-col gap-1">
-                    <h1 className="text-2xl font-semibold text-text">Connect your AI model (BYOK)</h1>
-                    <p className="text-base text-text-secondary">
-                      Bring your own Gemini or OpenRouter API key. Keys stay securely in your browser session and are never saved to our server or database.
-                    </p>
-                  </header>
-
-                  <ByokSection
-                    // Saving or clearing a key invalidates the probe: Continue
-                    // must re-lock until the current key passes again.
-                    onKeyChange={() => {
-                      setHostedProbe(null);
-                      setHostedProbedFor(null);
-                    }}
-                    onModelChange={(provider, model, contextLimit) => {
-                      setHostedProbe(null);
-                      setHostedProbedFor(null);
-                      updateConfig((prev) => ({
-                        ...prev,
-                        chatChain: [
-                          {
-                            id: `hosted-${provider}`,
-                            provider: provider as LLMProvider,
-                            model,
-                            keySource: "ui",
-                            ...(contextLimit ? { contextLimit } : {})
-                          }
-                        ]
-                      }));
-                    }}
-                  />
-
-                  <div className="flex flex-wrap items-center gap-3 rounded-card border border-border bg-surface px-3 py-2.5">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      iconLeft={Radio}
-                      onClick={() => void runHostedProbe()}
-                      disabled={hostedProbing || !hostedEntry?.model || !hostedHasKey}
-                    >
-                      {hostedProbing ? "Verifying…" : "Ping & probe tools"}
-                    </Button>
-                    {hostedProbing ? <Spinner size={14} /> : null}
-                    {hostedProbeCurrent && hostedProbe ? (
-                      hostedProbe.reachable && hostedProbe.toolCapable ? (
-                        <span className="text-caption font-medium text-accent" data-testid="hosted-probe-ok">
-                          Reachable · tool-capable — you can continue.
-                        </span>
-                      ) : !hostedProbe.reachable ? (
-                        <span className="text-caption font-medium text-warn" data-testid="hosted-probe-fail">
-                          Unreachable{hostedProbe.hint ? ` — ${hostedProbe.hint}` : ""}. Check your key and try again.
-                        </span>
-                      ) : (
-                        <span className="text-caption font-medium text-warn" data-testid="hosted-probe-fail">
-                          Reachable but no tool support — pick a Recommended model.
-                        </span>
-                      )
-                    ) : null}
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
-                    <Button variant="ghost" iconLeft={ArrowLeft} onClick={() => go(0)}>
-                      Back
-                    </Button>
-                    <div className="flex items-center gap-3">
-                      {!hostedReady ? (
-                        <span className="text-caption text-text-muted" data-testid="hosted-continue-reason">
-                          {!hostedEntry || !hostedHasKey
-                            ? "Add your API key above to continue."
-                            : !hostedEntry.model
-                              ? "Pick a model above to continue."
-                              : "Run 'Ping & probe tools' first: the model must be reachable and support tool calling."}
-                        </span>
-                      ) : null}
-                      <Button iconRight={ArrowRight} onClick={() => go(2)} disabled={!hostedReady}>
-                        Continue
-                      </Button>
-                    </div>
-                  </div>
-                </section>
-              ) : null}
-
-              {step === 2 ? <StepChat onBack={() => go(1)} onFinish={finish} /> : null}
+              {step === 1 ? <StepHostedModel onBack={() => go(0)} onFinish={finish} /> : null}
             </>
           ) : (
             <>
@@ -332,62 +179,87 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
                   endpointState={endpointState}
                   onRetryEndpoints={loadEndpoints}
                   onBack={() => go(1)}
-                  onNext={() => go(3)}
+                  onNext={finish}
                   canAdvance={primaryReady}
                 />
               ) : null}
-              {step === 3 ? <StepChat onBack={() => go(2)} onFinish={finish} /> : null}
             </>
           )}
         </div>
 
-        {!isHosted && step !== 0 && step !== 3 ? (
-          <NavHint canAdvance={canAdvance} step={step} primaryReady={primaryReady} />
-        ) : null}
       </div>
     </div>
   );
 }
 
-function Stepper({ steps, step, onJump }: { steps: string[]; step: number; onJump: (index: number) => void }) {
+function Stepper({
+  steps,
+  step,
+  onJump,
+  onExit
+}: {
+  steps: string[];
+  step: number;
+  onJump: (index: number) => void;
+  onExit?: () => void;
+}) {
   return (
-    <nav aria-label="Onboarding progress" className="md:w-44 md:shrink-0">
-      {/* Mobile: progress dots */}
-      <ol className="flex items-center gap-2 md:hidden">
+    <nav aria-label="Setup progress" className="md:w-48 md:shrink-0">
+      {onExit ? (
+        <button
+          type="button"
+          onClick={onExit}
+          className="mb-4 inline-flex items-center gap-1.5 rounded-btn text-sm text-text-secondary hover:text-text"
+        >
+          <Icon icon={ArrowLeft} size={14} />
+          Back to overview
+        </button>
+      ) : null}
+      {/* Mobile: a short bar per step and the current step's name */}
+      <ol className="flex items-center gap-1.5 md:hidden">
         {steps.map((label, index) => (
-          <li key={label} className="flex items-center gap-2">
-            <span
-              className={cn(
-                "h-2 w-2 rounded-pill",
-                index === step ? "bg-accent" : index < step ? "bg-accent/60" : "bg-border"
-              )}
-              style={index < step ? { backgroundColor: "color-mix(in srgb, var(--accent) 60%, transparent)" } : undefined}
-            />
-          </li>
+          <li
+            key={label}
+            className={cn("h-1 w-6 rounded-pill", index <= step ? "bg-accent" : "bg-border")}
+            aria-hidden
+          />
         ))}
-        <li className="ml-1 text-caption text-text-secondary">{steps[step]}</li>
+        <li className="ml-2 text-caption text-text-secondary">
+          Step {step + 1} of {steps.length}: {steps[step]}
+        </li>
       </ol>
 
-      {/* Desktop: left-aligned vertical stepper */}
-      <ol className="hidden flex-col gap-1 md:flex">
+      {/* Desktop: a rail of numbered nodes. Done steps can be revisited. */}
+      <ol className="hidden flex-col md:flex">
         {steps.map((label, index) => {
           const done = index < step;
           const current = index === step;
           return (
-            <li key={label}>
+            <li key={label} className="relative pb-6 last:pb-0">
+              {index < steps.length - 1 ? (
+                <span
+                  aria-hidden
+                  className={cn("absolute bottom-0 left-[19px] top-9 w-px", done ? "bg-accent" : "bg-border")}
+                />
+              ) : null}
               <button
                 type="button"
                 disabled={!done}
                 onClick={() => onJump(index)}
+                aria-current={current ? "step" : undefined}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-btn px-2 py-2 text-left text-sm transition-colors duration-150",
-                  done ? "text-text hover:bg-surface-raised" : current ? "text-text" : "text-text-muted"
+                  "flex w-full items-center gap-3 rounded-btn px-2 py-1.5 text-left text-sm transition-colors duration-150",
+                  done ? "text-text-secondary hover:bg-surface-raised hover:text-text" : current ? "font-medium text-text" : "text-text-muted"
                 )}
               >
                 <span
                   className={cn(
                     "flex h-6 w-6 shrink-0 items-center justify-center rounded-pill border font-mono text-caption",
-                    current ? "border-accent text-accent" : done ? "border-accent bg-accent text-on-accent" : "border-border"
+                    current
+                      ? "border-accent bg-bg text-accent ring-4 ring-accent/15"
+                      : done
+                        ? "border-accent bg-accent text-on-accent"
+                        : "border-border bg-bg"
                   )}
                 >
                   {done ? <Icon icon={Check} size={13} /> : index + 1}
@@ -400,16 +272,4 @@ function Stepper({ steps, step, onJump }: { steps: string[]; step: number; onJum
       </ol>
     </nav>
   );
-}
-
-function NavHint({ canAdvance, step, primaryReady }: { canAdvance: boolean; step: number; primaryReady: boolean }) {
-  if (canAdvance) return null;
-  if (step === 2 && !primaryReady) {
-    return (
-      <p className="mt-4 text-caption text-text-muted">
-        Ping your primary provider and confirm tool support before continuing.
-      </p>
-    );
-  }
-  return null;
 }

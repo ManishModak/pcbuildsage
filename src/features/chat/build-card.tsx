@@ -16,6 +16,7 @@ import {
   TEXT_BUILD_CAVEAT,
   type StripBadge
 } from "./build-derive";
+import { VerdictSeal } from "./verdict-seal";
 
 export interface BuildCardProps {
   builds?: DerivedBuild[];
@@ -37,9 +38,11 @@ export interface BuildCardProps {
   onRecheckPrices?: (prompt: string) => void;
 }
 
-// The flagship artifact. One card per proposed build, presented as pill tabs
-// above a shared card body. Tab labels name the tradeoff each build makes and
-// come from the model via validate_build. Prices are mono, right-aligned, tabular.
+// The flagship artifact, laid out like a shop quotation: one line per part,
+// a double-ruled total, and the compatibility verdict stamped beside it.
+// Several proposed builds share the card as pill tabs; tab labels name the
+// tradeoff each build makes and come from the model via validate_build.
+// Prices are mono, right-aligned, tabular.
 export function BuildCard({
   builds,
   versions,
@@ -119,8 +122,8 @@ export function BuildCard({
       {availableVersions.length > 1 ? (
         <div className="flex items-center justify-between border-b border-border bg-surface-raised/40 px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <span className="text-caption font-medium text-text-secondary">
-              Build Version
+            <span className="type-label text-caption text-text-secondary">
+              Build version
             </span>
             <span className="rounded-pill bg-surface border border-border px-2 py-0.5 text-[11px] font-mono font-medium text-text-muted">
               v{activeVersionNum} of {availableVersions.length}
@@ -159,7 +162,7 @@ export function BuildCard({
       ) : null}
 
       {tabs.length > 1 ? (
-        <div className="border-b border-border px-4 pt-4">
+        <div className="border-b border-border px-4 pb-3 pt-4">
           <PillTabs
             tabs={tabs}
             value={String(safeIndex)}
@@ -168,11 +171,11 @@ export function BuildCard({
           />
         </div>
       ) : (
-        <div className="border-b border-border px-4 py-3">
-          <span className="inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
+        <div className="border-b border-border px-4 pb-3 pt-4">
+          <h3 className="type-title text-lg text-text">
             {/* A text-derived build's caveat is shown once, in the body below. */}
             {active.label ?? (active.textDerived ? undefined : currentVersionObj?.label) ?? "Proposed build"}
-          </span>
+          </h3>
         </div>
       )}
 
@@ -188,7 +191,15 @@ export function BuildCard({
                 {TEXT_BUILD_CAVEAT}
               </p>
             ) : null}
-            <BuildComponentsList active={active} total={total} strip={strip} onRecheckPrices={onRecheckPrices} />
+            <BuildComponentsList
+              // Remount per build so the seal stamps again for a different build.
+              key={`${currentVersionObj?.id ?? "build"}-${safeIndex}`}
+              sealId={`${selectId}-${safeIndex}`}
+              active={active}
+              total={total}
+              strip={strip}
+              onRecheckPrices={onRecheckPrices}
+            />
           </>
         )}
       </div>
@@ -205,11 +216,13 @@ function BuildComponentsList({
   active,
   total,
   strip,
+  sealId,
   onRecheckPrices
 }: {
   active: DerivedBuild;
   total: number | null;
   strip: StripBadge[];
+  sealId: string;
   onRecheckPrices?: (prompt: string) => void;
 }) {
   const age = priceAge(active.pricesAsOf);
@@ -221,13 +234,11 @@ function BuildComponentsList({
               // Two identical parts in one category are legal (a matched pair
               // of sticks, say), so the key needs the position too.
               key={`${componentIndex}-${component.category}-${component.name}`}
-              className="flex items-baseline gap-3 border-b border-border py-2.5 last:border-b-0"
+              className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 border-b border-dashed border-border py-3 last:border-b-0"
             >
-              <span className="w-24 shrink-0 text-caption font-medium uppercase tracking-wide text-text-muted">
-                {component.categoryLabel}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm text-text">{component.name}</span>
+              <span className="min-w-0">
+                <span className="type-label block text-caption text-text-muted">{component.categoryLabel}</span>
+                <span className="block text-[15px] leading-snug text-text">{component.name}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                   {component.notInCatalog ? (
                     <span className="inline-flex flex-wrap items-baseline gap-x-2 text-caption text-text-muted">
@@ -275,17 +286,26 @@ function BuildComponentsList({
                   ) : null}
                 </span>
               </span>
-              <span className="shrink-0 font-mono text-sm text-text">
+              <span className="self-end pb-0.5 font-mono text-sm text-text">
                 {formatPrice(component.price, component.currency)}
               </span>
             </li>
           ))}
         </ul>
 
-        <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
-          <span className="text-caption font-medium uppercase tracking-wide text-text-secondary">Total</span>
-          <span className="font-mono text-[22px] leading-none text-text">{formatPrice(total, active.currency)}</span>
+        <div className="mt-1 flex items-center gap-4 border-t-[3px] border-double border-border pt-4">
+          <VerdictSeal strip={strip} id={sealId} />
+          <div className="ml-auto flex flex-col items-end gap-1 text-right">
+            <span className="type-label text-caption text-text-secondary">Total</span>
+            <span className="font-mono text-[26px] font-medium leading-none text-text">
+              {formatPrice(total, active.currency)}
+            </span>
+          </div>
         </div>
+
+        <p className="mt-3 text-caption text-text-muted">
+          Prices and stock are snapshots from each retailer. Confirm them at checkout.
+        </p>
 
         {age ? (
           age.stale && onRecheckPrices ? (

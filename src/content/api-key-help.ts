@@ -67,7 +67,7 @@ export const GEMINI_KEY_GUIDE: ApiKeyHelpGuide = {
       sources: [{ url: "https://ai.google.dev/gemini-api/docs/api-key", checkedOn: API_KEY_HELP_CHECKED_ON }]
     },
     {
-      text: "Copy the key and paste it into the Google Gemini card in PCBuildSage Settings.",
+      text: "Copy the key and paste it into the Google Gemini row under AI model in PCBuildSage, then press Save key.",
       sources: [{ url: "src/features/settings/byok-section.tsx", checkedOn: API_KEY_HELP_CHECKED_ON }]
     }
   ]
@@ -89,7 +89,7 @@ export const OPENROUTER_KEY_GUIDE: ApiKeyHelpGuide = {
       sources: [{ url: "https://openrouter.ai/docs/api-keys", checkedOn: API_KEY_HELP_CHECKED_ON }]
     },
     {
-      text: "Copy the key and paste it into the OpenRouter card in PCBuildSage Settings.",
+      text: "Copy the key and paste it into the OpenRouter row under AI model in PCBuildSage, then press Save key.",
       sources: [{ url: "src/features/settings/byok-section.tsx", checkedOn: API_KEY_HELP_CHECKED_ON }]
     }
   ]
@@ -150,7 +150,7 @@ export const API_KEY_FACTS: ApiKeyHelpFact[] = [
   {
     id: "remove-key",
     heading: "How do I remove my key?",
-    text: "Remove a key at any time with Clear Key on its Settings card — this wipes it from browser storage.",
+    text: "Remove a key at any time with Clear key on its row in Settings, under AI model. This wipes it from browser storage.",
     sources: [{ url: "src/features/settings/byok-provider-card.tsx", checkedOn: API_KEY_HELP_CHECKED_ON }]
   },
   {
@@ -182,7 +182,7 @@ export const API_KEY_FAQS: ApiKeyHelpFaq[] = [
   {
     question: "What is an API key?",
     answer:
-      "A secret token that identifies your account to the model provider, so usage counts against your quota or credits. Paste yours into the matching provider card in PCBuildSage Settings.",
+      "A secret token that identifies your account to the model provider, so usage counts against your quota or credits. Paste yours into the matching provider row under AI model in PCBuildSage Settings.",
     sources: [
       { url: "https://ai.google.dev/gemini-api/docs/api-key", checkedOn: API_KEY_HELP_CHECKED_ON },
       { url: "https://openrouter.ai/docs/api-keys", checkedOn: API_KEY_HELP_CHECKED_ON }
@@ -233,7 +233,7 @@ export const API_KEY_FAQS: ApiKeyHelpFaq[] = [
   },
   {
     question: "How do I remove my key?",
-    answer: "Press Clear Key on the provider card in Settings. This wipes the key from your browser storage immediately.",
+    answer: "Press Clear key on the provider's row in Settings, under AI model. This wipes the key from your browser storage immediately.",
     sources: [{ url: "src/features/settings/byok-provider-card.tsx", checkedOn: API_KEY_HELP_CHECKED_ON }]
   }
 ];
@@ -243,7 +243,7 @@ const PLAIN_COPIES = [KEY_REJECTED_COPY, ACCESS_BLOCKED_COPY, FREE_LIMIT_COPY, D
 const DEMO_RATE_LIMIT_PATTERN = new RegExp(DEMO_RATE_LIMIT_CODE, "i");
 
 const AUTH_FAILURE_PATTERN =
-  /unauthorized|unauthenticated|invalid api key|invalid_api_key|incorrect api key|invalid key|authentication failed|api key.*(revoked|expired|invalid)/i;
+  /unauthorized|unauthenticated|invalid api key|invalid_api_key|incorrect api key|invalid key|authentication failed|api key.*(revoked|expired|invalid)|api key not valid|api_key_invalid/i;
 
 const ACCESS_BLOCKED_PATTERN = /forbidden|permission.?denied|not available in your (region|country)|unsupported (region|country|location)/i;
 

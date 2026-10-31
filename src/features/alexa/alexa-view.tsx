@@ -221,7 +221,7 @@ function AlexaConversation({
       {/* Page header */}
       <div className="flex items-center justify-between gap-2 pt-5">
         <div>
-          <h1 className="text-lg font-semibold text-text">Sage Voice</h1>
+          <h1 className="type-title text-xl text-text">Sage Voice</h1>
           <p className="text-caption text-text-muted">Push to talk — English (India)</p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -231,7 +231,7 @@ function AlexaConversation({
             aria-pressed={speech.muted}
             aria-label={speech.muted ? "Unmute spoken replies" : "Mute spoken replies"}
             title={speech.muted ? "Unmute spoken replies" : "Mute spoken replies"}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-btn border border-border text-text-secondary transition-colors hover:text-text"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-btn border border-border text-text-secondary transition-colors duration-150 hover:text-text"
           >
             <Icon icon={speech.muted ? VolumeX : Volume2} size={16} />
           </button>
@@ -239,14 +239,14 @@ function AlexaConversation({
             href="/settings?tab=llm"
             aria-label="Voice and API key settings"
             title="Voice and API key settings"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-btn border border-border text-text-secondary transition-colors hover:text-text"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-btn border border-border text-text-secondary transition-colors duration-150 hover:text-text"
           >
             <Icon icon={Settings} size={16} />
           </Link>
           <button
             type="button"
             onClick={onNewConversation}
-            className="inline-flex h-9 items-center gap-1.5 rounded-btn border border-border px-3 text-sm font-medium text-text-secondary transition-colors hover:text-text"
+            className="inline-flex h-9 items-center gap-1.5 rounded-btn border border-border px-3 text-sm font-medium text-text-secondary transition-colors duration-150 hover:text-text"
           >
             <Icon icon={Plus} size={15} />
             New chat
@@ -264,7 +264,7 @@ function AlexaConversation({
         <p className="mt-3 rounded-card border border-warn/40 bg-warn/10 px-4 py-2.5 text-sm text-text" role="alert">
           Add your API key to continue.{" "}
           <Link href="/settings?tab=llm" className="font-medium text-accent hover:underline">
-            BYOK settings
+            API key settings
           </Link>
         </p>
       ) : null}
@@ -359,7 +359,7 @@ function AlexaConversation({
             disabled={sendBlocked || draft.trim().length === 0}
             aria-label="Send message"
             className={cn(
-              "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition-colors",
+              "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition-colors duration-150",
               draft.trim().length === 0 || sendBlocked
                 ? "bg-surface-raised text-text-muted"
                 : "bg-accent text-on-accent hover:opacity-90"
@@ -393,7 +393,7 @@ function AlexaConversation({
       {/* Short transcript: last few turns */}
       {transcript.length > 0 ? (
         <section aria-label="Recent conversation" className="mt-6 border-t border-border pt-4">
-          <h2 className="text-caption font-medium tracking-wide text-text-muted uppercase">
+          <h2 className="type-label text-caption text-text-muted">
             Recently
           </h2>
           <ol className="mt-2 flex flex-col gap-2.5">
@@ -405,7 +405,7 @@ function AlexaConversation({
                   message.role === "user" ? "text-text-secondary" : "text-text"
                 )}
               >
-                <span className="mr-1.5 font-medium text-text-muted">
+                <span className="type-label mr-1.5 text-text-muted">
                   {message.role === "user" ? "You" : "Sage"}
                 </span>
                 {message.role === "assistant" ? spokenSummary(answerText(message)) : messageText(message)}

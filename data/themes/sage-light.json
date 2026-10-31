@@ -4,26 +4,26 @@
   "theme_name": "sage-light",
   "mode": "light",
   "tokens": {
-    "--bg": "#FAFBF9",
+    "--bg": "#F1F4F1",
     "--surface": "#FFFFFF",
-    "--surface-raised": "#F1F4F0",
-    "--border": "#DDE4DE",
-    "--text": "#1B221D",
-    "--text-secondary": "#4E5A52",
-    "--text-muted": "#6D766F",
-    "--accent": "#2F6B3C",
+    "--surface-raised": "#E7ECE7",
+    "--border": "#D3DCD5",
+    "--text": "#0E1C17",
+    "--text-secondary": "#46564D",
+    "--text-muted": "#5E6D64",
+    "--accent": "#5A3CC8",
     "--on-accent": "#FFFFFF",
-    "--ok": "#2F6B3C",
-    "--blocking": "#B8452F",
-    "--warn": "#8F6710",
-    "--unverified": "#6D4FB8"
+    "--ok": "#22743F",
+    "--blocking": "#B23C2B",
+    "--warn": "#875A04",
+    "--unverified": "#2C5F9E"
   },
   "ansi": {
-    "accent": 29,
+    "accent": 61,
     "ok": 29,
     "blocking": 124,
     "warn": 94,
-    "unverified": 61,
+    "unverified": 25,
     "muted": 244
   }
 }

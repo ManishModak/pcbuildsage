@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { cn } from "@/components/ui/cn";
 
 // A minimal, safe markdown renderer — enough for the sage's replies (paragraphs,
 // lists, fenced code, inline code, bold). No HTML injection, no dependency.
@@ -7,6 +8,10 @@ function isTableSeparator(line: string): boolean {
   const trimmed = line.trim();
   return trimmed.includes("|") && /^[\s|:-]+$/.test(trimmed);
 }
+
+// A cell that is only a price or a number ("₹45,999", "Rs. 1,20,000", "38"):
+// columns made of these right-align in mono so the digits line up.
+const NUMERIC_CELL = /^(?:[₹$€£]|rs\.?|inr)?\s*[\d][\d,.]*\s*(?:\/-|k|lakh)?$/i;
 
 function renderTable(lines: string[], key: number, renderInlineFn: (text: string) => ReactNode) {
   const parseRow = (line: string): string[] => {
@@ -18,27 +23,35 @@ function renderTable(lines: string[], key: number, renderInlineFn: (text: string
 
   const headers = parseRow(lines[0] || "");
   const rows = lines.slice(2).map((line) => parseRow(line));
+  // A column is numeric when every filled cell in it looks like a price or number.
+  const numericColumns = headers.map((_, col) => {
+    const cells = rows.map((row) => row[col] ?? "").filter((cell) => cell !== "");
+    return cells.length > 0 && cells.every((cell) => NUMERIC_CELL.test(cell.replace(/\*\*/g, "")));
+  });
 
   return (
-    <div key={key} className="my-3 overflow-x-auto rounded-card border border-border bg-surface-raised/30 shadow-xs">
-      <table className="w-full text-left border-collapse text-sm">
+    <div key={key} className="my-2 overflow-x-auto rounded-card border border-border">
+      <table className="w-full border-collapse text-left text-sm">
         <thead>
-          <tr className="border-b border-border bg-surface-muted/50 font-medium text-text-secondary select-none">
+          <tr className="border-b border-border bg-surface-raised text-caption text-text-secondary">
             {headers.map((header, idx) => (
-              <th key={idx} className="px-4 py-2.5 font-semibold">
+              <th
+                key={idx}
+                className={cn("type-label px-4 py-2.5", numericColumns[idx] ? "text-right" : "text-left")}
+              >
                 {renderInlineFn(header)}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-border">
           {rows.map((row, rowIdx) => (
-            <tr
-              key={rowIdx}
-              className="border-b border-border/40 hover:bg-surface-raised/50 transition-colors last:border-none"
-            >
+            <tr key={rowIdx}>
               {row.map((cell, cellIdx) => (
-                <td key={cellIdx} className="px-4 py-3 text-text">
+                <td
+                  key={cellIdx}
+                  className={cn("px-4 py-2.5 text-text", numericColumns[cellIdx] && "text-right font-mono tabular-nums")}
+                >
                   {renderInlineFn(cell)}
                 </td>
               ))}
@@ -50,16 +63,17 @@ function renderTable(lines: string[], key: number, renderInlineFn: (text: string
   );
 }
 
-export function Markdown({ text }: { text: string }) {
+/** `streaming` puts a cycling rune caret after the last block while a reply arrives. */
+export function Markdown({ text, streaming = false }: { text: string; streaming?: boolean }) {
   const blocks = parseBlocks(text);
   return (
-    <div className="flex flex-col gap-3 text-base leading-relaxed text-text">
+    <div className={cn("flex flex-col gap-4 text-base leading-[1.65] text-text", streaming && "rune-caret")}>
       {blocks.map((block, index) => {
         if (block.type === "code") {
           return (
             <pre
               key={index}
-              className="overflow-x-auto rounded-chip border border-border bg-bg p-3 font-mono text-caption text-text-secondary"
+              className="overflow-x-auto rounded-card border border-border bg-surface-raised p-3.5 font-mono text-sm leading-relaxed text-text"
             >
               <code>{block.content}</code>
             </pre>
@@ -67,7 +81,7 @@ export function Markdown({ text }: { text: string }) {
         }
         if (block.type === "list") {
           return (
-            <ul key={index} className="ml-5 list-disc space-y-1 marker:text-text-muted">
+            <ul key={index} className="ml-5 list-disc space-y-1.5 marker:text-text-muted">
               {block.items.map((item, i) => (
                 <li key={i}>{renderInline(item)}</li>
               ))}
@@ -76,7 +90,7 @@ export function Markdown({ text }: { text: string }) {
         }
         if (block.type === "ordered-list") {
           return (
-            <ol key={index} className="ml-5 list-decimal space-y-1 marker:text-text-muted">
+            <ol key={index} className="ml-5 list-decimal space-y-1.5 marker:text-text-muted">
               {block.items.map((item, i) => (
                 <li key={i}>{renderInline(item)}</li>
               ))}
@@ -85,22 +99,22 @@ export function Markdown({ text }: { text: string }) {
         }
         if (block.type === "blockquote") {
           return (
-            <blockquote key={index} className="border-l-4 border-warn/45 pl-3.5 italic text-text-secondary my-1.5 py-0.5">
+            <blockquote key={index} className="border-l-2 border-border pl-4 text-text-secondary">
               {renderInline(block.content)}
             </blockquote>
           );
         }
         if (block.type === "hr") {
-          return <hr key={index} className="border-t border-border/60 my-4" />;
+          return <hr key={index} className="my-2 border-t border-border" />;
         }
         if (block.type === "heading") {
           const Tag = `h${Math.min(6, Math.max(1, block.level))}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
           const classes =
             block.level === 1
-              ? "text-2xl font-bold text-text mt-4 mb-2"
+              ? "type-title mt-3 text-xl text-text"
               : block.level === 2
-                ? "text-xl font-bold text-text mt-3 mb-1.5"
-                : "text-lg font-semibold text-text mt-2 mb-1";
+                ? "type-title mt-2 text-lg text-text"
+                : "type-title mt-1 text-base text-text";
           return (
             <Tag key={index} className={classes}>
               {renderInline(block.content)}
@@ -274,7 +288,7 @@ function renderInline(text: string): ReactNode {
       );
     } else if (token.startsWith("`")) {
       nodes.push(
-        <code key={key++} className="rounded bg-surface-raised px-1 py-0.5 font-mono text-[0.9em] text-text">
+        <code key={key++} className="rounded-chip bg-surface-raised px-1.5 py-0.5 font-mono text-[0.875em] text-text">
           {token.slice(1, -1)}
         </code>
       );
@@ -290,7 +304,7 @@ function renderInline(text: string): ReactNode {
           href={safeUrl}
           target="_blank"
           rel="noreferrer"
-          className="text-accent underline transition-opacity hover:opacity-80"
+          className="text-accent underline underline-offset-2 transition-colors duration-150 hover:text-text"
         >
           {label}
         </a>

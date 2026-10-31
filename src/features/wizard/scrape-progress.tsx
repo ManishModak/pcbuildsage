@@ -1,20 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Ban,
-  Check,
-  CircleCheck,
-  Copy,
-  ExternalLink,
-  OctagonX,
-  SkipForward,
-  Terminal,
-  TriangleAlert
-} from "lucide-react";
+import { Ban, Check, ChevronDown, ChevronRight, Copy, ExternalLink, TriangleAlert } from "lucide-react";
+import { RuneSpinner } from "@/components/app/rune-spinner";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
 import { ProgressBar } from "@/components/ui/primitives";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 export type SiteRow = {
   key: string;
@@ -64,8 +56,8 @@ export function buildIssueUrl(row: SiteRow, logs: string[]): string {
   return `https://github.com/pcbuildsage/pcbuildsage/issues/new?${params.toString()}`;
 }
 
-// Terminal aesthetic inside the web: a surface panel of per-site rows with mono
-// progress bars, plus a collapsible raw-log drawer. Failures never clear.
+// Per-site rows in one bordered list, then failures and a collapsible raw-log
+// drawer. Failures never clear.
 export function ScrapeProgress({
   rows,
   logs,
@@ -93,20 +85,26 @@ export function ScrapeProgress({
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 items-start">
-      {/* Left Column: Scrape progress table */}
-      <div className="flex flex-col overflow-hidden rounded-card border border-border bg-surface h-full min-h-[320px] max-h-[min(75vh,640px)]">
-        <div className="shrink-0 flex items-center justify-between border-b border-border px-4 py-2.5">
-          <span className="flex items-center gap-2 text-sm text-text">
-            <Icon icon={Terminal} size={16} className="text-text-secondary" />
-            Scrape progress
-          </span>
-          <span className="font-mono text-caption text-text-secondary">
-            {running ? "running…" : productsWritten !== undefined ? `${productsWritten} products written` : "finished"}
+    <div className="grid items-start gap-4 md:grid-cols-2">
+      {/* Left column: progress per site */}
+      <div className="flex h-full min-h-[320px] max-h-[min(75vh,640px)] flex-col overflow-hidden rounded-card border border-border bg-surface">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+          <span className="type-label text-sm text-text">Progress by site</span>
+          <span className="flex items-center gap-2 text-caption text-text-secondary">
+            {running ? (
+              <>
+                <RuneSpinner />
+                Running
+              </>
+            ) : productsWritten !== undefined ? (
+              `${productsWritten} products written`
+            ) : (
+              "Finished"
+            )}
           </span>
         </div>
 
-        <ul className="flex-1 min-h-0 divide-y divide-border overflow-y-auto">
+        <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
           {rows.length === 0 ? (
             <li className="px-4 py-6 text-center text-caption text-text-muted">Waiting for the first site…</li>
           ) : (
@@ -115,75 +113,86 @@ export function ScrapeProgress({
         </ul>
       </div>
 
-      {/* Right Column: Failures and Raw logs */}
-      <div className="flex flex-col gap-4 h-full min-h-[320px] max-h-[min(75vh,640px)]">
+      {/* Right column: failures and raw log */}
+      <div className="flex h-full max-h-[min(75vh,640px)] flex-col gap-4 md:min-h-[320px]">
         {failures.length ? (
           <div
-            className="shrink-0 flex flex-col gap-2 rounded-card border px-4 py-3"
+            className="flex shrink-0 flex-col gap-2 rounded-card border px-4 py-3"
             style={{ borderColor: "color-mix(in srgb, var(--warn) 45%, transparent)" }}
           >
             <p className="flex items-center gap-2 text-caption font-medium" style={{ color: "var(--warn)" }}>
               <Icon icon={TriangleAlert} size={14} />
-              {failures.length} {failures.length === 1 ? "site" : "sites"} failed — data from the others is still saved.
+              {failures.length} {failures.length === 1 ? "site" : "sites"} failed. Data from the others is still saved.
             </p>
-            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
+            <ul className="flex max-h-48 flex-col gap-2 overflow-y-auto pr-1">
               {failures.map((row) => (
-                <div key={row.key} className="flex flex-col gap-1 text-caption text-text-secondary border-b border-border/50 pb-2 last:border-0 last:pb-0">
-                  <div className="flex flex-wrap items-center gap-2 font-mono text-text">
-                    <span>{row.site}{row.category ? `/${row.category}` : ""}</span>
-                    <span className="text-text-muted font-sans">·</span>
+                <li
+                  key={row.key}
+                  className="flex flex-col gap-1 border-b border-border pb-2 text-caption text-text-secondary last:border-0 last:pb-0"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <span className="text-text">
+                      {row.site}
+                      {row.category ? `/${row.category}` : ""}
+                    </span>
                     <a
                       href={buildIssueUrl(row, logs)}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-accent hover:underline font-sans text-caption"
+                      className="inline-flex items-center gap-1 text-caption text-accent hover:underline"
                     >
                       open issue
                       <Icon icon={ExternalLink} size={12} />
                     </a>
                   </div>
-                  <span className="text-caption text-text-muted line-clamp-2">{row.error}</span>
-                </div>
+                  <span className="line-clamp-2 text-caption text-text-muted">{row.error}</span>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         ) : null}
 
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden rounded-card border border-border bg-surface">
-          <div className="shrink-0 flex items-center justify-between px-4 py-2.5 text-caption text-text-secondary">
+        {/* Collapsed, the drawer is just its header; it fills the column only when open. */}
+        <div
+          className={cn(
+            "flex min-h-0 flex-col overflow-hidden rounded-card border border-border bg-surface",
+            showLog && "flex-1"
+          )}
+        >
+          <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2.5 text-caption text-text-secondary">
             <button
               type="button"
               aria-expanded={showLog}
               onClick={() => setShowLog((prev) => !prev)}
-              className="flex items-center gap-1.5 hover:text-text transition-colors"
+              className="flex items-center gap-1.5 transition-colors duration-150 hover:text-text"
             >
+              <Icon icon={showLog ? ChevronDown : ChevronRight} size={14} />
               <span>Raw log ({logs.length} lines)</span>
             </button>
-            <div className="flex items-center gap-2 font-mono">
+            <div className="flex items-center gap-4">
               <button
                 type="button"
                 onClick={handleCopy}
                 disabled={logs.length === 0}
-                className="flex items-center gap-1 text-caption text-text-secondary hover:text-text disabled:opacity-40 disabled:hover:text-text-secondary transition-colors"
+                className="flex items-center gap-1 text-caption text-text-secondary transition-colors duration-150 hover:text-text disabled:opacity-40 disabled:hover:text-text-secondary"
                 aria-label={copied ? "Copied logs to clipboard" : "Copy logs to clipboard"}
                 title={copied ? "Copied" : "Copy logs"}
               >
                 <Icon icon={copied ? Check : Copy} size={13} className={copied ? "text-accent" : ""} />
-                <span>{copied ? "copied" : "copy"}</span>
+                <span>{copied ? "Copied" : "Copy"}</span>
               </button>
-              <span className="text-text-muted font-sans">·</span>
               <button
                 type="button"
                 aria-expanded={showLog}
                 onClick={() => setShowLog((prev) => !prev)}
-                className="hover:text-text transition-colors"
+                className="transition-colors duration-150 hover:text-text"
               >
-                {showLog ? "hide" : "show"}
+                {showLog ? "Hide" : "Show"}
               </button>
             </div>
           </div>
           {showLog ? (
-            <pre className="flex-1 min-h-0 overflow-auto border-t border-border bg-bg px-4 py-3 font-mono text-caption text-text-secondary">
+            <pre className="min-h-0 flex-1 overflow-auto border-t border-border bg-bg px-4 py-3 font-mono text-caption text-text-secondary">
               {logs.length ? logs.join("") : "No output yet."}
             </pre>
           ) : null}
@@ -193,52 +202,56 @@ export function ScrapeProgress({
   );
 }
 
+// One site: name and status on the first line, progress and product count on the second.
 function Row({ row }: { row: SiteRow }) {
-  const icon =
-    row.status === "done"
-      ? CircleCheck
-      : row.status === "failed"
-        ? OctagonX
-        : row.status === "cancelled"
-          ? Ban
-        : row.status === "skipped"
-          ? SkipForward
-          : null;
-  const iconColor =
-    row.status === "done"
-      ? "var(--ok)"
-      : row.status === "failed"
-        ? "var(--blocking)"
-        : "var(--text-secondary)";
   const tone = row.status === "failed" ? "blocking" : row.status === "skipped" ? "warn" : "accent";
+  const name = `${row.site}${row.category ? `/${row.category}` : ""}`;
 
   return (
-    <li className="flex items-center gap-3 px-4 py-2.5">
-      <span
-        className={cn("min-w-0 flex-1 truncate font-mono text-caption text-text")}
-        title={`${row.site}${row.category ? `/${row.category}` : ""}`}
-      >
-        {row.site}
-        {row.category ? <span className="text-text-secondary">/{row.category}</span> : null}
-      </span>
-      <div className="w-32 shrink-0">
+    <li className="flex flex-col gap-2 px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 flex-1 truncate text-sm text-text" title={name}>
+          {row.site}
+          {row.category ? <span className="text-text-secondary">/{row.category}</span> : null}
+        </span>
+        <RowStatus row={row} />
+      </div>
+      <div className="flex items-center gap-3">
         <ProgressBar
+          className="flex-1"
           value={row.status === "done" ? 100 : row.status === "failed" ? (row.percent ?? 100) : row.percent}
           tone={tone}
         />
+        <span className="w-24 shrink-0 text-right text-caption tabular-nums text-text-secondary">
+          {row.count !== undefined ? `${row.count} products` : "—"}
+        </span>
       </div>
-      <span className="w-16 shrink-0 text-right font-mono text-caption text-text-secondary">
-        {row.count !== undefined ? `${row.count}` : "—"}
-      </span>
-      <span className="w-5 shrink-0 text-right" style={{ color: iconColor }}>
-        {icon ? (
-          <Icon icon={icon} size={15} label={row.status} className="inline" />
-        ) : (
-          <span className="inline-block font-mono text-caption">
-            {row.percent !== undefined ? `${Math.round(row.percent)}%` : ""}
-          </span>
-        )}
-      </span>
     </li>
   );
+}
+
+// Status is always a word plus an icon, never colour alone.
+function RowStatus({ row }: { row: SiteRow }) {
+  switch (row.status) {
+    case "done":
+      return <StatusBadge kind="ok" label="Done" />;
+    case "failed":
+      return <StatusBadge kind="blocking" label="Failed" />;
+    case "skipped":
+      return <StatusBadge kind="warn" label="Skipped" />;
+    case "cancelled":
+      return (
+        <span className="flex items-center gap-1.5 text-caption text-text-secondary">
+          <Icon icon={Ban} size={14} />
+          Cancelled
+        </span>
+      );
+    default:
+      return (
+        <span className="flex items-center gap-2 text-caption text-text-secondary">
+          <RuneSpinner />
+          {row.percent !== undefined ? `Running, ${Math.round(row.percent)}%` : "Running"}
+        </span>
+      );
+  }
 }

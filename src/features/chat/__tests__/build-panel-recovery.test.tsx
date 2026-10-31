@@ -184,7 +184,7 @@ describe("build panel recovery: an interrupted chat still has a build", () => {
 
     // A product id is never a part name: the unresolved RAM falls back to its
     // category label, and the id only ever shows in the secondary line.
-    expect(markup).toContain('<span class="block text-sm text-text">Memory</span>');
+    expect(markup).toContain('<span class="block text-[15px] leading-snug text-text">Memory</span>');
     expect(markup).not.toContain(`text-text">${RAM_ID}`);
 
     // An incomplete snapshot has no total, and that reads as an em dash.
@@ -1100,15 +1100,15 @@ describe("R-A3: the thinking trace stops pulsing once the message is done", () =
     "animates a %s reasoning part while its message streams",
     (state) => {
       const live = renderToStaticMarkup(<MessageView message={reasoningMessage(state)} isStreaming />);
-      expect(live).toContain("animate-pulse");
-      expect(live).toContain("Sage thinking process...");
+      expect(live).toContain("rune-spinner");
+      expect(live).toContain("How the sage reasoned");
       expect(live).toContain('aria-busy="true"');
     }
   );
 
   it("does not animate a part saved mid-stream once its message is done", () => {
     const saved = renderToStaticMarkup(<MessageView message={reasoningMessage("streaming")} />);
-    expect(saved).not.toContain("animate-pulse");
+    expect(saved).not.toContain("rune-spinner");
     expect(saved).toContain('aria-busy="false"');
   });
 
@@ -1118,9 +1118,9 @@ describe("R-A3: the thinking trace stops pulsing once the message is done", () =
       const done = renderToStaticMarkup(
         <MessageView message={reasoningMessage(state as string | undefined)} />
       );
-      expect(done).not.toContain("animate-pulse");
+      expect(done).not.toContain("rune-spinner");
       // The trace and its name are still there - it just is not busy any more.
-      expect(done).toContain("Sage thinking process...");
+      expect(done).toContain("How the sage reasoned");
       expect(done).toContain('aria-busy="false"');
     }
   );

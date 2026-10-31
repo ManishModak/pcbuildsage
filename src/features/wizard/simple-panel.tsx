@@ -1,17 +1,33 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Database } from "lucide-react";
-import { Icon } from "@/components/ui/icon";
+import type { ReactNode } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { RuneText } from "@/components/app/rune-text";
 import { Button } from "@/components/ui/primitives";
 
+/**
+ * Opening block shared by the onboarding steps: the step title (arriving as
+ * runes) and one plain sentence under it. Keyed on the title so a new title
+ * in the same slot plays the rune animation again.
+ */
+export function StepHeader({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <header className="flex flex-col gap-2">
+      <h1 className="type-title text-2xl text-text">
+        <RuneText key={title} text={title} />
+      </h1>
+      <p className="text-base text-text-secondary">{children}</p>
+    </header>
+  );
+}
+
+/** A step with nothing to configure: a title, one sentence and Back/Continue. */
 export function SimplePanel({
-  icon,
   title,
   description,
   onBack,
   onNext
 }: {
-  icon: typeof Database;
   title: string;
   description: string;
   onBack: () => void;
@@ -19,16 +35,8 @@ export function SimplePanel({
 }) {
   return (
     <section className="flex flex-col gap-6">
-      <div className="flex items-start gap-4 rounded-card border border-border bg-surface p-5">
-        <span className="flex h-10 w-10 items-center justify-center rounded-btn border border-border text-accent">
-          <Icon icon={icon} size={20} />
-        </span>
-        <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold text-text">{title}</h1>
-          <p className="text-sm text-text-secondary">{description}</p>
-        </div>
-      </div>
-      <div className="flex items-center justify-between">
+      <StepHeader title={title}>{description}</StepHeader>
+      <div className="flex items-center justify-between border-t border-border pt-4">
         <Button variant="ghost" iconLeft={ArrowLeft} onClick={onBack}>
           Back
         </Button>

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import { RefreshCw, TriangleAlert } from "lucide-react";
+import { RefreshCw } from "lucide-react";
+import { AsciiOwl } from "@/components/app/ascii-owl";
+import { Icon } from "@/components/ui/icon";
 
 export default function GlobalError({
   error,
@@ -16,33 +18,32 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-bg p-6 text-center text-text">
-      <div className="flex max-w-md flex-col items-center gap-4 rounded-card border border-border bg-surface p-8 shadow-lg">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-warn/10 text-warn">
-          <TriangleAlert className="h-6 w-6" />
+    <div className="flex min-h-dvh items-center justify-center bg-bg p-6 text-text">
+      <div className="flex w-full max-w-xl flex-col items-start gap-6 sm:flex-row sm:items-center sm:gap-8">
+        <AsciiOwl />
+        <div className="flex min-w-0 flex-col items-start gap-4">
+          <div className="flex flex-col gap-1.5">
+            <h1 className="type-title text-2xl text-text">Something went wrong</h1>
+            <p className="text-base leading-[1.65] text-text-secondary">
+              This page hit an unexpected error. Try again, and if it keeps happening, reload the tab.
+            </p>
+          </div>
+
+          {error.message && (
+            <pre className="max-h-32 w-full overflow-auto rounded-card border border-border bg-surface-raised p-3 text-left font-mono text-caption text-text-secondary">
+              {error.message}
+            </pre>
+          )}
+
+          <button
+            type="button"
+            onClick={() => reset()}
+            className="inline-flex min-h-11 items-center gap-2 rounded-btn bg-accent px-4 text-sm font-semibold text-on-accent transition-colors duration-150 hover:opacity-90"
+          >
+            <Icon icon={RefreshCw} size={16} />
+            Try again
+          </button>
         </div>
-
-        <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold text-text">Something went wrong</h2>
-          <p className="text-sm text-text-muted">
-            An unexpected application error occurred. You can attempt to reset the current view.
-          </p>
-        </div>
-
-        {error.message && (
-          <pre className="max-h-32 w-full overflow-auto rounded bg-bg p-3 text-left font-mono text-xs text-text-muted">
-            {error.message}
-          </pre>
-        )}
-
-        <button
-          type="button"
-          onClick={() => reset()}
-          className="mt-2 inline-flex items-center gap-2 rounded-btn bg-accent px-4 py-2 text-sm font-medium text-surface transition hover:opacity-90"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Try Again
-        </button>
       </div>
     </div>
   );

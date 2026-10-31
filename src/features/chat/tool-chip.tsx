@@ -4,11 +4,9 @@ import { useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
-  Wrench,
   Globe,
   Search,
   ExternalLink,
-  Bot,
   CheckCircle2,
   AlertCircle,
   HelpCircle,
@@ -17,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
+import { RuneSpinner } from "@/components/app/rune-spinner";
 
 export type ToolPart = {
   type: string;
@@ -98,7 +97,6 @@ export function ToolChip({ part }: { part: ToolPart }) {
   const rawName = toolName(part);
   const isConsult = rawName === "consult";
   const displayName = isConsult ? "subagent" : rawName;
-  const separator = isConsult ? ">" : "→";
 
   const running = part.state && part.state !== "output-available" && part.state !== "output-error";
   const input = part.input as Record<string, unknown> | undefined;
@@ -107,36 +105,32 @@ export function ToolChip({ part }: { part: ToolPart }) {
   const isError = part.state === "output-error" || (isConsult && hasOutputError);
 
   return (
-    <div className="my-2">
+    <div className="my-2 text-caption">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "inline-flex max-w-full items-center gap-2 rounded-chip border px-2.5 py-1.5 font-mono text-caption transition-colors duration-150",
+          "inline-flex max-w-full items-center gap-2 rounded-chip border px-2.5 py-1 transition-colors duration-150",
           isError
-            ? "border-blocking/50 text-blocking"
-            : running && isConsult
-              ? "border-accent/40 bg-surface-raised text-accent hover:border-accent"
-              : "border-border text-text-secondary hover:border-accent hover:text-text"
+            ? "border-blocking/40 text-text-secondary"
+            : "border-border text-text-secondary hover:border-accent hover:text-text"
         )}
-        style={isError ? { borderColor: "color-mix(in srgb, var(--blocking) 45%, transparent)" } : undefined}
       >
-        <Icon
-          icon={isConsult ? Bot : Wrench}
-          size={13}
-          className={running ? "pcbs-spin text-accent" : undefined}
-        />
-        <span className="truncate font-semibold text-text">{displayName}</span>
-        <span aria-hidden className="text-text-muted font-bold">
-          {separator}
-        </span>
-        <span className="truncate">{summarize(rawName, part)}</span>
-        <Icon icon={open ? ChevronDown : ChevronRight} size={13} />
+        {running ? (
+          <RuneSpinner className="w-4 text-center text-accent" />
+        ) : isError ? (
+          <Icon icon={AlertCircle} size={14} className="text-blocking" />
+        ) : (
+          <Icon icon={CheckCircle2} size={14} className="text-ok" />
+        )}
+        <span className={cn("truncate font-medium text-text", isConsult ? "" : "font-mono")}>{displayName}</span>
+        <span className={cn("truncate", isError && "text-blocking")}>{summarize(rawName, part)}</span>
+        <Icon icon={open ? ChevronDown : ChevronRight} size={13} className="text-text-muted" />
       </button>
 
       {open ? (
-        <div className="mt-1.5 space-y-3 rounded-card border border-border bg-surface p-3.5 shadow-sm">
+        <div className="mt-1.5 space-y-3 rounded-card border border-border bg-surface p-3.5">
           {isConsult && running ? (
             <ConsultRunningCard input={input} />
           ) : isConsult && output && !isError ? (
@@ -145,7 +139,7 @@ export function ToolChip({ part }: { part: ToolPart }) {
             <div className="space-y-2 rounded-card border border-blocking/30 bg-surface-raised p-3 text-caption">
               <div className="flex items-center gap-2 font-semibold text-blocking">
                 <Icon icon={AlertCircle} size={14} />
-                <span>Subagent Research Failed</span>
+                <span>Subagent research failed</span>
               </div>
               <p className="text-text-secondary">
                 {String(output?.error || part.errorText || "Subagent research could not be completed.")}
@@ -180,7 +174,7 @@ export function ToolChip({ part }: { part: ToolPart }) {
 function ConsultRunningCard({ input }: { input?: Record<string, unknown> }) {
   const name = typeof input?.name === "string" ? input.name : undefined;
   return (
-    <div className="space-y-2 rounded-card border border-accent/20 bg-surface-raised/60 p-3.5">
+    <div className="space-y-2 rounded-card border border-border bg-surface-raised p-3.5">
       <p className="text-sm text-text">Research in progress.</p>
       {name ? <p className="text-caption text-text-secondary">Target: {name}</p> : null}
     </div>
@@ -195,7 +189,7 @@ function ConsultResultCard({ input, output }: { input?: Record<string, unknown>;
       <div className="space-y-2 rounded-card border border-warn/30 bg-warn/5 p-3 text-caption">
         <div className="flex items-center gap-2 font-semibold text-warn">
           <Icon icon={AlertCircle} size={14} />
-          <span>Subagent Research Unavailable</span>
+          <span>Subagent research unavailable</span>
         </div>
         <p className="text-text-secondary">{String(output.error || "Basic identity verified; fine-grained physical specs not published in indexed sheets.")}</p>
         <p className="text-text-muted">
@@ -222,7 +216,7 @@ function ConsultResultCard({ input, output }: { input?: Record<string, unknown>;
     if (specs.vram_gb) keyMetrics.push({ label: "VRAM", value: `${specs.vram_gb} GB` });
     if (specs.socket) keyMetrics.push({ label: "Socket", value: String(specs.socket) });
     if (specs.ddr) keyMetrics.push({ label: "Memory", value: String(specs.ddr) });
-    if (specs.form_factor) keyMetrics.push({ label: "Form Factor", value: String(specs.form_factor) });
+    if (specs.form_factor) keyMetrics.push({ label: "Form factor", value: String(specs.form_factor) });
 
     return (
       <div className="space-y-3">
@@ -259,12 +253,12 @@ function ConsultResultCard({ input, output }: { input?: Record<string, unknown>;
 
         {keyMetrics.length > 0 ? (
           <div>
-            <p className="mb-1.5 text-caption font-medium uppercase tracking-wider text-text-muted">Researched Specs</p>
+            <p className="type-label mb-1.5 text-caption text-text-muted">Researched specs</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {keyMetrics.map((metric) => (
                 <div key={metric.label} className="rounded-chip border border-border bg-surface-raised px-2.5 py-1.5">
                   <span className="block text-caption text-text-muted">{metric.label}</span>
-                  <span className="font-mono text-sm font-semibold text-text">{metric.value}</span>
+                  <span className="font-mono text-sm font-medium text-text">{metric.value}</span>
                 </div>
               ))}
             </div>
@@ -275,15 +269,15 @@ function ConsultResultCard({ input, output }: { input?: Record<string, unknown>;
 
         {actions.length > 0 ? (
           <div>
-            <p className="mb-1 text-caption font-medium uppercase tracking-wider text-text-muted">Subagent Execution Trace</p>
+            <p className="type-label mb-1 text-caption text-text-muted">Subagent trace</p>
             <div className="space-y-1.5 font-mono text-caption">
               {actions.map((act, i) => (
-                <div key={i} className="flex items-center gap-2 rounded border border-border/50 bg-surface px-2.5 py-1 text-text-secondary">
+                <div key={i} className="flex items-center gap-2 rounded-chip border border-border bg-surface px-2.5 py-1 text-text-secondary">
                   <Icon icon={act.tool === "search_web" ? Search : Globe} size={12} className="shrink-0 text-accent" />
                   <span className="font-semibold text-text">{act.tool}:</span>
                   <span className="truncate">{act.query || act.url}</span>
                   {act.resultCount !== undefined ? (
-                    <span className="ml-auto shrink-0 text-xs text-text-muted">({act.resultCount} results)</span>
+                    <span className="ml-auto shrink-0 text-caption text-text-muted">({act.resultCount} results)</span>
                   ) : null}
                 </div>
               ))}
@@ -293,7 +287,7 @@ function ConsultResultCard({ input, output }: { input?: Record<string, unknown>;
 
         {sources.length > 0 ? (
           <div>
-            <p className="mb-1 text-caption font-medium uppercase tracking-wider text-text-muted">Grounding Sources</p>
+            <p className="type-label mb-1 text-caption text-text-muted">Sources</p>
             <ul className="space-y-1">
               {sources.slice(0, 3).map((source, index) => {
                 const url = typeof source === "string" ? source : source.url;
@@ -328,18 +322,18 @@ function ConsultResultCard({ input, output }: { input?: Record<string, unknown>;
       <div className="space-y-2.5">
         <div className="flex items-center gap-2 border-b border-border pb-2">
           <Icon icon={Layers} size={14} className="text-accent" />
-          <span className="text-sm font-semibold text-text">Tier 2 Advisory Audit Results</span>
+          <span className="text-sm font-semibold text-text">Advisory audit results</span>
         </div>
         <div className="space-y-2">
           {verdicts.map((v, i) => (
             <div key={i} className="rounded-chip border border-border bg-surface-raised p-2.5 text-caption">
-              <div className="flex items-center gap-2 font-mono font-medium text-text">
+              <div className="flex items-center gap-2 font-medium text-text">
                 <Icon
                   icon={v.severity === "ok" ? CheckCircle2 : v.severity === "warning" ? AlertCircle : HelpCircle}
                   size={13}
                   className={v.severity === "ok" ? "text-ok" : v.severity === "warning" ? "text-warn" : "text-text-muted"}
                 />
-                <span>{v.pair || `Check ${i + 1}`}</span>
+                <span className="font-mono">{v.pair || `Check ${i + 1}`}</span>
               </div>
               {v.detail ? <p className="mt-1 text-text-secondary">{v.detail}</p> : null}
             </div>
@@ -357,7 +351,7 @@ function ToolBlock({ label, value }: { label: string; value: unknown }) {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
   return (
     <div>
-      <p className="mb-1 text-caption font-medium uppercase tracking-wide text-text-muted">{label}</p>
+      <p className="type-label mb-1 text-caption text-text-muted">{label}</p>
       <pre className="max-h-64 overflow-auto rounded-chip bg-bg p-2 font-mono text-caption text-text-secondary">
         {text}
       </pre>

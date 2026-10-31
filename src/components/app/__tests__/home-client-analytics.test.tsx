@@ -42,6 +42,7 @@ vi.mock("@/components/app/app-shell", () => ({
 
 import { CONFIG_KEY, RETURNING_BOOTSTRAP } from "@/lib/client-config-store";
 import { HomeClient, landingViewDue, resetHomeClientEventsForTesting } from "@/components/app/home-client";
+import { openSetup } from "@/components/app/setup-hash";
 
 beforeEach(() => {
   state.ready = true;
@@ -63,13 +64,49 @@ afterEach(() => {
 });
 
 describe("M2 client event wiring in HomeClient", () => {
+  it("first-time visitors stay on the landing until they open setup", () => {
+    const html = renderToStaticMarkup(<HomeClient landing={<div>landing copy</div>} />);
+    // Hydrated: no data-landing, so html[data-returning] can't hide it (a
+    // returning user who reopened setup and pressed Back gets here).
+    expect(html).toContain("<div><div>landing copy</div></div>");
+    expect(html).not.toContain("data-landing");
+    expect(html).not.toContain("data-returning-spinner");
+    expect(state.wizardOnComplete).toBeNull();
+  });
+
   it("Wizard onComplete fires onboarding_completed exactly once", () => {
+    // Setup is open while the URL hash is #setup.
+    vi.stubGlobal("window", {
+      location: { hash: "#setup", pathname: "/", search: "" },
+      history: { state: null, replaceState: vi.fn() }
+    });
     renderToStaticMarkup(<HomeClient landing={<div>landing</div>} />);
     expect(typeof state.wizardOnComplete).toBe("function");
     state.wizardOnComplete?.();
     state.wizardOnComplete?.();
     const bodies = state.fetchCalls.map((call) => JSON.parse(String(call.init.body)));
     expect(bodies).toEqual([{ event: "onboarding_completed" }]);
+  });
+
+  it("re-running setup from the app opens the wizard, not the landing", () => {
+    // "Update prices" in chat: on the home page openSetup() sets the hash in
+    // the same click that resets onboarded.
+    const win = {
+      location: { hash: "", pathname: "/", search: "", assign: vi.fn() },
+      history: { state: null, replaceState: vi.fn() }
+    };
+    vi.stubGlobal("window", win);
+    openSetup();
+    expect(win.location.hash).toBe("#setup");
+    const html = renderToStaticMarkup(<HomeClient landing={<div>landing copy</div>} />);
+    expect(html).not.toContain("landing copy");
+    expect(typeof state.wizardOnComplete).toBe("function");
+
+    // From /settings it navigates home with the hash instead.
+    win.location.pathname = "/settings";
+    win.location.hash = "";
+    openSetup();
+    expect(win.location.assign).toHaveBeenCalledWith("/#setup");
   });
 
   it("does not fire onboarding_completed for onboarded users (chat path)", () => {

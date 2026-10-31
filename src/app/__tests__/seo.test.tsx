@@ -11,8 +11,9 @@ import { SITE_URL } from "@/lib/seo";
 
 // The root layout loads Google fonts at module scope; stub them for Node.
 vi.mock("next/font/google", () => ({
-  Inter: () => ({ variable: "" }),
-  JetBrains_Mono: () => ({ variable: "" })
+  Anek_Latin: () => ({ variable: "" }),
+  JetBrains_Mono: () => ({ variable: "" }),
+  Noto_Sans_Runic: () => ({ variable: "" })
 }));
 
 // Crawler-style: static markup with no JS and no effects — exactly what a

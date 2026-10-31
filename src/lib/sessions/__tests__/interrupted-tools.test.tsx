@@ -73,12 +73,12 @@ describe("markInterruptedToolCalls", () => {
 
   it("renders no permanent spinner for a stuck call that was loaded", () => {
     const [cleaned] = markInterruptedToolCalls([stuckAssistant("input-streaming")]) as ChatUIMessage[];
-    expect(markupFor(cleaned)).not.toContain("pcbs-spin");
+    expect(markupFor(cleaned)).not.toContain("rune-spinner");
   });
 
   it("would have rendered a permanent spinner without the repair", () => {
     // Guards the assertion above: this is exactly the bug being fixed.
-    expect(markupFor(stuckAssistant("input-streaming"))).toContain("pcbs-spin");
+    expect(markupFor(stuckAssistant("input-streaming"))).toContain("rune-spinner");
   });
 
   it("leaves the still-streaming turn alone and marks only finished turns", () => {

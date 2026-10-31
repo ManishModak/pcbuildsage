@@ -1,28 +1,30 @@
 import Link from "next/link";
-import { ArrowLeft, FileQuestion } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { AsciiOwl } from "@/components/app/ascii-owl";
+import { AsciiSky } from "@/components/app/ascii-sky";
+import { Icon } from "@/components/ui/icon";
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-bg p-6 text-center text-text">
-      <div className="flex max-w-md flex-col items-center gap-4 rounded-card border border-border bg-surface p-8 shadow-lg">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent">
-          <FileQuestion className="h-6 w-6" />
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-bg p-6 text-text">
+      <AsciiSky />
+      <div data-sky-quiet="" className="relative flex max-w-xl flex-col items-start gap-6 sm:flex-row sm:items-center sm:gap-8">
+        <AsciiOwl />
+        <div className="flex flex-col items-start gap-4">
+          <div className="flex flex-col gap-1.5">
+            <h1 className="type-title text-2xl text-text">Page not found</h1>
+            <p className="text-base leading-[1.65] text-text-secondary">
+              This address doesn&apos;t lead anywhere. Check the link, or start a new build from the home page.
+            </p>
+          </div>
+          <Link
+            href="/"
+            className="inline-flex min-h-11 items-center gap-2 rounded-btn bg-accent px-4 text-sm font-semibold text-on-accent transition-colors duration-150 hover:opacity-90"
+          >
+            <Icon icon={ArrowLeft} size={16} />
+            Back to home
+          </Link>
         </div>
-
-        <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold text-text">Page Not Found</h2>
-          <p className="text-sm text-text-muted">
-            The route or resource you are looking for does not exist.
-          </p>
-        </div>
-
-        <Link
-          href="/"
-          className="mt-2 inline-flex items-center gap-2 rounded-btn bg-accent px-4 py-2 text-sm font-medium text-surface transition hover:opacity-90"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Dashboard
-        </Link>
       </div>
     </div>
   );

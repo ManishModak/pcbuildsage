@@ -249,7 +249,7 @@ describe("Track W: disabled reasons next to Continue", () => {
   it("local step shows why Continue is disabled", () => {
     const blocked = renderStep(false);
     expect(blocked).toContain("llm-continue-reason");
-    expect(blocked).toContain("Ping");
+    expect(blocked).toContain("Check model");
     expect(blocked).toContain("reachable and support tool calling");
     expect(blocked).toContain("disabled");
     expect(renderStep(true)).not.toContain("llm-continue-reason");
@@ -328,7 +328,7 @@ describe("Track W: research default follows search availability", () => {
   it("stays off with a reason when the search probe failed", () => {
     const result = researchDefaultForSearch("tavily", false);
     expect(result.enabled).toBe(false);
-    expect(result.reason).toMatch(/probe failed/i);
+    expect(result.reason).toMatch(/search check failed/i);
   });
 
   it("turns on only when search is configured and the probe succeeds", () => {

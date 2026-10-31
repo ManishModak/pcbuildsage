@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Plus, Search, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Plus, Search, X } from "lucide-react";
 import { groupModelsForPicker, isFreeModel } from "@/lib/llm/model-recommend";
 import { cn } from "./cn";
 import { Icon } from "./icon";
@@ -43,7 +43,7 @@ export function SearchableModelSelect({
   value,
   onChange,
   models,
-  placeholder = "Select a model...",
+  placeholder = "Pick a model",
   disabled = false,
   providerId,
   className,
@@ -154,9 +154,9 @@ export function SearchableModelSelect({
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
           "w-full min-h-11 flex items-center justify-between gap-2 rounded-btn border border-border bg-surface px-3 py-2 text-left text-sm transition-colors duration-150",
-          "hover:border-border-hover focus:outline-none focus:border-accent",
+          "hover:border-text-muted focus:border-accent",
           disabled && "opacity-50 cursor-not-allowed",
-          isOpen && "border-accent ring-1 ring-accent/20"
+          isOpen && "border-accent"
         )}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
@@ -164,7 +164,7 @@ export function SearchableModelSelect({
         <div className="flex flex-col min-w-0 flex-1">
           <span className="font-medium text-text truncate">{displayName}</span>
           {selectedModel?.name && selectedModel.name !== value ? (
-            <span className="font-mono text-xs text-text-muted truncate">{value}</span>
+            <span className="font-mono text-caption text-text-muted truncate">{value}</span>
           ) : null}
         </div>
         <Icon
@@ -177,13 +177,13 @@ export function SearchableModelSelect({
       {/* Dropdown Panel */}
       {isOpen && (
         <div
-          className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-btn border border-border bg-surface shadow-xl flex flex-col max-h-[380px] overflow-hidden"
+          className="absolute left-0 right-0 top-full mt-1.5 z-50 flex max-h-[380px] flex-col overflow-hidden rounded-card border border-border bg-surface shadow-[0_18px_40px_-20px_color-mix(in_srgb,var(--bg)_80%,black)]"
           role="listbox"
         >
           {isCustomMode ? (
             /* Custom Model Entry Mode */
             <div className="p-3 flex flex-col gap-3">
-              <span className="text-xs font-semibold text-text">Enter Custom Model ID</span>
+              <span className="type-label text-caption text-text-secondary">Model ID</span>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -196,24 +196,25 @@ export function SearchableModelSelect({
                       handleApplyCustom();
                     }
                   }}
-                  className="flex-1 font-mono text-sm px-2.5 py-1.5 rounded-btn border border-border bg-surface-raised text-text focus:outline-none focus:border-accent"
+                  className="flex-1 font-mono text-sm px-2.5 py-1.5 rounded-btn border border-border bg-surface-raised text-text focus:border-accent"
                   autoFocus
                 />
                 <button
                   type="button"
                   disabled={!customValue.trim()}
                   onClick={handleApplyCustom}
-                  className="px-3 py-1.5 text-xs font-medium rounded-btn bg-accent text-accent-contrast disabled:opacity-50 cursor-pointer"
+                  className="px-3 py-1.5 text-caption font-medium rounded-btn bg-accent text-on-accent transition-colors duration-150 hover:opacity-90 disabled:opacity-50 cursor-pointer"
                 >
-                  Apply
+                  Use model
                 </button>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCustomMode(false)}
-                className="text-xs text-text-secondary hover:text-text self-start cursor-pointer"
+                className="inline-flex items-center gap-1.5 self-start text-caption text-text-secondary transition-colors duration-150 hover:text-text cursor-pointer"
               >
-                ← Back to model list
+                <Icon icon={ArrowLeft} size={13} />
+                Back to the list
               </button>
             </div>
           ) : (
@@ -226,10 +227,10 @@ export function SearchableModelSelect({
                   <input
                     ref={searchInputRef}
                     type="text"
-                    placeholder={`Search ${models.length} models by name or ID...`}
+                    placeholder={`Search ${models.length} models`}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-8 pr-8 py-1.5 text-sm rounded-btn border border-border bg-surface-raised text-text placeholder:text-text-muted focus:outline-none focus:border-accent"
+                    className="w-full pl-8 pr-8 py-1.5 text-sm rounded-btn border border-border bg-surface-raised text-text placeholder:text-text-muted focus:border-accent"
                   />
                   {search ? (
                     <button
@@ -254,10 +255,10 @@ export function SearchableModelSelect({
                           type="button"
                           onClick={() => setActiveTag(isSelected ? null : item.tag)}
                           className={cn(
-                            "px-2 py-0.5 text-caption rounded-pill font-medium shrink-0 transition-colors cursor-pointer",
+                            "text-caption shrink-0 rounded-chip border px-2 py-0.5 transition-colors duration-150 cursor-pointer",
                             isSelected
-                              ? "bg-accent text-accent-contrast"
-                              : "bg-surface-raised text-text-secondary hover:text-text hover:bg-surface-raised/80"
+                              ? "border-accent bg-accent/10 text-accent"
+                              : "border-border text-text-secondary hover:border-text-muted hover:text-text"
                           )}
                         >
                           {item.label}
@@ -269,21 +270,22 @@ export function SearchableModelSelect({
               </div>
 
               {/* Status Header */}
-              <div className="px-3 py-1.5 bg-surface-raised/50 border-b border-border/50 flex items-center justify-between text-caption text-text-muted">
+              <div className="flex items-center justify-between border-b border-border px-3 py-1.5 text-caption text-text-muted">
                 <span>
-                  Showing {filteredModels.length} of {models.length} models
+                  {filteredModels.length} of {models.length} models
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsCustomMode(true)}
-                  className="text-accent hover:underline cursor-pointer font-medium"
+                  className="inline-flex items-center gap-1 font-medium text-accent hover:underline cursor-pointer"
                 >
-                  + Custom ID
+                  <Icon icon={Plus} size={13} />
+                  Type a model ID
                 </button>
               </div>
 
               {/* Scrollable Model List */}
-              <div className="flex-1 overflow-y-auto max-h-[240px] divide-y divide-border/40 scrollbar-none">
+              <div className="flex-1 overflow-y-auto max-h-[240px] divide-y divide-border scrollbar-none">
                 {filteredModels.length === 0 ? (
                   <div className="p-4 text-center flex flex-col items-center gap-2">
                     <span className="text-sm text-text-secondary">
@@ -292,7 +294,7 @@ export function SearchableModelSelect({
                     <button
                       type="button"
                       onClick={() => handleSelect(search)}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline cursor-pointer"
+                      className="inline-flex items-center gap-1 text-caption font-medium text-accent hover:underline cursor-pointer"
                     >
                       <Icon icon={Plus} size={13} />
                       Use &ldquo;{search}&rdquo; as custom model ID
@@ -301,15 +303,15 @@ export function SearchableModelSelect({
                 ) : (
                   <>
                     {filteredRecommended.length > 0 ? (
-                      <div className="px-3 pt-2 pb-1 text-caption font-semibold uppercase tracking-wide text-text-secondary">
-                        Recommended — tool-capable
+                      <div className="type-label px-3 pt-2 pb-1 text-caption text-text-secondary">
+                        Recommended: can use tools
                       </div>
                     ) : null}
                     {filteredRecommended.map((model) => (
                       <ModelRow key={model.id} model={model} isSelected={model.id === value} onSelect={handleSelect} />
                     ))}
                     {filteredRecommended.length > 0 ? (
-                      <div className="px-3 pt-2 pb-1 text-caption font-semibold uppercase tracking-wide text-text-secondary">
+                      <div className="type-label px-3 pt-2 pb-1 text-caption text-text-secondary">
                         All models
                       </div>
                     ) : null}
@@ -342,8 +344,8 @@ function ModelRow({
       type="button"
       onClick={() => onSelect(model.id)}
       className={cn(
-        "w-full px-3 py-2 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer",
-        "hover:bg-surface-raised/80",
+        "w-full px-3 py-2 flex items-center justify-between gap-3 text-left transition-colors duration-150 cursor-pointer",
+        "hover:bg-surface-raised",
         isSelected && "bg-accent/10"
       )}
     >
@@ -352,19 +354,19 @@ function ModelRow({
           <span
             className={cn(
               "text-sm truncate",
-              isSelected ? "font-semibold text-accent" : "text-text"
+              isSelected ? "font-medium text-accent" : "text-text"
             )}
           >
             {model.name && model.name !== model.id ? model.name : model.id}
           </span>
           {free ? (
-            <span className="shrink-0 rounded-pill bg-accent/10 px-1.5 py-px text-caption font-medium text-accent">
+            <span className="type-label shrink-0 rounded-chip border border-border px-1.5 text-caption text-ok">
               Free
             </span>
           ) : null}
         </span>
         {model.name && model.name !== model.id ? (
-          <span className="font-mono text-xs text-text-muted truncate">
+          <span className="font-mono text-caption text-text-muted truncate">
             {model.id}
           </span>
         ) : null}
