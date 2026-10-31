@@ -9,6 +9,7 @@ from scraper.config import ProfileError, load_profile
 from scraper.crawler import CrawlError, HttpStatusError, ScraperCrawler, shopify_collection_url
 from scraper.extractor import raw_from_shopify_products
 from scraper.models import BrowserConfig, CategoryConfig, SiteConfig
+from scraper import __main__ as cli
 from scraper.__main__ import make_product
 from scraper.normalizer import RegistryMatcher
 
@@ -149,6 +150,13 @@ def test_pagination_repeated_page_is_partial_not_an_endless_loop() -> None:
     assert products.partial is True
 
 
+def test_page_overlapping_earlier_results_is_partial() -> None:
+    # A collection that shifted mid-crawl may have pushed a listing past us.
+    _fetcher, products = crawl([page("a", "b"), page("b", "c"), json.dumps({"products": []})])
+
+    assert products.partial is True
+
+
 def test_later_page_failure_keeps_earlier_pages_as_partial() -> None:
     _fetcher, products = crawl([page("a"), HttpStatusError("u", 500)])
 
@@ -211,3 +219,14 @@ def test_shopify_profile_rejects_non_collection_path(tmp_path) -> None:
     bad = {"cpu": {"path": "/cpus?page={page}", "max_pages": 5}}
     with pytest.raises(ProfileError, match="collections/<handle>"):
         load_profile(shopify_profile(tmp_path, categories=bad))
+
+
+def test_profile_test_fails_when_a_shopify_collection_cannot_be_read(monkeypatch, tmp_path, capsys) -> None:
+    async def blocked(self, site, category, limit, on_page=None):
+        raise CrawlError("did not return JSON")
+
+    monkeypatch.setattr(ScraperCrawler, "crawl_shopify_collection", blocked)
+    args = cli.build_parser().parse_args(["--test-profile", str(shopify_profile(tmp_path)), "--delay-ms", "0"])
+
+    assert asyncio.run(cli.run_test_profile(args, cli.EventEmitter(False))) == 1
+    assert "JSON FAIL" in capsys.readouterr().out

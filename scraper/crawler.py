@@ -1012,8 +1012,9 @@ class ScraperCrawler:
                 break
             raw_products = raw_from_shopify_products(items, site.base_url)
             page_urls = {p.url for p in raw_products if p.url}
-            if page > 1 and page_urls and page_urls.issubset(seen_urls):
-                # The store ignored ?page=: this is not the end of the collection.
+            if page > 1 and page_urls & seen_urls:
+                # The store ignored ?page=, or the collection shifted mid-crawl and
+                # listings may have been skipped: either way this is not complete.
                 products.partial = True
                 products.partial_error = f"page {page} repeated earlier results"
                 break

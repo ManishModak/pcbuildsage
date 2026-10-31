@@ -333,6 +333,7 @@ def record_job_status(
 async def run_test_profile(args: argparse.Namespace, emitter: EventEmitter) -> int:
     work, _profile = build_work(args.test_profile, args)
     crawler = ScraperCrawler(delay_ms=args.delay_ms, llm_enabled=False)
+    failed = False
     async with crawler.fetcher:
         for site, category, limit in work:
             if site.scraping_type == SHOPIFY_JSON:
@@ -340,6 +341,7 @@ async def run_test_profile(args: argparse.Namespace, emitter: EventEmitter) -> i
                 try:
                     found = await crawler.crawl_shopify_collection(site, category, limit)
                 except CrawlError as exc:
+                    failed = True
                     line = f"{site.site_name} {category.name}: JSON FAIL {exc}"
                 else:
                     in_stock = sum(1 for product in found if product.in_stock)
@@ -367,7 +369,7 @@ async def run_test_profile(args: argparse.Namespace, emitter: EventEmitter) -> i
                 emitter.logger.info(line)
             else:
                 print(line)
-    return 0
+    return 1 if failed else 0
 
 
 async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
