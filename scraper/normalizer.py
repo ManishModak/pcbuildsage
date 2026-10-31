@@ -59,14 +59,18 @@ _ACCESSORY = re.compile(r"\bnas\b|rail\s*kit|\bcaddy\b|\bbracket\b", re.IGNORECA
 # shelves include laptop SO-DIMMs. These rows are tagged `accessory` so build
 # searches skip them. A fan needs positive evidence (case/radiator fan, a pack
 # or kit, a size in mm) and no claim of a CPU cooler: "ANT ESPORTS ICE-C200 V2
-# LED FAN" is a CPU cooler.
+# LED FAN" is a CPU cooler, and so is PrimeABGB's "Deepcool AK620 G2 120mm
+# Cabinet FAN" (DeepCool's AK/AG model numbers are air coolers).
 _FAN = re.compile(r"\bfans?\b", re.IGNORECASE)
 _FAN_EVIDENCE = re.compile(
     r"\b(?:case|cabinet|chassis|radiator|system)\s+fans?\b|\bfans?\s+(?:pack|kit)\b"
     r"|\b(?:single|dual|twin|triple|quad|\d)\s*[-\s]?(?:pack|in[-\s]?1)\b|\b\d{2,3}\s*mm\b",
     re.IGNORECASE,
 )
-_CPU_COOLER = re.compile(r"\bcpu\b|\b(?:air|liquid|water)\s+cooler\b|\baio\b|heat\s*sink|\btower\b", re.IGNORECASE)
+_CPU_COOLER = re.compile(
+    r"\bcpu\b|\b(?:air|liquid|water)\s+cooler\b|\baio\b|heat\s*sink|\btower\b|\bdeepcool\s+a[gk]\d{3}\b",
+    re.IGNORECASE,
+)
 _UPS = re.compile(r"\bups\b|\b\d+\s*va\b", re.IGNORECASE)
 # Mirrors statesSodimm in src/lib/spec-parsers.ts.
 _SODIMM = re.compile(r"\bso[-\s]?dimms?\b", re.IGNORECASE)

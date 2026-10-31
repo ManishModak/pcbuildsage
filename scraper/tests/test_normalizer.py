@@ -115,6 +115,7 @@ def test_build_parts_on_those_shelves_stay_untagged() -> None:
     # CPU coolers whose retailer titles only say "fan".
     assert classify_subcategory("ANT ESPORTS ICE-C200 V2 LED FAN", "cooler") is None
     assert classify_subcategory("DEEPCOOL LE360 V2 ARGB WHITE FAN ( R-LE360-WHAMMN-G-2)", "cooler") is None
+    assert classify_subcategory("Deepcool AK620 G2 120mm Cabinet FAN R-AK620G2-BKNNMN-GJD", "cooler") is None
     assert classify_subcategory("Corsair RM850e 850W 80 Plus Gold Fully Modular PSU", "psu") is None
     assert classify_subcategory("Kingston Fury Beast 16GB DDR5 5200MHz Desktop RAM", "ram") is None
     assert classify_subcategory("G.Skill Ripjaws 16GB DDR4 Desktop RAM, not for laptop", "ram") is None
