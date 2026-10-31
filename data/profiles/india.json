@@ -336,6 +336,84 @@
         "image": "img.attachment-woocommerce_thumbnail",
         "out_of_stock": ".out-of-stock"
       }
+    },
+    {
+      "site_name": "TPSTech",
+      "base_url": "https://www.tpstech.in/",
+      "scraping_type": "shopify_json",
+      "categories": {
+        "cpu": {
+          "path": "collections/processors",
+          "max_pages": 10
+        },
+        "gpu": {
+          "path": "collections/graphics-card",
+          "max_pages": 10
+        },
+        "motherboard": {
+          "path": "collections/motherboard",
+          "max_pages": 10
+        },
+        "ram": {
+          "path": "collections/desktop-memory",
+          "max_pages": 10
+        },
+        "storage": {
+          "path": "collections/ssd-deals",
+          "max_pages": 10
+        },
+        "psu": {
+          "path": "collections/power-supply",
+          "max_pages": 10
+        },
+        "case": {
+          "path": "collections/cabinets-all",
+          "max_pages": 10
+        },
+        "cooler": {
+          "path": "collections/cpu-coolers",
+          "max_pages": 10
+        }
+      }
+    },
+    {
+      "site_name": "VishalPeripherals",
+      "base_url": "https://vishalperipherals.com/",
+      "scraping_type": "shopify_json",
+      "categories": {
+        "cpu": {
+          "path": "collections/processors",
+          "max_pages": 10
+        },
+        "gpu": {
+          "path": "collections/graphic-cards",
+          "max_pages": 10
+        },
+        "motherboard": {
+          "path": "collections/motherboards",
+          "max_pages": 10
+        },
+        "ram": {
+          "path": "collections/ram",
+          "max_pages": 10
+        },
+        "storage": {
+          "path": "collections/solid-state-drive-ssd",
+          "max_pages": 10
+        },
+        "psu": {
+          "path": "collections/power-supply",
+          "max_pages": 10
+        },
+        "case": {
+          "path": "collections/cabinets",
+          "max_pages": 10
+        },
+        "cooler": {
+          "path": "collections/gaming-coolers",
+          "max_pages": 10
+        }
+      }
     }
   ]
 }
