@@ -127,6 +127,33 @@ describe("runCatalogCoverage", () => {
     expect(fs.readFileSync(path.join(out, "coverage.md"), "utf8")).toContain("| Down | 0 | never | ❌ gpu: 403 |");
   });
 
+  it("reports every profile scope as not run when the scrape crashed before creating the candidate DB", async () => {
+    const hostedDb = candidateDb();
+    const dir = path.dirname(hostedDb);
+    const profilePath = path.join(dir, "profile.json");
+    fs.writeFileSync(profilePath, JSON.stringify({
+      country_code: "IN",
+      sites: [
+        { site_name: "Up", categories: { cpu: {} } },
+        { site_name: "Crashed", categories: { cpu: {}, gpu: {} } },
+        { site_name: "Blocked", categories: { cpu: {} } }
+      ]
+    }));
+    vi.stubEnv("TURSO_DATABASE_URL", `file:${hostedDb}`);
+    vi.stubEnv("TURSO_INGEST_TOKEN", "unused");
+
+    const code = await runCatalogCoverage([
+      "--db", path.join(dir, "never-created.db"), "--profile", profilePath, "--exclude-sites", "blocked",
+      "--json", path.join(dir, "coverage.json")
+    ]);
+
+    expect(code).toBe(0);
+    const report = JSON.parse(fs.readFileSync(path.join(dir, "coverage.json"), "utf8"));
+    expect(report.retailers.map((r: { retailer: string }) => r.retailer)).toEqual(["Crashed", "Up"]);
+    expect(report.retailers[0].scopes.map((s: { job: string }) => s.job)).toEqual(["not run", "not run"]);
+    expect(report.stale).toEqual(["Crashed/cpu", "Crashed/gpu"]);
+  });
+
   it("fails when the candidate DB is missing", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(await runCatalogCoverage(["--db", path.join(os.tmpdir(), "no-such-catalog.db")])).toBe(1);

@@ -8,9 +8,12 @@
  * markdown goes to the job summary, and to a tracking issue while any scope
  * has gone stale.
  *
- * Usage: npm run catalog-coverage -- --db <candidate.db> [--json <file>] [--markdown <file>]
+ * Usage: npm run catalog-coverage -- --db <candidate.db> [--profile india] [--exclude-sites A,B]
+ *        [--json <file>] [--markdown <file>]
  *
- * Scrape outcomes come from the candidate DB's scrape_jobs table. Listing
+ * Scrape outcomes come from the candidate DB's scrape_jobs table. With
+ * --profile, every site and category the profile lists (minus --exclude-sites)
+ * is expected, so one the scraper never reached shows as not run. Listing
  * counts come from Turso when TURSO_DATABASE_URL and a token are set (the
  * hosted catalog after publish, including listings preserved from earlier
  * runs), otherwise from the candidate DB itself.
@@ -30,6 +33,11 @@ export interface ScrapeJob {
   category: string;
   status: JobStatus;
   error: string | null;
+}
+
+export interface Scope {
+  retailer: string;
+  category: string;
 }
 
 export interface ListingCounts {
@@ -78,15 +86,14 @@ export function shortReason(retailer: string, error: string | null): string | nu
 }
 
 /**
- * Joins this run's scrape outcomes with listing counts. Retailers appear if
- * this run scraped them or they still have in-stock listings; within one,
- * every scraped category and every category with in-stock listings appears.
+ * Joins this run's scrape outcomes with listing counts. A scope appears if it
+ * is expected, this run scraped it, or it still has in-stock listings.
  */
 export function buildCoverageReport(
   jobs: ScrapeJob[],
   counts: ListingCounts[],
   now: Date,
-  staleAfterHours = DEFAULT_STALE_AFTER_HOURS
+  { staleAfterHours = DEFAULT_STALE_AFTER_HOURS, expected = [] }: { staleAfterHours?: number; expected?: Scope[] } = {}
 ): CoverageReport {
   const cutoff = now.getTime() - staleAfterHours * 3_600_000;
   const key = (retailer: string, category: string) => `${retailer}\u0000${category}`;
@@ -94,6 +101,7 @@ export function buildCoverageReport(
   const countByScope = new Map(counts.map((count) => [key(count.retailer, count.category), count]));
 
   const scopeKeys = new Set<string>([
+    ...expected.map((scope) => key(scope.retailer, scope.category)),
     ...jobs.map((job) => key(job.retailer, job.category)),
     ...counts.filter((count) => count.inStock > 0).map((count) => key(count.retailer, count.category))
   ]);
@@ -253,20 +261,47 @@ function toCounts(rows: Array<Record<string, unknown>>): ListingCounts[] {
   }));
 }
 
-async function readCounts(db: Database.Database, countries: string[]): Promise<ListingCounts[]> {
+function tursoEnv(): { url: string; token: string } | null {
   const url = process.env.TURSO_DATABASE_URL?.trim();
   const token = (process.env.TURSO_INGEST_TOKEN ?? process.env.TURSO_AUTH_TOKEN)?.trim();
+  return url && token ? { url, token } : null;
+}
+
+async function readCounts(db: Database.Database | null, countries: string[]): Promise<ListingCounts[]> {
+  const turso = tursoEnv();
   const query = countsQuery(countries);
-  if (!url || !token) {
+  if (!turso) {
+    if (!db) throw new Error("no candidate DB and no Turso to count listings from");
     return toCounts(db.prepare(query.sql).all(...query.args) as Array<Record<string, unknown>>);
   }
-  const client = createClient({ url, authToken: token });
+  const client = createClient({ url: turso.url, authToken: turso.token });
   try {
     const result = await client.execute(query);
     return toCounts(result.rows as unknown as Array<Record<string, unknown>>);
   } finally {
     client.close();
   }
+}
+
+interface Profile {
+  country_code: string;
+  sites: Array<{ site_name: string; categories: Record<string, unknown> }>;
+}
+
+/** Reads data/profiles/<name>.json (or a path), like the scraper's --profile. */
+function readProfile(profile: string): Profile {
+  const file = fs.existsSync(profile)
+    ? profile
+    : path.join(process.cwd(), "data", "profiles", profile.endsWith(".json") ? profile : `${profile}.json`);
+  return JSON.parse(fs.readFileSync(file, "utf8")) as Profile;
+}
+
+/** The scopes a scrape of `profile` minus `excludeSites` should record. */
+export function expectedScopes(profile: Profile, excludeSites: string[]): Scope[] {
+  const excluded = new Set(excludeSites.map((name) => name.trim().toLowerCase()));
+  return profile.sites
+    .filter((site) => !excluded.has(site.site_name.toLowerCase()))
+    .flatMap((site) => Object.keys(site.categories).map((category) => ({ retailer: site.site_name, category })));
 }
 
 export async function runCatalogCoverage(args: string[] = process.argv.slice(2)): Promise<number> {
@@ -276,31 +311,39 @@ export async function runCatalogCoverage(args: string[] = process.argv.slice(2))
       db: { type: "string" },
       json: { type: "string" },
       markdown: { type: "string" },
+      profile: { type: "string" },
+      "exclude-sites": { type: "string" },
       "stale-after-hours": { type: "string" }
     },
     strict: true
   });
   const dbPath = values.db ?? process.env.PCBUILDSAGE_DB_PATH ?? path.join(process.cwd(), "data", "products.db");
-  if (!fs.existsSync(dbPath)) {
+  const hasDb = fs.existsSync(dbPath);
+  // A scrape that crashed before creating the DB still gets a report from Turso.
+  if (!hasDb && !(values.profile && tursoEnv())) {
     console.error(`[catalog-coverage] Candidate database not found: ${dbPath}`);
     return 1;
   }
+  const profile = values.profile ? readProfile(values.profile) : null;
+  const expected = profile ? expectedScopes(profile, (values["exclude-sites"] ?? "").split(",").filter(Boolean)) : [];
   const staleAfterHours = Number(values["stale-after-hours"] ?? DEFAULT_STALE_AFTER_HOURS);
   if (!Number.isFinite(staleAfterHours) || staleAfterHours <= 0) {
     console.error(`[catalog-coverage] Invalid --stale-after-hours: ${values["stale-after-hours"]}`);
     return 1;
   }
 
-  const db = new Database(dbPath, { readonly: true, fileMustExist: true });
+  const db = hasDb ? new Database(dbPath, { readonly: true, fileMustExist: true }) : null;
   let report: CoverageReport;
   try {
-    const jobs = readScrapeJobs(db);
-    const countries = jobs.length > 0
-      ? (db.prepare("SELECT DISTINCT country_code FROM scrape_jobs").pluck().all() as string[])
-      : [];
-    report = buildCoverageReport(jobs, await readCounts(db, countries), new Date(), staleAfterHours);
+    const jobs = db ? readScrapeJobs(db) : [];
+    const countries = profile
+      ? [profile.country_code]
+      : db && jobs.length > 0
+        ? (db.prepare("SELECT DISTINCT country_code FROM scrape_jobs").pluck().all() as string[])
+        : [];
+    report = buildCoverageReport(jobs, await readCounts(db, countries), new Date(), { staleAfterHours, expected });
   } finally {
-    db.close();
+    db?.close();
   }
 
   const runUrl = process.env.GITHUB_RUN_ID

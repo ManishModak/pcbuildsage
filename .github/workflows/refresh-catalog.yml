@@ -19,6 +19,10 @@ jobs:
     permissions:
       contents: read
       issues: write
+    env:
+      # PCStudio's Cloudflare returns 403 to GitHub's datacenter IPs (since about
+      # 1 Oct 2026), so the hosted catalog leaves it out; local scrapes keep it.
+      EXCLUDE_SITES: PCStudio
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,13 +40,11 @@ jobs:
           pip install -r scraper/requirements.txt
           playwright install chromium --with-deps
 
-      # PCStudio's Cloudflare returns 403 to GitHub's datacenter IPs (since about
-      # 1 Oct 2026), so the hosted catalog leaves it out; local scrapes keep it.
       - name: Build candidate catalog locally
         run: |
           python -m scraper \
             --profile india \
-            --exclude-sites PCStudio \
+            --exclude-sites "$EXCLUDE_SITES" \
             --db "$RUNNER_TEMP/catalog.db" \
             --skip-fresh 20 \
             --concurrency 2 \
@@ -54,8 +56,8 @@ jobs:
           TURSO_INGEST_TOKEN: ${{ secrets.TURSO_INGEST_TOKEN }}
         run: npm run publish-catalog -- --db "$RUNNER_TEMP/catalog.db"
 
-      # Runs even when publish fails, so a rejected snapshot still shows which
-      # retailers and categories broke.
+      # Runs even when the scrape or publish fails, so a crashed or rejected run
+      # still shows which retailers and categories broke.
       - name: Report catalog coverage
         id: coverage
         if: ${{ !cancelled() }}
@@ -64,6 +66,7 @@ jobs:
           TURSO_INGEST_TOKEN: ${{ secrets.TURSO_INGEST_TOKEN }}
         run: |
           npm run catalog-coverage -- --db "$RUNNER_TEMP/catalog.db" \
+            --profile india --exclude-sites "$EXCLUDE_SITES" \
             --json "$RUNNER_TEMP/coverage.json" --markdown "$RUNNER_TEMP/coverage.md"
           cat "$RUNNER_TEMP/coverage.md" >> "$GITHUB_STEP_SUMMARY"
 
