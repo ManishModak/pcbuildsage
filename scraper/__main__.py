@@ -202,7 +202,7 @@ def make_product(raw: RawProduct, site: SiteConfig, category: str, matcher: Regi
     price = parse_price(raw.price_text)
     if price is None or price <= 0:
         return None
-    if not raw.in_stock and price >= 999999 and set(str(int(price))) == {"9"}:
+    if not raw.in_stock and price >= 999999 and price.is_integer() and set(str(int(price))) == {"9"}:
         return None
     specs: dict[str, Any] = {}
     if category == "cpu":

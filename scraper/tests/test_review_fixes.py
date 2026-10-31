@@ -173,6 +173,7 @@ def test_make_product_drops_out_of_stock_placeholder_price() -> None:
     assert make_product(raw("999999", False), _site(), "gpu", matcher, "2026-10-31T00:00:00Z") is None
     # A real ₹99,999 price, and any in-stock price, are kept.
     assert make_product(raw("99999", False), _site(), "gpu", matcher, "2026-10-31T00:00:00Z") is not None
+    assert make_product(raw("999999.50", False), _site(), "gpu", matcher, "2026-10-31T00:00:00Z") is not None
     assert make_product(raw("999999", True), _site(), "gpu", matcher, "2026-10-31T00:00:00Z") is not None
 
 
