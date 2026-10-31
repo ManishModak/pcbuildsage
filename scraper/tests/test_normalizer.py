@@ -102,6 +102,8 @@ def test_subcategory_classification_portable_ssd() -> None:
 def test_non_build_items_on_other_shelves_are_accessories() -> None:
     # Titles from Vishal Peripherals' cooler, PSU and RAM collections.
     assert classify_subcategory("DEEPCOOL FT12 120MM PWM CABINET FAN (TRIPLE PACK)", "cooler") == "accessory"
+    assert classify_subcategory("THERMALTAKE TOUGHFAN 12 RGB | RADIATOR FAN | 3 PACK", "cooler") == "accessory"
+    assert classify_subcategory("LIAN LI UNI FAN SL WIRELESS 3 X 120MM KIT CASE FAN I COOLER - WHITE", "cooler") == "accessory"
     assert classify_subcategory("ZEBRONICS 735VA UPS", "psu") == "accessory"
     assert classify_subcategory("CRUCIAL BASICS 16GB DDR5-4800 SODIMM LAPTOP RAM CB16GS4800", "ram") == "accessory"
     assert classify_subcategory("EVM 16GB 3200MHz CL19 DDR4 Laptop RAM", "ram") == "accessory"
@@ -110,6 +112,9 @@ def test_non_build_items_on_other_shelves_are_accessories() -> None:
 def test_build_parts_on_those_shelves_stay_untagged() -> None:
     assert classify_subcategory("Cooler Master Hyper 212 Spectrum V3 ARGB CPU Cooler - 120mm Fan", "cooler") is None
     assert classify_subcategory("Gamdias CHIONE P2-360R AIO Liquid Cooler with Triple 120mm RGB Silent Fan", "cooler") is None
+    # CPU coolers whose retailer titles only say "fan".
+    assert classify_subcategory("ANT ESPORTS ICE-C200 V2 LED FAN", "cooler") is None
+    assert classify_subcategory("DEEPCOOL LE360 V2 ARGB WHITE FAN ( R-LE360-WHAMMN-G-2)", "cooler") is None
     assert classify_subcategory("Corsair RM850e 850W 80 Plus Gold Fully Modular PSU", "psu") is None
     assert classify_subcategory("Kingston Fury Beast 16GB DDR5 5200MHz Desktop RAM", "ram") is None
     assert classify_subcategory("G.Skill Ripjaws 16GB DDR4 Desktop RAM, not for laptop", "ram") is None

@@ -57,11 +57,16 @@ _ACCESSORY = re.compile(r"\bnas\b|rail\s*kit|\bcaddy\b|\bbracket\b", re.IGNORECA
 # Other shelves hold non-build items too: Vishal Peripherals' cooler collection
 # lists case-fan packs, its PSU shelf lists UPS units, and most stores' RAM
 # shelves include laptop SO-DIMMs. These rows are tagged `accessory` so build
-# searches skip them. A fan is only tagged when the title names no CPU cooler
-# ("Cooler Master" is a brand, not a cooler).
+# searches skip them. A fan needs positive evidence (case/radiator fan, a pack
+# or kit, a size in mm) and no claim of a CPU cooler: "ANT ESPORTS ICE-C200 V2
+# LED FAN" is a CPU cooler.
 _FAN = re.compile(r"\bfans?\b", re.IGNORECASE)
-_CPU_COOLER = re.compile(r"cooler|\baio\b|liquid|tower|heat\s*sink|\bcpu\b|radiator|freezer", re.IGNORECASE)
-_COOLER_MASTER = re.compile(r"cooler\s*master", re.IGNORECASE)
+_FAN_EVIDENCE = re.compile(
+    r"\b(?:case|cabinet|chassis|radiator|system)\s+fans?\b|\bfans?\s+(?:pack|kit)\b"
+    r"|\b(?:single|dual|twin|triple|quad|\d)\s*[-\s]?(?:pack|in[-\s]?1)\b|\b\d{2,3}\s*mm\b",
+    re.IGNORECASE,
+)
+_CPU_COOLER = re.compile(r"\bcpu\b|\b(?:air|liquid|water)\s+cooler\b|\baio\b|heat\s*sink|\btower\b", re.IGNORECASE)
 _UPS = re.compile(r"\bups\b|\b\d+\s*va\b", re.IGNORECASE)
 # Mirrors statesSodimm in src/lib/spec-parsers.ts.
 _SODIMM = re.compile(r"\bso[-\s]?dimms?\b", re.IGNORECASE)
@@ -117,7 +122,7 @@ def classify_subcategory(name: str, category: str) -> str | None:
     items get a subcategory; every other row stays None.
     """
     if category == "cooler":
-        if _FAN.search(name) and not _CPU_COOLER.search(_COOLER_MASTER.sub("", name)):
+        if _FAN.search(name) and _FAN_EVIDENCE.search(name) and not _CPU_COOLER.search(name):
             return "accessory"
         return None
     if category == "psu":
