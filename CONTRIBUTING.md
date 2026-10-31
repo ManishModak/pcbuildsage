@@ -76,6 +76,20 @@ If the store runs Shopify (`Shopify.theme` appears in the home page HTML, or `/p
 ```
 The price is the lowest price among available variants, and a product is in stock when any variant is available. `--test-profile` reports the JSON product count instead of selector hit rates.
 
+### WooCommerce stores
+For stores exposing the public WooCommerce Store API, use `"scraping_type": "woocommerce_json"`.
+Each category `path` is its category slug (for example `cpu-processor`), with no
+`browser_config` or `selectors`. Products are requested in stable ID order, 100 per page.
+The API's current `prices.price` is converted from `currency_minor_unit`; `is_in_stock`,
+`permalink`, name and first image come directly from the response. Variable products
+retain the API's advertised current price. No browser or LLM fallback is used.
+
+Completion requires every row advertised by `X-WP-Total` and `X-WP-TotalPages`.
+Missing/changed totals, duplicate products, malformed rows, later fetch failures and
+reaching `max_pages` early leave the scope partial and prevent its stale-stock sweep.
+Keep request delays and concurrency unchanged. Stop live investigation on a 403 or
+bot challenge; API availability does not establish permission to use site content.
+
 ### Testing a Profile
 Before submitting a pull request with a new or updated profile, run selector validation checks locally:
 ```bash

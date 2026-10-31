@@ -135,64 +135,41 @@
     {
       "site_name": "PrimeABGB",
       "base_url": "https://www.primeabgb.com/",
-      "scraping_type": "category",
+      "scraping_type": "woocommerce_json",
       "engine": "http",
-      "browser_config": {
-        "headless": true,
-        "js_rendering": true,
-        "wait_for_selector": "li.product",
-        "scroll_down": true,
-        "timeout_ms": 30000
-      },
       "categories": {
         "cpu": {
-          "path": "buy-online-price-india/cpu-processor/",
-          "pagination_pattern": "page/{page}/",
-          "max_pages": 20
+          "path": "cpu-processor",
+          "max_pages": 100
         },
         "gpu": {
-          "path": "buy-online-price-india/graphic-cards-gpu/",
-          "pagination_pattern": "page/{page}/",
-          "max_pages": 20
+          "path": "graphic-cards-gpu",
+          "max_pages": 100
         },
         "motherboard": {
-          "path": "buy-online-price-india/motherboards/",
-          "pagination_pattern": "page/{page}/",
-          "max_pages": 20
+          "path": "motherboards",
+          "max_pages": 100
         },
         "ram": {
-          "path": "buy-online-price-india/ram-memory/",
-          "pagination_pattern": "page/{page}/",
-          "max_pages": 20
+          "path": "ram-memory",
+          "max_pages": 100
         },
         "storage": {
-          "path": "buy-online-price-india/ssd/",
-          "pagination_pattern": "page/{page}/",
-          "max_pages": 20
+          "path": "ssd",
+          "max_pages": 100
         },
         "psu": {
-          "path": "buy-online-price-india/power-supplies-smps/",
-          "pagination_pattern": "page/{page}/",
-          "max_pages": 20
+          "path": "power-supplies-smps",
+          "max_pages": 100
         },
         "case": {
-          "path": "buy-online-price-india/pc-cases-cabinet/",
-          "pagination_pattern": "page/{page}/",
-          "max_pages": 20
+          "path": "pc-cases-cabinet",
+          "max_pages": 100
         },
         "cooler": {
-          "path": "buy-online-price-india/cpu-cooler/",
-          "pagination_pattern": "page/{page}/",
-          "max_pages": 20
+          "path": "cpu-cooler",
+          "max_pages": 100
         }
-      },
-      "selectors": {
-        "product_container": "div.product, li.product",
-        "title": "h3.woocommerce-loop-product__title, .product-title a, h2.woocommerce-loop-product__title, .product-name a",
-        "price": "span.price ins span.woocommerce-Price-amount, span.price span.woocommerce-Price-amount",
-        "url": "a.woocommerce-LoopProduct-link",
-        "image": "img.attachment-woocommerce_thumbnail",
-        "out_of_stock": ".out-of-stock"
       }
     },
     {

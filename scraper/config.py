@@ -15,7 +15,8 @@ class ProfileError(ValueError):
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PROFILES_DIR = REPO_ROOT / "data" / "profiles"
 SHOPIFY_JSON = "shopify_json"
-SCRAPING_TYPES = {"category", "search", SHOPIFY_JSON}
+WOOCOMMERCE_JSON = "woocommerce_json"
+SCRAPING_TYPES = {"category", "search", SHOPIFY_JSON, WOOCOMMERCE_JSON}
 SHOPIFY_COLLECTION_PATH = re.compile(r"collections/[A-Za-z0-9][A-Za-z0-9_-]*")
 
 
@@ -48,8 +49,8 @@ def _validate_profile(raw: dict[str, Any]) -> None:
             _require(site, key, object)
         if site["scraping_type"] not in SCRAPING_TYPES:
             raise ProfileError(f"{site['site_name']}: scraping_type must be one of {', '.join(sorted(SCRAPING_TYPES))}")
-        # shopify_json reads the store's products.json: no HTML, so no browser or selectors.
-        needs_html = site["scraping_type"] != SHOPIFY_JSON
+        # JSON APIs need neither HTML selectors nor a browser.
+        needs_html = site["scraping_type"] not in {SHOPIFY_JSON, WOOCOMMERCE_JSON}
         if needs_html:
             for key in ("browser_config", "selectors"):
                 _require(site, key, object)
@@ -86,8 +87,10 @@ def _validate_profile(raw: dict[str, Any]) -> None:
                 raise ProfileError(f"{site['site_name']}/{category_name}: path must be a string")
             if not isinstance(category.get("max_pages"), int) or category["max_pages"] < 1:
                 raise ProfileError(f"{site['site_name']}/{category_name}: max_pages must be >= 1")
-            if not needs_html and not SHOPIFY_COLLECTION_PATH.fullmatch(category["path"]):
+            if site["scraping_type"] == SHOPIFY_JSON and not SHOPIFY_COLLECTION_PATH.fullmatch(category["path"]):
                 raise ProfileError(f"{site['site_name']}/{category_name}: path must be collections/<handle> for shopify_json")
+            if site["scraping_type"] == WOOCOMMERCE_JSON and not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", category["path"]):
+                raise ProfileError(f"{site['site_name']}/{category_name}: path must be a category slug for woocommerce_json")
             if "pagination_pattern" in category and "{page}" not in category["pagination_pattern"]:
                 raise ProfileError(f"{site['site_name']}/{category_name}: pagination_pattern must include {{page}}")
             if "search_pattern" in category and "{query}" not in category["search_pattern"]:
@@ -126,7 +129,7 @@ def load_profile(profile: str | Path, profiles_dir: Path = DEFAULT_PROFILES_DIR)
                 scroll_down=browser_raw.get("scroll_down", False),
                 timeout_ms=browser_raw["timeout_ms"],
             )
-            if raw_site["scraping_type"] != SHOPIFY_JSON
+            if raw_site["scraping_type"] not in {SHOPIFY_JSON, WOOCOMMERCE_JSON}
             else BrowserConfig()
         )
         categories = {

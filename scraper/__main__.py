@@ -8,7 +8,7 @@ import sys
 from dataclasses import asdict, dataclass, replace
 from typing import Any, Literal
 
-from .config import SHOPIFY_JSON, ProfileError, REPO_ROOT, filter_sites, load_profile, resolve_categories
+from .config import SHOPIFY_JSON, WOOCOMMERCE_JSON, ProfileError, REPO_ROOT, filter_sites, load_profile, resolve_categories
 from .crawler import CrawlError, ScraperCrawler, category_page_url, shopify_collection_url
 from .db import ProductStore, utc_now_iso
 from .extractor import selector_hit_rates
@@ -24,6 +24,7 @@ from .normalizer import (
     strip_listing_context,
 )
 from .output import EventEmitter, configure_logging
+from .woocommerce import crawl_woocommerce_category, woocommerce_category_url
 
 logger = logging.getLogger(__name__)
 
@@ -336,10 +337,13 @@ async def run_test_profile(args: argparse.Namespace, emitter: EventEmitter) -> i
     failed = False
     async with crawler.fetcher:
         for site, category, limit in work:
-            if site.scraping_type == SHOPIFY_JSON:
-                emitter.logger.info("Testing %s/%s %s", site.site_name, category.name, shopify_collection_url(site, category, 1))
+            if site.scraping_type in {SHOPIFY_JSON, WOOCOMMERCE_JSON}:
+                page_url = shopify_collection_url if site.scraping_type == SHOPIFY_JSON else woocommerce_category_url
+                emitter.logger.info("Testing %s/%s %s", site.site_name, category.name, page_url(site, category, 1))
                 try:
-                    found = await crawler.crawl_shopify_collection(site, category, limit)
+                    found = await (crawler.crawl_shopify_collection(site, category, limit)
+                                   if site.scraping_type == SHOPIFY_JSON
+                                   else crawl_woocommerce_category(crawler, site, category, limit))
                 except CrawlError as exc:
                     failed = True
                     line = f"{site.site_name} {category.name}: JSON FAIL {exc}"
@@ -347,6 +351,8 @@ async def run_test_profile(args: argparse.Namespace, emitter: EventEmitter) -> i
                     in_stock = sum(1 for product in found if product.in_stock)
                     status = "OK" if found and not found.partial else "WARN"
                     line = f"{site.site_name} {category.name}: json products: {len(found)} (in stock {in_stock}) {status}"
+                    if not found or found.partial:
+                        failed = True
                     if found.partial:
                         line += f" partial ({found.partial_error})"
                 if args.json_stdout:
@@ -431,6 +437,8 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
 
             if site.scraping_type == SHOPIFY_JSON:
                 raw_products = await crawler.crawl_shopify_collection(site, category, limit, on_page=on_page)
+            elif site.scraping_type == WOOCOMMERCE_JSON:
+                raw_products = await crawl_woocommerce_category(crawler, site, category, limit, on_page=on_page)
             elif site.scraping_type == "search":
                 terms = search_terms_for_category(category.name)
                 raw_products = await crawler.crawl_search(

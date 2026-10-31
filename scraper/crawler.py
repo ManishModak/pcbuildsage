@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import gzip
+import http.client
 import json
 import logging
 import math
@@ -64,6 +65,10 @@ class HttpStatusError(CrawlError):
     @property
     def not_found(self) -> bool:
         return self.status in NOT_FOUND_STATUSES
+
+
+class BotProtectionError(HttpStatusError):
+    """A Store API challenge must stop the retailer without a retry."""
 
 
 class RedirectedToHomeError(CrawlError):
@@ -326,14 +331,21 @@ class Crawl4AIFetcher:
             return crawler
 
     async def fetch_http(self, url: str, site: SiteConfig, retries: int = 2) -> str:
-        """Fetch a page via direct HTTP GET with full browser headers and 429 backoff."""
+        """Fetch a page body, preserving the existing HTTP-only callers."""
+        body, _headers = await self.fetch_http_response(url, site, retries)
+        return body
+
+    async def fetch_http_response(self, url: str, site: SiteConfig, retries: int = 2) -> tuple[str, dict[str, str]]:
+        """Fetch body and pagination headers using the normal HTTP policy."""
         _validate_http_url(url)
 
-        def _sync_http_get() -> str:
+        def _sync_http_get() -> tuple[str, dict[str, str]]:
             req = urllib.request.Request(url, headers=DEFAULT_HTTP_HEADERS)
             with urllib.request.urlopen(req, timeout=15) as resp:
                 # urlopen follows redirects silently; geturl() is where we landed.
                 _check_not_redirected_home(url, resp.geturl())
+                if site.scraping_type == "woocommerce_json" and resp.info().get("cf-mitigated") == "challenge":
+                    raise BotProtectionError(url, getattr(resp, "status", 200))
                 data = resp.read()
                 content_encoding = (resp.info().get("Content-Encoding", "") or "").lower()
                 if "gzip" in content_encoding:
@@ -344,21 +356,48 @@ class Crawl4AIFetcher:
                 elif "deflate" in content_encoding:
                     data = _decompress_deflate(data)
                 charset = resp.info().get_content_charset() or _charset_from_meta(data) or "utf-8"
+                headers = {
+                    key.lower(): resp.info().get(key)
+                    for key in ("X-WP-Total", "X-WP-TotalPages") if resp.info().get(key) is not None
+                }
                 try:
-                    return data.decode(charset, errors="ignore")
+                    return data.decode(charset, errors="ignore"), headers
                 except (LookupError, ValueError):
-                    return data.decode("utf-8", errors="ignore")
+                    return data.decode("utf-8", errors="ignore"), headers
 
         last_error = None
         for attempt in range(1, retries + 1):
             try:
-                html = await asyncio.to_thread(_sync_http_get)
-                if html:
-                    return html
-            except RedirectedToHomeError:
+                response = await asyncio.to_thread(_sync_http_get)
+                if response[0]:
+                    return response
+            except (RedirectedToHomeError, BotProtectionError):
                 raise
             except urllib.error.HTTPError as http_err:
                 last_error = http_err
+                if site.scraping_type == "woocommerce_json":
+                    # A denial is definitive even when its body is truncated.
+                    if http_err.code == 403:
+                        raise HttpStatusError(url, http_err.code) from http_err
+                    error_headers = http_err.headers or {}
+                    if error_headers.get("cf-mitigated") == "challenge":
+                        raise BotProtectionError(url, http_err.code) from http_err
+                    # Challenges can arrive as 429/503 (or another error), not
+                    # just 403. Inspect before the ordinary transient retry.
+                    try:
+                        try:
+                            error_body = http_err.read()
+                        except http.client.IncompleteRead as exc:
+                            error_body = exc.partial
+                        encoding = error_headers.get("Content-Encoding", "").lower()
+                        if "gzip" in encoding:
+                            error_body = gzip.decompress(error_body)
+                        elif "deflate" in encoding:
+                            error_body = _decompress_deflate(error_body)
+                        if any(marker in error_body.decode("utf-8", errors="ignore").lower() for marker in WAF_MARKERS):
+                            raise BotProtectionError(url, http_err.code) from http_err
+                    except (OSError, EOFError, http.client.HTTPException, zlib.error):
+                        pass
                 if http_err.code in NOT_FOUND_STATUSES:
                     # Definitive answer: retrying cannot make the page exist.
                     raise HttpStatusError(url, http_err.code) from http_err
@@ -536,6 +575,8 @@ class ScraperCrawler:
         self.max_llm_calls = max_llm_calls
         self.llm_calls = 0
         self.active_engines: dict[str, str] = {}
+        # A denied Store API request stops further categories for this retailer.
+        self.blocked_sites: set[str] = set()
 
     def _should_invoke_llm(self, failed: list[RawProduct], cumulative_selector_failures: int) -> bool:
         return bool(
