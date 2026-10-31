@@ -21,11 +21,28 @@
     "site": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["site_name", "base_url", "scraping_type", "browser_config", "categories", "selectors"],
+      "required": ["site_name", "base_url", "scraping_type", "categories"],
+      "allOf": [
+        {
+          "if": { "required": ["scraping_type"], "properties": { "scraping_type": { "const": "shopify_json" } } },
+          "then": {
+            "properties": {
+              "categories": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": { "path": { "type": "string", "pattern": "^collections/[A-Za-z0-9][A-Za-z0-9_-]*$" } }
+                }
+              }
+            }
+          },
+          "else": { "required": ["browser_config", "selectors"] }
+        }
+      ],
       "properties": {
         "site_name": { "type": "string", "minLength": 1 },
         "base_url": { "type": "string", "format": "uri" },
-        "scraping_type": { "enum": ["category", "search"] },
+        "scraping_type": { "enum": ["category", "search", "shopify_json"] },
         "browser_config": { "$ref": "#/$defs/browserConfig" },
         "categories": {
           "type": "object",

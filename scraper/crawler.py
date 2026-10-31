@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import gzip
+import json
 import logging
 import math
 import urllib.error
@@ -11,7 +12,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 from urllib.parse import quote, urljoin, urlparse
 
-from .extractor import extract_products, raw_from_llm_payload
+from .extractor import extract_products, raw_from_llm_payload, raw_from_shopify_products
 from .llm_client import LLMClient
 from .models import BrowserConfig, CategoryConfig, RawProduct, SiteConfig
 
@@ -474,6 +475,15 @@ def category_page_url(site: SiteConfig, category: CategoryConfig, page: int) -> 
         return base
     pattern = (category.pagination_pattern or "?page={page}").format(page=page)
     return urljoin(base.rstrip("/") + "/", pattern) if not pattern.startswith("?") else base + pattern
+
+
+# Shopify caps products.json at 250 per page.
+SHOPIFY_PAGE_SIZE = 250
+
+
+def shopify_collection_url(site: SiteConfig, category: CategoryConfig, page: int) -> str:
+    base = urljoin(site.base_url, category.path.strip("/"))
+    return f"{base}/products.json?limit={SHOPIFY_PAGE_SIZE}&page={page}"
 
 
 def search_page_url(site: SiteConfig, category: CategoryConfig, query: str) -> str:
@@ -961,3 +971,98 @@ class ScraperCrawler:
             if self.delay_ms > 0 and index < len(limited_terms):
                 await asyncio.sleep(self.delay_ms / 1000)
         return products
+
+    async def crawl_shopify_collection(
+        self,
+        site: SiteConfig,
+        category: CategoryConfig,
+        page_limit: int,
+        on_page: Callable[[int, list[RawProduct], str], None] | None = None,
+    ) -> CrawlProducts:
+        """Fetch a Shopify collection's products.json until a page comes back empty.
+
+        Uses the fetcher's plain HTTP path (same user agent, retries and
+        politeness delay as HTML crawls). A page-2+ failure, a page that repeats
+        earlier results, or reaching page_limit before an empty page marks the
+        crawl partial so the stale sweep never retires unseen rows.
+        """
+        products = CrawlProducts()
+        seen_urls: set[str] = set()
+        page = 1
+        while page <= page_limit:
+            url = shopify_collection_url(site, category, page)
+            try:
+                body, items = await self._fetch_shopify_page(url, site)
+            except CrawlError as exc:
+                if page > 1:
+                    products.partial = True
+                    products.partial_error = str(exc)
+                    logger.warning(
+                        "%s/%s page %d failed (%s); keeping %d products as partial",
+                        site.site_name,
+                        category.name,
+                        page,
+                        exc,
+                        len(products),
+                        extra={"component": "scraper"},
+                    )
+                    break
+                raise
+            if not items:
+                break
+            raw_products = raw_from_shopify_products(items, site.base_url)
+            page_urls = {p.url for p in raw_products if p.url}
+            if page > 1 and page_urls & seen_urls:
+                # The store ignored ?page=, or the collection shifted mid-crawl and
+                # listings may have been skipped: either way this is not complete.
+                products.partial = True
+                products.partial_error = f"page {page} repeated earlier results"
+                break
+            seen_urls.update(page_urls)
+            products.extend(raw_products)
+            if on_page:
+                on_page(page, raw_products, body)
+            if page == page_limit:
+                products.partial = True
+                products.partial_error = f"stopped at page limit {page_limit} before end of listing"
+                break
+            if self.delay_ms > 0:
+                await asyncio.sleep(self.delay_ms / 1000)
+            page += 1
+        return products
+
+    async def _fetch_shopify_page(self, url: str, site: SiteConfig, attempts: int = 3) -> tuple[str, list[Any]]:
+        """Fetch one products.json page, retrying a non-JSON body.
+
+        Shopify intermittently answers with an HTML "Browser verification"
+        page instead of JSON (about 1 request in 40 on EliteHubs); a short
+        backoff and retry gets the real page.
+        """
+        for attempt in range(1, attempts + 1):
+            body = await self.fetcher.fetch_http(url, site)
+            try:
+                return body, _parse_shopify_page(body, url)
+            except CrawlError:
+                if attempt == attempts:
+                    raise
+                logger.warning(
+                    "%s returned a non-JSON body (attempt %d/%d); retrying",
+                    url,
+                    attempt,
+                    attempts,
+                    extra={"component": "scraper"},
+                )
+                await asyncio.sleep(max(2.0, self.delay_ms / 1000) * attempt)
+        raise AssertionError("unreachable")
+
+
+def _parse_shopify_page(body: str, url: str) -> list[Any]:
+    """Return the products list of a products.json body, or raise CrawlError."""
+    try:
+        payload = json.loads(body)
+    except ValueError as exc:
+        raise CrawlError(f"{url} did not return JSON (blocked or not a Shopify store?): {body[:80]!r}") from exc
+    items = payload.get("products") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        raise CrawlError(f"{url} returned JSON without a products list")
+    return items

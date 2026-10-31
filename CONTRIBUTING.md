@@ -64,6 +64,18 @@ Scraping profiles live under `data/profiles/` (e.g., `data/profiles/india.json`)
 }
 ```
 
+### Shopify stores
+If the store runs Shopify (`Shopify.theme` appears in the home page HTML, or `/products.json` returns JSON), prefer `"scraping_type": "shopify_json"`. It reads `collections/<handle>/products.json` (all pages, 250 per page), so no `browser_config` or `selectors` are needed, and each category `path` is `collections/<handle>`:
+```json
+{
+  "site_name": "RetailerName",
+  "base_url": "https://retailer.example.com/",
+  "scraping_type": "shopify_json",
+  "categories": { "cpu": { "path": "collections/processor", "max_pages": 10 } }
+}
+```
+The price is the lowest price among available variants, and a product is in stock when any variant is available. `--test-profile` reports the JSON product count instead of selector hit rates.
+
 ### Testing a Profile
 Before submitting a pull request with a new or updated profile, run selector validation checks locally:
 ```bash

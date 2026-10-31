@@ -8,8 +8,8 @@ import sys
 from dataclasses import asdict, dataclass, replace
 from typing import Any, Literal
 
-from .config import ProfileError, REPO_ROOT, filter_sites, load_profile, resolve_categories
-from .crawler import CrawlError, ScraperCrawler, category_page_url
+from .config import SHOPIFY_JSON, ProfileError, REPO_ROOT, filter_sites, load_profile, resolve_categories
+from .crawler import CrawlError, ScraperCrawler, category_page_url, shopify_collection_url
 from .db import ProductStore, utc_now_iso
 from .extractor import selector_hit_rates
 from .llm_client import LLMClient, resolve_llm_config
@@ -333,8 +333,27 @@ def record_job_status(
 async def run_test_profile(args: argparse.Namespace, emitter: EventEmitter) -> int:
     work, _profile = build_work(args.test_profile, args)
     crawler = ScraperCrawler(delay_ms=args.delay_ms, llm_enabled=False)
+    failed = False
     async with crawler.fetcher:
-        for site, category, _limit in work:
+        for site, category, limit in work:
+            if site.scraping_type == SHOPIFY_JSON:
+                emitter.logger.info("Testing %s/%s %s", site.site_name, category.name, shopify_collection_url(site, category, 1))
+                try:
+                    found = await crawler.crawl_shopify_collection(site, category, limit)
+                except CrawlError as exc:
+                    failed = True
+                    line = f"{site.site_name} {category.name}: JSON FAIL {exc}"
+                else:
+                    in_stock = sum(1 for product in found if product.in_stock)
+                    status = "OK" if found and not found.partial else "WARN"
+                    line = f"{site.site_name} {category.name}: json products: {len(found)} (in stock {in_stock}) {status}"
+                    if found.partial:
+                        line += f" partial ({found.partial_error})"
+                if args.json_stdout:
+                    emitter.logger.info(line)
+                else:
+                    print(line)
+                continue
             url = category_page_url(site, category, 1)
             emitter.logger.info("Testing %s/%s %s", site.site_name, category.name, url)
             html = await crawler.fetcher.fetch(url, site)
@@ -350,7 +369,7 @@ async def run_test_profile(args: argparse.Namespace, emitter: EventEmitter) -> i
                 emitter.logger.info(line)
             else:
                 print(line)
-    return 0
+    return 1 if failed else 0
 
 
 async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
@@ -400,35 +419,33 @@ async def run_scrape(args: argparse.Namespace, emitter: EventEmitter) -> int:
                     logger.info("Job skipped (scraped recently): %s/%s", site.site_name, category.name, extra={"component": "scraper"})
                     return JobOutcome("skipped")
         try:
-            if site.scraping_type == "search":
+            def on_page(page: int, products: list[RawProduct], _html: str) -> None:
+                emitter.progress(
+                    site=site.site_name,
+                    category=category.name,
+                    page=page,
+                    pages_total=limit,
+                    products_seen=len(products),
+                    percent=min(99, int(page / limit * 100)),
+                )
+
+            if site.scraping_type == SHOPIFY_JSON:
+                raw_products = await crawler.crawl_shopify_collection(site, category, limit, on_page=on_page)
+            elif site.scraping_type == "search":
                 terms = search_terms_for_category(category.name)
                 raw_products = await crawler.crawl_search(
                     site,
                     category,
                     terms,
                     limit,
-                    on_page=lambda page, products, _html: emitter.progress(
-                        site=site.site_name,
-                        category=category.name,
-                        page=page,
-                        pages_total=limit,
-                        products_seen=len(products),
-                        percent=min(99, int(page / limit * 100)),
-                    ),
+                    on_page=on_page,
                 )
             else:
                 raw_products = await crawler.crawl_category(
                     site,
                     category,
                     limit,
-                    on_page=lambda page, products, _html: emitter.progress(
-                        site=site.site_name,
-                        category=category.name,
-                        page=page,
-                        pages_total=limit,
-                        products_seen=len(products),
-                        percent=min(99, int(page / limit * 100)),
-                    ),
+                    on_page=on_page,
                 )
             scraped_at = utc_now_iso()
             products = [
