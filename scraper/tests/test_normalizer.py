@@ -105,6 +105,8 @@ def test_non_build_items_on_other_shelves_are_accessories() -> None:
     assert classify_subcategory("THERMALTAKE TOUGHFAN 12 RGB | RADIATOR FAN | 3 PACK", "cooler") == "accessory"
     assert classify_subcategory("LIAN LI UNI FAN SL WIRELESS 3 X 120MM KIT CASE FAN I COOLER - WHITE", "cooler") == "accessory"
     assert classify_subcategory("ZEBRONICS 735VA UPS", "psu") == "accessory"
+    assert classify_subcategory("Kingpin KPx 1.5g Thermal Grease", "cooler") == "accessory"
+    assert classify_subcategory("Deepcool GamerStorm G40 CPU Cooling Thermal Paste DP-GS-TP-G40", "cooler") == "accessory"
     assert classify_subcategory("CRUCIAL BASICS 16GB DDR5-4800 SODIMM LAPTOP RAM CB16GS4800", "ram") == "accessory"
     assert classify_subcategory("EVM 16GB 3200MHz CL19 DDR4 Laptop RAM", "ram") == "accessory"
 

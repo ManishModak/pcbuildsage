@@ -414,6 +414,46 @@
           "max_pages": 10
         }
       }
+    },
+    {
+      "site_name": "EZPZSolutions",
+      "base_url": "https://www.ezpzsolutions.in/",
+      "scraping_type": "woocommerce_json",
+      "engine": "http",
+      "categories": {
+        "cpu": {
+          "path": "processors",
+          "max_pages": 100
+        },
+        "gpu": {
+          "path": "graphics-card",
+          "max_pages": 100
+        },
+        "motherboard": {
+          "path": "motherboards",
+          "max_pages": 100
+        },
+        "ram": {
+          "path": "ram",
+          "max_pages": 100
+        },
+        "storage": {
+          "path": "storage",
+          "max_pages": 100
+        },
+        "psu": {
+          "path": "power-supply",
+          "max_pages": 100
+        },
+        "case": {
+          "path": "cabinets",
+          "max_pages": 100
+        },
+        "cooler": {
+          "path": "cpu-cooler",
+          "max_pages": 100
+        }
+      }
     }
   ]
 }

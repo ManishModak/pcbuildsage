@@ -71,6 +71,10 @@ _CPU_COOLER = re.compile(
     r"\bcpu\b|\b(?:air|liquid|water)\s+cooler\b|\baio\b|heat\s*sink|\btower\b|\bdeepcool\s+a[gk]\d{3}\b",
     re.IGNORECASE,
 )
+# Thermal paste also sits on cooler shelves (EZPZ, PrimeABGB); a cooler that
+# ships with paste says "cooler".
+_THERMAL_PASTE = re.compile(r"\bthermal\s+(?:grease|paste|compound|pads?|putty)\b", re.IGNORECASE)
+_COOLER_WORD = re.compile(r"\bcoolers?\b", re.IGNORECASE)
 _UPS = re.compile(r"\bups\b|\b\d+\s*va\b", re.IGNORECASE)
 # Mirrors statesSodimm in src/lib/spec-parsers.ts.
 _SODIMM = re.compile(r"\bso[-\s]?dimms?\b", re.IGNORECASE)
@@ -127,6 +131,8 @@ def classify_subcategory(name: str, category: str) -> str | None:
     """
     if category == "cooler":
         if _FAN.search(name) and _FAN_EVIDENCE.search(name) and not _CPU_COOLER.search(name):
+            return "accessory"
+        if _THERMAL_PASTE.search(name) and not _COOLER_WORD.search(name):
             return "accessory"
         return None
     if category == "psu":
