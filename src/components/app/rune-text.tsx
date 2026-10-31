@@ -14,6 +14,15 @@ export function runeFor(char: string, index: number): string {
 }
 
 /**
+ * The space between rune letters. Chrome leaves a bare space next to the
+ * letters' rune layer out of the accessible name ("Yourbudget."); a space in
+ * its own pre-wrap span stays in, and still wraps like any other.
+ */
+export function RuneSpace() {
+  return <span className="whitespace-pre-wrap"> </span>;
+}
+
+/**
  * Text that arrives as runes and settles into letters, once, when it mounts.
  * The animation is CSS only (.rune-ch in globals.css): this lays out one span
  * per letter with its rune and timing. The letters are the only copy of the
@@ -45,7 +54,7 @@ export function RuneText({ text, delay = 0 }: { text: string; delay?: number }) 
         });
         return (
           <span key={w}>
-            {w > 0 ? " " : null}
+            {w > 0 ? <RuneSpace /> : null}
             <span className="whitespace-nowrap">{letters}</span>
           </span>
         );

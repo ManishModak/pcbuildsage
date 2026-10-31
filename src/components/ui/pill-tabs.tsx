@@ -36,7 +36,7 @@ export function PillTabs({
       aria-label={ariaLabel}
       // One row that scrolls sideways when it doesn't fit, like a chip row;
       // wrapping would turn the pill into a lumpy oval on phones.
-      className="inline-flex max-w-full gap-1 overflow-x-auto rounded-pill border border-border bg-surface p-1 [scrollbar-width:none]"
+      className="inline-flex max-w-full gap-1 overflow-x-auto rounded-pill border border-border bg-surface p-1 scrollbar-none"
     >
       {tabs.map((tab, index) => {
         const active = tab.value === value;

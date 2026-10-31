@@ -1,6 +1,6 @@
 import { Fragment, memo, type ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
-import { runeFor } from "@/components/app/rune-text";
+import { RuneSpace, runeFor } from "@/components/app/rune-text";
 
 // A minimal, safe markdown renderer — enough for the sage's replies (paragraphs,
 // lists, fenced code, inline code, bold). No HTML injection, no dependency.
@@ -261,17 +261,22 @@ function parseBlocks(text: string): Block[] {
 
 // One span per letter for a streaming reply, keyed by its place in its text
 // run: as more text arrives the earlier letters keep their spans, so their
-// rune animation plays once, when the letter first appears.
+// rune animation plays once, when the letter first appears. A run of spaces
+// becomes one RuneSpace, as HTML would collapse it.
 function runeLetters(text: string): ReactNode[] {
-  return Array.from(text, (char, i) =>
-    /\s/.test(char) ? (
-      char
-    ) : (
-      <span key={i} className="rune-ch rune-stream" data-rune={runeFor(char, i)}>
-        {char}
-      </span>
-    )
-  );
+  const nodes: ReactNode[] = [];
+  Array.from(text).forEach((char, i, chars) => {
+    if (!/\s/.test(char)) {
+      nodes.push(
+        <span key={i} className="rune-ch rune-stream" data-rune={runeFor(char, i)}>
+          {char}
+        </span>
+      );
+    } else if (i === 0 || !/\s/.test(chars[i - 1])) {
+      nodes.push(<RuneSpace key={i} />);
+    }
+  });
+  return nodes;
 }
 
 // Inline: ***bold-italic***, **bold**, *italic*, _italic_, `code`, and [links](url).
