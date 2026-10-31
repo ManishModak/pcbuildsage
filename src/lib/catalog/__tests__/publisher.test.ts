@@ -1039,5 +1039,52 @@ describe("Publisher Engine & Turso Schema", () => {
 
       cleanup();
     });
+
+    it("rewrites only new or changed listings and moves last_scraped on the rest", async () => {
+      const client = createClient({ url: "file::memory:" });
+      const day1 = "2026-10-01T00:00:00Z";
+      const day2 = "2026-10-02T00:00:00Z";
+      const snapshot = (products: TestProduct[], at: string) => {
+        const candidate = createCandidateDatabase(
+          products.map((p) => ({ ...p, first_seen: at, last_scraped: at }))
+        );
+        // Nullable columns must survive the round trip through Turso unchanged too.
+        const db = new Database(candidate.dbPath);
+        db.prepare(
+          "UPDATE products SET normalized_name = NULL, registry_key = NULL, image_url = NULL, subcategory = NULL WHERE id = 'c'"
+        ).run();
+        db.close();
+        return candidate;
+      };
+
+      const first = snapshot(
+        [{ id: "a", price: 1000.5 }, { id: "b", price: 2000 }, { id: "c", price: 500 }],
+        day1
+      );
+      const firstResult = await publishCatalogSnapshot({ dbPath: first.dbPath, client, validatorOptions: { minProducts: 1 } });
+      expect(firstResult.rewrittenCount).toBe(3);
+
+      const second = snapshot(
+        [{ id: "a", price: 1000.5 }, { id: "b", price: 1899 }, { id: "c", price: 500 }, { id: "d" }],
+        day2
+      );
+      const result = await publishCatalogSnapshot({ dbPath: second.dbPath, client, validatorOptions: { minProducts: 1 } });
+
+      expect(result.success).toBe(true);
+      expect(result.publishedCount).toBe(4);
+      expect(result.rewrittenCount).toBe(2); // b (price) and d (new)
+      const rows = Object.fromEntries(
+        (await client.execute("SELECT id, price, first_seen, last_scraped FROM products")).rows.map((r) => [String(r.id), r])
+      );
+      expect(rows.a.last_scraped).toBe(day2);
+      expect(rows.a.first_seen).toBe(day1); // untouched apart from last_scraped
+      expect(rows.c.last_scraped).toBe(day2);
+      expect(rows.b.price).toBe(1899);
+      expect(rows.b.last_scraped).toBe(day2);
+      expect(rows.d.last_scraped).toBe(day2);
+
+      first.cleanup();
+      second.cleanup();
+    });
   });
 });
