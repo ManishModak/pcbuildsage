@@ -32,6 +32,9 @@ export function MarketPreferenceSection({
   const [markets, setMarkets] = useState<MarketMetadata[]>(() =>
     initialMarkets ? [...initialMarkets] : []
   );
+  // Until the region list arrives, an empty list means "not loaded yet", not
+  // "no regions on this server".
+  const [loading, setLoading] = useState(!initialMarkets);
 
   const app = useOptionalApp();
   const updateAppConfig = app?.updateConfig ?? null;
@@ -69,7 +72,8 @@ export function MarketPreferenceSection({
       })
       .catch(() => {
         setMarkets([]);
-      });
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -152,7 +156,7 @@ export function MarketPreferenceSection({
       ) : null}
 
       <div className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">
-        {markets.length === 0 && (
+        {!loading && markets.length === 0 && (
           <div className="flex items-center gap-2 px-4 py-3 text-caption text-warn" data-testid="catalog-unavailable">
             <Icon icon={Globe} size={15} className="shrink-0" />
             <span>Catalog unavailable: no regions are set up on this server.</span>
@@ -168,7 +172,11 @@ export function MarketPreferenceSection({
               disabled={markets.length === 0}
               value={activeMarket ? activeMarket.code : ""}
               onChange={(e) => handleCountryChange(e.target.value)}
-              options={markets.length === 0 ? [{ value: "", label: "Catalog unavailable" }] : countryOptions}
+              options={
+                markets.length === 0
+                  ? [{ value: "", label: loading ? "Loading regions…" : "Catalog unavailable" }]
+                  : countryOptions
+              }
             />
           )}
         </SettingsRow>

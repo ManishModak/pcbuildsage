@@ -929,7 +929,13 @@ export function ChatView({
     <div className="flex h-full min-w-0 flex-1 overflow-hidden relative">
       {/* Left / Center: Chat messages & composer */}
       <div className="flex flex-1 flex-col min-w-0 h-full">
-        <div ref={scrollRef} onScroll={handleScroll} className="relative flex-1 overflow-y-auto">
+        {/* Gutters on both sides keep the messages centred on the composer below
+            whether or not the scrollbar shows. */}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="relative flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]"
+        >
           {/* Birds only while nothing is being read: gone once a chat starts,
               and on narrow screens, where they would cross the prompts. */}
           {!isLoading && messages.length === 0 ? <AsciiSky density={0.6} className="hidden md:block" /> : null}
@@ -1047,40 +1053,42 @@ export function ChatView({
         {/* The composer floats over the end of the chat: messages fade out
             above it instead of stopping at a ruled line. */}
         <div className="relative shrink-0 bg-bg before:pointer-events-none before:absolute before:inset-x-0 before:-top-8 before:h-8 before:bg-linear-to-t before:from-bg before:to-transparent before:content-['']">
-          <div className="mx-auto w-full max-w-[760px] px-4 pb-3">
-            <Composer
-              onSend={send}
-              onStop={() => {
-                recovery.cancel();
-                setIsCompacting(false);
-                void stop();
-              }}
-              // A half-loaded chat must not be messaged into: the transcript it
-              // would be appended to is not the one the user is looking at.
-              disabled={isLoading}
-              streaming={streaming || activeIsCompacting}
-              initialValue={initialPrompt}
-              status={<ModelStatus modelName={activeModel} streaming={streaming} isCompacting={activeIsCompacting} />}
-            />
-            <p className="mt-2 text-center text-caption text-text-muted">
-              {isHostedMode() ? (
-                <>Prices in {config.currency} from the catalog{relativeTime ? `, updated ${relativeTime}` : ""}. Confirm them at checkout.</>
-              ) : (
-                <>
-                  Prices from your local catalog{relativeTime ? `, updated ${relativeTime}` : ""}.{" "}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateConfig({ onboarded: false });
-                      openSetup();
-                    }}
-                    className="ml-1 cursor-pointer font-medium text-accent hover:underline"
-                  >
-                    Update prices
-                  </button>
-                </>
-              )}
-            </p>
+          <div className="overflow-hidden [scrollbar-gutter:stable_both-edges]">
+            <div className="mx-auto w-full max-w-[760px] px-4 pb-3">
+              <Composer
+                onSend={send}
+                onStop={() => {
+                  recovery.cancel();
+                  setIsCompacting(false);
+                  void stop();
+                }}
+                // A half-loaded chat must not be messaged into: the transcript it
+                // would be appended to is not the one the user is looking at.
+                disabled={isLoading}
+                streaming={streaming || activeIsCompacting}
+                initialValue={initialPrompt}
+                status={<ModelStatus modelName={activeModel} streaming={streaming} isCompacting={activeIsCompacting} />}
+              />
+              <p className="mt-2 text-center text-caption text-text-muted">
+                {isHostedMode() ? (
+                  <>Prices in {config.currency} from the catalog{relativeTime ? `, updated ${relativeTime}` : ""}. Confirm them at checkout.</>
+                ) : (
+                  <>
+                    Prices from your local catalog{relativeTime ? `, updated ${relativeTime}` : ""}.{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateConfig({ onboarded: false });
+                        openSetup();
+                      }}
+                      className="ml-1 cursor-pointer font-medium text-accent hover:underline"
+                    >
+                      Update prices
+                    </button>
+                  </>
+                )}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -1156,7 +1164,7 @@ export function ChatView({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto py-1">
               <BuildErrorBoundary resetKeys={[safeSelectedVersionId, safeAlternativeIndex]}>
                 <BuildCard
                   builds={displayBuilds ?? undefined}
@@ -1206,7 +1214,7 @@ export function ChatView({
               Proposed PC build components, prices, and compatibility verification
             </SheetDescription>
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto py-1">
             {displayBuilds && (
               <BuildErrorBoundary resetKeys={[safeSelectedVersionId, safeAlternativeIndex]}>
                 <BuildCard

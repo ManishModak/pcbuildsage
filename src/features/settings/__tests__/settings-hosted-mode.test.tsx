@@ -183,8 +183,10 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
       expect(htmlEmpty.toLowerCase()).toContain("catalog unavailable");
       expect(htmlEmpty).toContain("data-testid=\"catalog-unavailable\"");
 
+      // Before the region list has loaded, it says so instead of "unavailable".
       const htmlDefault = renderToStaticMarkup(<MarketPreferenceSection />);
-      expect(htmlDefault.toLowerCase()).toContain("catalog unavailable");
+      expect(htmlDefault).toContain("Loading regions…");
+      expect(htmlDefault.toLowerCase()).not.toContain("catalog unavailable");
     });
   });
 
