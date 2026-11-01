@@ -1921,6 +1921,7 @@
       "Sapphire PURE RX 7700 XT 12GB WHITE",
       "Sapphire PURE Radeon RX 7700 XT"
     ],
+    "chip": "amd-rx-7700-xt",
     "length_mm": 320,
     "slot_width": 2.5,
     "tdp_w": 245,
@@ -1944,6 +1945,7 @@
       "MSI RTX 3050 VENTUS 2X 6G OC",
       "MSI RTX 3050 Ventus 2X 6GB"
     ],
+    "chip": "nvidia-rtx-3050-6gb",
     "length_mm": 189,
     "slot_width": 2,
     "tdp_w": 70,
@@ -1967,6 +1969,7 @@
       "Gigabyte RTX 3050 WINDFORCE OC 6G",
       "GV-N3050WF2OC-6GD"
     ],
+    "chip": "nvidia-rtx-3050-6gb",
     "length_mm": 191,
     "slot_width": 2,
     "tdp_w": 70,
@@ -1989,6 +1992,7 @@
       "ZOTAC GAMING GeForce RTX 3050 6GB Twin Edge OC",
       "ZT-A30510H-10L"
     ],
+    "chip": "nvidia-rtx-3050-6gb",
     "length_mm": 161.9,
     "slot_width": 2,
     "tdp_w": 70,
@@ -2011,6 +2015,7 @@
       "Gigabyte GeForce RTX 3050 WINDFORCE OC V2 6G",
       "GV-N3050WF2OCV2-6GD"
     ],
+    "chip": "nvidia-rtx-3050-6gb",
     "length_mm": 191,
     "slot_width": 2,
     "tdp_w": 70,
@@ -2032,6 +2037,7 @@
       "INNO3D GeForce RTX 3050 6GB Twin X2 V2",
       "N30502-06D6-1880VA60"
     ],
+    "chip": "nvidia-rtx-3050-6gb",
     "length_mm": 222,
     "slot_width": 2,
     "tdp_w": 70,
@@ -2055,6 +2061,7 @@
       "ASUS Dual GeForce RTX 3050 6GB OC Edition",
       "DUAL-RTX3050-O6G"
     ],
+    "chip": "nvidia-rtx-3050-6gb",
     "length_mm": 201,
     "slot_width": 2,
     "tdp_w": 70,
@@ -2076,6 +2083,7 @@
       "INNO3D GeForce RTX 5050 Twin X2",
       "INNO3D RTX 5050 Twin X2"
     ],
+    "chip": "nvidia-rtx-5050",
     "length_mm": 225,
     "slot_width": 2,
     "tdp_w": 130,
@@ -2099,6 +2107,7 @@
       "Colorful Battle Axe RTX 5050 DUO",
       "Colorful RTX 5050 Battle AX DUO 8GB-V"
     ],
+    "chip": "nvidia-rtx-5050",
     "length_mm": 231,
     "slot_width": 2.5,
     "tdp_w": 130,
@@ -2121,6 +2130,7 @@
       "MSI RTX 5050 Shadow 2X OC 8GB",
       "G5050-8S2C"
     ],
+    "chip": "nvidia-rtx-5050",
     "length_mm": 197,
     "slot_width": 2,
     "tdp_w": 130,
@@ -2143,6 +2153,7 @@
       "MSI RTX 5050 Ventus 2X OC 8GB",
       "G5050-8V2C"
     ],
+    "chip": "nvidia-rtx-5050",
     "length_mm": 197,
     "slot_width": 2,
     "tdp_w": 130,
@@ -2164,6 +2175,7 @@
       "Gigabyte RTX 5050 Windforce OC 8GB",
       "GV-N5050WF2OC-8GD"
     ],
+    "chip": "nvidia-rtx-5050",
     "length_mm": 199,
     "slot_width": 2,
     "tdp_w": 130,
@@ -2186,6 +2198,7 @@
       "ASUS Dual RTX 5050 OC Edition 8GB",
       "DUAL-RTX5050-O8G"
     ],
+    "chip": "nvidia-rtx-5050",
     "length_mm": 203,
     "slot_width": 2,
     "tdp_w": 130,
@@ -2207,6 +2220,7 @@
       "ASUS Dual RX 7600 OC 8GB",
       "DUAL-RX7600-O8G"
     ],
+    "chip": "amd-rx-7600",
     "length_mm": 245,
     "slot_width": 2.5,
     "tdp_w": 165,
@@ -2229,6 +2243,7 @@
       "Gigabyte RX 7600 Gaming OC 8GB",
       "GV-R76GAMING OC-8GD"
     ],
+    "chip": "amd-rx-7600",
     "length_mm": 282,
     "slot_width": 2.5,
     "tdp_w": 165,
@@ -2251,6 +2266,7 @@
       "ASRock RX 7600 Challenger OC 8GB",
       "RX7600 CL 8GO"
     ],
+    "chip": "amd-rx-7600",
     "length_mm": 269.2,
     "slot_width": 2,
     "tdp_w": 165,
@@ -2272,6 +2288,7 @@
       "MSI RTX 5060 Inspire 2X OC 8GB",
       "MSI GeForce RTX 5060 INSPIRE 2X OC"
     ],
+    "chip": "nvidia-rtx-5060",
     "length_mm": 204,
     "slot_width": 2,
     "tdp_w": 145,
@@ -2292,6 +2309,7 @@
       "INNO3D GeForce RTX 5060 Twin X2 8GB",
       "INNO3D RTX 5060 Twin X2 8GB"
     ],
+    "chip": "nvidia-rtx-5060",
     "length_mm": 225,
     "slot_width": 2,
     "tdp_w": 145,
@@ -2317,6 +2335,7 @@
       "N50602-08D7X-195070N",
       "N50602-08D7X-195070W"
     ],
+    "chip": "nvidia-rtx-5060",
     "length_mm": 225,
     "slot_width": 2,
     "tdp_w": 145,
@@ -2339,6 +2358,7 @@
       "VCG50608DFXPB1",
       "VCG50608DFXPB1-O"
     ],
+    "chip": "nvidia-rtx-5060",
     "length_mm": 200,
     "slot_width": 2,
     "tdp_w": 145,
@@ -2360,6 +2380,7 @@
       "Colorful Battle Axe RTX 5060 DUO",
       "Colorful RTX 5060 Gaming DUO 8GB"
     ],
+    "chip": "nvidia-rtx-5060",
     "length_mm": 231,
     "slot_width": 2.5,
     "tdp_w": 145,
@@ -2382,6 +2403,7 @@
       "Gigabyte RTX 5060 Eagle OC ICE 8GB",
       "GV-N5060EAGLEOC ICE-8GD"
     ],
+    "chip": "nvidia-rtx-5060",
     "length_mm": 208,
     "slot_width": 2,
     "tdp_w": 145,
@@ -2404,6 +2426,7 @@
       "MSI RTX 5060 Ti Shadow 2X OC Plus 8GB",
       "G506T-8S2CP"
     ],
+    "chip": "nvidia-rtx-5060-ti-8gb",
     "length_mm": 226,
     "slot_width": 2,
     "tdp_w": 180,
@@ -2426,6 +2449,7 @@
       "GV-N506TWF2MAX-OC-8GD",
       "GV-N506TWF2MAX OC-8GD"
     ],
+    "chip": "nvidia-rtx-5060-ti-8gb",
     "length_mm": 208,
     "slot_width": 2,
     "tdp_w": 180,
@@ -2447,6 +2471,7 @@
       "Colorful Battle Axe RTX 5060 Ti DUO",
       "Colorful RTX 5060 Ti Gaming DUO 8GB"
     ],
+    "chip": "nvidia-rtx-5060-ti-8gb",
     "length_mm": 231,
     "slot_width": 2.5,
     "tdp_w": 180,
@@ -2468,6 +2493,7 @@
       "ASUS Prime RTX 5060 Ti OC 16GB",
       "PRIME-RTX5060TI-O16G"
     ],
+    "chip": "nvidia-rtx-5060-ti-16gb",
     "length_mm": 304,
     "slot_width": 2.5,
     "tdp_w": 180,
@@ -2489,6 +2515,7 @@
       "PNY RTX 5060 Ti OC 8GB",
       "VCG5060T8TFXXPB1-O"
     ],
+    "chip": "nvidia-rtx-5060-ti-8gb",
     "length_mm": 299,
     "slot_width": 2,
     "tdp_w": 180,
@@ -2510,6 +2537,7 @@
       "Colorful Battle Axe RTX 5060 Ti DUO 16 GB",
       "Colorful RTX 5060 Ti Gaming DUO 16GB"
     ],
+    "chip": "nvidia-rtx-5060-ti-16gb",
     "length_mm": 231,
     "slot_width": 2.5,
     "tdp_w": 180,
@@ -2531,6 +2559,7 @@
       "Sapphire PULSE RX 9060 XT Gaming OC 8GB",
       "Sapphire PULSE Radeon RX 9060 XT 8GB"
     ],
+    "chip": "amd-rx-9060-xt-8gb",
     "length_mm": 240,
     "slot_width": 2.3,
     "tdp_w": 160,
@@ -2554,6 +2583,7 @@
       "DUAL-RX9060XT-8G",
       "DUAL-RX9060XT-O8G"
     ],
+    "chip": "amd-rx-9060-xt-8gb",
     "length_mm": 202,
     "slot_width": 2.5,
     "tdp_w": 160,
@@ -2576,6 +2606,7 @@
       "ASRock RX 9060 XT Steel Legend 8GB OC",
       "RX9060XT SL 8GO"
     ],
+    "chip": "amd-rx-9060-xt-8gb",
     "length_mm": 298,
     "slot_width": 2.5,
     "tdp_w": 160,
@@ -2597,6 +2628,7 @@
       "Gigabyte RX 9060 XT Gaming OC 8GB",
       "GV-R9060XTGAMING OC-8GD"
     ],
+    "chip": "amd-rx-9060-xt-8gb",
     "length_mm": 281,
     "slot_width": 2,
     "tdp_w": 160,
@@ -2618,6 +2650,7 @@
       "PowerColor Reaper RX 9060 XT 8GB",
       "RX9060XT 8G-A"
     ],
+    "chip": "amd-rx-9060-xt-8gb",
     "length_mm": 220,
     "slot_width": 2,
     "tdp_w": 160,
@@ -2642,6 +2675,7 @@
       "PRIME-RX9060XT-O8G",
       "PRIME-RX9060XT-08G"
     ],
+    "chip": "amd-rx-9060-xt-8gb",
     "length_mm": 304,
     "slot_width": 2.5,
     "tdp_w": 160,
@@ -2664,6 +2698,7 @@
       "Sapphire NITRO+ Radeon RX 7700 XT",
       "11335-02-20G"
     ],
+    "chip": "amd-rx-7700-xt",
     "length_mm": 320,
     "slot_width": 3,
     "tdp_w": 245,
@@ -2684,6 +2719,7 @@
       "INNO3D GeForce RTX 5070 Twin X2 12GB",
       "INNO3D RTX 5070 Twin X2 12GB"
     ],
+    "chip": "nvidia-rtx-5070",
     "length_mm": 250,
     "slot_width": 2,
     "tdp_w": 250,
@@ -2704,6 +2740,7 @@
       "INNO3D GeForce RTX 5070 Twin X2 OC 12GB",
       "INNO3D RTX 5070 Twin X2 OC 12GB"
     ],
+    "chip": "nvidia-rtx-5070",
     "length_mm": 250,
     "slot_width": 2,
     "tdp_w": 250,
@@ -2725,6 +2762,7 @@
       "MSI RTX 5070 Inspire 3X OC 12GB",
       "MSI GeForce RTX 5070 INSPIRE 3X OC"
     ],
+    "chip": "nvidia-rtx-5070",
     "length_mm": 288,
     "slot_width": 2.5,
     "tdp_w": 250,
@@ -2746,6 +2784,7 @@
       "ASUS Dual RTX 5070 OC Edition 12GB",
       "DUAL-RTX5070-O12G"
     ],
+    "chip": "nvidia-rtx-5070",
     "length_mm": 249,
     "slot_width": 2.5,
     "tdp_w": 250,
@@ -2767,6 +2806,7 @@
       "MSI RTX 5070 Shadow 2X OC 12GB",
       "G5070-12S2C"
     ],
+    "chip": "nvidia-rtx-5070",
     "length_mm": 231,
     "slot_width": 2.5,
     "tdp_w": 250,
@@ -2789,6 +2829,7 @@
       "GV-N5070WF3-12GD",
       "GV-N5070WF3OC-12GD"
     ],
+    "chip": "nvidia-rtx-5070",
     "length_mm": 282,
     "slot_width": 2.5,
     "tdp_w": 250,
@@ -2813,6 +2854,7 @@
       "ASUS Dual RX 7600 EVO OC 8GB",
       "DUAL-RX7600-O8G-EVO"
     ],
+    "chip": "amd-rx-7600",
     "length_mm": 229,
     "slot_width": 2.5,
     "tdp_w": 165,

@@ -109,6 +109,7 @@ export function buildSystemPrompt(
     "When useful, call suggest_followups with short, relevant user prompts about unanswered next steps; omit it when none would help.",
     personality ? `Personality prompt: ${personality.prompt}` : "",
     "For broad build requests: list_models → search_products. Shortlist a few suitable models before looking through their offers. For an exact product or a straightforward filtered purchase request, skip model discovery when direct search is sufficient.",
+    "For 3D rendering or Blender work, rank GPUs or CPUs with list_models `performance: 'rendering'` and compare finalists with `model_ids`. There are no gaming scores: never use rendering scores to rank parts for gaming.",
     "Search strategy: Respect explicit requirements such as storage capacity, RAM capacity, owned parts, and platform. Prioritize components for the user's workload and rebalance allocations using catalog prices. Search cost-effective supporting parts with `order: 'asc'`; use capacity, interface, wattage, and compatibility filters appropriate to the build.",
     "When searching for cases for a selected GPU and cooler, use `min_gpu_clearance_mm` and `min_cooler_clearance_mm`.",
     `CPU Cooler Guidance: When a CPU package includes a stock cooler, show it as included with the CPU at no additional cost (${currencySymbol}0). When cooler inclusion is unknown, keep a separate cooler in the build and explain: 'Check whether this CPU package includes a stock cooler. If included and suitable for your use, you can skip the [price] cooler.'`,
