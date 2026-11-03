@@ -18,6 +18,9 @@ import {
   type StripBadge
 } from "./build-derive";
 import { VerdictSeal } from "./verdict-seal";
+import { BuildCompare } from "./build-compare";
+
+const COMPARE_TAB = "compare";
 
 export interface BuildCardProps {
   builds?: DerivedBuild[];
@@ -43,6 +46,7 @@ export interface BuildCardProps {
 // a double-ruled total, and the compatibility verdict stamped beside it.
 // Several proposed builds share the card as pill tabs; tab labels name the
 // tradeoff each build makes and come from the model via validate_build.
+// A Compare tab after them lines the builds up side by side.
 // Prices are mono, right-aligned, tabular.
 export function BuildCard({
   builds,
@@ -81,11 +85,13 @@ export function BuildCard({
 
   const [prevVersionId, setPrevVersionId] = useState(currentVersionObj?.id);
   const [internalIndex, setInternalIndex] = useState(0);
+  const [comparing, setComparing] = useState(false);
 
   // Clean state adjustment on version change during render (standard React pattern)
   if (prevVersionId !== currentVersionObj?.id) {
     setPrevVersionId(currentVersionObj?.id);
     setInternalIndex(0);
+    setComparing(false);
   }
 
   const index = selectedAlternativeIndex ?? internalIndex;
@@ -105,10 +111,15 @@ export function BuildCard({
   // the panel on a dead card. Only the body is replaced by the message.
   const unavailable = active.detailsUnavailable || active.components.length === 0;
 
+  // Comparing needs every build's parts; a build without details would be a blank column.
+  const canCompare =
+    activeBuilds.length > 1 && activeBuilds.every((build) => !build.detailsUnavailable && build.components.length > 0);
+  const showCompare = comparing && canCompare;
   const tabs = activeBuilds.map((build, i) => ({
     value: String(i),
     label: build.label ?? `Build ${i + 1}`
   }));
+  if (canCompare) tabs.push({ value: COMPARE_TAB, label: "Compare" });
   const total = resolveBuildTotal(active);
   const strip = validationStrip(active.validation);
   // A text-derived build's caveat is shown once, in the body below. The side
@@ -169,8 +180,11 @@ export function BuildCard({
         <div className="border-b border-border px-4 pb-3 pt-4">
           <PillTabs
             tabs={tabs}
-            value={String(safeIndex)}
-            onChange={(value) => setIndex(Number(value))}
+            value={showCompare ? COMPARE_TAB : String(safeIndex)}
+            onChange={(value) => {
+              setComparing(value === COMPARE_TAB);
+              if (value !== COMPARE_TAB) setIndex(Number(value));
+            }}
             ariaLabel="Build strategy"
           />
         </div>
@@ -180,30 +194,45 @@ export function BuildCard({
         </div>
       ) : null}
 
-      <div className="px-4 py-3">
-        {unavailable ? (
-          <p role="alert" className="text-sm text-text-secondary">
-            {"Build details unavailable \u2014 ask the assistant to present it again"}
+      {showCompare ? (
+        <>
+          <BuildCompare
+            builds={activeBuilds}
+            onPick={(i) => {
+              setComparing(false);
+              setIndex(i);
+            }}
+          />
+          <p className="px-4 pb-4 pt-1 text-caption text-text-muted">
+            Prices and stock are snapshots from each retailer. Confirm them at checkout.
           </p>
-        ) : (
-          <>
-            {active.textDerived ? (
-              <p className="mb-3 inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
-                {TEXT_BUILD_CAVEAT}
-              </p>
-            ) : null}
-            <BuildComponentsList
-              // Remount per build so the seal stamps again for a different build.
-              key={`${currentVersionObj?.id ?? "build"}-${safeIndex}`}
-              sealId={`${selectId}-${safeIndex}`}
-              active={active}
-              total={total}
-              strip={strip}
-              onRecheckPrices={onRecheckPrices}
-            />
-          </>
-        )}
-      </div>
+        </>
+      ) : (
+        <div className="px-4 py-3">
+          {unavailable ? (
+            <p role="alert" className="text-sm text-text-secondary">
+              {"Build details unavailable \u2014 ask the assistant to present it again"}
+            </p>
+          ) : (
+            <>
+              {active.textDerived ? (
+                <p className="mb-3 inline-flex items-center rounded-pill bg-surface-raised px-3 py-1 text-caption font-medium text-text-secondary">
+                  {TEXT_BUILD_CAVEAT}
+                </p>
+              ) : null}
+              <BuildComponentsList
+                // Remount per build so the seal stamps again for a different build.
+                key={`${currentVersionObj?.id ?? "build"}-${safeIndex}`}
+                sealId={`${selectId}-${safeIndex}`}
+                active={active}
+                total={total}
+                strip={strip}
+                onRecheckPrices={onRecheckPrices}
+              />
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 }
