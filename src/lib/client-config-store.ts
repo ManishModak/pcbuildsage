@@ -151,14 +151,31 @@ export function saveUiKey(provider: string, key: string): void {
   }
 }
 
+export function clearUiKey(provider: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const map = readKeyMap();
+    delete map[provider];
+    localStorage.setItem(KEYS_KEY, JSON.stringify(map));
+  } catch {
+    // ignore
+  }
+}
+
 export function hasUiKey(provider: string): boolean {
-  return Boolean(readKeyMap()[provider] || getByokKey(provider));
+  return Boolean(savedUiKey(provider));
+}
+
+/** The key saved in this browser for a provider, if any. */
+export function savedUiKey(provider: string): string | undefined {
+  return readKeyMap()[provider] || getByokKey(provider) || undefined;
 }
 
 export function apiKeyHeaders(chain: ChainEntry[], config?: ClientConfig): Record<string, string> {
   const map = readKeyMap();
   const headers: Record<string, string> = {};
-  for (const entry of chain) {
+  // The research model can be one that is no longer on the chat list.
+  for (const entry of [...chain, ...(config?.subagentChain ?? [])]) {
     if (entry.keySource === "ui") {
       const key = map[entry.provider] || getByokKey(entry.provider);
       if (key) headers[`x-pcbuildsage-api-key-${entry.provider}`] = key;

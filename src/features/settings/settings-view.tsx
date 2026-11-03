@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Database, Download, Globe, Search, Sliders, Sparkles, Wand2, X } from "lucide-react";
+import { ArrowLeft, Check, Database, Download, Globe, KeyRound, Search, Sliders, Sparkles, Wand2, X } from "lucide-react";
 import { useApp } from "@/components/app/app-provider";
 import {
   exportResearch,
@@ -12,7 +12,7 @@ import {
   fetchStatus,
   isHostedMode
 } from "@/lib/api-client";
-import type { CredentialAvailability, EndpointPreset, LLMProvider, Personality, SearchProvider } from "@/types/client";
+import type { ChainEntry, CredentialAvailability, EndpointPreset, LLMProvider, Personality, SearchProvider } from "@/types/client";
 import { saveUiKey, type KeyMap } from "@/lib/client-config-store";
 import { getErrorMessage } from "@/lib/format";
 import { themeLabel } from "@/lib/theme";
@@ -20,6 +20,8 @@ import { openSetup } from "@/components/app/setup-hash";
 import { ChainBuilder } from "@/features/llm/chain-builder";
 import { MarketPreferenceSection } from "./market-preference-section";
 import { ByokSection } from "./byok-section";
+import { ProvidersPage } from "./providers-page";
+import { providerName } from "@/lib/llm/providers";
 import { KEY_HANDLING_SENTENCES } from "./key-help-panel";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
@@ -27,7 +29,7 @@ import { Button, ChoiceControl, ChoiceGroup, Input, IconButton } from "@/compone
 import { Select } from "@/components/ui/select";
 import { SettingsActionRow, SettingsGroup, SettingsRow, SettingsToggleRow } from "./settings-rows";
 
-export type SettingsTab = "market" | "llm" | "search" | "personalization" | "database";
+export type SettingsTab = "market" | "llm" | "providers" | "search" | "personalization" | "database";
 type EndpointCatalogState =
   | { status: "loading" }
   | { status: "error"; message: string }
@@ -63,6 +65,13 @@ const NAV = {
     icon: Sparkles,
     group: "Assistant",
     keywords: "chat models main model backup provider saved server address api key status reasoning effort context window tokens check add remember browser ollama gemini openrouter groq"
+  },
+  providers: {
+    id: "providers",
+    label: "Providers",
+    icon: KeyRound,
+    group: "Assistant",
+    keywords: "api key keys provider models list free paid trial local gemini groq openrouter nvidia cerebras openai anthropic claude deepseek xai grok mistral ollama server use as main backup"
   },
   search: {
     id: "search",
@@ -102,19 +111,80 @@ const SEARCH_FILLER = new Set(["a", "an", "and", "or", "the", "of", "to", "for",
  * and filler words like "or" are skipped, and an empty query shows every page.
  */
 export function findSettingsPages(items: SettingsNavItem[], query: string): SettingsNavItem[] {
-  const words = query
+  const words = queryWords(query);
+  if (!words.length) return items;
+  return items.filter((item) => matchesWords(`${item.label} ${item.keywords}`, words));
+}
+
+function queryWords(query: string): string[] {
+  return query
     .toLowerCase()
     .split(/[^\p{L}\p{N}]+/u)
     .filter((word) => word && !SEARCH_FILLER.has(word));
-  if (!words.length) return items;
-  return items.filter((item) => {
-    const text = `${item.label} ${item.keywords}`.toLowerCase();
-    return words.every((word) => text.includes(word));
-  });
+}
+
+function matchesWords(text: string, words: string[]): boolean {
+  const lower = text.toLowerCase();
+  return words.every((word) => lower.includes(word));
+}
+
+/**
+ * One setting the search can jump to. `label` is the row's title exactly as
+ * shown (rows carry it as data-setting), and the page differs by mode where
+ * the setting lives on different pages.
+ */
+type SettingIndexEntry = {
+  label: string;
+  local?: SettingsTab;
+  hosted?: SettingsTab;
+  keywords?: string;
+  /** The row to show instead while this one is hidden (it needs that setting turned on). */
+  shownWith?: string;
+};
+
+export const SETTING_INDEX: SettingIndexEntry[] = [
+  { label: "Chat models", local: "llm", keywords: "main model backup fallback order check reasoning effort context window" },
+  { label: "Providers", local: "providers", keywords: "api key keys models free paid use as main backup" },
+  { label: "Search with", local: "search", hosted: "search", keywords: "web search provider brave tavily exa searxng" },
+  { label: "Research model", local: "search", hosted: "search", keywords: "subagent same as chat", shownWith: "Search with" },
+  { label: "Test search", local: "search", hosted: "search", keywords: "probe check", shownWith: "Search with" },
+  { label: "Theme", local: "personalization", hosted: "personalization", keywords: "appearance colours colors dark light" },
+  { label: "Tone", local: "personalization", hosted: "personalization", keywords: "personality voice" },
+  { label: "Country or region", local: "personalization", hosted: "market", keywords: "market retailers" },
+  { label: "Currency", local: "personalization", hosted: "market", keywords: "prices" },
+  { label: "Research missing specs", local: "database", keywords: "spec research" },
+  { label: "Show research in chat", local: "database" },
+  { label: "Answer open questions", local: "database", keywords: "freeform consult" },
+  { label: "Share researched specs", local: "database", keywords: "export" },
+  { label: "Product catalog", local: "database", keywords: "setup scrape database retailers" }
+];
+
+export type SettingMatch = { label: string; tab: SettingsTab };
+
+/** The individual settings a search finds, with the page each opens; empty for an empty query. */
+export function findSettings(query: string, hosted: boolean, limit = 8): SettingMatch[] {
+  const words = queryWords(query);
+  if (!words.length) return [];
+  return SETTING_INDEX.flatMap((entry) => {
+    const tab = hosted ? entry.hosted : entry.local;
+    return tab && matchesWords(`${entry.label} ${entry.keywords ?? ""}`, words) ? [{ label: entry.label, tab }] : [];
+  }).slice(0, limit);
+}
+
+/** Scrolls to the setting titled `label` on the open page and flashes it; false when it isn't shown. */
+function revealSetting(container: HTMLElement | null, label: string): boolean {
+  const target = Array.from(container?.querySelectorAll<HTMLElement>("[data-setting]") ?? []).find(
+    (element) => element.dataset.setting === label
+  );
+  if (!target) return false;
+  target.scrollIntoView({ block: "center", behavior: "smooth" });
+  target.classList.add("setting-flash");
+  window.setTimeout(() => target.classList.remove("setting-flash"), 1600);
+  return true;
 }
 
 // Tab ids are URL values (?tab=…) and stay fixed; only the labels are user-facing.
-export const LOCAL_NAV_ITEMS: SettingsNavItem[] = [NAV.llm, NAV.search, NAV.personalization, NAV.database];
+export const LOCAL_NAV_ITEMS: SettingsNavItem[] = [NAV.llm, NAV.providers, NAV.search, NAV.personalization, NAV.database];
 
 export const HOSTED_NAV_ITEMS: SettingsNavItem[] = [NAV.market, NAV.llm, NAV.search, NAV.personalization];
 
@@ -135,6 +205,33 @@ export function settingsTabFromSearch(search: string, hosted = isHostedMode()): 
   if (requested === "byok") return "llm";
   const items = hosted ? HOSTED_NAV_ITEMS : LOCAL_NAV_ITEMS;
   return items.some((item) => item.id === requested) ? (requested as SettingsTab) : (hosted ? "market" : "llm");
+}
+
+const SAME_AS_CHAT = "same-as-chat";
+const CURRENT_RESEARCH = "current-research";
+
+function sameModel(a: Pick<ChainEntry, "provider" | "model">, b: Pick<ChainEntry, "provider" | "model">): boolean {
+  return a.provider === b.provider && a.model === b.model;
+}
+
+/** The research picker's selected option: a chat-list entry's id, or the saved one if it isn't on the list. */
+export function researchModelValue(chat: ChainEntry[], research: ChainEntry[] | null): string {
+  const current = research?.[0];
+  if (!current) return SAME_AS_CHAT;
+  return chat.find((entry) => sameModel(entry, current))?.id ?? CURRENT_RESEARCH;
+}
+
+/** "Same as chat", then every model on the chat list (main and backups). */
+export function researchModelOptions(chat: ChainEntry[], research: ChainEntry[] | null) {
+  const current = research?.[0];
+  const options = [
+    { value: SAME_AS_CHAT, label: "Same as chat" },
+    ...chat.filter((entry) => entry.model).map((entry) => ({ value: entry.id, label: `${providerName(entry.provider)} · ${entry.model}` }))
+  ];
+  if (current && researchModelValue(chat, research) === CURRENT_RESEARCH) {
+    options.push({ value: CURRENT_RESEARCH, label: `${providerName(current.provider)} · ${current.model}` });
+  }
+  return options;
 }
 
 export function settingsUrlForTab(href: string, tab: SettingsTab): string {
@@ -187,6 +284,18 @@ function SettingsLayout({
 }: SettingsLayoutProps) {
   const { config, themeCatalog, updateConfig, setTheme } = useApp();
   const [isHosted, setIsHosted] = useState<boolean>(() => isHostedMode());
+  const contentRef = useRef<HTMLDivElement>(null);
+  // A setting picked from search: revealed once its page has rendered.
+  const [pendingJump, setPendingJump] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pendingJump) return;
+    const frame = window.requestAnimationFrame(() => {
+      const fallback = SETTING_INDEX.find((entry) => entry.label === pendingJump)?.shownWith;
+      if (!revealSetting(contentRef.current, pendingJump) && fallback) revealSetting(contentRef.current, fallback);
+      setPendingJump(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [pendingJump, activeTab]);
   const [credentials, setCredentials] = useState<CredentialAvailability | null>(null);
   const [endpointCatalog, setEndpointCatalog] = useState<EndpointCatalogState>({ status: "loading" });
   const [personalityCatalog, setPersonalityCatalog] = useState<PersonalityCatalogState>({ status: "loading" });
@@ -358,7 +467,16 @@ function SettingsLayout({
 
   return (
     <div className="flex h-full min-h-0 w-full">
-      <SettingsNav items={navItems} activeTab={activeItem.id} onSelectTab={onSelectTab} />
+      <SettingsNav
+        items={navItems}
+        activeTab={activeItem.id}
+        onSelectTab={onSelectTab}
+        hosted={isHosted}
+        onJump={(match) => {
+          onSelectTab(match.tab);
+          setPendingJump(match.label);
+        }}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col bg-bg">
         <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4 sm:px-6">
@@ -401,8 +519,8 @@ function SettingsLayout({
           ))}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-6 sm:px-8 sm:py-8">
+        <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto">
+          <div className={cn("mx-auto flex w-full flex-col gap-10 px-4 py-6 sm:px-8 sm:py-8", activeItem.id === "providers" ? "max-w-5xl" : "max-w-3xl")}>
             {activeItem.id === "market" && <MarketPreferenceSection />}
 
             {activeItem.id === "llm" &&
@@ -424,7 +542,7 @@ function SettingsLayout({
                   }}
                 />
               ) : (
-                <section className="flex flex-col gap-3">
+                <section className="flex flex-col gap-3" data-setting="Chat models">
                   <div className="flex flex-col gap-1 px-1">
                     <h2 className="type-title text-lg text-text">Chat models</h2>
                     <p className="text-sm text-text-secondary">
@@ -448,6 +566,14 @@ function SettingsLayout({
                   />
                 </section>
               ))}
+
+            {activeItem.id === "providers" && (
+              <ProvidersPage
+                chain={config.chatChain}
+                onChange={(chatChain) => updateConfig({ chatChain })}
+                credentials={credentials}
+              />
+            )}
 
             {activeItem.id === "search" && (
               <SettingsGroup
@@ -616,36 +742,23 @@ function SettingsLayout({
                 )}
 
                 {config.searchProvider !== "none" && (
-                  <SettingsRow title="Research model" description="“Same as chat” shares your chat model's usage limits.">
+                  <SettingsRow
+                    title="Research model"
+                    description="Same as chat, or any model on your chat list. A model from another provider keeps research off your chat model's usage limits."
+                  >
                     {(controlProps) => (
                       <Select
                         {...controlProps}
                         className={controlClass}
-                        value={config.subagentChain && config.subagentChain.length > 0 ? config.subagentChain[0].model : "same-as-chat"}
+                        value={researchModelValue(config.chatChain, config.subagentChain)}
                         onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === "same-as-chat") {
-                            updateConfig({ subagentChain: [] });
-                          } else {
-                            const chatEntry = config.chatChain[0];
-                            if (!chatEntry) return;
-                            updateConfig({
-                              subagentChain: [
-                                {
-                                  ...chatEntry,
-                                  id: `subagent-${val}`,
-                                  model: val
-                                }
-                              ]
-                            });
-                          }
+                          if (e.target.value === CURRENT_RESEARCH) return;
+                          const picked = config.chatChain.find((entry) => entry.id === e.target.value);
+                          updateConfig({
+                            subagentChain: picked ? [{ ...picked, id: `subagent-${picked.id}`, ping: undefined }] : []
+                          });
                         }}
-                        options={[
-                          { value: "same-as-chat", label: "Same as chat" },
-                          ...(config.chatChain?.[0]?.model
-                            ? [{ value: config.chatChain[0].model, label: `${config.chatChain[0].model} (your chat model)` }]
-                            : [])
-                        ]}
+                        options={researchModelOptions(config.chatChain, config.subagentChain)}
                       />
                     )}
                   </SettingsRow>
@@ -840,11 +953,15 @@ function SettingsLayout({
 function SettingsNav({
   items,
   activeTab,
-  onSelectTab
+  onSelectTab,
+  hosted,
+  onJump
 }: {
   items: SettingsNavItem[];
   activeTab: SettingsTab;
   onSelectTab: (tab: SettingsTab) => void;
+  hosted: boolean;
+  onJump: (match: SettingMatch) => void;
 }) {
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -862,6 +979,7 @@ function SettingsNav({
   }, []);
 
   const matches = findSettingsPages(items, query);
+  const settingMatches = findSettings(query, hosted);
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col gap-4 border-r border-border bg-surface p-3 md:flex">
@@ -873,7 +991,9 @@ function SettingsNav({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && matches[0]) onSelectTab(matches[0].id);
+            if (event.key !== "Enter") return;
+            if (settingMatches[0]) onJump(settingMatches[0]);
+            else if (matches[0]) onSelectTab(matches[0].id);
           }}
           placeholder="Search"
           aria-label="Search settings"
@@ -883,9 +1003,25 @@ function SettingsNav({
       </div>
 
       <nav aria-label="Settings pages" className="flex flex-col gap-4 overflow-y-auto">
-        {matches.length === 0 ? (
+        {settingMatches.length > 0 ? (
+          <div className="flex flex-col gap-0.5" data-testid="setting-matches">
+            <p className="type-label px-2.5 pb-1 text-caption text-text-muted">Settings</p>
+            {settingMatches.map((match) => (
+              <button
+                key={`${match.tab}-${match.label}`}
+                type="button"
+                onClick={() => onJump(match)}
+                className="flex flex-col items-start rounded-btn px-2.5 py-1.5 text-left transition-colors duration-150 hover:bg-surface-raised"
+              >
+                <span className="text-sm text-text">{match.label}</span>
+                <span className="text-caption text-text-muted">{items.find((item) => item.id === match.tab)?.label}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {matches.length === 0 && settingMatches.length === 0 ? (
           <p className="px-2.5 text-caption text-text-muted">No settings match “{query.trim()}”.</p>
-        ) : (
+        ) : matches.length === 0 ? null : (
           NAV_GROUPS.map((group) => {
             const groupItems = matches.filter((item) => item.group === group);
             if (groupItems.length === 0) return null;

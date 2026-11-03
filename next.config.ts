@@ -6,7 +6,7 @@ const cspHeader = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://generativelanguage.googleapis.com https://openrouter.ai https://api.openai.com https://api.anthropic.com https://api.groq.com https://api.deepseek.com https://html.duckduckgo.com https://api.search.brave.com https://api.exa.ai https://api.tavily.com ws: wss:",
+  "connect-src 'self' https://generativelanguage.googleapis.com https://openrouter.ai https://api.openai.com https://api.anthropic.com https://api.groq.com https://api.deepseek.com https://api.search.brave.com https://api.exa.ai https://api.tavily.com ws: wss:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'"

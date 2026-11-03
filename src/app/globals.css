@@ -234,6 +234,14 @@ kbd {
 @keyframes pcbs-spin {
   to { transform: rotate(360deg); }
 }
+/* A setting opened from the settings search flashes once. */
+@keyframes pcbs-setting-flash {
+  from { background-color: color-mix(in srgb, var(--accent) 18%, transparent); }
+  to { background-color: transparent; }
+}
+.setting-flash {
+  animation: pcbs-setting-flash 1.6s ease-out;
+}
 @keyframes pcbs-indeterminate {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(300%); }

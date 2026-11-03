@@ -95,10 +95,9 @@ describe("ChainBuilder local model context limit warning and entry", () => {
     expect(html).not.toContain("Context window unknown");
     expect(html).not.toContain('role="alert"');
 
-    // Context limit field displays configured value
-    expect(html).toContain("Context window (tokens)");
-    expect(html).toContain('value="8192"');
-    expect(html).toContain("How many tokens this model can read at once.");
+    // Nothing to fix, so the row starts as its one-line summary.
+    expect(html).toContain('aria-label="Edit main model"');
+    expect(html).not.toContain("Context window (tokens)");
   });
 
   it("does not show local unknown limit warning for cloud providers (e.g. Gemini)", () => {

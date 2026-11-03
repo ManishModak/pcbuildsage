@@ -11,6 +11,12 @@ const OUTCOME_LABEL = {
   unknown: "Check failed"
 } as const;
 
+/** The check's outcome in a word or two, for compact rows. */
+export function probeOutcomeLabel(ping: PingResult): string {
+  const outcome = describeProbeResult(ping);
+  return outcome.kind === "ok" ? "Works" : OUTCOME_LABEL[outcome.kind];
+}
+
 /**
  * One plain outcome per model check (see describeProbeResult), with the raw
  * provider hint as the detail. Used by the settings chain builder and the

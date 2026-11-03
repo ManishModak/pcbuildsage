@@ -149,6 +149,14 @@ describe("Security Hardening & Defense-in-Depth", () => {
       expect(headers["x-pcbuildsage-api-key-gemini"]).toBe("AIzaSyEphemeralBYOKKey999");
     });
 
+    it("sends the research model's key when its provider is not on the chat list", () => {
+      setByokKey("groq", "gsk-research", false);
+      const chat: ChainEntry[] = [{ id: "c", provider: "gemini", model: "g", keySource: "env" }];
+      const research: ChainEntry[] = [{ id: "r", provider: "groq", model: "q", keySource: "ui" }];
+      const headers = apiKeyHeaders(chat, { subagentChain: research } as never);
+      expect(headers["x-pcbuildsage-api-key-groq"]).toBe("gsk-research");
+    });
+
     it("hasUiKey returns true when key exists in ephemeral BYOK store", () => {
       expect(hasUiKey("openrouter")).toBe(false);
       setByokKey("openrouter", "sk-or-v1-ephemeral", false);
