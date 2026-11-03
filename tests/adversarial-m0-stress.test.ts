@@ -524,7 +524,7 @@ describe("Adversarial M0 Empirical Stress Test Suite", () => {
 
       expect(() => {
         buildAppConfig(headers, {
-          searchProvider: "duckduckgo",
+          searchProvider: "brave",
           searchBaseUrl: "http://169.254.169.254"
         });
       }).toThrow(UnsafeConfigError);
@@ -567,8 +567,8 @@ describe("Adversarial M0 Empirical Stress Test Suite", () => {
       }));
       expect(res3.status).toBe(400);
 
-      // Case D: SearchBaseUrl SSRF on a kept keyed provider (searxng /
-      // duckduckgo are coerced to "none" in hosted mode, see
+      // Case D: SearchBaseUrl SSRF on a kept keyed provider (searxng is
+      // coerced to "none" in hosted mode, see
       // tests/hosted-hardening.test.ts).
       const res4 = await chatRoute(new Request("http://localhost/api/chat", {
         method: "POST",

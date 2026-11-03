@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SEARCH_PROVIDER_IDS, normalizeSearchProvider } from "@/lib/search-providers";
 import { isHostedDemo } from "@/lib/config/deployment";
 import { createSearchClient, checkCrawlerReadiness } from "@/lib/web-search";
 import { badRequest, json, serverError } from "../../_lib/responses";
@@ -7,7 +8,7 @@ import type { SearchProvider } from "@/types";
 export const runtime = "nodejs";
 
 const probeSchema = z.object({
-  provider: z.enum(["none", "duckduckgo", "searxng", "brave", "tavily", "exa", "gemini-native"]).optional(),
+  provider: z.preprocess(normalizeSearchProvider, z.enum(SEARCH_PROVIDER_IDS)).optional(),
   apiKey: z.string().optional(),
   baseUrl: z.string().optional(),
   checkCrawler: z.boolean().optional(),

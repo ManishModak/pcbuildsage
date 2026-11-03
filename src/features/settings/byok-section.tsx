@@ -24,40 +24,20 @@ import { Icon } from "@/components/ui/icon";
 import { Button, ChoiceControl, ChoiceGroup } from "@/components/ui/primitives";
 import { ByokProviderCard, type ProviderConfig } from "./byok-provider-card";
 import { KeyHandlingNote, KeyHelpPanel } from "./key-help-panel";
+import { HOSTED_PROVIDER_IDS, getProvider, type LLMProvider } from "@/lib/llm/providers";
 
-// Every per-provider list below is built from this one, so a new provider is
-// one entry here (plus its server adapter).
-const BYOK_PROVIDERS: ProviderConfig[] = [
-  {
-    id: "gemini",
-    name: "Google Gemini",
-    note: "Free key from Google AI Studio",
-    placeholder: "AIzaSy...",
-    defaultModel: "gemini-2.5-flash",
-    docsUrl: "https://aistudio.google.com/app/apikey",
-    docsLabel: "Get a Gemini key"
-  },
-  {
-    id: "openrouter",
-    name: "OpenRouter",
-    note: "One key for models from OpenAI, Anthropic, DeepSeek and others, free and paid",
-    placeholder: "sk-or-v1-...",
-    // No paid default: the model is preselected from live discovery (free +
-    // tool-capable) once a key is saved, otherwise the user picks.
-    defaultModel: "",
-    docsUrl: "https://openrouter.ai/keys",
-    docsLabel: "Get an OpenRouter key"
-  },
-  {
-    id: "groq",
-    name: "Groq",
-    note: "Free key, fast open models",
-    placeholder: "gsk_...",
-    defaultModel: "llama-3.3-70b-versatile",
-    docsUrl: "https://console.groq.com/keys",
-    docsLabel: "Get a Groq key"
-  }
-];
+// The hosted demo's providers, from the registry: every per-provider list
+// below is built from this one.
+const BYOK_PROVIDERS: ProviderConfig[] = HOSTED_PROVIDER_IDS.map((id) => getProvider(id)).map((provider) => ({
+  id: provider.id as LLMProvider,
+  name: provider.name,
+  note: provider.note,
+  tier: provider.tier,
+  placeholder: provider.keyPlaceholder ?? "Paste your key",
+  defaultModel: provider.defaultModel ?? "",
+  docsUrl: provider.keyUrl ?? "",
+  docsLabel: `Get a ${provider.name} key`
+}));
 
 type ProviderId = ProviderConfig["id"];
 
@@ -101,6 +81,12 @@ export function ByokSection({
   const [activeProvider, setActiveProviderState] = useState<string | null>(() => getActiveByokProvider() ?? null);
   const onboarding = variant === "onboarding";
   const [shownProvider, setShownProvider] = useState<string>(() => getActiveByokProvider() ?? BYOK_PROVIDERS[0].id);
+  // Onboarding lists the free providers first; trial and paid ones sit behind
+  // "More providers" unless one of them is already the chat's provider.
+  const [showAllProviders, setShowAllProviders] = useState(
+    () => BYOK_PROVIDERS.find((p) => p.id === shownProvider)?.tier !== "free"
+  );
+  const pickableProviders = showAllProviders ? BYOK_PROVIDERS : BYOK_PROVIDERS.filter((p) => p.tier === "free");
 
   // Models the user explicitly picked — auto-preselect never overrides these.
   const userPickedRef = useRef<Record<string, boolean>>({});
@@ -261,7 +247,7 @@ export function ByokSection({
         <div className="flex flex-col gap-1">
           <h2 className="type-title text-xl text-text">AI model</h2>
           <p className="text-sm text-text-secondary">
-            Add your own key for Google Gemini, Groq or OpenRouter, then pick the model that answers your chats.
+            Add your own key for any provider below, then pick the model that answers your chats. Google Gemini, Groq, OpenRouter and NVIDIA have free keys.
           </p>
         </div>
       ) : null}
@@ -299,9 +285,9 @@ export function ByokSection({
 
       <div className="flex flex-col gap-3">
         {onboarding ? (
-          <ChoiceGroup label="AI provider" legendClassName="sr-only">
+          <ChoiceGroup label="AI provider" legendClassName="sr-only" className="flex flex-col gap-2">
             <div className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">
-              {BYOK_PROVIDERS.map((provider) => {
+              {pickableProviders.map((provider) => {
                 const selected = provider.id === shownProvider;
                 return (
                   <ChoiceControl
@@ -334,6 +320,17 @@ export function ByokSection({
                 );
               })}
             </div>
+            {!showAllProviders ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="self-start"
+                onClick={() => setShowAllProviders(true)}
+                data-testid="byok-more-providers"
+              >
+                More providers: trial and paid
+              </Button>
+            ) : null}
           </ChoiceGroup>
         ) : (
           <h3 className="type-title text-base text-text">Your API keys</h3>

@@ -1,4 +1,5 @@
 import { generateText, streamText, tool, hasToolCall, type AsyncIterableStream, type LanguageModel, type ModelMessage, type StopCondition, type StreamTextResult, type TextStreamPart, type ToolSet, type OnFinishEvent, type OnStepFinishEvent } from "ai";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { z } from "zod";
@@ -6,6 +7,7 @@ import type { LLMChainEntry, LLMProvider, LLMRole } from "@/types";
 import { isHostedDemo } from "../config/deployment";
 import { isPrivateCrawlHost } from "../web-search";
 import { envKeyAllowed } from "./env-key-scope";
+import { getProvider } from "./providers";
 import { ACCESS_BLOCKED_COPY, FREE_LIMIT_COPY, KEY_REJECTED_COPY } from "@/content/api-key-help";
 
 /** Generous first-token timeout for the main chat stream (local models load slowly). */
@@ -54,6 +56,13 @@ export function createLanguageModel(entry: LLMChainEntry): LanguageModel {
     const apiKey = resolveApiKey(entry, "GEMINI_API_KEY");
     return createGoogleGenerativeAI({
       apiKey: apiKey ?? (isHostedDemo() ? "" : undefined)
+    })(entry.model);
+  }
+  if (entry.provider === "anthropic") {
+    const apiKey = resolveApiKey(entry, keyEnv(entry.provider));
+    return createAnthropic({
+      apiKey: apiKey ?? (isHostedDemo() ? "" : undefined),
+      ...(entry.baseUrl ? { baseURL: entry.baseUrl } : {})
     })(entry.model);
   }
 
@@ -484,18 +493,13 @@ export function resolveApiKey(entry: LLMChainEntry, envKey: string): string | un
 }
 
 export function keyEnv(provider: LLMProvider): string {
-  if (provider === "openrouter") return "OPENROUTER_API_KEY";
-  if (provider === "gemini") return "GEMINI_API_KEY";
-  if (provider === "groq") return "GROQ_API_KEY";
-  if (provider === "ollama") return "OLLAMA_API_KEY";
-  return "OPENAI_COMPATIBLE_API_KEY";
+  return getProvider(provider).envKey;
 }
 
-function defaultBaseUrl(provider: LLMProvider): string {
+/** The provider's API base: fixed for cloud providers, from the environment for local ones. */
+export function defaultBaseUrl(provider: LLMProvider): string {
   if (provider === "ollama") return process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-  if (provider === "openrouter") return "https://openrouter.ai/api/v1";
-  if (provider === "groq") return "https://api.groq.com/openai/v1";
-  return process.env.OPENAI_COMPATIBLE_BASE_URL ?? "http://localhost:8000/v1";
+  return getProvider(provider).baseUrl ?? process.env.OPENAI_COMPATIBLE_BASE_URL ?? "http://localhost:8000/v1";
 }
 
 /**

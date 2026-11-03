@@ -177,13 +177,12 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
       expect(validateSearchBaseUrl("https://10.0.0.1", "hosted-demo").allowed).toBe(false);
       expect(validateSearchBaseUrl("https://192.168.1.1", "hosted-demo").allowed).toBe(false);
       expect(validateSearchBaseUrl("https://evil.com/search", "hosted-demo").allowed).toBe(false);
-      expect(validateSearchBaseUrl("https://user:pass@html.duckduckgo.com", "hosted-demo").allowed).toBe(false);
-      expect(validateSearchBaseUrl("https://html.duckduckgo.com:8443", "hosted-demo").allowed).toBe(false);
+      expect(validateSearchBaseUrl("https://user:pass@api.tavily.com", "hosted-demo").allowed).toBe(false);
+      expect(validateSearchBaseUrl("https://api.tavily.com:8443", "hosted-demo").allowed).toBe(false);
 
       // Safe / empty targets
       expect(validateSearchBaseUrl(undefined, "hosted-demo").allowed).toBe(true);
       expect(validateSearchBaseUrl("", "hosted-demo").allowed).toBe(true);
-      expect(validateSearchBaseUrl("https://html.duckduckgo.com", "hosted-demo").allowed).toBe(true);
       expect(validateSearchBaseUrl("https://api.search.brave.com", "hosted-demo").allowed).toBe(true);
       expect(validateSearchBaseUrl("https://api.exa.ai", "hosted-demo").allowed).toBe(true);
       expect(validateSearchBaseUrl("https://api.tavily.com", "hosted-demo").allowed).toBe(true);
@@ -193,12 +192,12 @@ describe("M0 Empirical Challenger: Adversarial Stress & Edge-Case Suite", () => 
       expect(validateSearchBaseUrl("http://127.0.0.1:8888", "local").allowed).toBe(true);
     });
 
-    it("assertSafeSearchConfig coerces searxng/duckduckgo to none and rejects unapproved keyed search URLs in hosted-demo mode", () => {
+    it("assertSafeSearchConfig coerces searxng to none and rejects unapproved keyed search URLs in hosted-demo mode", () => {
       // Keyless / self-hosted providers never run server-side in hosted mode.
       expect(assertSafeSearchConfig({ provider: "searxng", crawlEnabled: false }, "hosted-demo").provider).toBe("none");
-      const ddg = assertSafeSearchConfig({ provider: "duckduckgo", baseUrl: "http://169.254.169.254", crawlEnabled: false }, "hosted-demo");
-      expect(ddg.provider).toBe("none");
-      expect(ddg.baseUrl).toBeUndefined();
+      const selfHosted = assertSafeSearchConfig({ provider: "searxng", baseUrl: "http://169.254.169.254", crawlEnabled: false }, "hosted-demo");
+      expect(selfHosted.provider).toBe("none");
+      expect(selfHosted.baseUrl).toBeUndefined();
 
       // A kept keyed provider still has its baseUrl SSRF-checked.
       expect(() => {

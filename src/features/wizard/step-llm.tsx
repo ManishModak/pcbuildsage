@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, Info } from "lucide-react";
 import { useApp } from "@/components/app/app-provider";
 import type { ChainEntry, CredentialAvailability, EndpointPreset, SearchProvider } from "@/types/client";
 import { ChainBuilder, newEntry } from "@/features/llm/chain-builder";
+import { LLM_PROVIDER_IDS } from "@/lib/llm/providers";
 import { Icon } from "@/components/ui/icon";
 import { Button, Card, Toggle } from "@/components/ui/primitives";
 import { StepHeader } from "./simple-panel";
@@ -65,7 +66,7 @@ export function StepLLM({
   useEffect(() => {
     if (chain.length === 0) {
       const detected = credentials
-        ? (["gemini", "groq", "openrouter", "ollama", "openai-compatible"] as const).find((provider) => credentials.llm[provider])
+        ? LLM_PROVIDER_IDS.find((provider) => credentials.llm[provider])
         : undefined;
       onChange([newEntry(detected ? { provider: detected } : {})]);
     }

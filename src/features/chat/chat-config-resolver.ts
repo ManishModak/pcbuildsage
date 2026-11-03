@@ -8,7 +8,7 @@
 import { isHostedMode } from "@/lib/api-client";
 import { getMarketPreference, type MarketPreference } from "@/lib/market/client-market-store";
 import { getActiveByokProvider, getByokModel, getByokReasoningEffort, hasByokKey } from "@/lib/llm/client-byok-store";
-import { hostedDefaultModelFor } from "@/lib/llm/hosted-defaults";
+import { pickHostedProvider } from "@/lib/llm/hosted-defaults";
 import type { StoredCompactContext } from "@/lib/sessions/compact-context";
 import type { ClientConfig, KeySource, LLMProvider, ReasoningEffort, SearchProvider } from "@/types/client";
 
@@ -81,20 +81,10 @@ export function resolveChatRequestBody(
   let chatChain = config.chatChain;
   if (isHosted) {
     chatChain = chatChain.filter((entry) => entry.provider !== "ollama");
-    const preferredProvider =
-      activeProvider && hasKeyFn(activeProvider)
-        ? activeProvider
-        : hasKeyFn("gemini")
-          ? "gemini"
-          : hasKeyFn("groq")
-            ? "groq"
-            : hasKeyFn("openrouter")
-              ? "openrouter"
-              : null;
+    const preferred = pickHostedProvider(activeProvider, hasKeyFn, getModelFn);
 
-    if (preferredProvider) {
-      const defaultModel = hostedDefaultModelFor(preferredProvider);
-      const model = getModelFn(preferredProvider) || defaultModel;
+    if (preferred) {
+      const { provider: preferredProvider, model } = preferred;
       const effort = getReasoningEffortFn(preferredProvider);
       chatChain = [
         {
@@ -191,21 +181,8 @@ export function resolveActiveModel(
 
   // If in hosted mode or chatChain is unpopulated, check active BYOK provider
   if (isHosted || !config.chatChain || config.chatChain.length === 0) {
-    const preferredProvider =
-      activeProvider && hasKeyFn(activeProvider)
-        ? activeProvider
-        : hasKeyFn("gemini")
-          ? "gemini"
-          : hasKeyFn("groq")
-            ? "groq"
-            : hasKeyFn("openrouter")
-              ? "openrouter"
-              : null;
-
-    if (preferredProvider) {
-      const defaultModel = hostedDefaultModelFor(preferredProvider);
-      return getModelFn(preferredProvider) || defaultModel;
-    }
+    const preferred = pickHostedProvider(activeProvider, hasKeyFn, getModelFn);
+    if (preferred) return preferred.model;
   }
 
   return config.chatChain?.[0]?.model || "Sage";

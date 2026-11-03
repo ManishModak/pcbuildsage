@@ -5,6 +5,8 @@
  * and market metadata registry.
  */
 
+import { LLM_PROVIDERS } from "@/lib/llm/providers";
+
 export type DeploymentMode = "local" | "hosted-demo";
 
 export interface MarketMetadata {
@@ -74,24 +76,19 @@ export const ALLOWED_HOSTED_PROVIDER_DOMAINS: readonly string[] = [
   "perplexity.ai"
 ] as const;
 
+// Every cloud provider's API base from the registry, plus Gemini's host.
 export const ALLOWED_CHAT_BASE_URLS: readonly string[] = [
   "https://generativelanguage.googleapis.com",
-  "https://openrouter.ai/api/v1",
-  "https://api.openai.com/v1",
-  "https://api.anthropic.com/v1",
-  "https://api.groq.com/openai/v1",
-  "https://api.deepseek.com/v1"
-] as const;
+  ...LLM_PROVIDERS.flatMap((provider): string[] => ("baseUrl" in provider ? [provider.baseUrl] : []))
+];
 
 export const ALLOWED_SEARCH_PROVIDER_DOMAINS: readonly string[] = [
-  "duckduckgo.com",
   "brave.com",
   "exa.ai",
   "tavily.com"
 ] as const;
 
 export const ALLOWED_SEARCH_BASE_URLS: readonly string[] = [
-  "https://html.duckduckgo.com",
   "https://api.search.brave.com",
   "https://api.exa.ai",
   "https://api.tavily.com"
@@ -402,7 +399,7 @@ export const HOSTED_ALLOWED_SEARCH_PROVIDERS: readonly string[] = [
   "none"
 ] as const;
 
-export const HOSTED_BLOCKED_SEARCH_PROVIDERS: readonly string[] = ["duckduckgo", "searxng"] as const;
+export const HOSTED_BLOCKED_SEARCH_PROVIDERS: readonly string[] = ["searxng"] as const;
 
 export function isHostedSearchProviderAllowed(
   provider: string | undefined,

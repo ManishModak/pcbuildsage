@@ -1,13 +1,28 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { envKeyAllowed } from "../env-key-scope";
 import { resolveApiKey } from "../client";
-import { entryFromRequest } from "@/app/api/_lib/credentials";
+import { entryFromRequest, getCredentialAvailability } from "@/app/api/_lib/credentials";
 import { discoverModels } from "../discovery";
 
 describe("env key scope (local mode)", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+  });
+
+  it("scopes every cloud provider's .env key to its registry host", () => {
+    expect(envKeyAllowed({ provider: "nvidia", baseUrl: "https://integrate.api.nvidia.com/v1" })).toBe(true);
+    expect(envKeyAllowed({ provider: "nvidia", baseUrl: "https://evil.example/v1" })).toBe(false);
+    expect(envKeyAllowed({ provider: "anthropic", baseUrl: "https://evil.example/v1" })).toBe(false);
+    expect(envKeyAllowed({ provider: "openai", baseUrl: "https://api.openai.com/v1" })).toBe(true);
+  });
+
+  it("reports each provider's own .env key, and local providers by address", () => {
+    const availability = getCredentialAvailability({ NVIDIA_API_KEY: "k", OLLAMA_BASE_URL: "http://localhost:11434" } as unknown as NodeJS.ProcessEnv, "local");
+    expect(availability.llm.nvidia).toBe(true);
+    expect(availability.llm.ollama).toBe(true);
+    expect(availability.llm.anthropic).toBe(false);
+    expect(availability.llm["openai-compatible"]).toBe(false);
   });
 
   it("only lets openrouter/groq .env keys go to their official hosts", () => {

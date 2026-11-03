@@ -10,6 +10,7 @@
  */
 
 import type { LLMProvider } from "@/types/config";
+import { LLM_PROVIDER_IDS } from "@/lib/llm/providers";
 
 export const SERVER_ANALYTICS_EVENTS = [
   "chat_started",
@@ -62,13 +63,7 @@ export function sanitizeDimension(raw: unknown): string {
  * The model id is client-sent free text (a pasted key or name could land in
  * it) and has unbounded distinct values, so it is never recorded.
  */
-export const ANALYTICS_PROVIDERS = [
-  "gemini",
-  "groq",
-  "openrouter",
-  "ollama",
-  "openai-compatible"
-] as const satisfies readonly LLMProvider[];
+export const ANALYTICS_PROVIDERS: readonly LLMProvider[] = LLM_PROVIDER_IDS;
 
 /** Maps a provider to its allow-listed id, or "other". */
 export function providerDimension(provider: unknown): string {

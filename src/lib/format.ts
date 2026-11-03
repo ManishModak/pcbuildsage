@@ -30,7 +30,9 @@ export function formatPrice(
   locale?: string
 ): string {
   if (major === null || major === undefined || Number.isNaN(major)) return "—";
-  const digits = minorDigits(currency);
+  // Whole amounts drop the zero fraction: ₹45,999, not ₹45,999.00.
+  const scale = 10 ** minorDigits(currency);
+  const digits = Math.round(major * scale) % scale === 0 ? 0 : minorDigits(currency);
   try {
     return new Intl.NumberFormat(locale, {
       style: "currency",

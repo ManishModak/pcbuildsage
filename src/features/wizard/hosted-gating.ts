@@ -1,13 +1,5 @@
 import type { PingResult } from "@/types/client";
 
-const HOSTED_BYOK_PROVIDERS = ["gemini", "groq", "openrouter"] as const;
-export type HostedByokProvider = (typeof HOSTED_BYOK_PROVIDERS)[number];
-
-/** Narrow a chat-chain provider to the BYOK providers offered in hosted mode. */
-export function isHostedByokProvider(provider: string): provider is HostedByokProvider {
-  return (HOSTED_BYOK_PROVIDERS as readonly string[]).includes(provider);
-}
-
 /**
  * Hosted onboarding may advance past the BYOK step only when the chosen
  * model passed the same probe local mode uses: reachable AND tool-capable.

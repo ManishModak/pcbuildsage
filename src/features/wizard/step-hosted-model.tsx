@@ -11,7 +11,8 @@ import type { LLMProvider, PingResult } from "@/types/client";
 import { Button } from "@/components/ui/primitives";
 import { ByokSection } from "@/features/settings/byok-section";
 import { ProbeResultView } from "@/features/llm/probe-result-view";
-import { hostedByokCanAdvance, hostedProbeIsCurrent, isHostedByokProvider } from "./hosted-gating";
+import { hostedByokCanAdvance, hostedProbeIsCurrent } from "./hosted-gating";
+import { isHostedProvider } from "@/lib/llm/providers";
 import { StepHeader } from "./simple-panel";
 
 type Selection = { provider: string; model: string };
@@ -44,7 +45,7 @@ export function StepHostedModel({ onBack, onFinish }: { onBack: () => void; onFi
 
   // ByokSection keeps config.chatChain[0] on the provider and model the chat will use.
   const first = config.chatChain[0];
-  const entry = first && isHostedByokProvider(first.provider) ? first : null;
+  const entry = first && isHostedProvider(first.provider) ? first : null;
   const hasKey = entry ? hasByokKey(entry.provider) : false;
   const selection = entry ? { provider: entry.provider, model: entry.model } : null;
   const probeCurrent = hostedProbeIsCurrent(probe, probedFor, selection);
@@ -69,7 +70,7 @@ export function StepHostedModel({ onBack, onFinish }: { onBack: () => void; onFi
       return;
     }
     const target = configRef.current.chatChain[0];
-    if (!target || !isHostedByokProvider(target.provider) || !target.model) return;
+    if (!target || !isHostedProvider(target.provider) || !target.model) return;
     const key = getByokKey(target.provider);
     if (!key) return;
 
@@ -103,8 +104,8 @@ export function StepHostedModel({ onBack, onFinish }: { onBack: () => void; onFi
   return (
     <section className="flex flex-col gap-6">
       <StepHeader title="Connect an AI model">
-        PCBuildSage asks an AI model of your choice to plan the build, using your own key. Each provider below gives
-        a free key, and getting one takes about a minute.{" "}
+        PCBuildSage asks an AI model of your choice to plan the build, using your own key. The providers listed first
+        give a free key, and getting one takes about a minute.{" "}
         <Link href="/help/api-key" className="font-medium text-accent hover:underline">
           Step-by-step key guide
         </Link>

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 GEMINI_TIMEOUT_S = 20.0
 
 DEFAULT_PROVIDER = "gemini"
-DEFAULT_MODEL = "gemini-2.5-flash-lite"
+DEFAULT_MODEL = "gemini-3.1-flash-lite"
 ALLOWED_PROVIDERS = {"gemini", "ollama", "openrouter", "openai-compatible"}
 
 

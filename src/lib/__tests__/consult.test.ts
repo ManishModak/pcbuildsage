@@ -36,7 +36,7 @@ function configWithMockDb() {
 const searchClient: SearchClient = {
   async search() {
     return {
-      provider: "duckduckgo",
+      provider: "searxng",
       grounded: true,
       results: [{ title: "source", url: "https://example.com/source", snippet: "grounded snippet" }]
     };
@@ -82,7 +82,7 @@ describe("consult", () => {
         maxActiveSearches = Math.max(maxActiveSearches, activeSearches);
         await new Promise((resolve) => setTimeout(resolve, 20));
         activeSearches -= 1;
-        return { provider: "duckduckgo", grounded: true, results: [] };
+        return { provider: "searxng", grounded: true, results: [] };
       }
     };
 

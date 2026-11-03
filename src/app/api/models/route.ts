@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LLM_PROVIDER_IDS } from "@/lib/llm/providers";
 import { discoverModels } from "@/lib/llm/discovery";
 import { isHostedDemo, validateChatProviderUrl } from "@/lib/config/deployment";
 import { entryFromRequest } from "../_lib/credentials";
@@ -6,7 +7,7 @@ import { badRequest, json, serverError } from "../_lib/responses";
 
 export const runtime = "nodejs";
 
-const providerSchema = z.enum(["gemini", "ollama", "openrouter", "openai-compatible", "groq"]);
+const providerSchema = z.enum(LLM_PROVIDER_IDS);
 
 export async function GET(request: Request): Promise<Response> {
   try {

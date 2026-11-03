@@ -52,7 +52,7 @@ function configWithMockDb() {
 const searchClient: SearchClient = {
   async search() {
     return {
-      provider: "duckduckgo",
+      provider: "searxng",
       grounded: true,
       results: [
         { title: "Official specs", url: "https://example.com/cpu", snippet: "socket AM5" },
@@ -134,7 +134,7 @@ describe("registry cache key + TTL", () => {
     await consult({ mode: "component_specs", name: "Ghost GPU", category: "gpu" }, config, {
       searchClient: {
         async search() {
-          return { provider: "duckduckgo", grounded: false, results: [] };
+          return { provider: "searxng", grounded: false, results: [] };
         }
       },
       generateText: (async () => ({

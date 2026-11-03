@@ -46,12 +46,12 @@ describe("preset loading", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     writeFileSync(path.join(dir, "bad.json"), JSON.stringify({ name: "Bad" }), "utf8");
     writeFileSync(path.join(dir, "good.json"), JSON.stringify({
-      name: "DuckDuckGo",
-      provider: "duckduckgo",
+      name: "SearXNG",
+      provider: "searxng",
       requires_key: false
     }), "utf8");
 
-    expect(loadSearchPresets(dir)).toEqual([expect.objectContaining({ name: "DuckDuckGo" })]);
+    expect(loadSearchPresets(dir)).toEqual([expect.objectContaining({ name: "SearXNG" })]);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("bad.json"));
   });
 
@@ -100,7 +100,6 @@ describe("keyed search clients", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(createSearchClient({ provider: "searxng" }).search("gpu")).rejects.toThrow("HTTP 500");
-    await expect(createSearchClient({ provider: "duckduckgo" }).search("gpu")).rejects.toThrow("HTTP 500");
     await expect(createSearchClient({ provider: "exa", apiKey: "key" }).search("gpu")).rejects.toThrow("HTTP 500");
   });
 });

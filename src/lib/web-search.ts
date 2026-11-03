@@ -49,7 +49,7 @@ export const CRAWL_TIMEOUT_MS = 30_000;
 export const searchPresetSchema = z.object({
   $schema: z.string().optional(),
   name: z.string(),
-  provider: z.enum(["duckduckgo", "searxng"]),
+  provider: z.literal("searxng"),
   base_url: z.string().url().optional(),
   requires_key: z.literal(false),
   result_limit: z.number().int().positive().max(20).default(5)
@@ -335,8 +335,6 @@ export function createSearchClient(
       let response: SearchResponse;
       if (config.provider === "searxng") {
         response = await searxng(query, config.baseUrl, options.limit);
-      } else if (config.provider === "duckduckgo") {
-        response = await duckduckgo(query, options.limit);
       } else {
         response = await keyedSearch(query, config.provider, config.apiKey!, options.limit);
       }
@@ -385,37 +383,7 @@ async function searxng(query: string, baseUrl = process.env.SEARXNG_BASE_URL ?? 
   return { provider: "searxng", grounded: true, results: (json.results ?? []).slice(0, limit).map((item) => ({ title: item.title ?? item.url ?? "", url: item.url ?? "", snippet: item.content ?? "" })) };
 }
 
-async function duckduckgo(query: string, limit = 5): Promise<SearchResponse> {
-  const url = new URL("https://html.duckduckgo.com/html/");
-  url.searchParams.set("q", query);
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-  });
-  assertSearchOk(response, "duckduckgo");
-  const html = await response.text();
-  const results: SearchResult[] = [];
-  const linkRegex = /<a rel="nofollow" class="result__a" href="([^"]+)">(.*?)<\/a>/g;
-  const snippetRegex = /<a class="result__snippet[^>]*>([\s\S]*?)<\/a>/g;
-
-  const links = [...html.matchAll(linkRegex)];
-  const snippets = [...html.matchAll(snippetRegex)];
-
-  for (let i = 0; i < Math.min(links.length, limit); i++) {
-    const rawHref = links[i][1];
-    const rawTitle = links[i][2].replace(/<[^>]+>/g, "").trim();
-    const snippet = snippets[i] ? snippets[i][1].replace(/<[^>]+>/g, "").trim() : "";
-    const uddgMatch = rawHref.match(/uddg=([^&]+)/);
-    const resultUrl = uddgMatch ? decodeURIComponent(uddgMatch[1]) : rawHref;
-    if (resultUrl) {
-      results.push({ title: rawTitle || resultUrl, url: resultUrl, snippet });
-    }
-  }
-  return { provider: "duckduckgo", grounded: results.length > 0, results };
-}
-
-async function keyedSearch(query: string, provider: Exclude<SearchProvider, "none" | "duckduckgo" | "searxng" | "gemini-native">, apiKey: string, limit = 5): Promise<SearchResponse> {
+async function keyedSearch(query: string, provider: Exclude<SearchProvider, "none" | "searxng" | "gemini-native">, apiKey: string, limit = 5): Promise<SearchResponse> {
   const endpoints: Record<string, string> = {
     brave: "https://api.search.brave.com/res/v1/web/search",
     exa: "https://api.exa.ai/search",

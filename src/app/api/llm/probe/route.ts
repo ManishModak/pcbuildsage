@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LLM_PROVIDER_IDS } from "@/lib/llm/providers";
 import { generateTextWithFallback, probeToolCapability, PROBE_TIMEOUT_MS } from "@/lib/llm/client";
 import { isHostedDemo, validateChatProviderUrl } from "@/lib/config/deployment";
 import { probeFailureHint } from "@/lib/llm/probe-outcome";
@@ -8,7 +9,7 @@ import { badRequest, json } from "../../_lib/responses";
 export const runtime = "nodejs";
 
 const probeSchema = z.object({
-  provider: z.enum(["gemini", "ollama", "openrouter", "openai-compatible", "groq"]),
+  provider: z.enum(LLM_PROVIDER_IDS),
   baseUrl: z.string().optional(),
   model: z.string().min(1),
   key: z.string().optional(),

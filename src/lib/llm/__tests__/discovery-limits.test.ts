@@ -18,6 +18,26 @@ describe("discovery timeouts", () => {
   });
 });
 
+describe("discovery per provider", () => {
+  it("calls each cloud provider's registry address", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ data: [{ id: "nvidia/nemotron" }] }));
+    const models = await discoverModels({ provider: "nvidia", model: "x", keySource: "ui", apiKey: "nvapi-test" }, fetchMock);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://integrate.api.nvidia.com/v1/models");
+    expect(init.headers).toEqual({ Authorization: "Bearer nvapi-test" });
+    expect(models.map((model) => model.id)).toEqual(["nvidia/nemotron"]);
+  });
+
+  it("lists Anthropic models with its own key header and marks them tool-capable", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ data: [{ id: "claude-x", display_name: "Claude X" }] }));
+    const models = await discoverModels({ provider: "anthropic", model: "x", keySource: "ui", apiKey: "sk-ant-test" }, fetchMock);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://api.anthropic.com/v1/models?limit=1000");
+    expect(init.headers).toEqual({ "x-api-key": "sk-ant-test", "anthropic-version": "2023-06-01" });
+    expect(models).toEqual([{ id: "claude-x", name: "Claude X", toolCapable: true }]);
+  });
+});
+
 describe("discovery concurrency", () => {
   it("caps Ollama /api/show fan-out", async () => {
     expect(DISCOVERY_CONCURRENCY).toBeLessThanOrEqual(8);

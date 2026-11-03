@@ -2,6 +2,7 @@
 
 import { Check, ExternalLink, Eye, EyeOff, RotateCw, Trash2 } from "lucide-react";
 import type { DiscoveredModel, ReasoningEffort } from "@/types/client";
+import type { LLMProvider, ProviderTier } from "@/lib/llm/providers";
 import { maskApiKey } from "@/lib/llm/client-byok-store";
 import { Button, Field, Input, Spinner, Toggle } from "@/components/ui/primitives";
 import { SearchableModelSelect } from "@/components/ui/searchable-model-select";
@@ -10,7 +11,8 @@ import { cn } from "@/components/ui/cn";
 
 /** One provider row inside the "Your API keys" group (see byok-section.tsx). */
 export interface ProviderConfig {
-  id: "gemini" | "openrouter" | "groq";
+  id: LLMProvider;
+  tier: ProviderTier;
   /** One line shown beside the name where the provider is picked. */
   note: string;
   name: string;

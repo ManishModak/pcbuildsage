@@ -8,11 +8,11 @@ import { StepLLM, researchDefaultForSearch } from "@/features/wizard/step-llm";
 import {
   hostedByokCanAdvance,
   hostedProbeIsCurrent,
-  isHostedByokProvider,
   shouldSkipMarketStep
 } from "@/features/wizard/hosted-gating";
 import { discoverModels } from "@/lib/llm/discovery";
-import { hostedDefaultModelFor, HOSTED_LAST_RESORT_MODEL } from "@/lib/llm/hosted-defaults";
+import { hostedDefaultModelFor, pickHostedProvider } from "@/lib/llm/hosted-defaults";
+import { isHostedProvider } from "@/lib/llm/providers";
 import { groupModelsForPicker, isFreeModel, isToolCapableModel, pickFreeToolCapableDefault } from "@/lib/llm/model-recommend";
 import { resetCachedDeploymentMode, setCachedDeploymentMode } from "@/lib/api-client";
 import {
@@ -82,21 +82,41 @@ describe("Track W: hosted BYOK probe gate", () => {
     expect(hostedProbeIsCurrent(null, null, null)).toBe(false);
   });
 
-  it("only treats gemini/groq/openrouter as hosted BYOK providers", () => {
-    expect(isHostedByokProvider("gemini")).toBe(true);
-    expect(isHostedByokProvider("openrouter")).toBe(true);
-    expect(isHostedByokProvider("ollama")).toBe(false);
-    expect(isHostedByokProvider("openai-compatible")).toBe(false);
+  it("offers cloud providers but not local ones in the hosted demo", () => {
+    expect(isHostedProvider("gemini")).toBe(true);
+    expect(isHostedProvider("nvidia")).toBe(true);
+    expect(isHostedProvider("anthropic")).toBe(true);
+    expect(isHostedProvider("ollama")).toBe(false);
+    expect(isHostedProvider("openai-compatible")).toBe(false);
   });
 });
 
 describe("Track W: no paid/outdated hosted default", () => {
-  it("last-resort hosted default is free and not Claude", () => {
-    expect(HOSTED_LAST_RESORT_MODEL).not.toContain("claude");
-    expect(HOSTED_LAST_RESORT_MODEL).toMatch(/:free$/);
-    expect(hostedDefaultModelFor("openrouter")).toBe(HOSTED_LAST_RESORT_MODEL);
+  it("free providers default to a free model; paid ones have no default", () => {
+    expect(hostedDefaultModelFor("openrouter")).toBe("openrouter/free");
     expect(hostedDefaultModelFor("gemini")).not.toContain("claude");
     expect(hostedDefaultModelFor("groq")).not.toContain("claude");
+    for (const paid of ["openai", "anthropic", "deepseek", "xai", "mistral"]) {
+      expect(hostedDefaultModelFor(paid)).toBe("");
+    }
+  });
+
+  it("skips a keyed paid provider with no picked model rather than billing a default", () => {
+    const hasKey = (provider: string) => provider === "anthropic" || provider === "groq";
+    expect(pickHostedProvider("anthropic", hasKey, () => undefined)).toEqual({ provider: "groq", model: "openai/gpt-oss-120b" });
+    expect(pickHostedProvider("anthropic", hasKey, (p) => (p === "anthropic" ? "claude-x" : undefined))).toEqual({
+      provider: "anthropic",
+      model: "claude-x"
+    });
+    expect(pickHostedProvider(null, () => false, () => undefined)).toBeNull();
+    expect(pickHostedProvider("ollama", () => true, () => "llama3")).toEqual({ provider: "gemini", model: "llama3" });
+  });
+
+  it("onboarding lists the free providers first, with paid ones behind More providers", () => {
+    const markup = renderToStaticMarkup(<ByokSection variant="onboarding" />);
+    expect(markup).toContain("NVIDIA");
+    expect(markup).toContain("More providers");
+    expect(markup).not.toContain("Anthropic");
   });
 
   it("BYOK picker markup contains no Claude default", () => {
@@ -113,7 +133,7 @@ describe("Track W: no paid/outdated hosted default", () => {
       getModel: () => undefined,
       getReasoningEffort: () => undefined
     });
-    expect(body.config.chatLlmChain[0].model).toBe(HOSTED_LAST_RESORT_MODEL);
+    expect(body.config.chatLlmChain[0].model).toBe("openrouter/free");
     expect(body.config.chatLlmChain[0].model).not.toBe(BANNED_DEFAULT);
     expect(resolveActiveModel(config, undefined, {
       isHosted: true,
@@ -292,12 +312,12 @@ describe("Track W: hosted missing-key prompt blocks sending", () => {
 
   it("blocks only when no provider the chat could fall back to has a key", () => {
     setCachedDeploymentMode("hosted-demo");
-    expect(hostedSendBlocked({ activeProvider: "groq", storedProviders: [], hasKey: () => false })).toBe(true);
-    expect(hostedSendBlocked({ activeProvider: "groq", storedProviders: [], hasKey: () => true })).toBe(false);
+    expect(hostedSendBlocked({ activeProvider: "groq", hasKey: () => false })).toBe(true);
+    expect(hostedSendBlocked({ activeProvider: "groq", hasKey: () => true })).toBe(false);
     // The active provider lost its key but Gemini still has one: the resolver
     // sends the chat to Gemini, so the composer must not block it.
     expect(
-      hostedSendBlocked({ activeProvider: "openrouter", storedProviders: [], hasKey: (p) => p === "gemini" })
+      hostedSendBlocked({ activeProvider: "openrouter", hasKey: (p) => p === "gemini" })
     ).toBe(false);
   });
 

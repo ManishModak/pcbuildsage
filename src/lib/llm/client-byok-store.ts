@@ -11,17 +11,12 @@
  */
 
 import type { ReasoningEffort } from "@/types/config";
+import { LLM_PROVIDER_IDS } from "@/lib/llm/providers";
 
 export const BYOK_PREFIX = "pcbuildsage_byok_";
 export const BYOK_COLON_PREFIX = "pcbuildsage:byok:";
 
-export const DEFAULT_BYOK_PROVIDERS = [
-  "gemini",
-  "groq",
-  "openrouter",
-  "openai-compatible",
-  "ollama"
-] as const;
+export const DEFAULT_BYOK_PROVIDERS: readonly string[] = LLM_PROVIDER_IDS;
 
 let customSessionStorage: Storage | undefined;
 let customLocalStorage: Storage | undefined;

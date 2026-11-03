@@ -1,7 +1,9 @@
-export type LLMProvider = "gemini" | "ollama" | "openrouter" | "openai-compatible" | "groq";
+import type { LLMProvider } from "@/lib/llm/providers";
+import type { SearchProvider } from "@/lib/search-providers";
+
+export type { LLMProvider, SearchProvider };
 export type LLMRole = "chat" | "subagent" | "scraper";
 export type KeySource = "env" | "ui" | "none";
-export type SearchProvider = "exa" | "tavily" | "brave" | "searxng" | "duckduckgo" | "gemini-native" | "none";
 
 export type ReasoningEffort = "low" | "medium" | "high";
 

@@ -5,6 +5,7 @@ import { generateTextWithFallback, probeToolCapability } from "@/lib/llm/client"
 import { discoverModels } from "@/lib/llm/discovery";
 import type { LLMChainEntry, LLMProvider } from "@/types";
 import { loadEndpointPresets } from "@/lib/llm/endpoints";
+import { LLM_PROVIDERS, getProvider } from "@/lib/llm/providers";
 import { loadPersonalities } from "@/lib/llm/personalities";
 import { estimateScrape } from "./scrape";
 import { STATUS_GLYPHS, type Palette } from "./theme";
@@ -66,10 +67,7 @@ async function promptLlmEntry(palette: Palette): Promise<{ entry: LLMChainEntry;
   const provider = await select({
     message: "Primary LLM provider",
     options: [
-      { value: "gemini", label: "Gemini", hint: "GEMINI_API_KEY" },
-      { value: "groq", label: "Groq", hint: "GROQ_API_KEY (fast inference, free tier)" },
-      { value: "ollama", label: "Ollama", hint: "local OpenAI-compatible endpoint" },
-      { value: "openrouter", label: "OpenRouter", hint: "OPENROUTER_API_KEY" },
+      ...LLM_PROVIDERS.filter((item) => item.id !== "openai-compatible").map((item) => ({ value: item.id, label: item.name, hint: item.note })),
       ...endpointPresets.map((preset) => ({ value: `preset:${preset.name}`, label: preset.name, hint: preset.launch_flags ?? preset.base_url })),
       { value: "openai-compatible", label: "Custom OpenAI-compatible", hint: "base URL required" }
     ],
@@ -123,14 +121,7 @@ async function promptBaseUrl(provider: LLMProvider, defaultValue?: string): Prom
 }
 
 async function promptKeySource(provider: LLMProvider): Promise<"env" | "ui"> {
-  const envKey =
-    provider === "gemini"
-      ? "GEMINI_API_KEY"
-      : provider === "groq"
-        ? "GROQ_API_KEY"
-        : provider === "openrouter"
-          ? "OPENROUTER_API_KEY"
-          : "OPENAI_COMPATIBLE_API_KEY";
+  const envKey = getProvider(provider).envKey;
   const source = await select({
     message: "Credential source",
     options: [
