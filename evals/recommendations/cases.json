@@ -1,0 +1,17 @@
+[
+  { "id": "office-igpu-35k", "prompt": "I need a basic PC for office work, browsing and Python coding. Budget is ₹35,000 for the whole build. I don't need a graphics card.", "budget": 35000, "gpu": "optional" },
+  { "id": "esports-1080p-60k", "prompt": "Build me a gaming PC for 1080p esports games like Valorant and CS2 within ₹60,000.", "budget": 60000, "gpu": "required" },
+  { "id": "aaa-1080p-80k", "prompt": "Gaming PC for 1080p high settings in new AAA games, budget ₹80,000.", "budget": 80000, "gpu": "required" },
+  { "id": "gaming-1440p-130k", "prompt": "1440p high-refresh gaming PC, total budget ₹1,30,000.", "budget": 130000, "gpu": "required" },
+  { "id": "gaming-4k-250k", "prompt": "4K gaming build, budget ₹2,50,000.", "budget": 250000, "gpu": "required" },
+  { "id": "owned-gpu-70k", "prompt": "I already have an RTX 3070 from my old PC. Build the rest of the system around it for ₹70,000 and don't include a graphics card.", "budget": 70000, "gpu": "none" },
+  { "id": "mini-itx-100k", "prompt": "A compact Mini-ITX gaming PC for my desk, budget ₹1,00,000.", "budget": 100000, "gpu": "required", "checks": { "nameMatches": { "motherboard": "itx" } } },
+  { "id": "video-editing-150k", "prompt": "Video editing workstation for 4K Premiere Pro timelines, at least 64GB RAM, budget ₹1,50,000.", "budget": 150000, "gpu": "optional", "checks": { "minRamGb": 64 } },
+  { "id": "no-rgb-90k", "prompt": "Gaming PC under ₹90,000, and no RGB lighting anywhere please.", "budget": 90000, "gpu": "required", "checks": { "nameExcludes": "\\bA?RGB\\b" } },
+  { "id": "streaming-110k", "prompt": "PC for gaming and streaming on Twitch at 1080p, budget ₹1,10,000.", "budget": 110000, "gpu": "required" },
+  { "id": "student-cad-75k", "prompt": "I'm an engineering student: AutoCAD, SolidWorks and some gaming. ₹75,000 budget.", "budget": 75000, "gpu": "optional" },
+  { "id": "local-ai-200k", "prompt": "For local AI and LLM experiments I want as much GPU VRAM as I can get, budget ₹2,00,000.", "budget": 200000, "gpu": "required" },
+  { "id": "hinglish-gaming-50k", "prompt": "₹50,000 mein gaming PC chahiye, 1080p pe games chalane hain.", "budget": 50000, "gpu": "optional" },
+  { "id": "cheapest-gta-45k", "prompt": "Cheapest PC that can play GTA V at 1080p, max ₹45,000.", "budget": 45000, "gpu": "optional" },
+  { "id": "all-amd-100k", "prompt": "AMD CPU and AMD GPU only, ₹1,00,000 gaming build.", "budget": 100000, "gpu": "required", "checks": { "nameMatches": { "cpu": "ryzen", "gpu": "radeon|\\brx\\s?\\d" } } }
+]
