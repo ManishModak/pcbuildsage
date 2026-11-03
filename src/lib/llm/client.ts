@@ -59,10 +59,11 @@ export function createLanguageModel(entry: LLMChainEntry): LanguageModel {
     })(entry.model);
   }
   if (entry.provider === "anthropic") {
-    const apiKey = resolveApiKey(entry, keyEnv(entry.provider));
+    // Always pass both: left undefined, the SDK reads ANTHROPIC_API_KEY and
+    // ANTHROPIC_BASE_URL itself, bypassing the key's host scoping and the URL checks.
     return createAnthropic({
-      apiKey: apiKey ?? (isHostedDemo() ? "" : undefined),
-      ...(entry.baseUrl ? { baseURL: entry.baseUrl } : {})
+      apiKey: resolveApiKey(entry, keyEnv(entry.provider)) ?? "",
+      baseURL: entry.baseUrl ?? defaultBaseUrl(entry.provider)
     })(entry.model);
   }
 
@@ -84,11 +85,13 @@ export function sanitizeOpenAICompatibleRequestBody(
   baseURL?: string
 ): Record<string, unknown> {
   const body = { ...args };
+  const isDeepSeek = provider === "deepseek" || (typeof baseURL === "string" && baseURL.includes("deepseek.com"));
   if (Array.isArray(body.messages)) {
     body.messages = body.messages.map((message: unknown) => {
       if (message && typeof message === "object") {
         const msgObj = message as Record<string, unknown>;
-        if ("reasoning_content" in msgObj || "reasoning" in msgObj) {
+        // DeepSeek's thinking models need their reasoning_content sent back in tool loops.
+        if (!isDeepSeek && ("reasoning_content" in msgObj || "reasoning" in msgObj)) {
           const cleaned = { ...msgObj };
           delete cleaned.reasoning_content;
           delete cleaned.reasoning;

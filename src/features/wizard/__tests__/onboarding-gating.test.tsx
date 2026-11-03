@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "@/components/app/app-provider";
 import { SearchableModelSelect } from "@/components/ui/searchable-model-select";
 import { Composer, hostedSendBlocked } from "@/features/chat/composer";
-import { ByokSection } from "@/features/settings/byok-section";
+import { ByokSection, preselectModel } from "@/features/settings/byok-section";
 import { StepLLM, researchDefaultForSearch } from "@/features/wizard/step-llm";
 import {
   hostedByokCanAdvance,
@@ -117,6 +117,12 @@ describe("Track W: no paid/outdated hosted default", () => {
     expect(markup).toContain("NVIDIA");
     expect(markup).toContain("More providers");
     expect(markup).not.toContain("Anthropic");
+  });
+
+  it("never preselects a model on a paid provider", () => {
+    const claude = [{ id: "claude-x", toolCapable: true }];
+    expect(preselectModel("paid", claude)).toBeUndefined();
+    expect(preselectModel("free", claude)?.id).toBe("claude-x");
   });
 
   it("BYOK picker markup contains no Claude default", () => {

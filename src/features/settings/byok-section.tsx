@@ -41,6 +41,11 @@ const BYOK_PROVIDERS: ProviderConfig[] = HOSTED_PROVIDER_IDS.map((id) => getProv
 
 type ProviderId = ProviderConfig["id"];
 
+/** The model chosen for a provider before the user picks one; never one they'd pay for. */
+export function preselectModel(tier: ProviderConfig["tier"], discovered: DiscoveredModel[]): DiscoveredModel | undefined {
+  return tier === "paid" ? undefined : pickFreeToolCapableDefault(discovered);
+}
+
 function perProvider<T>(value: (provider: ProviderConfig) => T): Record<string, T> {
   return Object.fromEntries(BYOK_PROVIDERS.map((provider) => [provider.id, value(provider)]));
 }
@@ -152,7 +157,7 @@ export function ByokSection({
       if (userPickedRef.current[p.id]) continue;
       const current = selectedModels[p.id];
       if (current && discovered.some((m) => m.id === current)) continue;
-      const pick = pickFreeToolCapableDefault(discovered);
+      const pick = preselectModel(p.tier, discovered);
       if (pick && pick.id !== current) {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- one-way preselect from async discovery
         setSelectedModels((prev) => ({ ...prev, [p.id]: pick.id }));
