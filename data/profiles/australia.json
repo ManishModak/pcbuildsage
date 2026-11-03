@@ -1,0 +1,234 @@
+{
+  "$schema": "../schemas/profile.schema.json",
+  "schema_version": 1,
+  "profile_name": "Australia",
+  "country_code": "AU",
+  "default_currency": "AUD",
+  "sites": [
+    {
+      "site_name": "Mwave",
+      "base_url": "https://www.mwave.com.au/",
+      "scraping_type": "shopify_json",
+      "categories": {
+        "cpu": {
+          "path": "collections/cpu-processors",
+          "max_pages": 10
+        },
+        "gpu": {
+          "path": "collections/graphics-card",
+          "max_pages": 10
+        },
+        "motherboard": {
+          "path": "collections/motherboards",
+          "max_pages": 10
+        },
+        "ram": {
+          "path": "collections/memory",
+          "max_pages": 10
+        },
+        "storage": {
+          "path": "collections/internal-solid-state-drives-ssd",
+          "max_pages": 10
+        },
+        "psu": {
+          "path": "collections/power-supplies-psu",
+          "max_pages": 10
+        },
+        "case": {
+          "path": "collections/computer-cases-pc-cases",
+          "max_pages": 10
+        },
+        "cooler": {
+          "path": "collections/cpu-coolers-air",
+          "max_pages": 10
+        }
+      }
+    },
+    {
+      "site_name": "Umart",
+      "base_url": "https://www.umart.com.au/",
+      "scraping_type": "category",
+      "engine": "http",
+      "browser_config": {
+        "headless": true,
+        "js_rendering": false,
+        "wait_for_selector": "li.goods_info",
+        "scroll_down": false,
+        "timeout_ms": 30000
+      },
+      "categories": {
+        "cpu": {
+          "path": "pc-parts/computer-parts/cpu-processors-611",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "gpu": {
+          "path": "pc-parts/computer-parts/graphics-cards-gpu-610",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "motherboard": {
+          "path": "pc-parts/computer-parts/motherboards-104",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "ram": {
+          "path": "pc-parts/computer-parts/memory-ram-108",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "storage": {
+          "path": "pc-parts/storage-devices/ssd-hard-drives-580",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "psu": {
+          "path": "pc-parts/computer-parts/power-supply-psu-140",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "case": {
+          "path": "pc-parts/computer-parts/cases-139",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "cooler": {
+          "path": "pc-parts/computer-parts/cooling/cpu-cooling-670",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        }
+      },
+      "selectors": {
+        "product_container": "li.goods_info",
+        "title": ".goods_name a",
+        "price": ".goods-price",
+        "url": ".goods_name a",
+        "image": ".goods_img img"
+      }
+    },
+    {
+      "site_name": "MSY",
+      "base_url": "https://www.msy.com.au/",
+      "scraping_type": "category",
+      "engine": "http",
+      "browser_config": {
+        "headless": true,
+        "js_rendering": false,
+        "wait_for_selector": "li.goods_info",
+        "scroll_down": false,
+        "timeout_ms": 30000
+      },
+      "categories": {
+        "cpu": {
+          "path": "pc-parts/computer-parts/cpu-processors-611",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "gpu": {
+          "path": "pc-parts/computer-parts/graphics-cards-gpu-610",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "motherboard": {
+          "path": "pc-parts/computer-parts/motherboards-104",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "ram": {
+          "path": "pc-parts/computer-parts/memory-ram-108",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "storage": {
+          "path": "pc-parts/storage-devices/ssd-hard-drives-580",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "psu": {
+          "path": "pc-parts/computer-parts/power-supply-psu-140",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "case": {
+          "path": "pc-parts/computer-parts/cases-139",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "cooler": {
+          "path": "pc-parts/computer-parts/cooling/cpu-cooling-670",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        }
+      },
+      "selectors": {
+        "product_container": "li.goods_info",
+        "title": ".goods_name a",
+        "price": ".goods-price",
+        "url": ".goods_name a",
+        "image": ".goods_img img"
+      }
+    },
+    {
+      "site_name": "PLE",
+      "base_url": "https://www.ple.com.au/",
+      "scraping_type": "category",
+      "engine": "http",
+      "browser_config": {
+        "headless": true,
+        "js_rendering": false,
+        "wait_for_selector": ".itemGrid2TileStandard",
+        "scroll_down": false,
+        "timeout_ms": 30000
+      },
+      "categories": {
+        "cpu": {
+          "path": "categories/235/cpus",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 2
+        },
+        "gpu": {
+          "path": "categories/259/graphics-cards",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 2
+        },
+        "motherboard": {
+          "path": "categories/302/motherboards",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 2
+        },
+        "ram": {
+          "path": "categories/282/memory-ram",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 2
+        },
+        "storage": {
+          "path": "categories/243/hard-drives-ssds",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 2
+        },
+        "psu": {
+          "path": "categories/318/power-supplies",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 2
+        },
+        "case": {
+          "path": "categories/227/cases",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 2
+        },
+        "cooler": {
+          "path": "categories/444/cpu-coolers",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 2
+        }
+      },
+      "selectors": {
+        "product_container": "div.itemGrid2TileStandard",
+        "title": ".itemGrid2TileStandardDescription a",
+        "price": ".itemGrid2TileStandardPrice",
+        "url": ".itemGrid2TileStandardDescription a",
+        "out_of_stock": ".ig2Stock > span.ig2StockStatus--unavailable"
+      }
+    }
+  ]
+}

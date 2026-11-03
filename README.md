@@ -2,7 +2,7 @@
 
 **Plan a PC in plain language, using only parts in stock at retailers today, with exact totals, buy links, and compatibility checked by code, not the AI.**
 
-India is supported today. More countries are coming, and contributions are welcome: a retailer is one JSON profile, no code required.
+The live demo covers India. Starter profiles for the Philippines, Australia, the United Kingdom and the United States let you scrape those countries locally, and each needs more retailers: a retailer is one JSON profile, no code required.
 
 <!-- badges -->
 ![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen) ![GitHub Stars](https://img.shields.io/github/stars/ManishModak/pcbuildsage?style=social) ![Privacy First](https://img.shields.io/badge/privacy--first-blue)
@@ -30,7 +30,7 @@ What you get:
 
 | | |
 | :-- | :-- |
-| 🇮🇳 **India today, more coming** | Retailers are defined in JSON profiles. Adding a retailer or a whole country is a pull request, no code required. |
+| 🌍 **India live, 4 more countries locally** | Retailers are defined in JSON profiles. India runs on the demo; the Philippines, Australia, the UK and the US run locally. Adding a retailer or a whole country is a pull request, no code required. |
 | 🤖 **AI consultant, real data** | Chat with the model of your choice (Gemini, OpenRouter, Groq, Ollama, any OpenAI-compatible API). It searches freshly scraped listings, never its memory. |
 | ✅ **One more trust layer** | The AI proposes parts; a deterministic rules engine checks sockets, DDR generation, PSU wattage and physical clearances before a build is presented. Anything it can't verify is shown as unverified. The engine is young: if you spot a wrong verdict, please [open an issue](https://github.com/ManishModak/pcbuildsage/issues). |
 | 🔒 **Private** | No accounts and no tracking cookies. Run it 100% locally, or use the demo, where your key and chats stay in your browser and the server keeps only anonymous daily totals. |
@@ -170,7 +170,7 @@ npm run validate:data
 
 **Is it free?** Yes, MIT licensed. You only pay your own LLM provider, or nothing at all with a free key or a local Ollama model.
 
-**Which countries work?** India today. Adding a country means writing retailer profiles (JSON, no code), and we'd love the help. See [CONTRIBUTING.md](CONTRIBUTING.md#2-add-a-retailer-or-a-country).
+**Which countries work?** The live demo covers India. Local scrapes also cover the Philippines, Australia, the United Kingdom and the United States, each with a few retailers so far. Adding a retailer or a country means writing a JSON profile (no code), and we'd love the help. See [CONTRIBUTING.md](CONTRIBUTING.md#2-add-a-retailer-or-a-country).
 
 **Why does the demo ask for an API key?** The demo runs on free hosting with no budget for AI usage, so you bring your own key. Gemini and OpenRouter both offer free keys.
 

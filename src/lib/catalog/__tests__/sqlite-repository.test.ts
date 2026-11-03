@@ -134,10 +134,10 @@ describe("SqliteCatalogRepository", () => {
     });
 
     it("returns markets from installed profiles when empty, and active catalog markets when stocked", async () => {
-      // Empty catalog in local mode falls back to installed profiles; the us-example.json
-      // template (example.com) has no real retailer, so only India is offered
+      // Empty catalog in local mode falls back to the installed profiles. Not pinned to the
+      // exact list so adding a country doesn't break this; template exclusion is tested below
       const initialMarkets = await repo.getMarkets();
-      expect(initialMarkets.map((m) => m.code)).toEqual(["IN"]);
+      expect(initialMarkets.map((m) => m.code)).toContain("IN");
 
       // Insert in-stock products for IN, out-of-stock for US
       insertProduct(db, { id: "p-in", country_code: "IN", currency: "INR", in_stock: 1 });

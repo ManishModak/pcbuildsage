@@ -18,7 +18,7 @@ PCBuildSage consists of:
 
 ## 2. Add a Retailer or a Country
 
-Scraping profiles live under `data/profiles/` (e.g., `data/profiles/india.json`). A profile is one country: its currency plus the retailers to scrape, each with target URLs and the CSS selectors that pick out product details. India is the only country so far, so a new country is one of the most valuable contributions you can make.
+Scraping profiles live under `data/profiles/` (e.g., `data/profiles/india.json`). A profile is one country: its currency plus the retailers to scrape, each with target URLs and the CSS selectors that pick out product details. India has the fullest profile. The Philippines, Australia, the United Kingdom and the United States have starter profiles with one to four retailers each, so another retailer for those countries, or a new country, is one of the most valuable contributions you can make.
 
 **Adding a country, end to end:**
 1. Copy `data/profiles/us-example.json` (a template) to `data/profiles/<your-country>.json`, and set `profile_name`, `country_code` (ISO 3166, e.g. `DE`) and `default_currency` (ISO 4217, e.g. `EUR`).

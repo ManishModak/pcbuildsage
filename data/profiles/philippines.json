@@ -1,0 +1,122 @@
+{
+  "$schema": "../schemas/profile.schema.json",
+  "schema_version": 1,
+  "profile_name": "Philippines",
+  "country_code": "PH",
+  "default_currency": "PHP",
+  "sites": [
+    {
+      "site_name": "PCExpress",
+      "base_url": "https://pcx.com.ph/",
+      "scraping_type": "shopify_json",
+      "categories": {
+        "cpu": {
+          "path": "collections/processor",
+          "max_pages": 10
+        },
+        "gpu": {
+          "path": "collections/graphics-cards",
+          "max_pages": 10
+        },
+        "motherboard": {
+          "path": "collections/motherboards",
+          "max_pages": 10
+        },
+        "ram": {
+          "path": "collections/memory-modules",
+          "max_pages": 10
+        },
+        "storage": {
+          "path": "collections/internal-storages",
+          "max_pages": 10
+        },
+        "psu": {
+          "path": "collections/power-supplies",
+          "max_pages": 10
+        },
+        "case": {
+          "path": "collections/pc-tower-cases",
+          "max_pages": 10
+        },
+        "cooler": {
+          "path": "collections/cooling",
+          "max_pages": 10
+        }
+      }
+    },
+    {
+      "site_name": "DynaQuest",
+      "base_url": "https://dynaquestpc.com/",
+      "scraping_type": "shopify_json",
+      "categories": {
+        "cpu": {
+          "path": "collections/processor",
+          "max_pages": 10
+        },
+        "gpu": {
+          "path": "collections/graphics-card",
+          "max_pages": 10
+        },
+        "motherboard": {
+          "path": "collections/motherboard",
+          "max_pages": 10
+        },
+        "ram": {
+          "path": "collections/components-memory-lodimm",
+          "max_pages": 10
+        },
+        "storage": {
+          "path": "collections/hard-drive",
+          "max_pages": 10
+        },
+        "psu": {
+          "path": "collections/power-supply",
+          "max_pages": 10
+        },
+        "case": {
+          "path": "collections/chassis",
+          "max_pages": 10
+        }
+      }
+    },
+    {
+      "site_name": "Datablitz",
+      "base_url": "https://www.datablitz.com.ph/",
+      "scraping_type": "shopify_json",
+      "categories": {
+        "cpu": {
+          "path": "collections/processors",
+          "max_pages": 10
+        },
+        "gpu": {
+          "path": "collections/graphics-cards",
+          "max_pages": 10
+        },
+        "motherboard": {
+          "path": "collections/motherboards",
+          "max_pages": 10
+        },
+        "ram": {
+          "path": "collections/memory-modules",
+          "max_pages": 10
+        },
+        "storage": {
+          "path": "collections/internal-storage",
+          "max_pages": 10
+        },
+        "psu": {
+          "path": "collections/power-supply-units",
+          "max_pages": 10
+        },
+        "case": {
+          "path": "collections/desktop-cases",
+          "max_pages": 10
+        },
+        "cooler": {
+          "path": "collections/cpu-coolers",
+          "max_pages": 10
+        }
+      }
+    }
+  ]
+}
