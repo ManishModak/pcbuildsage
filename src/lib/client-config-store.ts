@@ -1,5 +1,6 @@
-import type { ChainEntry, ClientConfig, ScrapeRunConfig, SearchProvider } from "@/types/client";
+import type { ChainEntry, ClientConfig, ScrapeRunConfig } from "@/types/client";
 import { getByokKey } from "@/lib/llm/client-byok-store";
+import { isSearchProvider, normalizeSearchProvider } from "@/lib/search-providers";
 
 export const CONFIG_KEY = "pcbuildsage:config";
 
@@ -33,7 +34,7 @@ export const DEFAULT_CONFIG: ClientConfig = {
   freeformConsultEnabled: false,
   chatChain: [],
   subagentChain: null,
-  searchProvider: "duckduckgo",
+  searchProvider: "none",
   crawlEnabled: false
 };
 
@@ -82,10 +83,8 @@ export function validateConfig(parsed: unknown): ClientConfig {
     config.subagentChain = null;
   }
 
-  const VALID_PROVIDERS: SearchProvider[] = ["exa", "tavily", "brave", "searxng", "duckduckgo", "gemini-native", "none"];
-  if (typeof obj.searchProvider === "string" && VALID_PROVIDERS.includes(obj.searchProvider as SearchProvider)) {
-    config.searchProvider = obj.searchProvider as SearchProvider;
-  }
+  const searchProvider = normalizeSearchProvider(obj.searchProvider);
+  if (isSearchProvider(searchProvider)) config.searchProvider = searchProvider;
   if (typeof obj.searchBaseUrl === "string") {
     config.searchBaseUrl = obj.searchBaseUrl;
   } else if (obj.searchBaseUrl === undefined || obj.searchBaseUrl === null) {

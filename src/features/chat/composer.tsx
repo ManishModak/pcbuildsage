@@ -5,29 +5,25 @@ import { ArrowUp, Square } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
 import { isHostedMode } from "@/lib/api-client";
-import { getActiveByokProvider, hasByokKey, listStoredProviders } from "@/lib/llm/client-byok-store";
+import { getActiveByokProvider, getByokModel, hasByokKey } from "@/lib/llm/client-byok-store";
+import { pickHostedProvider } from "@/lib/llm/hosted-defaults";
 
 /**
  * In hosted mode the chat needs a BYOK key. Returns true when sending must be
- * blocked: hosted mode and no provider the chat could use has a key.
+ * blocked: hosted mode and no provider the chat could use has a key and a model
+ * (the same pick resolveChatRequestBody makes).
  */
 export function hostedSendBlocked(options?: {
   isHosted?: boolean;
   activeProvider?: string | null;
   hasKey?: (provider: string) => boolean;
-  storedProviders?: string[];
+  getModel?: (provider: string) => string | undefined;
 }): boolean {
   const isHosted = options?.isHosted ?? isHostedMode();
   if (!isHosted) return false;
-  const hasKeyFn = options?.hasKey ?? hasByokKey;
   const active = options?.activeProvider !== undefined ? options.activeProvider : getActiveByokProvider();
-  const stored = options?.storedProviders ?? listStoredProviders();
-  // Same fallback as resolveChatRequestBody: any provider with a key can serve the chat.
-  const candidates = [active, ...stored, ...HOSTED_FALLBACK_PROVIDERS].filter((p): p is string => Boolean(p));
-  return !candidates.some((provider) => hasKeyFn(provider));
+  return pickHostedProvider(active, options?.hasKey ?? hasByokKey, options?.getModel ?? getByokModel) === null;
 }
-
-const HOSTED_FALLBACK_PROVIDERS = ["gemini", "groq", "openrouter"];
 
 export function Composer({
   onSend,

@@ -144,7 +144,7 @@ describe("context-budget", () => {
       const withConsultTools = createToolRegistry({
         ...baseConfig,
         tier2Enabled: true,
-        search: { provider: "duckduckgo", crawlEnabled: false }
+        search: { provider: "searxng", crawlEnabled: false }
       });
 
       const standardOverhead = measureToolDefinitionsTokens(standardTools);

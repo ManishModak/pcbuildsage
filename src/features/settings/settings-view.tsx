@@ -69,7 +69,7 @@ const NAV = {
     label: "Web research",
     icon: Search,
     group: "Assistant",
-    keywords: "web search with searxng address api key read the top result page reader research model test brave tavily exa duckduckgo crawl"
+    keywords: "web search with searxng address api key read the top result page reader research model test brave tavily exa crawl"
   },
   personalization: {
     id: "personalization",
@@ -477,7 +477,6 @@ function SettingsLayout({
                             ]
                           : [
                               { value: "none", label: "Off" },
-                              { value: "duckduckgo", label: "DuckDuckGo (no key needed)" },
                               { value: "searxng", label: "SearXNG (self-hosted)" },
                               { value: "brave", label: "Brave Search" },
                               { value: "tavily", label: "Tavily" },

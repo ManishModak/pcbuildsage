@@ -12,6 +12,15 @@ const openAiState = vi.hoisted(() => ({
   }>
 }));
 
+const anthropicState = vi.hoisted(() => ({ configs: [] as Array<{ apiKey?: string; baseURL?: string }> }));
+
+vi.mock("@ai-sdk/anthropic", () => ({
+  createAnthropic: (config: { apiKey?: string; baseURL?: string }) => {
+    anthropicState.configs.push(config);
+    return (model: string) => ({ model, config });
+  }
+}));
+
 vi.mock("@ai-sdk/openai-compatible", () => ({
   createOpenAICompatible: (config: Record<string, unknown>) => {
     openAiState.configs.push(config);
@@ -211,6 +220,12 @@ describe("sanitizeOpenAICompatibleRequestBody", () => {
     expect((sanitized.messages as Array<Record<string, unknown>>)[3]).toEqual(rawBody.messages[3]);
   });
 
+  it("keeps DeepSeek's reasoning_content, which its thinking models need back in tool loops", () => {
+    const body = { messages: [{ role: "assistant", content: "", reasoning_content: "thinking", tool_calls: [] }] };
+    const msg = (sanitizeOpenAICompatibleRequestBody(body, "deepseek").messages as Array<Record<string, unknown>>)[0];
+    expect(msg.reasoning_content).toBe("thinking");
+  });
+
   it("strips reasoning_effort when provider is groq or endpoint is groq.com", () => {
     const rawBody = {
       model: "llama-3.3-70b-versatile",
@@ -226,6 +241,16 @@ describe("sanitizeOpenAICompatibleRequestBody", () => {
 
     const openRouterSanitized = sanitizeOpenAICompatibleRequestBody(rawBody, "openrouter", "https://openrouter.ai/api/v1");
     expect(openRouterSanitized).toHaveProperty("reasoning_effort", "high");
+  });
+
+  it("never lets the Anthropic SDK read its own env key or base URL", () => {
+    vi.stubEnv("PCBUILDSAGE_DEPLOYMENT_MODE", "local");
+    vi.stubEnv("ANTHROPIC_API_KEY", "env-anthropic-key");
+    createLanguageModel({ provider: "anthropic", model: "claude-x", keySource: "env", baseUrl: "https://evil.example/v1" });
+    expect(anthropicState.configs.at(-1)).toEqual({ apiKey: "", baseURL: "https://evil.example/v1" });
+    createLanguageModel({ provider: "anthropic", model: "claude-x", keySource: "env" });
+    expect(anthropicState.configs.at(-1)).toEqual({ apiKey: "env-anthropic-key", baseURL: "https://api.anthropic.com/v1" });
+    vi.unstubAllEnvs();
   });
 
   it("attaches transformRequestBody in createLanguageModel for OpenAI-compatible providers", () => {

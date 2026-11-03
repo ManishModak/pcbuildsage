@@ -8,8 +8,8 @@ describe("createToolRegistry", () => {
     expect(Object.keys(tools).sort()).toEqual(["list_models", "present_build", "search_products", "suggest_followups", "validate_build"]);
   });
 
-  it("includes consult when Tier 2 is enabled", () => {
-    const tools = createToolRegistry(resolveConfig({ tier2Enabled: true }));
+  it("includes consult when Tier 2 and a search provider are on", () => {
+    const tools = createToolRegistry(resolveConfig({ tier2Enabled: true, searchProvider: "searxng" }));
     expect(Object.keys(tools).sort()).toEqual(["consult", "list_models", "present_build", "search_products", "suggest_followups", "validate_build"]);
   });
 });

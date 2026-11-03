@@ -1,5 +1,5 @@
 import type { LLMChainEntry } from "@/types";
-import { keyEnv, normalizeBaseUrl, resolveApiKey } from "./client";
+import { defaultBaseUrl, keyEnv, normalizeBaseUrl, resolveApiKey } from "./client";
 import { isFreePricing } from "./model-recommend";
 
 export const DISCOVERY_TIMEOUT_MS = 10_000;
@@ -64,13 +64,19 @@ export async function discoverModels(entry: LLMChainEntry, fetchImpl: typeof fet
       };
     });
   }
-  const defaultUrl =
-    entry.provider === "openrouter"
-      ? "https://openrouter.ai/api/v1"
-      : entry.provider === "groq"
-        ? "https://api.groq.com/openai/v1"
-        : process.env.OPENAI_COMPATIBLE_BASE_URL ?? "http://localhost:8000/v1";
-  const base = normalizeBaseUrl(entry.baseUrl ?? defaultUrl);
+  if (entry.provider === "anthropic") {
+    const base = normalizeBaseUrl(entry.baseUrl ?? defaultBaseUrl(entry.provider));
+    const key = resolveApiKey(entry, keyEnv(entry.provider));
+    const json = await getJson<{ data?: Array<{ id: string; display_name?: string }> }>(
+      `${base}/models?limit=1000`,
+      fetchImpl,
+      key,
+      key ? { "x-api-key": key, "anthropic-version": "2023-06-01" } : {}
+    );
+    // Every current Claude model can call tools.
+    return (json.data ?? []).map((model) => ({ id: model.id, name: model.display_name ?? model.id, toolCapable: true }));
+  }
+  const base = normalizeBaseUrl(entry.baseUrl ?? defaultBaseUrl(entry.provider));
   const json = await getJson<{
     data?: Array<{
       id: string;
@@ -175,10 +181,11 @@ export async function providerFailure(response: Response, what: string, url: str
   return new Error(`${what} failed with HTTP ${response.status}${reason ? `: ${reason}` : ""}`);
 }
 
-async function getJson<T>(url: string, fetchImpl: typeof fetch, apiKey?: string): Promise<T> {
+// `headers` replaces the default bearer header for providers with their own scheme.
+async function getJson<T>(url: string, fetchImpl: typeof fetch, apiKey?: string, headers?: Record<string, string>): Promise<T> {
   const timeout = getDiscoveryTimeoutMs();
   const response = await fetchImpl(url, {
-    headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
+    headers: headers ?? (apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined),
     signal: AbortSignal.timeout(timeout)
   });
   if (!response.ok) throw await providerFailure(response, "Model discovery", url, apiKey);

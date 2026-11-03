@@ -95,7 +95,7 @@ export function LandingContent() {
                 </a>
               </div>
               <p className="mt-4 max-w-[34rem] text-sm text-text-muted">
-                Free. Bring a free Gemini or OpenRouter key and set up in about two minutes, or run it
+                Free. Bring a free key from Gemini, Groq, OpenRouter or NVIDIA and set up in about two minutes, or run it
                 on your own machine with a local model.
               </p>
             </div>

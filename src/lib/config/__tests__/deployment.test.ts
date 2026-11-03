@@ -243,22 +243,21 @@ describe("validateSearchBaseUrl", () => {
   it("allows official search provider HTTPS URLs in hosted-demo mode", () => {
     expect(validateSearchBaseUrl(undefined, "hosted-demo").allowed).toBe(true);
     expect(validateSearchBaseUrl("", "hosted-demo").allowed).toBe(true);
-    expect(validateSearchBaseUrl("https://html.duckduckgo.com", "hosted-demo").allowed).toBe(true);
     expect(validateSearchBaseUrl("https://api.search.brave.com", "hosted-demo").allowed).toBe(true);
     expect(validateSearchBaseUrl("https://api.exa.ai", "hosted-demo").allowed).toBe(true);
     expect(validateSearchBaseUrl("https://api.tavily.com", "hosted-demo").allowed).toBe(true);
   });
 
   it("rejects non-HTTPS, loopback, private IPs, and IMDS in hosted-demo mode", () => {
-    expect(validateSearchBaseUrl("http://html.duckduckgo.com", "hosted-demo").allowed).toBe(false);
+    expect(validateSearchBaseUrl("http://api.tavily.com", "hosted-demo").allowed).toBe(false);
     expect(validateSearchBaseUrl("http://localhost:8080", "hosted-demo").allowed).toBe(false);
     expect(validateSearchBaseUrl("https://127.0.0.1:8080", "hosted-demo").allowed).toBe(false);
     expect(validateSearchBaseUrl("http://169.254.169.254", "hosted-demo").allowed).toBe(false);
     expect(validateSearchBaseUrl("https://10.0.0.1", "hosted-demo").allowed).toBe(false);
     expect(validateSearchBaseUrl("https://192.168.1.1", "hosted-demo").allowed).toBe(false);
     expect(validateSearchBaseUrl("https://evil.com/search", "hosted-demo").allowed).toBe(false);
-    expect(validateSearchBaseUrl("https://user:pass@html.duckduckgo.com", "hosted-demo").allowed).toBe(false);
-    expect(validateSearchBaseUrl("https://html.duckduckgo.com:8443", "hosted-demo").allowed).toBe(false);
+    expect(validateSearchBaseUrl("https://user:pass@api.tavily.com", "hosted-demo").allowed).toBe(false);
+    expect(validateSearchBaseUrl("https://api.tavily.com:8443", "hosted-demo").allowed).toBe(false);
   });
 });
 

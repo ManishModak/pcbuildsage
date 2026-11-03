@@ -3,6 +3,8 @@ import { resolveConfig } from "@/lib/config";
 import { getDeploymentMode, isHostedSearchProviderAllowed, validateChatProviderUrl, validateSearchBaseUrl, type DeploymentMode } from "@/lib/config/deployment";
 import type { AppConfig, ConfigInput, LLMChainEntry, LLMProvider, SearchProvider } from "@/types";
 import { envKeyAllowed } from "@/lib/llm/env-key-scope";
+import { LLM_PROVIDERS, LLM_PROVIDER_IDS, getProvider } from "@/lib/llm/providers";
+import { SEARCH_PROVIDER_IDS, normalizeSearchProvider } from "@/lib/search-providers";
 import { resolveSandboxedPath } from "./paths";
 
 export class UnsafeConfigError extends Error {
@@ -34,10 +36,9 @@ export function assertSafeLlmChain(chain: LLMChainEntry[], mode: DeploymentMode)
  * Local mode: unchanged. Hosted-demo mode: keyed providers (exa/tavily/brave)
  * are kept only when the request carries their key; gemini-native is kept
  * (it grounds through the user's own Gemini call, no server-side search).
- * Everything else (duckduckgo, searxng, keyed-without-key) is coerced to
- * "none", so a request that omits searchProvider (config default duckduckgo)
- * still works without server-side scraping. Crawling is always off in hosted
- * mode (it runs a headless browser on the server); BYOK research stays on.
+ * Everything else (searxng, keyed-without-key) is coerced to "none".
+ * Crawling is always off in hosted mode (it runs a headless browser on the
+ * server); BYOK research stays on.
  * Throws UnsafeConfigError when a kept provider's baseUrl fails SSRF checks.
  */
 export function assertSafeSearchConfig(search: AppConfig["search"], mode: DeploymentMode): AppConfig["search"] {
@@ -59,7 +60,7 @@ export function assertSafeSearchConfig(search: AppConfig["search"], mode: Deploy
   return { ...search, crawlEnabled: false };
 }
 
-const providerSchema = z.enum(["gemini", "ollama", "openrouter", "openai-compatible", "groq"]);
+const providerSchema = z.enum(LLM_PROVIDER_IDS);
 const keySourceSchema = z.enum(["env", "ui", "none"]);
 const reasoningEffortSchema = z.enum(["low", "medium", "high"]);
 
@@ -86,7 +87,8 @@ const configInputSchema = z.object({
   chatLlmChain: z.union([z.string(), z.array(llmEntrySchema)]).optional(),
   subagentLlmChain: z.union([z.string(), z.array(llmEntrySchema)]).optional(),
   scraperLlmChain: z.union([z.string(), z.array(llmEntrySchema)]).optional(),
-  searchProvider: z.enum(["exa", "tavily", "brave", "searxng", "duckduckgo", "gemini-native", "none"]).optional(),
+  // Saved configs from before DuckDuckGo was removed still send it: read as "none".
+  searchProvider: z.preprocess(normalizeSearchProvider, z.enum(SEARCH_PROVIDER_IDS)).optional(),
   searchBaseUrl: z.string().optional(),
   searchApiKey: z.string().optional(),
   crawlEnabled: z.boolean().optional()
@@ -143,42 +145,28 @@ export function injectRequestCredentials(config: AppConfig, headers: Headers): A
 }
 
 export function getCredentialAvailability(env: NodeJS.ProcessEnv = process.env, mode: DeploymentMode = getDeploymentMode(env)) {
-  if (mode === "hosted-demo") {
-    return {
-      llm: {
-        gemini: false,
-        groq: false,
-        openrouter: false,
-        ollama: false,
-        "openai-compatible": false
-      },
-      search: {
-        brave: false,
-        exa: false,
-        tavily: false,
-        searxng: false,
-        duckduckgo: false,
-        "gemini-native": false
-      }
-    };
-  }
+  const local = mode !== "hosted-demo";
+  const llm = Object.fromEntries(
+    LLM_PROVIDERS.map((provider) => [provider.id, local && llmEnvConfigured(provider.id, env)])
+  ) as Record<LLMProvider, boolean>;
   return {
-    llm: {
-      gemini: Boolean(env.GEMINI_API_KEY),
-      groq: Boolean(env.GROQ_API_KEY),
-      openrouter: Boolean(env.OPENROUTER_API_KEY),
-      ollama: Boolean(env.OLLAMA_BASE_URL || env.OLLAMA_API_KEY),
-      "openai-compatible": Boolean(env.OPENAI_COMPATIBLE_API_KEY || env.OPENAI_COMPATIBLE_BASE_URL)
-    },
+    llm,
     search: {
-      brave: Boolean(env.BRAVE_API_KEY),
-      exa: Boolean(env.EXA_API_KEY),
-      tavily: Boolean(env.TAVILY_API_KEY),
-      searxng: Boolean(env.SEARXNG_BASE_URL),
-      duckduckgo: true,
-      "gemini-native": Boolean(env.GEMINI_API_KEY)
+      brave: local && Boolean(env.BRAVE_API_KEY),
+      exa: local && Boolean(env.EXA_API_KEY),
+      tavily: local && Boolean(env.TAVILY_API_KEY),
+      searxng: local && Boolean(env.SEARXNG_BASE_URL),
+      "gemini-native": local && Boolean(env.GEMINI_API_KEY)
     }
   };
+}
+
+// Local providers count as set up when their address is set, even with no key.
+function llmEnvConfigured(provider: LLMProvider, env: NodeJS.ProcessEnv): boolean {
+  if (env[getProvider(provider).envKey]) return true;
+  if (provider === "ollama") return Boolean(env.OLLAMA_BASE_URL);
+  if (provider === "openai-compatible") return Boolean(env.OPENAI_COMPATIBLE_BASE_URL);
+  return false;
 }
 
 function hydrateEntryCredential(entry: LLMChainEntry, headers: Headers, mode: DeploymentMode = getDeploymentMode()): LLMChainEntry {
@@ -193,7 +181,7 @@ function hydrateEntryCredential(entry: LLMChainEntry, headers: Headers, mode: De
     entry.keySource === "ui"
       ? headerApiKey(headers, entry.provider)
       : envKeyAllowed(entry)
-        ? process.env[providerEnvKey(entry.provider)]
+        ? process.env[getProvider(entry.provider).envKey]
         : undefined;
   return apiKey ? { ...entry, apiKey } : entry;
 }
@@ -208,14 +196,6 @@ function headerApiKey(headers: Headers, provider: string): string | undefined {
     headers.get(`x-${underscore}-api-key`) ??
     undefined
   );
-}
-
-function providerEnvKey(provider: LLMProvider): string {
-  if (provider === "gemini") return "GEMINI_API_KEY";
-  if (provider === "openrouter") return "OPENROUTER_API_KEY";
-  if (provider === "groq") return "GROQ_API_KEY";
-  if (provider === "ollama") return "OLLAMA_API_KEY";
-  return "OPENAI_COMPATIBLE_API_KEY";
 }
 
 function searchHeaderProvider(provider: SearchProvider): string {

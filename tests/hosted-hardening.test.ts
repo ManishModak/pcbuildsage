@@ -140,15 +140,14 @@ describe("hosted rate limit memory and exemptions", () => {
   });
 });
 
-describe("hosted search provider policy (no keyless DuckDuckGo)", () => {
+describe("hosted search provider policy", () => {
   const originalMode = process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
   afterEach(() => {
     if (originalMode !== undefined) process.env.PCBUILDSAGE_DEPLOYMENT_MODE = originalMode;
     else delete process.env.PCBUILDSAGE_DEPLOYMENT_MODE;
   });
 
-  it("blocks duckduckgo and searxng in hosted mode, allows keyed providers", () => {
-    expect(isHostedSearchProviderAllowed("duckduckgo", "hosted-demo")).toBe(false);
+  it("blocks searxng in hosted mode, allows keyed providers", () => {
     expect(isHostedSearchProviderAllowed("searxng", "hosted-demo")).toBe(false);
     for (const p of ["exa", "tavily", "brave", "gemini-native", "none"]) {
       expect(isHostedSearchProviderAllowed(p, "hosted-demo")).toBe(true);
@@ -156,12 +155,11 @@ describe("hosted search provider policy (no keyless DuckDuckGo)", () => {
   });
 
   it("allows everything in local mode", () => {
-    expect(isHostedSearchProviderAllowed("duckduckgo", "local")).toBe(true);
     expect(isHostedSearchProviderAllowed("searxng", "local")).toBe(true);
   });
 
   it("coerces keyless, self-hosted and key-less keyed providers to none", () => {
-    for (const provider of ["duckduckgo", "searxng", "tavily", "exa", "brave"] as const) {
+    for (const provider of ["searxng", "tavily", "exa", "brave"] as const) {
       const safe = assertSafeSearchConfig({ provider, baseUrl: "http://127.0.0.1:8080", crawlEnabled: false }, "hosted-demo");
       expect(safe.provider).toBe("none");
       expect(safe.baseUrl).toBeUndefined();
@@ -176,20 +174,20 @@ describe("hosted search provider policy (no keyless DuckDuckGo)", () => {
     ).toThrow(UnsafeConfigError);
   });
 
-  it("a raw hosted request with no searchProvider (default duckduckgo) resolves to none", () => {
+  it("a raw hosted request with no searchProvider resolves to none", () => {
     process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "hosted-demo";
     const config = buildAppConfig(new Headers(), {
-      llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }]
+      llmChain: [{ provider: "gemini", model: "gemini-3.5-flash", keySource: "none" }]
     });
     expect(config.search.provider).toBe("none");
   });
 
   it("never crawls in hosted mode but keeps BYOK research on", () => {
     expect(assertSafeSearchConfig({ provider: "tavily", apiKey: "k", crawlEnabled: true }, "hosted-demo").crawlEnabled).toBe(false);
-    expect(assertSafeSearchConfig({ provider: "duckduckgo", crawlEnabled: true }, "hosted-demo").crawlEnabled).toBe(false);
+    expect(assertSafeSearchConfig({ provider: "searxng", crawlEnabled: true }, "hosted-demo").crawlEnabled).toBe(false);
     process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "hosted-demo";
     const config = buildAppConfig(new Headers(), {
-      llmChain: [{ provider: "gemini", model: "gemini-2.5-flash", keySource: "none" }],
+      llmChain: [{ provider: "gemini", model: "gemini-3.5-flash", keySource: "none" }],
       tier2Enabled: true,
       freeformConsultEnabled: true,
       crawlEnabled: true
@@ -200,8 +198,17 @@ describe("hosted search provider policy (no keyless DuckDuckGo)", () => {
   });
 
   it("leaves local mode untouched", () => {
-    expect(assertSafeSearchConfig({ provider: "duckduckgo", crawlEnabled: false }, "local").provider).toBe("duckduckgo");
-    expect(assertSafeSearchConfig({ provider: "duckduckgo", crawlEnabled: true }, "local").crawlEnabled).toBe(true);
+    expect(assertSafeSearchConfig({ provider: "searxng", crawlEnabled: false }, "local").provider).toBe("searxng");
+    expect(assertSafeSearchConfig({ provider: "searxng", crawlEnabled: true }, "local").crawlEnabled).toBe(true);
+  });
+
+  it("reads a saved DuckDuckGo choice as no search", () => {
+    process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "local";
+    const config = buildAppConfig(new Headers(), {
+      llmChain: [{ provider: "gemini", model: "gemini-3.5-flash", keySource: "none" }],
+      searchProvider: "duckduckgo"
+    });
+    expect(config.search.provider).toBe("none");
   });
 });
 

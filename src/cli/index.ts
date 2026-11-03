@@ -6,7 +6,9 @@ import { stdin as input, stdout as output } from "node:process";
 import path from "node:path";
 import { confirm } from "@clack/prompts";
 import { resolveConfig } from "@/lib/config";
-import type { ConfigInput, LLMChainEntry, LLMProvider, SearchProvider } from "@/types";
+import { isLlmProvider } from "@/lib/llm/providers";
+import { SEARCH_PROVIDER_IDS, isSearchProvider } from "@/lib/search-providers";
+import type { ConfigInput, LLMChainEntry, LLMProvider } from "@/types";
 import { streamChat, type ChatMessage } from "@/lib/llm/chat-engine";
 import { discoverModels } from "@/lib/llm/discovery";
 import { loadEndpointPresets } from "@/lib/llm/endpoints";
@@ -31,8 +33,6 @@ type Runtime = {
   version: string;
 };
 
-const PROVIDERS: LLMProvider[] = ["gemini", "groq", "ollama", "openrouter", "openai-compatible"];
-const SEARCH_PROVIDERS: SearchProvider[] = ["exa", "tavily", "brave", "searxng", "duckduckgo", "gemini-native", "none"];
 
 async function main(argv = process.argv.slice(2)): Promise<number> {
   const parsed = parseArgv(argv);
@@ -294,11 +294,11 @@ async function searchCommand(parsed: ParsedArgs, runtime: Runtime): Promise<numb
   const value = parsed.positionals[0];
   if (!value) {
     console.log(`search=${runtime.saved.searchProvider ?? "none"}`);
-    console.log(`available: ${SEARCH_PROVIDERS.join(", ")}`);
+    console.log(`available: ${SEARCH_PROVIDER_IDS.join(", ")}`);
     return 0;
   }
   const provider = value === "off" ? "none" : value;
-  if (!SEARCH_PROVIDERS.includes(provider as SearchProvider)) throw new Error(`Unknown search provider: ${value}`);
+  if (!isSearchProvider(provider)) throw new Error(`Unknown search provider: ${value}`);
   writeCliConfig(setConfigValue(readCliConfig(), "searchProvider", provider));
   console.log(`search=${provider}`);
   return 0;
@@ -359,7 +359,7 @@ function formatToolResult(toolName: string, outputValue: unknown, palette: Palet
 
 function providerFromName(value: string | undefined): LLMProvider {
   if (!value) throw new Error("models requires --provider <name>.");
-  if (PROVIDERS.includes(value as LLMProvider)) return value as LLMProvider;
+  if (isLlmProvider(value)) return value;
   const preset = loadEndpointPresets().find((item) => item.name === value);
   if (preset) return "openai-compatible";
   throw new Error(`Unknown provider: ${value}`);

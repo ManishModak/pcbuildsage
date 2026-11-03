@@ -356,7 +356,7 @@ describe("header effect: structural guard against re-arming itself", () => {
     });
     expect(result.renders).toBeLessThan(RENDER_LIMIT);
     expect(result.setHeaderSuffixCalls).toBe(1);
-    expect(result.pass.headerBuildPrice).toBe("₹40,500.00");
+    expect(result.pass.headerBuildPrice).toBe("₹40,500");
     expect(result.pass.allBuildVersions).toHaveLength(1);
   });
 
@@ -369,7 +369,7 @@ describe("header effect: structural guard against re-arming itself", () => {
     });
     expect(result.renders).toBeLessThan(RENDER_LIMIT);
     expect(result.setHeaderSuffixCalls).toBe(1);
-    expect(result.pass.headerBuildPrice).toBe("₹28,500.00");
+    expect(result.pass.headerBuildPrice).toBe("₹28,500");
     expect(result.pass.allBuildVersions[0].label).toBe("Validated — not presented yet");
   });
 

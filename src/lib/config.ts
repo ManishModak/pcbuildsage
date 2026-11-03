@@ -2,9 +2,11 @@ import path from "node:path";
 import { DEFAULT_DB_PATH } from "@/lib/db";
 import type { AppConfig, ConfigInput, LLMChainEntry, LLMProvider, LLMRole, RoleChains, SearchProvider } from "@/types";
 import { normalizeBaseUrl } from "@/lib/llm/client";
+import { getProvider, isLlmProvider } from "@/lib/llm/providers";
 import { isHostedDemo } from "@/lib/config/deployment";
+import { normalizeSearchProvider } from "@/lib/search-providers";
 
-const DEFAULT_CHAIN = "gemini:gemini-2.5-flash,ollama:llama3.3";
+const DEFAULT_CHAIN = `gemini:${getProvider("gemini").defaultModel},ollama:llama3.3`;
 const ROLES: LLMRole[] = ["chat", "subagent", "scraper"];
 
 export function parseLlmChain(value?: string | LLMChainEntry[]): LLMChainEntry[] {
@@ -20,7 +22,7 @@ export function parseLlmChain(value?: string | LLMChainEntry[]): LLMChainEntry[]
     .map((item) => {
       const [provider, ...modelParts] = item.split(":");
       const model = modelParts.join(":").trim();
-      if (!isProvider(provider) || !model) {
+      if (!isLlmProvider(provider) || !model) {
         throw new Error(`Invalid LLM chain entry "${item}". Expected provider:model.`);
       }
       return hydrateEntry({ provider, model, keySource: "env" });
@@ -46,7 +48,7 @@ export function resolveConfig(uiOrFlags: ConfigInput = {}, savedConfig: ConfigIn
     ROLES.map((role) => [role, parseLlmChain(source(roleInput[role], roleEnv[role], llmChain))])
   ) as RoleChains;
 
-  const searchProvider = source<SearchProvider>("searchProvider", "SEARCH_PROVIDER", "duckduckgo");
+  const searchProvider = normalizeSearchProvider(source<SearchProvider>("searchProvider", "SEARCH_PROVIDER", "none")) as SearchProvider;
   const countryCode = validateCode("countryCode", source("countryCode", "PCBUILDSAGE_COUNTRY", "IN"), /^[A-Z]{2}$/);
   const currency = validateCode("currency", source("currency", "PCBUILDSAGE_CURRENCY", "INR"), /^[A-Z]{3}$/);
   const dbPath = source("dbPath", "PCBUILDSAGE_DB_PATH", DEFAULT_DB_PATH);
@@ -83,17 +85,11 @@ function hydrateEntry(entry: LLMChainEntry): LLMChainEntry {
 
 function defaultBaseUrl(provider: LLMProvider): string | undefined {
   if (provider === "ollama") return process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-  if (provider === "openrouter") return "https://openrouter.ai/api/v1";
-  if (provider === "groq") return "https://api.groq.com/openai/v1";
-  return undefined;
+  return getProvider(provider).baseUrl;
 }
 
 function providerKeyEnv(provider: SearchProvider): string {
   return `${provider.toUpperCase().replace("-", "_")}_API_KEY`;
-}
-
-function isProvider(value: string): value is LLMProvider {
-  return value === "gemini" || value === "ollama" || value === "openrouter" || value === "openai-compatible" || value === "groq";
 }
 
 function coerceBool(value: unknown): boolean {

@@ -20,8 +20,10 @@ import { pickTheme, resolveTheme, TOKEN_KEYS } from "../theme";
 import type { ThemeFile } from "@/types/client";
 
 describe("formatPrice", () => {
-  it("renders INR minor units with two fraction digits", () => {
-    expect(formatPrice(24999, "INR", "en-IN")).toMatch(/24,999\.00/);
+  it("drops the fraction on whole prices and keeps it otherwise", () => {
+    expect(formatPrice(24999, "INR", "en-IN")).toBe("₹24,999");
+    expect(formatPrice(24999.5, "INR", "en-IN")).toBe("₹24,999.50");
+    expect(formatPrice(19.999, "USD", "en-US")).toBe("$20");
   });
 
   it("renders zero-decimal currencies without fraction digits", () => {

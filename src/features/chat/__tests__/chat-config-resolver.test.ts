@@ -167,7 +167,7 @@ describe("resolveActiveModel", () => {
       hasKey: (p) => p === "groq",
       getModel: () => undefined
     });
-    expect(model).toBe("llama-3.3-70b-versatile");
+    expect(model).toBe("openai/gpt-oss-120b");
   });
 
   it("falls back to 'Sage' when no keys or chains exist", () => {

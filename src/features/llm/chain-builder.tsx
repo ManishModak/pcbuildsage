@@ -31,14 +31,13 @@ import { Button, Field, IconButton, Input, Spinner } from "@/components/ui/primi
 import { ModelField } from "@/components/ui/model-field";
 import { Select } from "@/components/ui/select";
 import { ProbeResultView } from "./probe-result-view";
+import { LLM_PROVIDERS, isLocalProvider, type ProviderTier } from "@/lib/llm/providers";
 
-const PROVIDERS: Array<{ value: LLMProvider; label: string }> = [
-  { value: "gemini", label: "Google Gemini" },
-  { value: "groq", label: "Groq" },
-  { value: "openrouter", label: "OpenRouter" },
-  { value: "ollama", label: "Ollama (on your machine)" },
-  { value: "openai-compatible", label: "Other server (OpenAI-compatible)" }
-];
+const TIER_SUFFIX: Record<ProviderTier, string> = { free: "", trial: " (trial credits)", paid: " (paid)", local: " (on your machine)" };
+const PROVIDERS: Array<{ value: LLMProvider; label: string }> = LLM_PROVIDERS.map((provider) => ({
+  value: provider.id,
+  label: `${provider.name}${TIER_SUFFIX[provider.tier]}`
+}));
 
 let entryCounter = 0;
 export function newEntry(partial: Partial<ChainEntry> = {}): ChainEntry {
@@ -63,7 +62,7 @@ export function withAvailableKeySources(chain: ChainEntry[], credentials: Creden
   if (!chain.some(orphaned)) return chain;
   return chain.map((entry) => {
     if (!orphaned(entry)) return entry;
-    const local = entry.provider === "ollama" || entry.provider === "openai-compatible";
+    const local = isLocalProvider(entry.provider);
     return { ...entry, keySource: local ? "none" : "ui", ping: undefined };
   });
 }
@@ -254,7 +253,7 @@ function ChainCard({
   onDragStart: () => void;
   onDrop: () => void;
 }) {
-  const isLocal = entry.provider === "ollama" || entry.provider === "openai-compatible";
+  const isLocal = isLocalProvider(entry.provider);
   const envAvailable = Boolean(credentials?.llm?.[entry.provider]);
   const keySaved = Boolean(entry.hasSavedKey || (isHostedMode() ? hasByokKey(entry.provider) : hasUiKey(entry.provider)));
   const needsKey = entry.keySource === "ui" && !keySaved && !keyDraft;
