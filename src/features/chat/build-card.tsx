@@ -3,6 +3,7 @@
 import { useState, useId } from "react";
 import { AlertCircle, ExternalLink, FlaskConical, RefreshCw } from "lucide-react";
 import { formatPrice, formatRetailerName } from "@/lib/format";
+import { AMAZON_DISCLOSURE, amazonSearchUrl } from "@/lib/amazon-search";
 import { Icon } from "@/components/ui/icon";
 import { PillTabs } from "@/components/ui/pill-tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -226,6 +227,10 @@ function BuildComponentsList({
   onRecheckPrices?: (prompt: string) => void;
 }) {
   const age = priceAge(active.pricesAsOf);
+  // Derived requirements ("any 650 W PSU") aren't products, so they get no Amazon link.
+  const amazonUrls = active.components.map((component) =>
+    component.retailer || component.notInCatalog ? amazonSearchUrl(component.name, component.currency) : null
+  );
   return (
     <>
       <ul className="flex flex-col">
@@ -265,6 +270,17 @@ function BuildComponentsList({
                   ) : (
                     <span className="text-caption text-text-muted italic">Derived requirement</span>
                   )}
+                  {amazonUrls[componentIndex] ? (
+                    <a
+                      href={amazonUrls[componentIndex]!}
+                      target="_blank"
+                      rel="sponsored noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-caption text-text-secondary hover:underline"
+                    >
+                      Check on Amazon
+                      <Icon icon={ExternalLink} size={12} />
+                    </a>
+                  ) : null}
                   {component.failed ? (
                     <span
                       className="inline-flex items-center gap-1 text-caption text-warn"
@@ -305,6 +321,7 @@ function BuildComponentsList({
 
         <p className="mt-3 text-caption text-text-muted">
           Prices and stock are snapshots from each retailer. Confirm them at checkout.
+          {amazonUrls.some(Boolean) ? ` ${AMAZON_DISCLOSURE}` : null}
         </p>
 
         {age ? (
