@@ -13,7 +13,7 @@ export const AMAZON_DISCLOSURE = "As an Amazon Associate I earn from qualifying 
 // there is no store for it or the name is empty.
 export function amazonSearchUrl(name: string, currency: string): string | null {
   const store = AMAZON_STORES[currency];
-  const query = name.replace(/\s+/g, " ").trim().slice(0, 120);
+  const query = name.replace(/\s+/g, " ").trim();
   if (!store || !query) return null;
   const url = new URL(`https://${store.host}/s`);
   url.searchParams.set("k", query);

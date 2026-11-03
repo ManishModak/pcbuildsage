@@ -227,9 +227,10 @@ function BuildComponentsList({
   onRecheckPrices?: (prompt: string) => void;
 }) {
   const age = priceAge(active.pricesAsOf);
-  // Derived requirements ("any 650 W PSU") aren't products, so they get no Amazon link.
+  // Only real store listings get an Amazon link: unpriced rows include
+  // requirements ("Any 650 W PSU") and parts named only by their category.
   const amazonUrls = active.components.map((component) =>
-    component.retailer || component.notInCatalog ? amazonSearchUrl(component.name, component.currency) : null
+    component.retailer ? amazonSearchUrl(component.name, component.currency) : null
   );
   return (
     <>
@@ -274,10 +275,10 @@ function BuildComponentsList({
                     <a
                       href={amazonUrls[componentIndex]!}
                       target="_blank"
-                      rel="sponsored noopener noreferrer"
+                      rel="sponsored noopener"
                       className="inline-flex items-center gap-1 text-caption text-text-secondary hover:underline"
                     >
-                      Check on Amazon
+                      Check on Amazon (paid link)
                       <Icon icon={ExternalLink} size={12} />
                     </a>
                   ) : null}

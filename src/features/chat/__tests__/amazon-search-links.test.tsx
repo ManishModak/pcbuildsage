@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { BuildCard } from "../build-card";
-import type { DerivedBuild, BuildComponent } from "../build-derive";
+import { derivedBuildFromSnapshot, type DerivedBuild, type BuildComponent } from "../build-derive";
+import type { BuildSnapshot } from "@/lib/catalog/build-snapshot";
 import { AMAZON_DISCLOSURE, amazonSearchUrl } from "@/lib/amazon-search";
 
 function part(overrides: Partial<BuildComponent>): BuildComponent {
@@ -32,19 +33,18 @@ describe("Amazon search links", () => {
     expect(amazonSearchUrl("   ", "INR")).toBeNull();
   });
 
-  it("links catalog parts with the disclosure, but not derived requirements", () => {
-    const html = renderToStaticMarkup(
-      <BuildCard
-        builds={[
-          build([
-            part({}),
-            part({ category: "psu", categoryLabel: "PSU", name: "Any 650 W PSU", retailer: undefined, url: undefined, price: null })
-          ])
-        ]}
-      />
-    );
-    expect(html.match(/Check on Amazon/g)).toHaveLength(1);
-    expect(html).toContain('rel="sponsored noopener noreferrer"');
+  it("links store listings with the disclosure, but not unpriced requirements", () => {
+    const snapshot = {
+      currency: "INR",
+      total: null,
+      components: [
+        { category: "gpu", name: "ASUS Dual RTX 5060 8GB", price: 30000, currency: "INR", retailer: "MDComputers" },
+        { category: "psu", name: "Any 650 W PSU", price: null, currency: "INR" }
+      ]
+    } as BuildSnapshot;
+    const html = renderToStaticMarkup(<BuildCard builds={[derivedBuildFromSnapshot(snapshot, null)]} />);
+    expect(html.match(/Check on Amazon \(paid link\)/g)).toHaveLength(1);
+    expect(html).toContain('rel="sponsored noopener"');
     expect(html).toContain(AMAZON_DISCLOSURE);
   });
 
