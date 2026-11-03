@@ -1,0 +1,48 @@
+{
+  "$schema": "../schemas/profile.schema.json",
+  "schema_version": 1,
+  "profile_name": "United States",
+  "country_code": "US",
+  "default_currency": "USD",
+  "sites": [
+    {
+      "site_name": "Altex",
+      "base_url": "https://altex.com/",
+      "scraping_type": "shopify_json",
+      "categories": {
+        "cpu": {
+          "path": "collections/processors",
+          "max_pages": 10
+        },
+        "gpu": {
+          "path": "collections/video-cards",
+          "max_pages": 10
+        },
+        "motherboard": {
+          "path": "collections/all-motherboards",
+          "max_pages": 10
+        },
+        "ram": {
+          "path": "collections/memory",
+          "max_pages": 10
+        },
+        "storage": {
+          "path": "collections/solid-state-drives",
+          "max_pages": 10
+        },
+        "psu": {
+          "path": "collections/power-supplies",
+          "max_pages": 10
+        },
+        "case": {
+          "path": "collections/computer-cases",
+          "max_pages": 10
+        },
+        "cooler": {
+          "path": "collections/cpu-coolers",
+          "max_pages": 10
+        }
+      }
+    }
+  ]
+}

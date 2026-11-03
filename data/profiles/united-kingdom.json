@@ -1,0 +1,72 @@
+{
+  "$schema": "../schemas/profile.schema.json",
+  "schema_version": 1,
+  "profile_name": "United Kingdom",
+  "country_code": "UK",
+  "default_currency": "GBP",
+  "sites": [
+    {
+      "site_name": "Overclockers",
+      "base_url": "https://www.overclockers.co.uk/",
+      "scraping_type": "category",
+      "engine": "http",
+      "browser_config": {
+        "headless": true,
+        "js_rendering": false,
+        "wait_for_selector": "div.product-tile",
+        "scroll_down": false,
+        "timeout_ms": 30000
+      },
+      "categories": {
+        "cpu": {
+          "path": "pc-components/processors",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "gpu": {
+          "path": "pc-components/graphics-cards",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "motherboard": {
+          "path": "pc-components/motherboards",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "ram": {
+          "path": "pc-components/ram-computer-memory",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "storage": {
+          "path": "pc-components/computer-storage/ssd-solid-state-drives",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "psu": {
+          "path": "pc-components/pc-power-supplies",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "case": {
+          "path": "cases-and-modding/pc-cases",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        },
+        "cooler": {
+          "path": "air-cooling/coolers",
+          "pagination_pattern": "?page={page}",
+          "max_pages": 30
+        }
+      },
+      "selectors": {
+        "product_container": "div.product-tile",
+        "title": ".pdp-link a",
+        "price": ".price .sales .js-unit-price",
+        "url": ".pdp-link a",
+        "image": ".image-container img",
+        "out_of_stock": ".product-availability-message-out-of-stock"
+      }
+    }
+  ]
+}
