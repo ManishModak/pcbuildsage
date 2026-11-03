@@ -55,7 +55,8 @@ Scraping profiles live under `data/profiles/` (e.g., `data/profiles/india.json`)
       },
       "categories": {
         "cpu": {
-          "path": "/cpus?page={page}",
+          "path": "cpus",
+          "pagination_pattern": "?page={page}",
           "max_pages": 5
         }
       }
@@ -63,6 +64,9 @@ Scraping profiles live under `data/profiles/` (e.g., `data/profiles/india.json`)
   ]
 }
 ```
+
+### Pagination
+`pagination_pattern` builds the URL for page 2 onwards (`?page={page}` gives `cpus?page=2`). The crawl ends at an empty page, at a page that repeats earlier results, or at the page count found in page 1's pagination links. If it reaches `max_pages` before any of those, the crawl counts as partial and products that disappeared are not marked out of stock. For a store that shows a whole category on one page, use `"max_pages": 2`, not 1: page 2 repeats page 1, which marks the crawl complete.
 
 ### Shopify stores
 If the store runs Shopify (`Shopify.theme` appears in the home page HTML, or `/products.json` returns JSON), prefer `"scraping_type": "shopify_json"`. It reads `collections/<handle>/products.json` (all pages, 250 per page), so no `browser_config` or `selectors` are needed, and each category `path` is `collections/<handle>`:
