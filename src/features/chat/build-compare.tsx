@@ -87,7 +87,13 @@ export function BuildCompare({ builds, onPick }: { builds: DerivedBuild[]; onPic
                   ) : null}
                   {verdict ? (
                     <span className="mt-2 block">
-                      <StatusBadge kind={verdict.kind} label={verdict.label} title={verdict.title} />
+                      {/* Long verdicts ("5 checks passed · 2 unverified") wrap inside their column. */}
+                      <StatusBadge
+                        kind={verdict.kind}
+                        label={verdict.label}
+                        title={verdict.title}
+                        className="max-w-full rounded-btn [&_span]:whitespace-normal"
+                      />
                     </span>
                   ) : null}
                 </th>
