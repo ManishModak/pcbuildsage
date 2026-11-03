@@ -76,6 +76,19 @@ export function ProvidersPage({
     onChange(as === "main" ? [entry, ...rest] : [...rest, entry]);
   };
 
+  // Chat rows on this provider follow its key: a saved key overrides the .env
+  // one, and clearing it falls back to .env when there is one.
+  const keyChanged = (provider: ProviderInfo, saved: boolean) => {
+    setKeyVersion((v) => v + 1);
+    if (!chain.some((entry) => entry.provider === provider.id)) return;
+    const keySource: KeySource = saved || !credentials?.llm?.[provider.id] ? "ui" : "env";
+    onChange(
+      chain.map((entry) =>
+        entry.provider === provider.id ? { ...entry, keySource, hasSavedKey: saved, ping: undefined } : entry
+      )
+    );
+  };
+
   return (
     <section className="flex flex-col gap-3" data-testid="providers-page" data-setting="Providers">
       <div className="flex flex-col gap-1 px-1">
@@ -128,7 +141,7 @@ export function ProvidersPage({
           provider={selected}
           envKey={Boolean(credentials?.llm?.[selected.id])}
           savedKey={savedKeys[selected.id]}
-          onKeyChange={() => setKeyVersion((v) => v + 1)}
+          onKeyChange={(saved) => keyChanged(selected, saved)}
           onAdd={(model, as) => addModel(selected, model, as)}
           chain={chain}
         />
@@ -148,7 +161,7 @@ function ProviderDetail({
   provider: ProviderInfo;
   envKey: boolean;
   savedKey: boolean;
-  onKeyChange: () => void;
+  onKeyChange: (saved: boolean) => void;
   onAdd: (model: DiscoveredModel, as: "main" | "backup") => void;
   chain: ChainEntry[];
 }) {
@@ -164,7 +177,7 @@ function ProviderDetail({
     setLoading(true);
     setError(undefined);
     try {
-      const apiKey = savedKey ? readKeyMap()[provider.id] : undefined;
+      const apiKey = local ? undefined : readKeyMap()[provider.id];
       const keySource = local ? "none" : apiKey ? "ui" : "env";
       setModels(await fetchModels({ provider: provider.id, keySource, apiKey }));
     } catch (err) {
@@ -186,7 +199,9 @@ function ProviderDetail({
     if (!key) return;
     saveUiKey(provider.id, key);
     setDraft("");
-    onKeyChange();
+    onKeyChange(true);
+    // A first key lists the models through the effect below; a replaced one needs a fresh list.
+    if (savedKey) void load();
   };
 
   const shown = useMemo(() => {
@@ -249,7 +264,7 @@ function ProviderDetail({
                 variant="ghost"
                 onClick={() => {
                   clearUiKey(provider.id);
-                  onKeyChange();
+                  onKeyChange(false);
                 }}
               >
                 Clear key

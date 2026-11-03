@@ -133,14 +133,21 @@ function matchesWords(text: string, words: string[]): boolean {
  * shown (rows carry it as data-setting), and the page differs by mode where
  * the setting lives on different pages.
  */
-type SettingIndexEntry = { label: string; local?: SettingsTab; hosted?: SettingsTab; keywords?: string };
+type SettingIndexEntry = {
+  label: string;
+  local?: SettingsTab;
+  hosted?: SettingsTab;
+  keywords?: string;
+  /** The row to show instead while this one is hidden (it needs that setting turned on). */
+  shownWith?: string;
+};
 
 export const SETTING_INDEX: SettingIndexEntry[] = [
   { label: "Chat models", local: "llm", keywords: "main model backup fallback order check reasoning effort context window" },
   { label: "Providers", local: "providers", keywords: "api key keys models free paid use as main backup" },
   { label: "Search with", local: "search", hosted: "search", keywords: "web search provider brave tavily exa searxng" },
-  { label: "Research model", local: "search", hosted: "search", keywords: "subagent same as chat" },
-  { label: "Test search", local: "search", hosted: "search", keywords: "probe check" },
+  { label: "Research model", local: "search", hosted: "search", keywords: "subagent same as chat", shownWith: "Search with" },
+  { label: "Test search", local: "search", hosted: "search", keywords: "probe check", shownWith: "Search with" },
   { label: "Theme", local: "personalization", hosted: "personalization", keywords: "appearance colours colors dark light" },
   { label: "Tone", local: "personalization", hosted: "personalization", keywords: "personality voice" },
   { label: "Country or region", local: "personalization", hosted: "market", keywords: "market retailers" },
@@ -283,7 +290,8 @@ function SettingsLayout({
   useEffect(() => {
     if (!pendingJump) return;
     const frame = window.requestAnimationFrame(() => {
-      revealSetting(contentRef.current, pendingJump);
+      const fallback = SETTING_INDEX.find((entry) => entry.label === pendingJump)?.shownWith;
+      if (!revealSetting(contentRef.current, pendingJump) && fallback) revealSetting(contentRef.current, fallback);
       setPendingJump(null);
     });
     return () => window.cancelAnimationFrame(frame);

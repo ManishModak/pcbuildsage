@@ -14,7 +14,7 @@ import {
   Trash2
 } from "lucide-react";
 import { fetchModels, isHostedMode, probeEntry } from "@/lib/api-client";
-import { hasUiKey, saveUiKey } from "@/lib/client-config-store";
+import { hasUiKey, savedUiKey, saveUiKey } from "@/lib/client-config-store";
 import { hasByokKey, setByokKey } from "@/lib/llm/client-byok-store";
 import { getErrorMessage } from "@/lib/format";
 import type {
@@ -108,6 +108,12 @@ export function ChainBuilder({
     onChange(next);
   };
 
+  // A typed key wins; otherwise the one saved in this browser (from here or the Providers page).
+  const keyFor = useCallback(
+    (entry: ChainEntry) => keyDraft[entry.id] || (entry.keySource === "ui" ? savedUiKey(entry.provider) : undefined),
+    [keyDraft]
+  );
+
   const loadModels = useCallback(
     async (entry: ChainEntry) => {
       // Only the latest load for an entry may set its list: an earlier one
@@ -126,7 +132,7 @@ export function ChainBuilder({
           provider: entry.provider,
           baseUrl: entry.baseUrl,
           keySource: entry.keySource,
-          apiKey: keyDraft[entry.id]
+          apiKey: keyFor(entry)
         });
         if (loadSeq.current[entry.id] !== seq) return;
         setModels((prev) => ({ ...prev, [entry.id]: { models: list, loading: false } }));
@@ -138,13 +144,13 @@ export function ChainBuilder({
         }));
       }
     },
-    [keyDraft]
+    [keyDraft, keyFor]
   );
 
   const probe = async (entry: ChainEntry) => {
     setProbing((prev) => ({ ...prev, [entry.id]: true }));
     try {
-      const result = await probeEntry(entry, keyDraft[entry.id]);
+      const result = await probeEntry(entry, keyFor(entry));
       update(entry.id, { ping: result });
     } catch (error) {
       update(entry.id, {
