@@ -20,7 +20,7 @@ export function SettingsGroup({
   className?: string;
 }) {
   return (
-    <section className={cn("flex flex-col gap-3", className)}>
+    <section className={cn("flex flex-col gap-3", className)} data-setting={title}>
       <div className="flex flex-col gap-1 px-1">
         <h2 className="type-title text-lg text-text">{title}</h2>
         {description ? <p className="text-sm text-text-secondary">{description}</p> : null}
@@ -52,7 +52,7 @@ export function SettingsRow({
   const id = useId();
   const descriptionId = description ? `${id}-description` : undefined;
   return (
-    <div className="flex flex-col gap-3 px-4 py-3.5">
+    <div className="flex flex-col gap-3 px-4 py-3.5" data-setting={title}>
       <div className={cn("flex flex-col gap-3", !stacked && "sm:flex-row sm:items-center sm:justify-between sm:gap-6")}>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <label htmlFor={id} className="text-sm font-medium text-text">
@@ -89,7 +89,7 @@ export function SettingsActionRow({
   footer?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 px-4 py-3.5">
+    <div className="flex flex-col gap-3 px-4 py-3.5" data-setting={title}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="text-sm font-medium text-text">{title}</p>
@@ -105,7 +105,7 @@ export function SettingsActionRow({
 /** A switch row: name and description on the left, the switch on the right. */
 export function SettingsToggleRow(props: Parameters<typeof Toggle>[0]) {
   return (
-    <div className="px-4 py-3.5">
+    <div className="px-4 py-3.5" data-setting={props.label}>
       <Toggle {...props} />
     </div>
   );

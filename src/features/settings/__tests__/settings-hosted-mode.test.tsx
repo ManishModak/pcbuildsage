@@ -109,7 +109,7 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
 
     it("keeps all existing tabs in local mode navigation items", () => {
       const localTabIds = LOCAL_NAV_ITEMS.map((item) => item.id);
-      expect(localTabIds).toEqual(["llm", "search", "personalization", "database"]);
+      expect(localTabIds).toEqual(["llm", "providers", "search", "personalization", "database"]);
     });
 
     it("redirects deep links to ?tab=database to market in hosted-demo mode", () => {
@@ -153,7 +153,7 @@ describe("Settings & UI Adaptation for Hosted-Demo Mode", () => {
       for (const [page, names] of Object.entries(titles)) {
         for (const name of names) expect(ids(LOCAL_NAV_ITEMS, name), name).toContain(page);
       }
-      expect(ids(LOCAL_NAV_ITEMS, "key api")).toEqual(["llm", "search"]);
+      expect(ids(LOCAL_NAV_ITEMS, "key api")).toEqual(["llm", "providers", "search"]);
       expect(ids(HOSTED_NAV_ITEMS, "Country or region")).toContain("market");
       expect(ids(LOCAL_NAV_ITEMS, "  ")).toHaveLength(LOCAL_NAV_ITEMS.length);
     });

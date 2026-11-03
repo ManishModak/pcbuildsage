@@ -36,7 +36,7 @@ const BYOK_PROVIDERS: ProviderConfig[] = HOSTED_PROVIDER_IDS.map((id) => getProv
   placeholder: provider.keyPlaceholder ?? "Paste your key",
   defaultModel: provider.defaultModel ?? "",
   docsUrl: provider.keyUrl ?? "",
-  docsLabel: `Get a ${provider.name} key`
+  docsLabel: "Get a key"
 }));
 
 type ProviderId = ProviderConfig["id"];

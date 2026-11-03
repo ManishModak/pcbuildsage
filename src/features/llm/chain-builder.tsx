@@ -6,6 +6,7 @@ import {
   ChevronUp,
   CircleCheck,
   GripVertical,
+  Pencil,
   Plus,
   Radio,
   Server,
@@ -30,8 +31,9 @@ import { Icon } from "@/components/ui/icon";
 import { Button, Field, IconButton, Input, Spinner } from "@/components/ui/primitives";
 import { ModelField } from "@/components/ui/model-field";
 import { Select } from "@/components/ui/select";
-import { ProbeResultView } from "./probe-result-view";
-import { LLM_PROVIDERS, isLocalProvider, type ProviderTier } from "@/lib/llm/providers";
+import { ProbeResultView, probeOutcomeLabel } from "./probe-result-view";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { LLM_PROVIDERS, isLocalProvider, providerName, type ProviderTier } from "@/lib/llm/providers";
 
 const TIER_SUFFIX: Record<ProviderTier, string> = { free: "", trial: " (trial credits)", paid: " (paid)", local: " (on your machine)" };
 const PROVIDERS: Array<{ value: LLMProvider; label: string }> = LLM_PROVIDERS.map((provider) => ({
@@ -259,6 +261,10 @@ function ChainCard({
   const needsKey = entry.keySource === "ui" && !keySaved && !keyDraft;
   const isPrimary = index === 0;
   const toolBlocked = primaryMustSupportTools && isPrimary && entry.ping && !entry.ping.toolCapable;
+  // A row starts open while it needs something (a model, a key, a local context
+  // window); otherwise it shows a one-line summary.
+  const [open, setOpen] = useState(() => !entry.model || needsKey || (isLocal && !entry.contextLimit));
+  const label = isPrimary ? "Main model" : `Backup ${index}`;
 
   // Fetch models the first time a provider is shown, and when it or the key source changes.
   useEffect(() => {
@@ -280,239 +286,275 @@ function ChainCard({
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
     >
-      <div className="flex items-center gap-2 px-4 pt-3">
+      <div className={cn("flex items-center gap-2 px-4", open ? "pt-3" : "py-3")} data-testid="chain-row">
         <span className="cursor-grab text-text-muted" title="Drag to reorder" aria-hidden>
           <Icon icon={GripVertical} size={16} />
         </span>
-        <span className="type-title text-base text-text">
-          {isPrimary ? "Main model" : `Backup ${index}`}
-        </span>
-        <div className="ml-auto flex items-center gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
+          <span className="type-title shrink-0 text-base text-text">{label}</span>
+          {!open ? (
+            <span className="flex min-w-0 items-center gap-2 text-sm text-text-secondary">
+              <span className="shrink-0">{providerName(entry.provider)}</span>
+              <span className="truncate font-mono text-text" title={entry.model}>{entry.model}</span>
+            </span>
+          ) : null}
+        </div>
+        {!open ? <EntryStatus entry={entry} probing={probing} /> : null}
+        <div className="flex shrink-0 items-center gap-0.5">
+          {!open ? (
+            <IconButton icon={Radio} label={`Check ${label.toLowerCase()}`} onClick={onProbe} disabled={probing || !entry.model} size={16} />
+          ) : null}
+          {open ? (
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={!entry.model} aria-label={`Done editing ${label.toLowerCase()}`}>
+              Done
+            </Button>
+          ) : (
+            <IconButton icon={Pencil} label={`Edit ${label.toLowerCase()}`} onClick={() => setOpen(true)} size={16} />
+          )}
           <IconButton icon={ChevronUp} label="Move up" onClick={onMoveUp} disabled={index === 0} size={16} />
           <IconButton icon={ChevronDown} label="Move down" onClick={onMoveDown} disabled={index === total - 1} size={16} />
-          <IconButton icon={Trash2} label="Remove provider" onClick={onRemove} size={16} />
+          <IconButton icon={Trash2} label={`Remove ${label.toLowerCase()}`} onClick={onRemove} size={16} />
         </div>
       </div>
 
-      <div className="grid gap-4 px-4 py-3 sm:grid-cols-2">
-        <Field label="Provider">
-          {(controlProps) => (
-            <Select
-              {...controlProps}
-              options={PROVIDERS}
-              value={entry.provider}
-              onChange={(event) =>
-                onUpdate({ provider: event.target.value as LLMProvider, model: "", contextLimit: undefined, ping: undefined, hasSavedKey: false })
-              }
-            />
-          )}
-        </Field>
+      {!open && toolBlocked ? (
+        <p className="inline-flex items-center gap-1.5 px-4 pb-3 text-caption text-blocking">
+          <Icon icon={TriangleAlert} size={14} className="shrink-0" />
+          Can&apos;t be the main model until it can use tools.
+        </p>
+      ) : null}
 
-        {entry.provider === "openai-compatible" ? (
-          <Field label="Saved server">
-            {(controlProps) => (
-              <Select
-                {...controlProps}
-                placeholder="Custom address"
-                value={entry.presetName ?? ""}
-                options={endpoints.map((preset) => ({ value: preset.name, label: preset.name }))}
-                onChange={(event) => {
-                  const preset = endpoints.find((item) => item.name === event.target.value);
-                  onUpdate(
-                    preset
-                      ? {
-                          presetName: preset.name,
-                          baseUrl: preset.base_url,
-                          keySource: preset.requires_key ? "ui" : "none",
-                          ping: undefined
-                        }
-                      : { presetName: undefined }
-                  );
-                }}
-              />
-            )}
-          </Field>
-        ) : (
-          <Field label="Key">
-            {(controlProps) => (
-              <Select
-                {...controlProps}
-                options={keySourceOptions}
-                value={entry.keySource}
-                onChange={(event) => onUpdate({ keySource: event.target.value as KeySource, ping: undefined })}
-              />
-            )}
-          </Field>
-        )}
-
-        {isLocal ? (
-          <Field label="Server address" hint="A host and port, or a URL ending in /v1.">
-            {(controlProps) => (
-              <Input
-                {...controlProps}
-                mono
-                value={entry.baseUrl ?? ""}
-                placeholder={entry.provider === "ollama" ? "http://localhost:11434" : "http://localhost:8000/v1"}
-                onChange={(event) => onUpdate({ baseUrl: event.target.value, ping: undefined })}
-              />
-            )}
-          </Field>
-        ) : null}
-
-        {entry.provider === "openai-compatible" ? (
-          <Field label="Key">
-            {(controlProps) => (
-              <Select
-                {...controlProps}
-                options={keySourceOptions}
-                value={entry.keySource}
-                onChange={(event) => onUpdate({ keySource: event.target.value as KeySource, ping: undefined })}
-              />
-            )}
-          </Field>
-        ) : null}
-
-        {entry.keySource === "ui" ? (
-          <Field
-            label="API key"
-            hint={
-              keySaved
-                ? "A key is saved for this provider. Paste a new one to replace it."
-                : isHostedMode()
-                ? "Stored in this browser tab's session storage. Sent with each request only so the PCBuildSage server can forward it to this provider."
-                : "Stored in this browser's local storage. Sent with each request only so the PCBuildSage server can forward it to this provider."
-            }
-          >
-            {(controlProps) => (
-              <Input
-                {...controlProps}
-                type="password"
-                autoComplete="off"
-                value={keyDraft}
-                placeholder={keySaved ? "•••••••• saved" : "Paste your key"}
-                onChange={(event) => onKeyDraft(event.target.value)}
-                onBlur={onCommitKey}
-              />
-            )}
-          </Field>
-        ) : entry.keySource === "env" ? (
-          <ReadOnlyValue label="Key status">
-            <span className="inline-flex min-h-11 items-center gap-2 text-sm text-text-secondary">
-              <Icon icon={CircleCheck} size={15} className="text-ok" />
-              Using the key set on the server
-            </span>
-          </ReadOnlyValue>
-        ) : (
-          <ReadOnlyValue label="Key status">
-            <span className="inline-flex min-h-11 items-center gap-2 text-sm text-text-secondary">
-              <Icon icon={Server} size={15} />
-              This server doesn&apos;t need a key
-            </span>
-          </ReadOnlyValue>
-        )}
-
-        <div>
-          <Field label="Model">
-            {(controlProps) => (
-              <ModelField
-                inputProps={controlProps}
-                value={entry.model}
-                onChange={(value) => {
-                  const matched = modelState.models.find((m) => m.id === value);
-                  onUpdate({
-                    model: value,
-                    contextLimit: matched?.contextLimit,
-                    ping: undefined
-                  });
-                }}
-                models={modelState.models}
-                loading={modelState.loading}
-                onRefresh={onLoadModels}
-                error={modelState.error}
-                emptyHint={needsKey ? "Paste a key to list its models, or type the model ID." : undefined}
-              />
-            )}
-          </Field>
-        </div>
-
-        <div>
-          <Field label="Reasoning effort" hint="Only for models that think before answering.">
-            {(controlProps) => (
-              <Select
-                {...controlProps}
-                options={[
-                  { value: "", label: "Provider default" },
-                  { value: "low", label: "Low" },
-                  { value: "medium", label: "Medium" },
-                  { value: "high", label: "High" }
-                ]}
-                value={entry.reasoningEffort ?? ""}
-                onChange={(event) =>
-                  onUpdate({
-                    reasoningEffort: (event.target.value as ReasoningEffort) || undefined
-                  })
-                }
-              />
-            )}
-          </Field>
-        </div>
-
-        {isLocal ? (
-          <div>
-            <Field
-              label="Context window (tokens)"
-              hint={
-                !entry.contextLimit
-                  ? "Required. Enter how many tokens this model can read at once."
-                  : "How many tokens this model can read at once."
-              }
-            >
+      {open ? (
+        <>
+          <div className="grid gap-4 px-4 py-3 sm:grid-cols-2">
+            <Field label="Provider">
               {(controlProps) => (
-                <Input
+                <Select
                   {...controlProps}
-                  type="number"
-                  min={512}
-                  step={1024}
-                  placeholder="8192"
-                  value={entry.contextLimit ?? ""}
-                  onChange={(event) => {
-                    const parsed = parseInt(event.target.value, 10);
-                    onUpdate({ contextLimit: Number.isFinite(parsed) && parsed > 0 ? parsed : undefined });
-                  }}
+                  options={PROVIDERS}
+                  value={entry.provider}
+                  onChange={(event) =>
+                    onUpdate({ provider: event.target.value as LLMProvider, model: "", contextLimit: undefined, ping: undefined, hasSavedKey: false })
+                  }
                 />
               )}
             </Field>
-          </div>
-        ) : null}
 
-        {isLocal && (!entry.contextLimit || entry.contextLimit <= 0) ? (
-          <div
-            role="alert"
-            className="col-span-full flex items-center gap-2 text-caption text-warn"
-          >
-            <Icon icon={TriangleAlert} size={15} className="shrink-0" />
-            <span>Context window unknown. Enter it so long chats aren&apos;t cut off.</span>
-          </div>
-        ) : null}
-      </div>
+            {entry.provider === "openai-compatible" ? (
+              <Field label="Saved server">
+                {(controlProps) => (
+                  <Select
+                    {...controlProps}
+                    placeholder="Custom address"
+                    value={entry.presetName ?? ""}
+                    options={endpoints.map((preset) => ({ value: preset.name, label: preset.name }))}
+                    onChange={(event) => {
+                      const preset = endpoints.find((item) => item.name === event.target.value);
+                      onUpdate(
+                        preset
+                          ? {
+                              presetName: preset.name,
+                              baseUrl: preset.base_url,
+                              keySource: preset.requires_key ? "ui" : "none",
+                              ping: undefined
+                            }
+                          : { presetName: undefined }
+                      );
+                    }}
+                  />
+                )}
+              </Field>
+            ) : (
+              <Field label="Key">
+                {(controlProps) => (
+                  <Select
+                    {...controlProps}
+                    options={keySourceOptions}
+                    value={entry.keySource}
+                    onChange={(event) => onUpdate({ keySource: event.target.value as KeySource, ping: undefined })}
+                  />
+                )}
+              </Field>
+            )}
 
-      <div className="flex flex-col gap-2 px-4 pb-4 pt-1">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="ghost" size="sm" iconLeft={Radio} onClick={onProbe} disabled={probing || !entry.model}>
-            {probing ? "Checking…" : "Check model"}
-          </Button>
-          {probing ? <Spinner size={14} /> : null}
-        </div>
-        {entry.ping ? <ProbeResultView ping={entry.ping} /> : null}
-        {toolBlocked ? (
-          <p className="inline-flex items-center gap-1.5 text-caption text-blocking">
-            <Icon icon={TriangleAlert} size={14} className="shrink-0" />
-            Can&apos;t be the main model until it can use tools.
-          </p>
-        ) : null}
-      </div>
+            {isLocal ? (
+              <Field label="Server address" hint="A host and port, or a URL ending in /v1.">
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    mono
+                    value={entry.baseUrl ?? ""}
+                    placeholder={entry.provider === "ollama" ? "http://localhost:11434" : "http://localhost:8000/v1"}
+                    onChange={(event) => onUpdate({ baseUrl: event.target.value, ping: undefined })}
+                  />
+                )}
+              </Field>
+            ) : null}
+
+            {entry.provider === "openai-compatible" ? (
+              <Field label="Key">
+                {(controlProps) => (
+                  <Select
+                    {...controlProps}
+                    options={keySourceOptions}
+                    value={entry.keySource}
+                    onChange={(event) => onUpdate({ keySource: event.target.value as KeySource, ping: undefined })}
+                  />
+                )}
+              </Field>
+            ) : null}
+
+            {entry.keySource === "ui" ? (
+              <Field
+                label="API key"
+                hint={
+                  keySaved
+                    ? "A key is saved for this provider. Paste a new one to replace it."
+                    : isHostedMode()
+                    ? "Stored in this browser tab's session storage. Sent with each request only so the PCBuildSage server can forward it to this provider."
+                    : "Stored in this browser's local storage. Sent with each request only so the PCBuildSage server can forward it to this provider."
+                }
+              >
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    type="password"
+                    autoComplete="off"
+                    value={keyDraft}
+                    placeholder={keySaved ? "•••••••• saved" : "Paste your key"}
+                    onChange={(event) => onKeyDraft(event.target.value)}
+                    onBlur={onCommitKey}
+                  />
+                )}
+              </Field>
+            ) : entry.keySource === "env" ? (
+              <ReadOnlyValue label="Key status">
+                <span className="inline-flex min-h-11 items-center gap-2 text-sm text-text-secondary">
+                  <Icon icon={CircleCheck} size={15} className="text-ok" />
+                  Using the key set on the server
+                </span>
+              </ReadOnlyValue>
+            ) : (
+              <ReadOnlyValue label="Key status">
+                <span className="inline-flex min-h-11 items-center gap-2 text-sm text-text-secondary">
+                  <Icon icon={Server} size={15} />
+                  This server doesn&apos;t need a key
+                </span>
+              </ReadOnlyValue>
+            )}
+
+            <div>
+              <Field label="Model">
+                {(controlProps) => (
+                  <ModelField
+                    inputProps={controlProps}
+                    value={entry.model}
+                    onChange={(value) => {
+                      const matched = modelState.models.find((m) => m.id === value);
+                      onUpdate({
+                        model: value,
+                        contextLimit: matched?.contextLimit,
+                        ping: undefined
+                      });
+                    }}
+                    models={modelState.models}
+                    loading={modelState.loading}
+                    onRefresh={onLoadModels}
+                    error={modelState.error}
+                    emptyHint={needsKey ? "Paste a key to list its models, or type the model ID." : undefined}
+                  />
+                )}
+              </Field>
+            </div>
+
+            <div>
+              <Field label="Reasoning effort" hint="Only for models that think before answering.">
+                {(controlProps) => (
+                  <Select
+                    {...controlProps}
+                    options={[
+                      { value: "", label: "Provider default" },
+                      { value: "low", label: "Low" },
+                      { value: "medium", label: "Medium" },
+                      { value: "high", label: "High" }
+                    ]}
+                    value={entry.reasoningEffort ?? ""}
+                    onChange={(event) =>
+                      onUpdate({
+                        reasoningEffort: (event.target.value as ReasoningEffort) || undefined
+                      })
+                    }
+                  />
+                )}
+              </Field>
+            </div>
+
+            {isLocal ? (
+              <div>
+                <Field
+                  label="Context window (tokens)"
+                  hint={
+                    !entry.contextLimit
+                      ? "Required. Enter how many tokens this model can read at once."
+                      : "How many tokens this model can read at once."
+                  }
+                >
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      type="number"
+                      min={512}
+                      step={1024}
+                      placeholder="8192"
+                      value={entry.contextLimit ?? ""}
+                      onChange={(event) => {
+                        const parsed = parseInt(event.target.value, 10);
+                        onUpdate({ contextLimit: Number.isFinite(parsed) && parsed > 0 ? parsed : undefined });
+                      }}
+                    />
+                  )}
+                </Field>
+              </div>
+            ) : null}
+
+            {isLocal && (!entry.contextLimit || entry.contextLimit <= 0) ? (
+              <div
+                role="alert"
+                className="col-span-full flex items-center gap-2 text-caption text-warn"
+              >
+                <Icon icon={TriangleAlert} size={15} className="shrink-0" />
+                <span>Context window unknown. Enter it so long chats aren&apos;t cut off.</span>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-2 px-4 pb-4 pt-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="ghost" size="sm" iconLeft={Radio} onClick={onProbe} disabled={probing || !entry.model}>
+                {probing ? "Checking…" : "Check model"}
+              </Button>
+              {probing ? <Spinner size={14} /> : null}
+            </div>
+            {entry.ping ? <ProbeResultView ping={entry.ping} /> : null}
+            {toolBlocked ? (
+              <p className="inline-flex items-center gap-1.5 text-caption text-blocking">
+                <Icon icon={TriangleAlert} size={14} className="shrink-0" />
+                Can&apos;t be the main model until it can use tools.
+              </p>
+            ) : null}
+          </div>
+        </>
+      ) : null}
     </div>
   );
+}
+
+/** The summary row's status: the last check's outcome, or that it hasn't been checked. */
+function EntryStatus({ entry, probing }: { entry: ChainEntry; probing: boolean }) {
+  if (probing) return <Spinner size={14} />;
+  if (!entry.ping) return <span className="shrink-0 text-caption text-text-muted">Not checked</span>;
+  const label = probeOutcomeLabel(entry.ping);
+  return <StatusBadge kind={label === "Works" ? "ok" : "warn"} label={label} title={entry.ping.hint} className="shrink-0" />;
 }
 
 function ReadOnlyValue({ label, children }: { label: string; children: ReactNode }) {

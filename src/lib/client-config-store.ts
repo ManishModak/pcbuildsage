@@ -151,6 +151,17 @@ export function saveUiKey(provider: string, key: string): void {
   }
 }
 
+export function clearUiKey(provider: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const map = readKeyMap();
+    delete map[provider];
+    localStorage.setItem(KEYS_KEY, JSON.stringify(map));
+  } catch {
+    // ignore
+  }
+}
+
 export function hasUiKey(provider: string): boolean {
   return Boolean(readKeyMap()[provider] || getByokKey(provider));
 }
