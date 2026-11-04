@@ -342,6 +342,9 @@ export interface ListModelsInput {
   /** Return only models with products currently in stock. Defaults to true */
   in_stock?: boolean;
 
+  /** Only these models (model_id, registry key or model name), e.g. shortlisted finalists */
+  model_ids?: string[];
+
   /** Maximum model count to return. Defaults to 20 */
   limit?: number;
 }
@@ -370,6 +373,9 @@ export interface ComponentModelItem {
 
   /** Total number of matching retailer listings for this model */
   listing_count: number;
+
+  /** Registry key behind the model, for benchmark lookups; list_models leaves it out of tool output */
+  registry_key?: string;
 }
 
 /**
