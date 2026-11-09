@@ -57,6 +57,24 @@ function findEntry(store: TurnValidationStore, label: string): TurnValidationEnt
 }
 
 /**
+ * The one validated build whose parts are exactly the supplied product IDs,
+ * for a present_build label that names no validation. Lightning validated
+ * "Build 1" and called present_build five times as "Within budget" with the
+ * same IDs, each refused (r37 final, office).
+ */
+function findEntryByParts(store: TurnValidationStore, supplied: unknown[]): TurnValidationEntry | undefined {
+  const ids = supplied.map((raw) => String(raw ?? "").trim()).filter(Boolean);
+  if (ids.length === 0) return undefined;
+  const matches = [...new Set(store.values())].filter(
+    (entry) =>
+      entry.productIds.length === ids.length &&
+      entry.productIds.every((full) => ids.filter((id) => idsMatch(id, full)).length === 1) &&
+      ids.every((id) => entry.productIds.filter((full) => idsMatch(id, full)).length === 1)
+  );
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+/**
  * A presented build. `validation` (with its snapshot) is what the card shows:
  * readers use it instead of matching the label to a validate_build result, since
  * a build validated inside present_build (see `revalidate`) has none in the
@@ -161,7 +179,8 @@ export function presentRefusal(label: string, validation: TurnValidationEntry["v
  * exactly), or why it can't be presented.
  */
 function checkBuild(turnStore: TurnValidationStore, build: PresentBuildInput["builds"][number]): Presented | Refused {
-  const entry = findEntry(turnStore, build.label);
+  const byLabel = findEntry(turnStore, build.label);
+  const entry = byLabel ?? findEntryByParts(turnStore, Array.isArray(build.product_ids) ? build.product_ids : []);
   if (!entry) {
     const valid = validLabels(turnStore);
     return {
@@ -172,10 +191,12 @@ function checkBuild(turnStore: TurnValidationStore, build: PresentBuildInput["bu
   }
   const refusal = presentRefusal(build.label, entry.validation);
   if (refusal) return refusal;
+  // A build found by its parts shows under the requested label, made honest the same way.
+  const shown = shownLabel(byLabel ? entry : { ...entry, label: build.label });
   const snapshotIds = entry.productIds;
   const supplied = Array.isArray(build.product_ids) ? build.product_ids : [];
   if (supplied.length === 0) {
-    return { ...shownLabel(entry), product_ids: snapshotIds, ...(build.notes ? { notes: build.notes } : {}), validation: entry.validation };
+    return { ...shown, product_ids: snapshotIds, ...(build.notes ? { notes: build.notes } : {}), validation: entry.validation };
   }
   const resolved: string[] = [];
   for (const raw of supplied) {
@@ -216,7 +237,7 @@ function checkBuild(turnStore: TurnValidationStore, build: PresentBuildInput["bu
       ids_differ: true
     };
   }
-  return { ...shownLabel(entry), product_ids: resolved, ...(build.notes ? { notes: build.notes } : {}), validation: entry.validation };
+  return { ...shown, product_ids: resolved, ...(build.notes ? { notes: build.notes } : {}), validation: entry.validation };
 }
 
 /**

@@ -173,20 +173,6 @@ describe("model-only trimming via toModelOutput", () => {
     expect(builds["Within budget"].snapshot.components[0].product_id).toBe("da6670a41d");
   });
 
-  it("validate model output shows a CPU's DDR4 and DDR5 support as DDR4/DDR5", () => {
-    const output = {
-      builds: {
-        A: {
-          valid: true,
-          resolved: { cpu: { key: "k", spec: { socket: "LGA 1700", ddr: "DDR5", supported_memory: ["DDR4", "DDR5"] } } },
-          snapshot: { total: 1000, components: [{ category: "cpu", product_id: "8a51bbb088", name: "Intel Core i5-13400F", price: 1000 }] }
-        }
-      }
-    };
-    const build = (toModelValidateOutput(output) as { builds: Record<string, { snapshot: { components: Array<{ specs?: unknown }> } }> }).builds.A;
-    expect(build.snapshot.components[0].specs).toEqual({ socket: "LGA 1700", ddr: "DDR4/DDR5" });
-  });
-
   it("validate model output leads with fix notes and drops checks, provenance and retailer fields", () => {
     const output = {
       builds: {

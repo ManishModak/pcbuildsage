@@ -14,14 +14,23 @@ import { leadingJson } from "../tools/lenient-input";
  * forced to present_build gets an empty present_build call instead (see
  * emptyForcedCall). Otherwise the text is released unchanged. Forced steps aren't meant to show text,
  * so holding it costs the user nothing.
+ *
+ * On a step with tools turned off (the last step of a turn with nothing
+ * validated), text that is only a tool call becomes TOOLS_OFF_CALL_TEXT:
+ * Lightning answered that step with a raw <tool_call> search, which would
+ * have been the user's whole reply (r37 final, owned GPU).
  */
 export const forcedToolTextMiddleware: LanguageModelV4Middleware = {
   specificationVersion: "v4",
   wrapGenerate: async ({ doGenerate, params }) => {
     const result = await doGenerate();
+    const text = result.content.map((part) => (part.type === "text" ? part.text : "")).join("");
+    if (toolsOff(params)) {
+      if (!parseTextToolCalls(text, null)) return result;
+      return { ...result, content: [...result.content.filter((part) => part.type !== "text"), { type: "text", text: TOOLS_OFF_CALL_TEXT }] };
+    }
     const allowed = forcedToolNames(params);
     if (!allowed || result.content.some((part) => part.type === "tool-call")) return result;
-    const text = result.content.map((part) => (part.type === "text" ? part.text : "")).join("");
     const calls = parseTextToolCalls(text, allowed) ?? emptyForcedCall(params);
     if (!calls) return result;
     return {
@@ -33,16 +42,27 @@ export const forcedToolTextMiddleware: LanguageModelV4Middleware = {
   wrapStream: async ({ doStream, params }) => {
     const result = await doStream();
     const allowed = forcedToolNames(params);
-    if (!allowed) return result;
+    const off = toolsOff(params);
+    if (!allowed && !off) return result;
     const held: LanguageModelV4StreamPart[] = [];
     let text = "";
     let sawToolCall = false;
+    // Tools off: text streams as soon as its start can't be a call.
+    let released = false;
     const stream = result.stream.pipeThrough(
       new TransformStream<LanguageModelV4StreamPart, LanguageModelV4StreamPart>({
         transform(part, controller) {
           if (part.type === "text-start" || part.type === "text-delta" || part.type === "text-end") {
+            if (released) {
+              controller.enqueue(part);
+              return;
+            }
             held.push(part);
             if (part.type === "text-delta") text += part.delta;
+            if (off && !mightStartCall(text)) {
+              released = true;
+              for (const textPart of held.splice(0)) controller.enqueue(textPart);
+            }
             return;
           }
           if (part.type === "tool-call") sawToolCall = true;
@@ -50,8 +70,20 @@ export const forcedToolTextMiddleware: LanguageModelV4Middleware = {
             controller.enqueue(part);
             return;
           }
-          const calls = sawToolCall ? null : (parseTextToolCalls(text, allowed) ?? emptyForcedCall(params));
           const textParts = held.splice(0);
+          if (off) {
+            if (parseTextToolCalls(text, null)) {
+              const id = textParts.find((p) => p.type === "text-start")?.id ?? generateId();
+              controller.enqueue({ type: "text-start", id });
+              controller.enqueue({ type: "text-delta", id, delta: TOOLS_OFF_CALL_TEXT });
+              controller.enqueue({ type: "text-end", id });
+            } else {
+              for (const textPart of textParts) controller.enqueue(textPart);
+            }
+            controller.enqueue(part);
+            return;
+          }
+          const calls = sawToolCall || !allowed ? null : (parseTextToolCalls(text, allowed) ?? emptyForcedCall(params));
           if (calls) {
             for (const call of calls) controller.enqueue(call);
             controller.enqueue({ ...part, finishReason: { unified: "tool-calls", raw: part.finishReason.raw } });
@@ -69,6 +101,24 @@ export const forcedToolTextMiddleware: LanguageModelV4Middleware = {
     return { ...result, stream };
   }
 };
+
+/** The reply in place of a tool call written as text when tools are off (see the middleware). */
+export const TOOLS_OFF_CALL_TEXT =
+  "I ran out of steps before I could finish checking a build. Say \"continue\" and I'll pick up where I left off.";
+
+/** Openings of a tool call written as text (see parseTextToolCalls). */
+const CALL_STARTS = ["<tool_call", "<function=", "```", "{", "["];
+
+/** True while text so far (or nothing yet) could still open a tool call. */
+function mightStartCall(text: string): boolean {
+  const start = text.trimStart();
+  return CALL_STARTS.some((open) => start.startsWith(open) || open.startsWith(start));
+}
+
+/** True on a step whose tools are turned off (tool choice "none"). */
+function toolsOff(params: LanguageModelV4CallOptions): boolean {
+  return params.toolChoice?.type === "none";
+}
 
 /**
  * Tools whose empty call does the expected thing from turn state:
@@ -111,9 +161,10 @@ function stripCallWrappers(text: string): string {
  * XML style `<function=name><parameter=key>value</parameter></function>`,
  * optionally inside a code fence or <tool_call> tags. The text must be only
  * the call(s): prose around one ("Don't run this example: {...}") makes it an
- * explanation, not a call. Returns null unless every call names an allowed tool.
+ * explanation, not a call. Returns null unless every call names an allowed tool
+ * (`allowed` null: any name).
  */
-export function parseTextToolCalls(text: string, allowed: Set<string>): LanguageModelV4ToolCall[] | null {
+export function parseTextToolCalls(text: string, allowed: ReadonlySet<string> | null): LanguageModelV4ToolCall[] | null {
   const body = stripCallWrappers(text);
   if (body.startsWith("<function=")) return parseXmlToolCalls(body, allowed);
   // Only stray closers (which leadingJson's repair drops) may follow the value.
@@ -128,7 +179,9 @@ export function parseTextToolCalls(text: string, allowed: Set<string>): Language
     const raw = item as Record<string, unknown>;
     const fn = raw.function && typeof raw.function === "object" ? (raw.function as Record<string, unknown>) : undefined;
     const name = raw.name ?? fn?.name;
-    if (typeof name !== "string" || !allowed.has(name)) return null;
+    if (typeof name !== "string" || (allowed && !allowed.has(name))) return null;
+    // Any name allowed: only a call envelope counts, not any JSON with a name ({"name":"Ryzen 5 7600",...}).
+    if (!allowed && !fn && !["parameters", "arguments", "input"].some((key) => key in raw)) return null;
     const args = raw.parameters ?? raw.arguments ?? raw.input ?? fn?.arguments ?? fn?.parameters ?? {};
     calls.push({ type: "tool-call", toolCallId: `text-${generateId()}`, toolName: name, input: typeof args === "string" ? args : JSON.stringify(args) });
   }
@@ -140,13 +193,13 @@ export function parseTextToolCalls(text: string, allowed: Set<string>): Language
  * (r29 esports): complete `<function=name>...</function>` blocks and nothing
  * else, each parameter a JSON value or, failing that, a string.
  */
-function parseXmlToolCalls(body: string, allowed: Set<string>): LanguageModelV4ToolCall[] | null {
+function parseXmlToolCalls(body: string, allowed: ReadonlySet<string> | null): LanguageModelV4ToolCall[] | null {
   const blocks = [...body.matchAll(/<function=([\w-]+)>([\s\S]*?)<\/function>/g)];
   if (blocks.length === 0 || body.replace(/<function=[\w-]+>[\s\S]*?<\/function>/g, "").trim() !== "") return null;
   const calls: LanguageModelV4ToolCall[] = [];
   for (const block of blocks) {
     const name = block[1];
-    if (!allowed.has(name)) return null;
+    if (allowed && !allowed.has(name)) return null;
     const args: Record<string, unknown> = {};
     for (const param of block[2].matchAll(/<parameter=([\w-]+)>([\s\S]*?)<\/parameter>/g)) {
       const raw = param[2].trim();

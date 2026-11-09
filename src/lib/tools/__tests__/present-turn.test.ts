@@ -76,6 +76,36 @@ describe("present_build per-turn validation", () => {
     expect(out.valid_labels).toEqual(["Within budget"]);
   });
 
+  it("presents an unvalidated label whose product IDs are exactly one validated build, labelled honestly", async () => {
+    const store = createTurnValidationStore();
+    const validate = createValidateBuildTool(scope, repo, store);
+    const owned = { ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } };
+    await validate.execute!({ budget: 90000, builds: [{ label: "Build 1", parts: { cpu: { product_id: FULL_CPU }, motherboard: { product_id: FULL_BOARD }, ...owned } }] }, ctx);
+    const present = createPresentBuildTool(store);
+    const out = (await present.execute!({ builds: [{ label: "Within budget", product_ids: [FULL_CPU.slice(0, 10), FULL_BOARD.slice(0, 10)] }] }, ctx)) as {
+      presented: boolean;
+      builds: Array<{ label: string; validated_label?: string; product_ids: string[] }>;
+    };
+    expect(out.presented).toBe(true);
+    expect(out.builds[0]).toMatchObject({ label: "Closest to budget (₹10,000 over)", validated_label: "Within budget", product_ids: [FULL_CPU, FULL_BOARD] });
+
+    // Within the budget, the requested label stands with no relabel note.
+    const roomy = createTurnValidationStore();
+    await createValidateBuildTool(scope, repo, roomy).execute!({ budget: 150000, builds: [{ label: "Build 1", parts: { cpu: { product_id: FULL_CPU }, motherboard: { product_id: FULL_BOARD }, ...owned } }] }, ctx);
+    const fits = (await createPresentBuildTool(roomy).execute!({ builds: [{ label: "Within budget", product_ids: [FULL_CPU.slice(0, 10), FULL_BOARD.slice(0, 10)] }] }, ctx)) as {
+      builds: Array<{ label: string; validated_label?: string }>;
+      label_note?: string;
+    };
+    expect(fits.builds[0].label).toBe("Within budget");
+    expect(fits.builds[0].validated_label).toBeUndefined();
+    expect(fits.label_note).toBeUndefined();
+
+    // IDs that are only part of the validated build still find nothing.
+    const partial = (await present.execute!({ builds: [{ label: "Within budget", product_ids: [FULL_CPU.slice(0, 10)] }] }, ctx)) as { presented: boolean; error: string };
+    expect(partial.presented).toBe(false);
+    expect(partial.error).toContain("No validation this turn for label 'Within budget'");
+  });
+
   it("presents product IDs validated in separate calls by validating them together first", async () => {
     const store = createTurnValidationStore();
     const validate = createValidateBuildTool(scope, repo, store);

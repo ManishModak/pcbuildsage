@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LanguageModelV4CallOptions, LanguageModelV4StreamPart } from "@ai-sdk/provider";
-import { forcedToolTextMiddleware, parseTextToolCalls } from "../forced-tool-text";
+import { forcedToolTextMiddleware, parseTextToolCalls, TOOLS_OFF_CALL_TEXT } from "../forced-tool-text";
 
 const tools = [
   { type: "function", name: "validate_build", inputSchema: {} },
@@ -94,5 +94,47 @@ describe("tool calls written as text on forced steps", () => {
     expect(parseTextToolCalls('{"name":"validate_build","parameters":{}} Do not execute this example; wait for {"motherboard":"chosen"}', allowed)).toBeNull();
     // A stray closer after the call (Lightning's "[{...}]}") is still a call.
     expect(parseTextToolCalls('[{"name":"validate_build","parameters":{}}]}', allowed)).toHaveLength(1);
+  });
+});
+
+describe("tool calls written as text when tools are off", () => {
+  const xmlSearch = "<tool_call> <function=search_products> <parameter=term> ATX 650W PSU </parameter> </function> </tool_call>";
+  const textOf = (parts: LanguageModelV4StreamPart[]) =>
+    parts.map((p) => (p.type === "text-delta" ? p.delta : "")).join("");
+
+  it("become a plain note instead of the raw call", async () => {
+    const out = await runStream([...textParts(xmlSearch), finish], { type: "none" });
+    expect(textOf(out)).toBe(TOOLS_OFF_CALL_TEXT);
+    expect(out.some((p) => p.type === "tool-call")).toBe(false);
+  });
+
+  it("leave JSON that merely has a name unchanged", async () => {
+    const specs = '{"name":"AMD Ryzen 5 7600","socket":"AM5","cores":6}';
+    const out = await runStream([...textParts(specs), finish], { type: "none" });
+    expect(textOf(out)).toBe(specs);
+  });
+
+  it("stream a normal reply before the step ends", async () => {
+    let source!: ReadableStreamDefaultController<LanguageModelV4StreamPart>;
+    const stream = new ReadableStream<LanguageModelV4StreamPart>({ start: (controller) => { source = controller; } });
+    const result = await forcedToolTextMiddleware.wrapStream!({
+      doStream: async () => ({ stream }),
+      doGenerate: async () => { throw new Error("unused"); },
+      params: { prompt: [], tools, toolChoice: { type: "none" } } as LanguageModelV4CallOptions,
+      model: {} as never
+    });
+    const reader = result.stream.getReader();
+    source.enqueue({ type: "text-start", id: "t" });
+    source.enqueue({ type: "text-delta", id: "t", delta: "Here is what I found" });
+    // No finish yet: the text must already be readable.
+    const first = await Promise.race([reader.read(), new Promise<"held">((resolve) => setTimeout(() => resolve("held"), 50))]);
+    expect(first).not.toBe("held");
+    source.close();
+  });
+
+  it("leave a normal reply unchanged", async () => {
+    const reply = "Here is what I found so far: the B550 boards in stock are...";
+    const out = await runStream([...textParts(reply), finish], { type: "none" });
+    expect(textOf(out)).toBe(reply);
   });
 });

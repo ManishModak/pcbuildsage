@@ -1,4 +1,3 @@
-import { memorySupportDdr } from "../catalog/compact";
 import { shortId } from "./product-ids";
 
 // validate_build's output as the model sees it: trimmed to what it acts on.
@@ -18,9 +17,7 @@ function shortIdIfLong(id: unknown): unknown {
 function modelSpecs(resolved: unknown): Record<string, unknown> | undefined {
   const spec = (resolved as { spec?: unknown } | null)?.spec;
   if (!spec || typeof spec !== "object") return undefined;
-  const ddr = memorySupportDdr(spec as Record<string, unknown>);
-  const kept = Object.entries(spec).filter(([key, value]) => !MODEL_SPEC_NOISE.has(key) && key !== "ddr" && value !== null && typeof value !== "object");
-  if (typeof ddr === "string") kept.push(["ddr", ddr]);
+  const kept = Object.entries(spec).filter(([key, value]) => !MODEL_SPEC_NOISE.has(key) && value !== null && typeof value !== "object");
   return kept.length > 0 ? Object.fromEntries(kept) : undefined;
 }
 

@@ -14,7 +14,6 @@ import {
   Layers
 } from "lucide-react";
 import { cn } from "@/components/ui/cn";
-import { memorySupportDdr } from "@/lib/catalog/compact";
 import { Icon } from "@/components/ui/icon";
 import { RuneSpinner } from "@/components/app/rune-spinner";
 
@@ -182,7 +181,7 @@ function ConsultRunningCard({ input }: { input?: Record<string, unknown> }) {
   );
 }
 
-export function ConsultResultCard({ input, output }: { input?: Record<string, unknown>; output: Record<string, unknown> }) {
+function ConsultResultCard({ input, output }: { input?: Record<string, unknown>; output: Record<string, unknown> }) {
   const mode = output.mode || input?.mode;
 
   if (output.error || output.label === "unverified") {
@@ -216,8 +215,7 @@ export function ConsultResultCard({ input, output }: { input?: Record<string, un
     if (specs.recommended_psu_w) keyMetrics.push({ label: "Rec. PSU", value: `${specs.recommended_psu_w}W` });
     if (specs.vram_gb) keyMetrics.push({ label: "VRAM", value: `${specs.vram_gb} GB` });
     if (specs.socket) keyMetrics.push({ label: "Socket", value: String(specs.socket) });
-    const memory = memorySupportDdr(specs);
-    if (memory) keyMetrics.push({ label: "Memory", value: String(memory) });
+    if (specs.ddr) keyMetrics.push({ label: "Memory", value: String(specs.ddr) });
     if (specs.form_factor) keyMetrics.push({ label: "Form factor", value: String(specs.form_factor) });
 
     return (

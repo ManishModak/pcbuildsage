@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Markdown } from "../markdown";
-import { ConsultResultCard, ToolChip } from "../tool-chip";
+import { ToolChip } from "../tool-chip";
 
 describe("Markdown tables", () => {
   const table = "| Part | Price |\n| --- | --- |\n| Ryzen 5 5600 | ₹12,499 |\n| B550 board | ₹9,999 |";
@@ -59,13 +59,5 @@ describe("ToolChip status", () => {
     );
     expect(failed).toContain("error");
     expect(failed).toContain("text-blocking");
-  });
-});
-
-describe("Consult result card", () => {
-  it("shows a CPU that takes DDR4 and DDR5 as DDR4/DDR5", () => {
-    const output = { mode: "component_specs", specs: { model: "Intel Core i5-13400F", socket: "LGA 1700", ddr: "DDR5", supported_memory: ["DDR4", "DDR5"] }, confidence: "high", sources: [] };
-    const html = renderToStaticMarkup(<ConsultResultCard output={output} />);
-    expect(html).toContain("DDR4/DDR5");
   });
 });
