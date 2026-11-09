@@ -14,6 +14,7 @@ import {
   hasPresentedBuild,
   hasSuccessfulValidation,
   holdFollowupsUntilPresented,
+  pushForNearBudgetPresent,
   isResearchClosed,
   researchClosedInstruction,
   stepsLeftAfter,
@@ -265,7 +266,10 @@ export async function streamChat(
   // Set by prepareStep: a validated build is waiting to be presented.
   let followupsHeld = false;
   const registry = holdFollowupsUntilPresented(
-    rememberFoundParts(overrides?.tools ?? createToolRegistry(config, { requireCatalogParts: true, userText })),
+    pushForNearBudgetPresent(
+      rememberFoundParts(overrides?.tools ?? createToolRegistry(config, { requireCatalogParts: true, userText })),
+      () => turnStepsUsed
+    ),
     () => followupsHeld
   );
   const tools = gateResearchTools(registry, () => researchClosedStepsLeft, {

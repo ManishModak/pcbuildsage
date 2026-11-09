@@ -1,5 +1,6 @@
 import type { ToolSet } from "ai";
 import { FAR_OVER_BUDGET } from "@/lib/tools/validate-build";
+import { formatPrice } from "@/lib/tools/lenient-input";
 import { presentRefusal } from "@/lib/tools/present-build";
 
 // The chat turn's rules, step by step: when research closes, when validate_build
@@ -148,6 +149,22 @@ export function hasPresentedBuild(steps: StepLike[] | undefined | null): boolean
   );
 }
 
+/**
+ * True once present_build has presented a build that settles the turn: any
+ * presentation pushForNearBudgetPresent didn't flag far over the budget, so
+ * also any build presented on the final step. Earlier far-over presentations
+ * leave the turn working, and the final step still forces present_build so
+ * a cheaper build validated since gets shown (Lightning r38 4K validated
+ * 1,50,858 after showing 2,79,668 for 2,50,000, then validated again on the
+ * final step).
+ */
+function presentSettled(steps: StepLike[] | undefined | null): boolean {
+  const names = callNamesById(steps);
+  const presented = (steps ?? []).flatMap((step) => (step?.toolResults ?? []).filter((res) => isPresentResult(res, names) && isPresentedResult(res)));
+  if (presented.length === 0) return false;
+  return presented.some((res) => (unwrapToolOutput(res.output ?? res.result) as { far_over_budget?: unknown }).far_over_budget !== true);
+}
+
 /** True once suggest_followups has been called in the current turn. */
 export function hasFollowupsCall(steps: StepLike[] | undefined | null): boolean {
   return (steps ?? []).some((step) =>
@@ -207,8 +224,10 @@ export function forcePresentDirectives(
   steps: StepLike[] | undefined | null,
   stepNumber: number
 ): { activeTools?: string[]; toolChoice?: "required" | "none" | { type: "tool"; toolName: string } } {
-  const validated = hasSuccessfulValidation(steps);
-  if (hasPresentedBuild(steps)) return {};
+  if (presentSettled(steps)) return {};
+  // A presentation not yet settled (far over budget) counts as validated: its
+  // build may have been validated only inside present_build.
+  const validated = hasSuccessfulValidation(steps) || hasPresentedBuild(steps);
   if (validated && (stepNumber >= FINAL_STEP || repeatedValidation(steps))) {
     return { activeTools: ["present_build"], toolChoice: { type: "tool", toolName: "present_build" } };
   }
@@ -251,10 +270,77 @@ function repeatedValidation(steps: StepLike[] | undefined | null): boolean {
 function hasFarOverBudgetBuild(output: unknown): boolean {
   const builds = (unwrapToolOutput(output) as { builds?: unknown } | null)?.builds;
   if (!builds || typeof builds !== "object") return false;
-  return Object.values(builds).some((build) => {
-    const budget = (build as { budget?: { target?: unknown; over_by?: unknown } } | null)?.budget;
-    return typeof budget?.target === "number" && typeof budget.over_by === "number" && budget.over_by > budget.target * FAR_OVER_BUDGET;
-  });
+  return Object.values(builds).some((build) => isFarOverBudget((build as { budget?: unknown } | null)?.budget));
+}
+
+type BudgetFigures = { target: number; over_by: number };
+
+/** True when validate_build's budget figures put a build more than FAR_OVER_BUDGET over its budget. */
+function isFarOverBudget(budget: unknown): budget is BudgetFigures {
+  const b = budget as { target?: unknown; over_by?: unknown } | null | undefined;
+  return typeof b?.target === "number" && typeof b.over_by === "number" && b.over_by > b.target * FAR_OVER_BUDGET;
+}
+
+type PresentedBuildLike = {
+  label?: unknown;
+  validated_label?: unknown;
+  product_ids?: unknown;
+  validation?: { budget?: unknown; snapshot?: { currency?: unknown } } | null;
+};
+
+/** The highest total a build may have and stay within FAR_OVER_BUDGET of `target`. */
+function nearBudgetLimit(target: number): number {
+  return Math.floor(target * (1 + FAR_OVER_BUDGET));
+}
+
+/** Note on a presentation whose builds are all far over the budget; `closest` is the least over. */
+export function farOverBudgetNote(closestLabel: string, budget: BudgetFigures, currency?: string): string {
+  const fmt = (n: number) => formatPrice(n, currency);
+  return `Shown, but every build here is more than ${Math.round(FAR_OVER_BUDGET * 100)}% over the ${fmt(budget.target)} budget (closest: '${closestLabel}', ${fmt(budget.over_by)} over). The budget is the user's limit, so keep going: swap the priciest parts for cheaper ones from this turn's results, call validate_build, then present a build at or under ${fmt(nearBudgetLimit(budget.target))}. If nothing can fit, say so in your reply.`;
+}
+
+/** present_build's result for a far-over build presented again: it is already on screen. */
+export const FAR_OVER_ALREADY_SHOWN =
+  "Already shown above. Present a different build within the budget, or say in your reply why none fits.";
+
+/**
+ * After present_build shows only builds more than FAR_OVER_BUDGET over the
+ * budget, before the final step, its result is flagged far_over_budget and
+ * tells the model to find and present a build within the budget; the turn
+ * policy treats the turn as unsettled until then (presentSettled). The card
+ * stays shown, so a model that answers in text still leaves the user a build.
+ * The same far-over builds presented again are refused as already shown.
+ * Lightning presented 52,779 for 35,000 (r37 office) and 2,34,629 for 70,000
+ * (r37 owned-gpu) at steps 21-22 and stopped. `stepNumber` is the current
+ * 0-indexed step.
+ */
+export function pushForNearBudgetPresent(tools: ToolSet, stepNumber: () => number): ToolSet {
+  const present = tools.present_build;
+  if (!present?.execute) return tools;
+  const execute = present.execute as (input: unknown, options: unknown) => unknown;
+  // Sorted product IDs of every far-over build shown this turn.
+  const shown = new Set<string>();
+  const key = (build: PresentedBuildLike) => (Array.isArray(build.product_ids) ? [...build.product_ids].map(String).sort().join(",") : "");
+  return {
+    ...tools,
+    present_build: {
+      ...present,
+      execute: (async (input: unknown, options: unknown) => {
+        const output = await execute(input, options);
+        if (stepNumber() >= FINAL_STEP) return output;
+        const result = output as { presented?: unknown; builds?: unknown } | null;
+        if (result?.presented !== true || !Array.isArray(result.builds) || result.builds.length === 0) return output;
+        const builds = (result.builds as PresentedBuildLike[]).map((build) => ({ build, budget: build?.validation?.budget }));
+        if (!builds.every((b): b is { build: PresentedBuildLike; budget: BudgetFigures } => isFarOverBudget(b.budget))) return output;
+        if (builds.every(({ build }) => shown.has(key(build)))) return { presented: false, error: FAR_OVER_ALREADY_SHOWN };
+        for (const { build } of builds) shown.add(key(build));
+        const closest = builds.reduce((min, b) => (b.budget.over_by < min.budget.over_by ? b : min));
+        const label = String(closest.build.validated_label ?? closest.build.label ?? "");
+        const currency = closest.build.validation?.snapshot?.currency;
+        return { ...result, far_over_budget: true, next_step: farOverBudgetNote(label, closest.budget, typeof currency === "string" ? currency : undefined) };
+      }) as never
+    }
+  };
 }
 
 /** What suggest_followups returns while a build turn has not presented its build (see buildPending). */
@@ -290,11 +376,11 @@ export function holdFollowupsUntilPresented(tools: ToolSet, held: () => boolean)
  */
 /**
  * True while a turn owes the user a build: it validated one, or searched every
- * core category, and hasn't presented one. Follow-ups wait until it has, so
- * they can't end the turn first.
+ * core category, and hasn't presented one that settles it (presentSettled).
+ * Follow-ups wait until it has, so they can't end the turn first.
  */
 export function buildPending(steps: StepLike[] | undefined | null): boolean {
-  return (hasSuccessfulValidation(steps) || isBuildingTurn(steps)) && !hasPresentedBuild(steps);
+  return (hasSuccessfulValidation(steps) || isBuildingTurn(steps) || hasPresentedBuild(steps)) && !presentSettled(steps);
 }
 
 function isBuildingTurn(steps: StepLike[] | undefined | null): boolean {

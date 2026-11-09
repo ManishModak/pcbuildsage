@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { ModelMessage } from "ai";
 import { streamChat } from "../chat-engine";
-import { FOLLOWUPS_HELD_MESSAGE, holdFollowupsUntilPresented } from "../turn-policy";
+import { FAR_OVER_ALREADY_SHOWN, FOLLOWUPS_HELD_MESSAGE, MAX_STEPS, buildPending, farOverBudgetNote, forcePresentDirectives, stopAfterFollowups, holdFollowupsUntilPresented, pushForNearBudgetPresent } from "../turn-policy";
 import * as clientModule from "../client";
 import type { AppConfig } from "@/types";
 
@@ -199,5 +199,72 @@ describe("suggest_followups while a validated build waits", () => {
     held = false;
     expect(await run({ prompts: ["Add a GPU later"] }, {})).toEqual({ prompts: ["Add a GPU later"] });
     expect(Object.keys(tools)).toEqual(["suggest_followups"]);
+  });
+});
+
+describe("pushForNearBudgetPresent", () => {
+  const build = (label: string, target: number | undefined, overBy: number, ids = [label]) => ({
+    label,
+    product_ids: ids,
+    validation: { valid: true, snapshot: { currency: "INR" }, ...(target === undefined ? {} : { budget: { target, total: target + overBy, over_by: overBy, under_by: 0 } }) }
+  });
+  const presentingTool = (step = 21) => {
+    let current = step;
+    let builds: unknown[] = [];
+    const execute = vi.fn(async () => ({ presented: true, buildCount: builds.length, builds }));
+    const tools = pushForNearBudgetPresent({ present_build: { execute } } as never, () => current);
+    const run = (tools.present_build as { execute: (input: unknown, options: unknown) => Promise<unknown> }).execute;
+    return { present: (...next: unknown[]) => { builds = next; return run({ builds: [] }, {}); }, setStep: (n: number) => { current = n; } };
+  };
+
+  it("shows builds that are all far over the budget, flagged, and tells the model to find one within it", async () => {
+    const { present } = presentingTool();
+    const far = [build("Performance", 70000, 164629), build("Balanced", 70000, 20000)];
+    expect(await present(...far)).toEqual({
+      presented: true,
+      buildCount: 2,
+      builds: far,
+      far_over_budget: true,
+      next_step: farOverBudgetNote("Balanced", { target: 70000, over_by: 20000 }, "INR")
+    });
+    expect(farOverBudgetNote("Balanced", { target: 70000, over_by: 20000 }, "INR")).toContain("at or under ₹73,500");
+    // The limit rounds down, so a build at it stays within 5% ($999 * 1.05 = $1,048.95).
+    expect(farOverBudgetNote("A", { target: 999, over_by: 500 }, "USD")).toContain("at or under $1,048");
+  });
+
+  it("leaves a call alone when one build is within 5% of the budget, no budget was given, or it is the final step", async () => {
+    expect(await presentingTool().present(build("Performance", 70000, 164629), build("Within budget", 70000, 3000))).not.toHaveProperty("far_over_budget");
+    expect(await presentingTool().present(build("Any", undefined, 0))).not.toHaveProperty("far_over_budget");
+    expect(await presentingTool(MAX_STEPS - 1).present(build("Performance", 70000, 164629))).not.toHaveProperty("far_over_budget");
+  });
+
+  it("refuses the same far-over builds again as already shown, but shows different ones", async () => {
+    const { present } = presentingTool();
+    await present(build("Performance", 70000, 164629, ["a", "b"]));
+    expect(await present(build("Performance again", 70000, 164629, ["b", "a"]))).toEqual({ presented: false, error: FAR_OVER_ALREADY_SHOWN });
+    expect(await present(build("Cheaper", 70000, 9000, ["a", "c"]))).toMatchObject({ presented: true, far_over_budget: true });
+  });
+
+  it("keeps the turn working after a far-over presentation, forcing a present on the final step", async () => {
+    const steps = [
+      { toolCalls: [validateCall("v1")], toolResults: [validateSuccess("v1")] },
+      { toolCalls: [presentCall("p1")], toolResults: [{ toolCallId: "p1", toolName: "present_build", output: { presented: true, far_over_budget: true } }] }
+    ] as never[];
+    expect(forcePresentDirectives(steps, 21)).toEqual({
+      activeTools: ["validate_build", "present_build"],
+      toolChoice: "required"
+    });
+    expect(buildPending(steps)).toBe(true);
+    // The final step presents, so a cheaper build validated since gets shown.
+    expect(forcePresentDirectives(steps, MAX_STEPS - 1)).toEqual({ activeTools: ["present_build"], toolChoice: { type: "tool", toolName: "present_build" } });
+    // A build validated only inside present_build still keeps the turn forced.
+    const presentedOnly = [steps[1]] as never[];
+    expect(forcePresentDirectives(presentedOnly, 6)).toEqual({ toolChoice: "required" });
+    // Follow-ups don't end the turn before a build that settles it.
+    expect(stopAfterFollowups({ steps: [...steps, { text: "Here it is.", toolCalls: [{ toolName: "suggest_followups", toolCallId: "f" }], toolResults: [] }] as never[] })).toBe(false);
+    // A later build within the budget settles it.
+    const settled = [...steps, { toolCalls: [presentCall("p2")], toolResults: [{ toolCallId: "p2", toolName: "present_build", output: { presented: true } }] }] as never[];
+    expect(forcePresentDirectives(settled, 22)).toEqual({});
+    expect(buildPending(settled)).toBe(false);
   });
 });
