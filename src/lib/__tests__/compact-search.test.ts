@@ -8,6 +8,12 @@ import { searchProductsInputSchema, searchProducts } from "../tools/search-produ
 import type { SearchProductItem, SearchProductsResult } from "../catalog/repository";
 
 describe("Compact Search Module", () => {
+  it("shows a CPU that takes DDR4 and DDR5 as DDR4/DDR5, not the registry's scalar DDR5", () => {
+    const specs = { socket: "LGA 1700", ddr: "DDR5", supported_memory: ["DDR4", "DDR5"], confidence: "high" };
+    expect(toCompactFunctionalSpecs(specs)?.ddr).toBe("DDR4/DDR5");
+    expect(toCompactFunctionalSpecs({ socket: "AM5", ddr: "DDR5" })?.ddr).toBe("DDR5");
+  });
+
   it("preserves functional hardware specs and strips research/aliases overhead", () => {
     const rawSpecs = {
       brand: "AMD",

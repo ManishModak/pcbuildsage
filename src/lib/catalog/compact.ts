@@ -98,6 +98,20 @@ export interface CompactSearchProductsResult {
 }
 
 /**
+ * A spec's memory support as one `ddr` value: "DDR4/DDR5" for a CPU whose
+ * supported_memory lists both, else its scalar ddr. The registry keeps a
+ * scalar ddr (the newest type) beside supported_memory, and that scalar
+ * alone told models and the part card that LGA 1700 CPUs need DDR5 (Ornith
+ * spent a whole turn working around DDR4 boards it thought didn't fit).
+ */
+export function memorySupportDdr(specs: Record<string, unknown> | null | undefined): unknown {
+  const supported = Array.isArray(specs?.supported_memory)
+    ? specs.supported_memory.filter((m): m is string => typeof m === "string" && m.length > 0)
+    : [];
+  return supported.length > 0 ? supported.join("/") : specs?.ddr;
+}
+
+/**
  * Clean functional specifications dictionary.
  * Preserves hardware attributes and original confidence provenance ("high" | "medium" | "low" | "unknown"),
  * while discarding non-functional arrays (aliases, source URLs, research timestamps).
@@ -115,6 +129,8 @@ export function toCompactFunctionalSpecs(
       cleaned[key] = value;
     }
   }
+  const ddr = memorySupportDdr(specs);
+  if (ddr !== undefined && ddr !== null) cleaned.ddr = ddr;
 
   // Preserve existing confidence provenance directly without fabricating verification
   if (typeof specs.confidence === "string") {
