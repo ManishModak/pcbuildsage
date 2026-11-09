@@ -25,7 +25,7 @@ import {
   type CallToolResult
 } from "@modelcontextprotocol/client";
 import { dynamicTool, jsonSchema, type ToolSet } from "ai";
-import { toModelValidateOutput } from "@/lib/tools/validate-build";
+import { toModelValidateOutput } from "@/lib/tools/validate-build-model-view";
 import { toModelSearchResult } from "@/lib/catalog/compact";
 
 /** Fixed env name per CONTRACT section 4. Read at request time. */

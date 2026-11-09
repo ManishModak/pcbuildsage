@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stopAfterFollowups, hasFollowupsCall } from "../chat-engine";
+import { stopAfterFollowups, hasFollowupsCall } from "../turn-policy";
 
 const WHOLE = [{ category: "cpu" }, { category: "motherboard" }];
 

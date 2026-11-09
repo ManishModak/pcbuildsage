@@ -63,7 +63,8 @@ export function createToolRegistry(
 export { createSearchProductsTool, searchProducts } from "./search-products";
 export { createGetCatalogTool, getCatalog } from "./get-catalog";
 export { createListModelsTool, listModels } from "./list-models";
-export { createValidateBuildTool, toModelValidateOutput } from "./validate-build";
+export { createValidateBuildTool } from "./validate-build";
+export { toModelValidateOutput } from "./validate-build-model-view";
 export { createPresentBuildTool, toModelPresentOutput } from "./present-build";
 export { createConsultTool, consult } from "./consult";
 export { createTurnValidationStore, recordValidation, validLabels, normalizeLabel } from "./turn-state";

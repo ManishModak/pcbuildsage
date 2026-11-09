@@ -8,11 +8,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dynamicTool, jsonSchema } from "ai";
-import {
-  hasPresentedBuild,
-  hasSuccessfulValidation,
-  streamChat
-} from "../chat-engine";
+import { streamChat } from "../chat-engine";
+import { hasPresentedBuild, hasSuccessfulValidation } from "../turn-policy";
 import * as clientModule from "../client";
 import type { AppConfig } from "@/types";
 

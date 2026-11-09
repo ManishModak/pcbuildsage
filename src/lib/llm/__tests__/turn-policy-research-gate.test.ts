@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ToolSet } from "ai";
-import { forcePresentDirectives, gateResearchTools, isResearchClosed, remainingSearchNote, repeatedSearchMessage, researchClosedMessage, validateFirstMessage, validateNextNote } from "../chat-engine";
+import { forcePresentDirectives, gateResearchTools, isResearchClosed, remainingSearchNote, repeatedSearchMessage, researchClosedMessage, validateFirstMessage, validateNextNote } from "../turn-policy";
 
 const WHOLE_BUILD = [{ category: "cpu" }, { category: "motherboard" }];
 const validatedSteps = [

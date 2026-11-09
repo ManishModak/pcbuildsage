@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createPresentBuildTool, presentBuildInputSchema } from "../present-build";
 import { createSearchProductsTool } from "../search-products";
-import { createValidateBuildTool, normalizeParts, VALIDATE_BUILD_INPUT_HINT, validateBuildInputSchema } from "../validate-build";
+import { createValidateBuildTool } from "../validate-build";
+import { normalizeParts, VALIDATE_BUILD_INPUT_HINT, validateBuildInputSchema } from "../validate-build-input";
 import { leadingJsonValue } from "../lenient-input";
 
 // Some models (seen with Nemotron) send nested array arguments as JSON strings.

@@ -2,7 +2,8 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { initializeSchema } from "@/lib/db";
 import { SqliteCatalogRepository } from "@/lib/catalog/sqlite-repository";
-import { createValidateBuildTool, toModelValidateOutput, wantsGamingGpu } from "../validate-build";
+import { createValidateBuildTool, wantsGamingGpu } from "../validate-build";
+import { toModelValidateOutput } from "../validate-build-model-view";
 import { createPresentBuildTool, toModelPresentOutput } from "../present-build";
 import { createTurnValidationStore } from "../turn-state";
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { validateBuildInputSchema, createValidateBuildTool } from "../tools/validate-build";
+import { createValidateBuildTool } from "../tools/validate-build";
+import { validateBuildInputSchema } from "../tools/validate-build-input";
 import type { CatalogRepository, SearchProductsInput, SearchProductItem } from "../catalog/repository";
 import type { BuildSnapshot } from "../catalog/build-snapshot";
 import type { ValidationResult } from "../rules-engine";

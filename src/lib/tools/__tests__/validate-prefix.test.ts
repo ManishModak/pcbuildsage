@@ -2,7 +2,8 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { initializeSchema } from "@/lib/db";
 import { SqliteCatalogRepository } from "@/lib/catalog/sqlite-repository";
-import { createValidateBuildTool, toModelValidateOutput } from "../validate-build";
+import { createValidateBuildTool } from "../validate-build";
+import { toModelValidateOutput } from "../validate-build-model-view";
 import { resolveIdPrefix, shortId } from "../product-ids";
 
 function createDb(): Database.Database {

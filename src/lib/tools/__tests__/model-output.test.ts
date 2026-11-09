@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { toModelProductItem, toModelProductSpecs, toModelSearchResult, type CompactSearchProductsResult } from "@/lib/catalog/compact";
 import { createSearchProductsTool, validFilters } from "../search-products";
-import { toModelValidateOutput } from "../validate-build";
+import { toModelValidateOutput } from "../validate-build-model-view";
 
 const full: CompactSearchProductsResult = {
   results: [

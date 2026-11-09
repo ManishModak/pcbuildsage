@@ -7,7 +7,7 @@ import { deriveBuildsFromToolParts } from "@/features/chat/build-derive";
 import { findAllBuildVersions } from "@/features/chat/build-versions";
 import type { ToolPart } from "@/features/chat/tool-chip";
 import { deriveBuildState } from "@/lib/llm/messages";
-import { forcePresentDirectives, hasPresentedBuild, stopAfterFollowups } from "@/lib/llm/chat-engine";
+import { forcePresentDirectives, hasPresentedBuild, stopAfterFollowups } from "@/lib/llm/turn-policy";
 import { createValidateBuildTool } from "../validate-build";
 import { createPresentBuildTool } from "../present-build";
 import { createTurnValidationStore } from "../turn-state";

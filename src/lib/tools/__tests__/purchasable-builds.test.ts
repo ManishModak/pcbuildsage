@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createBuildSnapshot, type BuildSnapshot } from "../../catalog/build-snapshot";
 import type { ValidationResult } from "../../rules-engine";
-import { hasSuccessfulValidation } from "../../llm/chat-engine";
+import { hasSuccessfulValidation } from "../../llm/turn-policy";
 import { derivedBuildFromSnapshot } from "@/features/chat/build-derive";
 import { createPresentBuildTool } from "../present-build";
 import { createTurnValidationStore, recordValidation } from "../turn-state";

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { ModelMessage } from "ai";
-import { FOLLOWUPS_HELD_MESSAGE, holdFollowupsUntilPresented, streamChat } from "../chat-engine";
+import { streamChat } from "../chat-engine";
+import { FOLLOWUPS_HELD_MESSAGE, holdFollowupsUntilPresented } from "../turn-policy";
 import * as clientModule from "../client";
 import type { AppConfig } from "@/types";
 
