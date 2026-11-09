@@ -137,8 +137,8 @@ describe("Catalog Tools Repository Delegation (Phase 1)", () => {
 
   describe("search_products tool delegation", () => {
     const input = { category: "gpu" as const, in_stock: true };
-    // searchProducts() normalizes sort/order defaults before delegating.
-    const normalizedInput = { ...input, sort_by: "price" as const };
+    // searchProducts() normalizes sort defaults before delegating; no direction means a price spread.
+    const normalizedInput = { ...input, sort_by: "price" as const, price_spread: true };
     const expectedCompact = toCompactSearchResult(sampleSearchResult);
 
     it("delegates to repository passed directly as argument to searchProducts()", async () => {

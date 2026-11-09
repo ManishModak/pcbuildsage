@@ -82,8 +82,8 @@ export const searchProductsInputSchema = z.object({
     .positive()
     .optional()
     .describe("RAM stick count filter, e.g. 2 for dual-channel kits. Resolved from registry modules or title patterns like '2x8GB'."),
-  sort_by: sortFieldSchema.optional().describe("Sort field. Use price for value comparisons (asc for affordable options, desc for higher-end listings), last_scraped for freshest listings."),
-  order: z.union([z.enum(["asc", "desc"]), sortFieldSchema]).optional().describe("Sort direction. 'asc' sorts ascending (e.g. lowest price first to compare affordable options), 'desc' sorts descending (highest price first). A sort field passed here (e.g. 'price') is treated as sort_by when sort_by isn't set. Price order describes price only, not performance ranking."),
+  sort_by: sortFieldSchema.optional().describe("Sort field. Use price for value comparisons, last_scraped for freshest listings."),
+  order: z.union([z.enum(["asc", "desc"]), sortFieldSchema]).optional().describe("Sort direction. Omit it for a price search to get results spread across the whole matching price range, cheapest to priciest: the usual choice. 'asc' shows only the cheapest matches, 'desc' only the priciest. A sort field passed here (e.g. 'price') is treated as sort_by when sort_by isn't set. Price order describes price only, not performance ranking."),
   limit: z.number().int().positive().default(12).describe("Maximum result count. Defaults to 12 (showing up to 12 results—the maximum per search).")
 }).strict();
 
@@ -200,7 +200,7 @@ async function runSearch(
   }
 
   // A sort field passed as `order` (e.g. order: "price") is treated as
-  // `sort_by` when `sort_by` isn't set, using the default direction.
+  // `sort_by` when `sort_by` isn't set, with no direction.
   let sortBy = input.sort_by;
   const rawOrder = input.order;
   if (typeof rawOrder === "string" && rawOrder !== "asc" && rawOrder !== "desc") {
@@ -227,6 +227,10 @@ async function runSearch(
   }
 
   const rawTerm = (input.term ?? input.query)?.trim();
+  // A price search with no direction shows a spread across the matching price
+  // range: small models pick from the top rows, so cheapest-first gave junk
+  // parts and priciest-first gave flagships (Ornith r37 aaa: a ₹48,599 GPU for
+  // an ₹80,000 build, from the 12 priciest of 110 under a ₹50,000 cap).
   const normalizedInput = {
     ...input,
     ...(category !== undefined ? { category } : {}),
@@ -234,7 +238,8 @@ async function runSearch(
     ...(normalizedLimit !== undefined ? { limit: normalizedLimit } : {}),
     sort_by: sortBy,
     order,
-    modules
+    modules,
+    ...(order === undefined && sortBy === "price" ? { price_spread: true } : {})
   };
 
   const repo = repository ?? scope.repository ?? getCatalogRepository();
@@ -277,7 +282,7 @@ async function addNearestMatch(
   // 50 is the repository cap; the count is exact unless more remain.
   const unbounded = toCompactSearchResult(
     await repo.searchProducts(
-      { ...input, price_min: undefined, price_max: undefined, in_stock: true, sort_by: "price", order: "asc", limit: 50 },
+      { ...input, price_min: undefined, price_max: undefined, in_stock: true, sort_by: "price", order: "asc", price_spread: false, limit: 50 },
       scope
     )
   );

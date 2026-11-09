@@ -73,6 +73,19 @@ function normalizeSort(input: SearchProductsInput): { sortColumn: string; order:
   return { sortColumn: SORT_COLUMNS[sortBy], order };
 }
 
+/**
+ * `count` items picked evenly by rank from a price-ascending list, always
+ * including the cheapest and the priciest, so a short result still shows the
+ * whole price range.
+ */
+export function spreadByRank<T>(sorted: readonly T[], count: number): T[] {
+  if (sorted.length <= count) return [...sorted];
+  if (count <= 1) return sorted.slice(0, count);
+  const picked = new Set<number>();
+  for (let i = 0; i < count; i++) picked.add(Math.round((i * (sorted.length - 1)) / (count - 1)));
+  return [...picked].sort((a, b) => a - b).map((index) => sorted[index]);
+}
+
 export type RegistrySpecResolver = (
   product: Product,
   scope?: CatalogScope
@@ -319,10 +332,11 @@ export class SqlCatalogRepository implements CatalogRepository {
       where.push("in_stock = 1");
     }
 
-    const { sortColumn, order } = normalizeSort(input);
+    const spread = input.price_spread === true;
+    const { sortColumn, order } = spread ? { sortColumn: SORT_COLUMNS.price, order: "asc" as const } : normalizeSort(input);
     const rawLimit = input.limit !== undefined ? input.limit : 12;
     const limit = Math.max(0, Math.min(rawLimit, 50));
-    const requestOffset = Math.max(0, input.offset ?? 0);
+    const requestOffset = spread ? 0 : Math.max(0, input.offset ?? 0);
 
     const whereClause = where.length > 0 ? where.join(" AND ") : "1=1";
 
@@ -362,7 +376,9 @@ export class SqlCatalogRepository implements CatalogRepository {
       (input.brands && input.brands.length > 0)
     );
 
-    const batchSize = 250;
+    // A spread needs every match, so it reads them in one query instead of
+    // one round trip per 250 rows (remote drivers pay per query).
+    const batchSize = spread ? 100_000 : 250;
     let dbOffset = 0;
     let skipped = 0;
     let reachedEnd = false;
@@ -405,7 +421,7 @@ export class SqlCatalogRepository implements CatalogRepository {
             skipped++;
           } else {
             matches.push({ product, registry, resolvedSpec });
-            if (!hasRegistryFilters && matches.length >= limit + 1) break;
+            if (!spread && !hasRegistryFilters && matches.length >= limit + 1) break;
           }
         }
       }
@@ -415,12 +431,18 @@ export class SqlCatalogRepository implements CatalogRepository {
         break;
       }
 
-      if (matches.length >= limit + 1) {
+      if (!spread && matches.length >= limit + 1) {
         break;
       }
     }
 
-    const results: SearchProductItem[] = matches.slice(0, limit).map(
+    // The ladder spans priced matches only: a listing without a price can't
+    // stand for the cheap end of the range.
+    const pricedMatches = spread ? matches.filter((m) => typeof m.product.price === "number") : [];
+    const spreadRange = pricedMatches.length > 0
+      ? { min: pricedMatches[0].product.price as number, max: pricedMatches[pricedMatches.length - 1].product.price as number }
+      : undefined;
+    const results: SearchProductItem[] = (spread ? spreadByRank(pricedMatches, limit) : matches.slice(0, limit)).map(
       ({ product, registry, resolvedSpec }) => {
         const isInStock = product.in_stock === 1 || Boolean(product.in_stock);
         const offer: ProductOffer = {
@@ -665,7 +687,11 @@ export class SqlCatalogRepository implements CatalogRepository {
     let totalMatching: number | undefined;
     let hasMore: boolean;
 
-    if (hasRegistryFilters) {
+    if (spread) {
+      // A spread read every match; it counts the priced ones it can show.
+      totalMatching = pricedMatches.length;
+      hasMore = pricedMatches.length > results.length;
+    } else if (hasRegistryFilters) {
       if (reachedEnd) {
         totalMatching = matches.length + requestOffset;
         hasMore = matches.length > limit;
@@ -679,10 +705,21 @@ export class SqlCatalogRepository implements CatalogRepository {
     }
 
     let hint: string | undefined;
-    if (baseline && baseline.total > results.length) {
-      hint = totalMatching === undefined
-        ? `Showing ${results.length} matching in-stock products; more matches are available (${baseline.total} total in category).`
-        : `Showing ${results.length} of ${totalMatching} matching in-stock products (${baseline.total} total in category).`;
+    const moreMatches = totalMatching === undefined || totalMatching > results.length;
+    if (moreMatches || (baseline && baseline.total > results.length)) {
+      const products = `matching ${effectiveInStock ? "in-stock " : ""}products`;
+      // Which matches these are, so the model knows what it isn't seeing.
+      const selection = !moreMatches
+        ? ""
+        : spread && spreadRange
+          ? `, picked evenly across their whole price range (${spreadRange.min}-${spreadRange.max}), cheapest first`
+          : sortColumn === SORT_COLUMNS.price
+            ? `, the ${order === "asc" ? "cheapest" : "priciest"} first`
+            : "";
+      const counted = totalMatching === undefined
+        ? `Showing ${results.length} ${products}${selection}; more matches are available`
+        : `Showing ${results.length} of ${totalMatching} ${products}${selection}`;
+      hint = baseline ? `${counted} (${baseline.total} total in category).` : `${counted}.`;
       if (nearestAbove) {
         hint += ` Closest in-stock option above your price_max (${priceMax}) is ${nearestAbove.name} at ${nearestAbove.price}.`;
       }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Database from "better-sqlite3";
 import { initializeSchema } from "@/lib/db";
 import type { Product } from "@/types/db";
@@ -149,12 +149,60 @@ describe("search filters: modules and order-as-sort-field", () => {
   });
 
   describe("search_products behavior", () => {
-    it('treats order:"price" as sort_by with the default direction', async () => {
+    it('treats order:"price" as sort_by with no direction: a price spread, cheapest first', async () => {
       const parsed = searchProductsInputSchema.parse({ category: "ram", order: "price" });
       const result = await searchProducts(parsed, scope, repo);
       expect(result.error).toBeUndefined();
-      // Default direction for price is descending.
-      expect(result.results.map((r) => r.id)).toEqual(["ram-kit2", "ram-2x8", "ram-1x16", "ram-json"]);
+      expect(result.results.map((r) => r.id)).toEqual(["ram-json", "ram-1x16", "ram-2x8", "ram-kit2"]);
+    });
+
+    it("spreads a price search with no direction across the whole matching range", async () => {
+      for (let i = 1; i <= 30; i++) insertProduct(db, { id: `gpu-${i}`, name: `GPU ${i}`, category: "gpu", price: i * 100 });
+      const spread = await searchProducts({ category: "gpu", price_max: 2500 }, scope, repo);
+      // 25 matches under the cap: ranks round(i * 24 / 11), from the cheapest to the priciest.
+      expect(spread.results.map((r) => r.price)).toEqual([100, 300, 500, 800, 1000, 1200, 1400, 1600, 1800, 2100, 2300, 2500]);
+      expect(spread.hint).toContain("Showing 12 of 25 matching in-stock products, picked evenly across their whole price range (100-2500), cheapest first");
+      const priciest = await searchProducts({ category: "gpu", price_max: 2500, order: "desc" }, scope, repo);
+      expect(priciest.results[0].price).toBe(2500);
+      expect(priciest.results).toHaveLength(12);
+      expect(priciest.hint).toContain("Showing 12 of 25 matching in-stock products, the priciest first");
+      const cheapest = await searchProducts({ category: "gpu", price_max: 2500, order: "asc" }, scope, repo);
+      expect(cheapest.results.map((r) => r.price).slice(0, 3)).toEqual([100, 200, 300]);
+      expect(cheapest.hint).toContain("the cheapest first");
+    });
+
+    it("keeps unpriced listings out of the ladder and states the range of every priced match", async () => {
+      insertProduct(db, { id: "gpu-unpriced", name: "GPU Unpriced", category: "gpu", price: null as never });
+      for (let i = 1; i <= 30; i++) insertProduct(db, { id: `gpu-${i}`, name: `GPU ${i}`, category: "gpu", price: i * 100 });
+      const spread = await searchProducts({ category: "gpu" }, scope, repo);
+      expect(spread.results[0].price).toBe(100);
+      expect(spread.results.every((r) => typeof r.price === "number")).toBe(true);
+      expect(spread.total_matching).toBe(30);
+      const one = await searchProducts({ category: "gpu", limit: 1 }, scope, repo);
+      expect(one.results.map((r) => r.price)).toEqual([100]);
+      expect(one.hint).toContain("picked evenly across their whole price range (100-3000), cheapest first");
+    });
+
+    it("counts only priced matches for a spread, so nothing is left to show when every priced match is shown", async () => {
+      insertProduct(db, { id: "probe-unpriced", name: "Probe GPU unpriced", category: "gpu", price: null as never });
+      insertProduct(db, { id: "probe-priced", name: "Probe GPU priced", category: "gpu", price: 100 });
+      const result = await searchProducts({ term: "Probe GPU" }, scope, repo);
+      expect(result.results.map((r) => r.price)).toEqual([100]);
+      expect(result).toMatchObject({ total_matching: 1, has_more: false });
+    });
+
+    it("looks up the cheapest match for an empty priced search in plain ascending order, not as a spread", async () => {
+      for (let i = 1; i <= 30; i++) insertProduct(db, { id: `gpu-${i}`, name: `GPU ${i}`, category: "gpu", price: i * 100 });
+      const calls = vi.spyOn(repo, "searchProducts");
+      const result = await searchProducts({ category: "gpu", price_max: 50 }, scope, repo);
+      expect(result.nearest_match?.price).toBe(100);
+      expect(calls.mock.calls[1][0]).toMatchObject({ order: "asc", price_spread: false });
+    });
+
+    it("says which matches a search shows without a category, and for out-of-stock searches", async () => {
+      for (let i = 1; i <= 20; i++) insertProduct(db, { id: `probe-${i}`, name: `Probe GPU ${i}`, category: "gpu", price: i * 100, in_stock: 0 });
+      const byTerm = await searchProducts({ term: "Probe GPU", in_stock: false }, scope, repo);
+      expect(byTerm.hint).toBe("Showing 12 of 20 matching products, picked evenly across their whole price range (100-2000), cheapest first.");
     });
 
     it("filters dual-channel kits with modules:2", async () => {

@@ -169,6 +169,13 @@ export interface SearchProductsInput {
 
   /** Pagination offset */
   offset?: number;
+
+  /**
+   * Return `limit` rows spread evenly by price rank across every match,
+   * cheapest first, instead of the top of a sorted list. Ignores sort_by,
+   * order and offset.
+   */
+  price_spread?: boolean;
 }
 
 /**
