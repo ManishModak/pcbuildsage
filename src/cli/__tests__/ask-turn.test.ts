@@ -35,6 +35,19 @@ describe("ask turn outcome", () => {
     expect(turn.builds).toEqual([{ label: "within budget", product_ids: ["abcdef1234"], snapshot }]);
   });
 
+  it("prefers the snapshot present_build carries over a label match", () => {
+    const stale = { label: "Within budget", total: 30000, currency: "INR", components: [] };
+    const shown = { label: "Within budget", total: 35577, currency: "INR", components: [] };
+    const collector = createAskTurnCollector();
+    collector.observe({ type: "tool-result", toolName: "validate_build", output: { builds: { "Within budget": { valid: true, snapshot: stale } } } });
+    collector.observe({
+      type: "tool-result",
+      toolName: "present_build",
+      output: { presented: true, builds: [{ label: "Closest to budget (₹577 over)", product_ids: ["abcdef1234"], validation: { valid: true, snapshot: shown } }] }
+    });
+    expect(collector.result().builds).toEqual([{ label: "Closest to budget (₹577 over)", product_ids: ["abcdef1234"], snapshot: shown }]);
+  });
+
   it("counts text as an answer", () => {
     const collector = createAskTurnCollector();
     collector.observe({ type: "text-delta", text: "Here are two options." });

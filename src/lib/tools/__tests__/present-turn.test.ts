@@ -2,8 +2,8 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { initializeSchema } from "@/lib/db";
 import { SqliteCatalogRepository } from "@/lib/catalog/sqlite-repository";
-import { createValidateBuildTool } from "../validate-build";
-import { createPresentBuildTool } from "../present-build";
+import { createValidateBuildTool, toModelValidateOutput, wantsGamingGpu } from "../validate-build";
+import { createPresentBuildTool, toModelPresentOutput } from "../present-build";
 import { createTurnValidationStore } from "../turn-state";
 
 function createDb(): Database.Database {
@@ -61,7 +61,7 @@ describe("present_build per-turn validation", () => {
     const store = createTurnValidationStore();
     const validate = createValidateBuildTool(scope, repo, store);
     await validate.execute!(
-      { builds: [{ label: "Within budget", parts: { cpu: { product_id: FULL_CPU }, motherboard: { product_id: FULL_BOARD } } }] },
+      { builds: [{ label: "Within budget", parts: { cpu: { product_id: FULL_CPU }, motherboard: { product_id: FULL_BOARD }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } } }] },
       ctx
     );
     const present = createPresentBuildTool(store);
@@ -75,11 +75,106 @@ describe("present_build per-turn validation", () => {
     expect(out.valid_labels).toEqual(["Within budget"]);
   });
 
+  it("presents product IDs validated in separate calls by validating them together first", async () => {
+    const store = createTurnValidationStore();
+    const validate = createValidateBuildTool(scope, repo, store);
+    const owned = { ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } };
+    // The CPU alone under one label, the board under another (a model splitting one build across calls).
+    await validate.execute!({ builds: [{ label: "Split", parts: { cpu: { product_id: FULL_CPU }, ...owned } }] }, ctx);
+    await validate.execute!({ builds: [{ label: "Board", parts: { motherboard: { product_id: FULL_BOARD } } }] }, ctx);
+    const revalidate = (label: string, parts: Record<string, unknown>) => Promise.resolve(validate.execute!({ builds: [{ label, parts }] } as never, ctx));
+    const present = createPresentBuildTool(store, { revalidate });
+    const out = (await present.execute!({ builds: [{ label: "Split", product_ids: [FULL_CPU.slice(0, 10), FULL_BOARD.slice(0, 10)] }] }, ctx)) as {
+      presented: boolean;
+      builds: Array<{ label: string; product_ids: string[] }>;
+    };
+    expect(out.presented).toBe(true);
+    expect(out.builds[0].product_ids).toEqual(expect.arrayContaining([FULL_CPU, FULL_BOARD]));
+    // The label's owned parts came along, so the revalidated build is whole.
+    expect(store.get("split")?.snapshot.components.filter((c) => c.owned)).toHaveLength(4);
+
+    // An ID no validation this turn resolved is still refused.
+    const unknown = (await present.execute!({ builds: [{ label: "Split", product_ids: [FULL_CPU.slice(0, 10), "ffffffffff"] }] }, ctx)) as { presented: boolean };
+    expect(unknown.presented).toBe(false);
+  });
+
+  it("presents a build whose part was only searched this turn, carrying the validation it was shown from", async () => {
+    const store = createTurnValidationStore();
+    const validate = createValidateBuildTool(scope, repo, store);
+    const owned = { ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } };
+    // The CPU was validated; the board only came back from a search (Lightning r29 esports).
+    await validate.execute!({ builds: [{ label: "Esports", parts: { cpu: { product_id: FULL_CPU }, ...owned } }] }, ctx);
+    const revalidate = (label: string, parts: Record<string, unknown>) => Promise.resolve(validate.execute!({ builds: [{ label, parts }] } as never, ctx));
+    const ids = [FULL_CPU.slice(0, 10), FULL_BOARD.slice(0, 10)];
+    const unfound = (await createPresentBuildTool(store, { revalidate }).execute!({ builds: [{ label: "Esports", product_ids: ids }] }, ctx)) as { presented: boolean };
+    expect(unfound.presented).toBe(false);
+
+    const found = new Map([[FULL_BOARD, "motherboard"]]);
+    const out = (await createPresentBuildTool(store, { revalidate, found }).execute!({ builds: [{ label: "Esports", product_ids: ids }] }, ctx)) as {
+      presented: boolean;
+      builds: Array<{ product_ids: string[]; validation: { snapshot: { components: Array<{ product_id?: string }> } } }>;
+    };
+    expect(out.presented).toBe(true);
+    expect(out.builds[0].validation.snapshot.components.map((c) => c.product_id)).toEqual(expect.arrayContaining([FULL_CPU, FULL_BOARD]));
+    // The model sees what was shown, not the validation the card draws.
+    expect((toModelPresentOutput(out) as { builds: object[] }).builds[0]).not.toHaveProperty("validation");
+  });
+
+  it("keeps a part owned when present_build rebuilds the build from IDs", async () => {
+    const store = createTurnValidationStore();
+    const validate = createValidateBuildTool(scope, repo, store, { userText: "I have an i9-14900K, 16GB DDR5, a 750W PSU, an ATX case and two SSDs: a 1TB NVMe and a 2TB SATA" });
+    const owned = { ram: { name: "16GB DDR5", owned: true }, storage: [{ name: "1TB NVMe SSD", owned: true }, { name: "2TB SATA SSD", owned: true }], psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } };
+    await validate.execute!({ builds: [{ label: "Upgrade", parts: { cpu: { product_id: FULL_CPU, owned: true }, ...owned } }] }, ctx);
+    const revalidate = (label: string, parts: Record<string, unknown>) => Promise.resolve(validate.execute!({ builds: [{ label, parts }] } as never, ctx));
+    const found = new Map([[FULL_BOARD, "motherboard"]]);
+    const out = (await createPresentBuildTool(store, { revalidate, found }).execute!({ builds: [{ label: "Upgrade", product_ids: [FULL_CPU.slice(0, 10), FULL_BOARD.slice(0, 10)] }] }, ctx)) as {
+      presented: boolean;
+      builds: Array<{ validation: { snapshot: { total: number; components: Array<{ category: string; owned?: boolean }> } } }>;
+    };
+    expect(out.presented).toBe(true);
+    const components = out.builds[0].validation.snapshot.components;
+    expect(components.find((c) => c.category === "cpu")?.owned).toBe(true);
+    expect(components.filter((c) => c.category === "storage" && c.owned)).toHaveLength(2);
+    // Only the board is bought.
+    expect(out.builds[0].validation.snapshot.total).toBe(45000);
+  });
+
+  it("refuses a build with an owned part the user never named, and tells the model why", async () => {
+    const store = createTurnValidationStore();
+    const validate = createValidateBuildTool(scope, repo, store, { userText: "Office PC under ₹35,000, I have a 1TB NVMe SSD" });
+    const parts = { cpu: { name: "Intel Core i9-14900K", owned: true }, motherboard: { product_id: FULL_BOARD }, storage: { name: "1TB NVMe SSD", owned: true } };
+    const out = (await validate.execute!({ builds: [{ label: "Cheap", parts }] }, ctx)) as { builds: Record<string, { unnamed_owned?: string[] }> };
+    // The SSD is named by the user; the CPU isn't.
+    expect(out.builds.Cheap.unnamed_owned).toEqual(['cpu "Intel Core i9-14900K"']);
+    const present = createPresentBuildTool(store);
+    const refused = (await present.execute!({ builds: [{ label: "Cheap" }] }, ctx)) as { presented: boolean; error: string };
+    expect(refused).toMatchObject({ presented: false, error: expect.stringContaining("hasn't said they own cpu") });
+
+    // An owned part passed by ID alone is checked by its catalog name.
+    const byId = (await validate.execute!({ builds: [{ label: "By ID", parts: { ...parts, cpu: { product_id: FULL_CPU, owned: true } } }] }, ctx)) as { builds: Record<string, { unnamed_owned?: string[] }> };
+    expect(byId.builds["By ID"].unnamed_owned).toEqual(['cpu "Intel Core i9-14900K Desktop Processor"']);
+  });
+
+  it("notes a gaming build with no graphics card, unless the user ruled one out", async () => {
+    expect(wantsGamingGpu("Build me a gaming PC for 1080p esports games like Valorant within ₹60,000.")).toBe(true);
+    expect(wantsGamingGpu("I already have an RTX 3070. Build the rest for ₹70,000 and don't include a graphics card.")).toBe(false);
+    expect(wantsGamingGpu("Basic PC for office work and Python coding, ₹35,000.")).toBe(false);
+
+    const parts = { cpu: { product_id: FULL_CPU }, motherboard: { product_id: FULL_BOARD } };
+    const gaming = createValidateBuildTool(scope, repo, createTurnValidationStore(), { userText: "Gaming PC for 1080p esports, ₹60,000" });
+    const out = await gaming.execute!({ builds: [{ label: "iGPU", parts }] }, ctx);
+    const view = toModelValidateOutput(out) as { builds: Record<string, Record<string, unknown>> };
+    // The note leads the model's view of the build.
+    expect(Object.keys(view.builds.iGPU)[0]).toBe("gpu_note");
+    const office = createValidateBuildTool(scope, repo, createTurnValidationStore(), { userText: "Office PC, ₹35,000" });
+    expect((await office.execute!({ builds: [{ label: "iGPU", parts }] }, ctx)) as object).not.toHaveProperty("builds.iGPU.gpu_note");
+  });
+
   it("presents by label only, storing full IDs", async () => {
     const store = createTurnValidationStore();
     const validate = createValidateBuildTool(scope, repo, store);
     await validate.execute!(
-      { builds: [{ label: "Within budget", parts: { cpu: { product_id: FULL_CPU.slice(0, 10) }, motherboard: { product_id: FULL_BOARD.slice(0, 10) } } }] },
+      { builds: [{ label: "Within budget", parts: { cpu: { product_id: FULL_CPU.slice(0, 10) }, motherboard: { product_id: FULL_BOARD.slice(0, 10) }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } } }] },
       ctx
     );
     const present = createPresentBuildTool(store);
@@ -134,7 +229,7 @@ describe("present_build per-turn validation", () => {
     const store = createTurnValidationStore();
     const validate = createValidateBuildTool(scope, repo, store);
     await validate.execute!(
-      { builds: [{ label: "Within budget", parts: { cpu: { product_id: FULL_CPU }, motherboard: { product_id: FULL_BOARD } } }] },
+      { builds: [{ label: "Within budget", parts: { cpu: { product_id: FULL_CPU }, motherboard: { product_id: FULL_BOARD }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } } }] },
       ctx
     );
     const present = createPresentBuildTool(store);

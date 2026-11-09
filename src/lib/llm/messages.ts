@@ -1,5 +1,7 @@
 import { type UIMessage } from "ai";
 import { toCompactSearchResult } from "@/lib/catalog/compact";
+import type { BuildSnapshot } from "@/lib/catalog/build-snapshot";
+import { fullSnapshotsOf } from "./validation-snapshots";
 
 /** The message-part union the AI SDK accepts on a UIMessage. */
 export type ChatMessagePart = UIMessage["parts"][number];
@@ -78,14 +80,25 @@ function hasBuildLabel(output: unknown, label?: string): boolean {
 
 /**
  * The first build a finished present_build showed: its label and parts. The
- * input's parts/product_ids win; a label-only call (the tool defaults to the
- * validated snapshot) takes the full IDs from the tool's output instead.
+ * output's first build wins when it lists full product IDs (what was shown,
+ * under the label it was shown with), with its verdict and snapshot (`own`)
+ * when it carries its validation; otherwise the input's parts/product_ids, and
+ * a label-only call takes the full IDs from the output's matching build.
  * Returns null for a call the tool rejected (`presented: false`) - the user
  * was shown nothing, so it is not the build to resume from.
  */
-function presentedBuildOf(part: unknown): { label?: string; parts: unknown } | null {
+function presentedBuildOf(part: unknown): { label?: string; parts: unknown; own?: { verdict: unknown; snapshot: unknown } } | null {
   const output = (part as { output?: unknown }).output;
   if (output && typeof output === "object" && (output as { presented?: unknown }).presented === false) return null;
+  const shown = output && typeof output === "object" ? (output as { builds?: unknown }).builds : undefined;
+  const firstShown = Array.isArray(shown) ? (shown[0] as { label?: unknown; product_ids?: unknown; validation?: unknown } | undefined) : undefined;
+  if (typeof firstShown?.label === "string" && Array.isArray(firstShown.product_ids)) {
+    return {
+      label: firstShown.label,
+      parts: firstShown.product_ids,
+      ...(firstShown.validation && typeof firstShown.validation === "object" ? { own: verdictAndSnapshot(firstShown.validation) } : {})
+    };
+  }
   const input = (part as { input?: unknown }).input;
   const builds = input && typeof input === "object" ? (input as { builds?: unknown }).builds : undefined;
   if (!Array.isArray(builds) || builds.length === 0) return null;
@@ -136,6 +149,23 @@ function looksCompleted(output: unknown): boolean {
  * That newer, unpresented validation is returned separately as
  * `unpresentedValidation` instead.
  */
+/**
+ * The full snapshot of every build in the latest finished validate_build of a
+ * UI history, for compaction: the model messages built from it hold
+ * validate_build's trimmed view, which compaction can't summarize.
+ */
+export function latestValidationSnapshots(uiMessages: UIMessage[]): BuildSnapshot[] {
+  let latest: BuildSnapshot[] = [];
+  for (const message of uiMessages) {
+    for (const part of message.parts ?? []) {
+      if (!toolNameOf(part)?.includes("validate_build") || isUnfinishedState((part as { state?: unknown }).state)) continue;
+      const snapshots = fullSnapshotsOf((part as { output?: unknown }).output);
+      if (snapshots.length > 0) latest = snapshots;
+    }
+  }
+  return latest;
+}
+
 export function deriveBuildState(uiMessages: UIMessage[]): {
   parts: unknown;
   verdict?: unknown;
@@ -148,7 +178,7 @@ export function deriveBuildState(uiMessages: UIMessage[]): {
    */
   unpresentedValidation?: { parts: unknown; verdict?: unknown; snapshot?: unknown };
 } | null {
-  let presented: { parts: unknown; label?: string; order: number } | null = null;
+  let presented: { parts: unknown; label?: string; own?: { verdict: unknown; snapshot: unknown }; order: number } | null = null;
   const validations: ValidationAt[] = [];
   let order = 0;
 
@@ -196,9 +226,9 @@ export function deriveBuildState(uiMessages: UIMessage[]): {
     const earlier = [...validations].reverse().filter((v) => v.order <= presented!.order);
     const ownAt = earlier.find((v) => hasBuildLabel(v.output, presented!.label)) ?? earlier[0] ?? null;
     const newer = [...validations].reverse().find((v) => v.order > presented!.order)?.validation ?? null;
-    // The presented build's own verdict/snapshot, picked by its label so a
-    // batch that validated A and B and presented B resumes from B.
-    const own = ownAt ? verdictAndSnapshot(ownAt.output, presented.label) : null;
+    // The presented build's own verdict/snapshot: carried by present_build, or
+    // picked by its label so a batch that validated A and B and presented B resumes from B.
+    const own = presented.own ?? (ownAt ? verdictAndSnapshot(ownAt.output, presented.label) : null);
     return {
       parts: presented.parts,
       ...(own && own.verdict !== undefined ? { verdict: own.verdict } : {}),

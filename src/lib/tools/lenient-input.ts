@@ -62,9 +62,61 @@ export function parsedJson<T extends z.ZodType>(schema: T) {
     try {
       return JSON.parse(value) as unknown;
     } catch {
-      return value;
+      return leadingJsonValue(value) ?? value;
     }
   }, schema);
+}
+
+/**
+ * Parses the array or object a string starts with, ignoring whatever follows
+ * it: Nemotron Lightning sent `builds` as "[{...}]}" with a stray closing
+ * brace, and as "[{...}}]}" with the object's closing brace after the `]`.
+ * A closer that skips an open bracket gets the missing closers inserted
+ * before it, and a closer matching nothing open is dropped. Returns undefined
+ * when the string doesn't start with a complete array or object.
+ */
+export function leadingJsonValue(text: string): unknown {
+  return leadingJson(text)?.value;
+}
+
+/**
+ * leadingJsonValue's parse plus `rest`: the text after the value, so a caller
+ * can require that nothing but stray closers follows it.
+ */
+export function leadingJson(text: string): { value: unknown; rest: string } | undefined {
+  const start = text.search(/\S/);
+  if (start < 0 || (text[start] !== "[" && text[start] !== "{")) return undefined;
+  const closers: string[] = [];
+  let repaired = "";
+  let inString = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      repaired += ch;
+      if (ch === "\\") repaired += text[++i] ?? "";
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') {
+      repaired += ch;
+      inString = true;
+    } else if (ch === "[" || ch === "{") {
+      repaired += ch;
+      closers.push(ch === "[" ? "]" : "}");
+    } else if (ch === "]" || ch === "}") {
+      if (!closers.includes(ch)) continue;
+      while (closers.at(-1) !== ch) repaired += closers.pop();
+      repaired += closers.pop();
+      if (closers.length === 0) {
+        try {
+          return { value: JSON.parse(repaired) as unknown, rest: text.slice(i + 1) };
+        } catch {
+          return undefined;
+        }
+      }
+    } else {
+      repaired += ch;
+    }
+  }
+  return undefined;
 }
 
 /** Splits input into known schema fields and the names of unknown ones. */
@@ -92,36 +144,65 @@ export function ignoredFieldsNote(ignored: string[], validKeys: readonly string[
  * values are coerced with coerceLenientValues, and unknown fields are kept on
  * the parsed value so execute() can drop and report them instead of the whole
  * call failing. `toJSONSchema` is kept for tool-definition token estimates.
+ * A rejected call names one issue per field (the first) and ends with `hint`
+ * when given, else the list of valid filters. `prepare` runs first, on the
+ * raw input.
  */
 export function lenientToolSchema<S extends ObjectSchema>(
   schema: S,
-  toolName: string
+  toolName: string,
+  hint?: string,
+  /** Tool-specific cleanup of the raw input before coercion and validation. */
+  prepare?: (value: Record<string, unknown>) => Record<string, unknown>,
+  /** Tool-specific change to the JSON schema providers are sent; validation still uses `schema`. */
+  forProvider?: (jsonSchema: Record<string, unknown>) => Record<string, unknown>
 ): Schema<z.output<S>> & { toJSONSchema: () => unknown } {
   const validKeys = Object.keys(schema.shape);
   const providerSchema = zodSchema(schema);
-  const lenient = jsonSchema<z.output<S>>(() => providerSchema.jsonSchema, {
+  // A field wrapped in parsedJson (a preprocess) comes out of zod's JSON
+  // Schema as optional, so models skipped it: Nemotron on NIM sent
+  // validate_build only {"budget":N} in 7 of 8 calls. Every field that
+  // rejects undefined is listed as required.
+  const required = Object.keys(schema.shape).filter((key) => !(schema.shape[key] as z.ZodType).safeParse(undefined).success);
+  const providerJsonSchema = () => {
+    const base = providerSchema.jsonSchema as { required?: string[] };
+    const withRequired = required.length ? { ...base, required: [...new Set([...(base.required ?? []), ...required])] } : base;
+    return forProvider ? forProvider(withRequired as Record<string, unknown>) : withRequired;
+  };
+  const lenient = jsonSchema<z.output<S>>(() => providerJsonSchema() as never, {
     validate: (value) => {
       if (!value || typeof value !== "object" || Array.isArray(value)) {
         return { success: false, error: new Error(`Invalid ${toolName} input: expected a JSON object.`) };
       }
-      const coerced = coerceLenientValues(schema, value as Record<string, unknown>);
+      const raw = value as Record<string, unknown>;
+      const coerced = coerceLenientValues(schema, prepare ? prepare(raw) : raw);
       const { known, ignored } = splitUnknownFields(coerced, validKeys);
       const parsed = schema.safeParse(known);
       if (!parsed.success) {
+        // zod can report several issues for one field (a string where an
+        // array belongs also fails the array's max length); the first is the real one.
+        const seen = new Set<string>();
         const issues = parsed.error.issues
+          .filter((issue) => {
+            const path = issue.path.join(".");
+            if (seen.has(path)) return false;
+            seen.add(path);
+            return true;
+          })
           .map((issue) => {
             const path = issue.path.join(".");
             const got = issue.path.length === 1 ? (known as Record<string, unknown>)[String(issue.path[0])] : undefined;
-            return `${path || "input"}: ${issue.message}${got !== undefined ? ` (got ${JSON.stringify(got)})` : ""}`;
+            const shown = got === undefined ? "" : JSON.stringify(got);
+            return `${path || "input"}: ${issue.message}${got !== undefined ? ` (got ${shown.length > 120 ? `${shown.slice(0, 120)}…` : shown})` : ""}`;
           })
           .join("; ");
-        return { success: false, error: new Error(`Invalid ${toolName} input: ${issues}. Valid filters: ${validKeys.join(", ")}.`) };
+        return { success: false, error: new Error(`Invalid ${toolName} input: ${issues}. ${hint ?? `Valid filters: ${validKeys.join(", ")}.`}`) };
       }
       const extras = Object.fromEntries(ignored.map((key) => [key, coerced[key]]));
       return { success: true, value: { ...extras, ...(parsed.data as object) } as z.output<S> };
     }
   });
-  return Object.assign(lenient, { toJSONSchema: () => providerSchema.jsonSchema });
+  return Object.assign(lenient, { toJSONSchema: providerJsonSchema });
 }
 
 /** Formats a catalog price with the scope's currency symbol, e.g. ₹25,199 or $129.99. */

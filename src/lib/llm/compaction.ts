@@ -3,6 +3,7 @@ import type { LLMChainEntry } from "@/types";
 import { generateTextWithFallback } from "./client";
 import type { BuildSnapshot } from "../catalog/build-snapshot";
 import { formatSnapshotsForContext } from "./snapshot-formatter";
+import { fullSnapshotsOf, hasBuildData } from "./validation-snapshots";
 import { estimateTokens, shouldTriggerCompaction, RESERVED_OUTPUT_TOKENS } from "./context-budget";
 
 export interface CompactionParams {
@@ -285,7 +286,7 @@ export function extractBuildSnapshots(
     }
   }
 
-  for (let i = messages.length - 1; i >= 0; i--) {
+  outer: for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
     if (message.role === "tool" && Array.isArray(message.content)) {
       for (let j = message.content.length - 1; j >= 0; j--) {
@@ -300,42 +301,11 @@ export function extractBuildSnapshots(
               ? (rawOutput as { value: unknown }).value
               : rawOutput;
 
-          if (output && typeof output === "object") {
-            const outObj = output as Record<string, unknown>;
-            const snapshots: BuildSnapshot[] = [];
-
-            if (outObj.builds && typeof outObj.builds === "object") {
-              if (Array.isArray(outObj.builds)) {
-                for (const b of outObj.builds) {
-                  if (b && typeof b === "object") {
-                    if ("snapshot" in b && b.snapshot && typeof b.snapshot === "object") {
-                      snapshots.push(b.snapshot as BuildSnapshot);
-                    } else if ("components" in b && Array.isArray((b as Record<string, unknown>).components)) {
-                      snapshots.push(b as unknown as BuildSnapshot);
-                    }
-                  }
-                }
-              } else {
-                for (const val of Object.values(outObj.builds as Record<string, unknown>)) {
-                  if (val && typeof val === "object") {
-                    if ("snapshot" in val && val.snapshot && typeof val.snapshot === "object") {
-                      snapshots.push(val.snapshot as BuildSnapshot);
-                    } else if ("components" in val && Array.isArray((val as Record<string, unknown>).components)) {
-                      snapshots.push(val as unknown as BuildSnapshot);
-                    }
-                  }
-                }
-              }
-            }
-
-            if (snapshots.length === 0 && outObj.snapshot && typeof outObj.snapshot === "object") {
-              snapshots.push(outObj.snapshot as BuildSnapshot);
-            }
-
-            if (snapshots.length > 0) {
-              return snapshots;
-            }
-          }
+          const snapshots = fullSnapshotsOf(output);
+          if (snapshots.length > 0) return snapshots;
+          // The latest validation is in the model's trimmed view: the passed
+          // snapshots stand for it, not an older validation's full ones.
+          if (hasBuildData(output)) break outer;
         }
       }
     }
@@ -535,8 +505,9 @@ export async function compactConversation(params: CompactionParams): Promise<Com
     };
   }
 
-  // Extract snapshots across batched validate_build or fallback to params
-  const fallbackSnapshots = paramSnapshots ?? snapshot;
+  // Extract snapshots across batched validate_build or fallback to params;
+  // an empty list (no full validation in history) keeps the session snapshot.
+  const fallbackSnapshots = paramSnapshots?.length ? paramSnapshots : snapshot;
   const snapshots = extractBuildSnapshots(messages, fallbackSnapshots);
 
   // 1. Prepare fitted summary request

@@ -1,6 +1,6 @@
 import type { ComponentCategory, ResolvedSpec } from "../registry";
 import type { BuildPart, BuildParts, ValidationResult } from "../rules-engine";
-import { isStockCooler } from "../rules-engine";
+import { isMarkedIncluded, isStockCooler } from "../rules-engine";
 import type { CatalogScope, SearchProductItem } from "./repository";
 import { toPriceMinor, fromPriceMinor } from "@/types/catalog";
 
@@ -14,6 +14,13 @@ export interface BuildSnapshotComponent {
   url?: string;
   observed_at?: string;
   included?: boolean;
+  /** A part the user already owns: listed at price 0 so totals stay complete. */
+  owned?: boolean;
+}
+
+/** True for a part object the model marked as already owned by the user. */
+export function isOwnedPart(part: BuildPart | undefined): boolean {
+  return Boolean(part && typeof part === "object" && part.owned === true);
 }
 
 export interface BuildSnapshotValidationSummary {
@@ -41,18 +48,9 @@ export interface BuildSnapshot {
   created_at: string;
 }
 
+/** True for a cooler entry that stands for the CPU's boxed cooler (see isMarkedIncluded). */
 export function isPartMarkedIncluded(part: BuildPart | undefined): boolean {
-  if (!part) return false;
-  if (typeof part === "string") {
-    const p = part.toLowerCase().trim();
-    return p === "included" || p === "stock" || p === "stock cooler" || p === "stock-cooler";
-  }
-  const k = (part.key ?? "").toLowerCase().trim();
-  const n = (part.name ?? "").toLowerCase().trim();
-  return (
-    k === "included" || k === "stock" || k === "stock cooler" || k === "stock-cooler" ||
-    n === "included" || n === "stock" || n === "stock cooler" || n === "stock-cooler"
-  );
+  return isMarkedIncluded(part);
 }
 
 /**
@@ -130,6 +128,20 @@ export function createBuildSnapshot({
           components.push(included);
           continue;
         }
+      }
+
+      if (isOwnedPart(item as BuildPart)) {
+        const owned = item as Exclude<BuildPart, string>;
+        components.push({
+          category,
+          ...(catalogProduct ? { product_id: catalogProduct.id } : {}),
+          name: catalogProduct?.name ?? (owned.name || owned.key || owned.product_id || "Owned part"),
+          price: 0,
+          currency: primaryCurrency,
+          included: false,
+          owned: true
+        });
+        continue;
       }
 
       if (catalogProduct) {

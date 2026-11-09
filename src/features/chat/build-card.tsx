@@ -275,7 +275,11 @@ function BuildComponentsList({
                 <span className="type-label block text-caption text-text-muted">{component.categoryLabel}</span>
                 <span className="block text-[15px] leading-snug text-text">{component.name}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  {component.notInCatalog ? (
+                  {component.kept ? (
+                    <span className="text-caption text-text-muted italic">
+                      {component.kept === "owned" ? "Already owned" : "Included with the CPU"}
+                    </span>
+                  ) : component.notInCatalog ? (
                     <span className="inline-flex flex-wrap items-baseline gap-x-2 text-caption text-text-muted">
                       <span className="italic">not in catalog</span>
                       {/* The id belongs here, not in the name above it. */}

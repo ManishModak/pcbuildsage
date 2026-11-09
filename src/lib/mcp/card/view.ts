@@ -110,7 +110,7 @@ function tabNames(cards) {
 function componentRows(components) {
   return (components || []).map(function (raw) {
     var c = raw || {};
-    var price = c.included ? "included" : c.url
+    var price = c.included ? "included" : c.owned ? "owned" : c.url
       ? '<a href="#" data-url="' + esc(c.url) + '">' + esc(money(c.price, c.currency)) + "</a>"
       : esc(money(c.price, c.currency));
     return '<tr><td class="cat">' + esc(c.category) + "</td><td>" + esc(c.name) +

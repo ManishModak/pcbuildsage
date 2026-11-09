@@ -1,4 +1,4 @@
-import { generateText, streamText, tool, hasToolCall, type AsyncIterableStream, type LanguageModel, type ModelMessage, type StopCondition, type StreamTextResult, type TextStreamPart, type ToolSet, type OnFinishEvent, type OnStepFinishEvent } from "ai";
+import { generateText, streamText, tool, hasToolCall, wrapLanguageModel, type AsyncIterableStream, type LanguageModel, type ModelMessage, type StopCondition, type StreamTextResult, type TextStreamPart, type ToolSet, type OnFinishEvent, type OnStepFinishEvent } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
@@ -8,6 +8,8 @@ import { isHostedDemo } from "../config/deployment";
 import { isPrivateCrawlHost } from "../web-search";
 import { envKeyAllowed } from "./env-key-scope";
 import { getProvider } from "./providers";
+import { emptyStepRetryMiddleware } from "./empty-step-retry";
+import { forcedToolTextMiddleware } from "./forced-tool-text";
 import { ACCESS_BLOCKED_COPY, FREE_LIMIT_COPY, KEY_REJECTED_COPY } from "@/content/api-key-help";
 
 /** Generous first-token timeout for the main chat stream (local models load slowly). */
@@ -31,6 +33,18 @@ export function getEntryTimeoutMs(): number {
   const parsed = raw ? Number.parseInt(raw, 10) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
   return DEFAULT_ENTRY_TIMEOUT_MS;
+}
+
+/**
+ * SDK retries per step (exponential backoff from 2 s, honours Retry-After).
+ * 1 keeps a waiting user's turn short; the recommendation eval raises it with
+ * PCBUILDSAGE_LLM_MAX_RETRIES to ride out shared free endpoints' 429s.
+ */
+export function getStepMaxRetries(): number {
+  const raw = process.env.PCBUILDSAGE_LLM_MAX_RETRIES;
+  const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  return 1;
 }
 
 export type ServedText<T = unknown> = T & {
@@ -70,13 +84,16 @@ export function createLanguageModel(entry: LLMChainEntry): LanguageModel {
   const baseURL = normalizeBaseUrl(entry.baseUrl ?? defaultBaseUrl(entry.provider), entry.provider === "ollama" ? "ollama" : "openai-compatible");
   const apiKey = resolveApiKey(entry, keyEnv(entry.provider)) || (entry.keySource === "none" ? "pcbuildsage-keyless" : undefined);
   // Ollama is reached through its OpenAI-compatible /v1 endpoint; there is no first-party @ai-sdk/ollama dependency here.
-  return createOpenAICompatible({
+  const model = createOpenAICompatible({
     name: entry.provider,
     baseURL: entry.provider === "ollama" ? appendV1(baseURL) : baseURL,
     apiKey,
     includeUsage: true,
     transformRequestBody: (args) => sanitizeOpenAICompatibleRequestBody(args, entry.provider, baseURL)
-  })(entry.model) as unknown as LanguageModel;
+  })(entry.model);
+  // Some of these servers answer a forced tool choice with the call written as text,
+  // and small models sometimes return an empty step.
+  return wrapLanguageModel({ model, middleware: [forcedToolTextMiddleware, emptyStepRetryMiddleware] }) as unknown as LanguageModel;
 }
 
 export function sanitizeOpenAICompatibleRequestBody(
@@ -154,7 +171,7 @@ export async function generateTextWithFallback(args: {
         // Retry each step once with SDK exponential backoff (2s initial,
         // honours Retry-After). 429/5xx on step 2+ resume without failing
         // the turn; step-1 failures still fall through to the next entry.
-        maxRetries: 1
+        maxRetries: getStepMaxRetries()
       });
       cancel();
       return Object.assign(result, { provider: entry.provider, model: entry.model, fallbackIndex: index }) as ServedText<typeof result>;
@@ -229,7 +246,7 @@ export async function streamTextWithFallback(args: {
         ...(thinking === false ? localNoThinkingOptions(entry) : {}),
         // Per-step retry with SDK exponential backoff: 429/5xx on step 2+
         // retries that step once instead of failing the turn.
-        maxRetries: 1,
+        maxRetries: getStepMaxRetries(),
         abortSignal
       });
       const started = await probeStarted(result, firstTokenTimeout);

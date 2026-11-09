@@ -87,6 +87,19 @@ describe("scoreBuild", () => {
     expect(scoreBuild(build({ components: [...parts, cooler] }), baseCase, lookup).passed).toBe(true);
   });
 
+  it("treats an owned part as not bought: no catalog check, no GPU purchase", () => {
+    const owned: BuildSnapshotComponent = { category: "gpu", name: "MODEL TEXT RTX 3070", price: 0, currency: "INR", included: false, owned: true };
+    const components = [...build({ drop: ["gpu"] }).snapshot!.components, owned];
+    const score = scoreBuild(build({ components }), { ...baseCase, gpu: "none" }, lookup);
+    expect(score).toMatchObject({ passed: true, failures: [] });
+    expect(scoreBuild(build({ components }), baseCase, lookup).failures).toEqual([
+      "gpu is marked owned but the user doesn't own one",
+      "GPU required but none in the build"
+    ]);
+    const ownedCase = build().snapshot!.components.map((c) => (c.category === "case" ? { ...c, product_id: undefined, owned: true } : c));
+    expect(scoreBuild(build({ components: ownedCase }), baseCase, lookup).failures).toEqual(["case is marked owned but the user doesn't own one"]);
+  });
+
   it("fails a build missing a core part", () => {
     expect(scoreBuild(build({ drop: ["psu", "storage"] }), baseCase, lookup).failures).toEqual(["missing core parts: storage, psu"]);
   });

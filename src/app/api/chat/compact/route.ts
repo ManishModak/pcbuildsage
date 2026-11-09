@@ -6,7 +6,7 @@ import { buildSystemPrompt } from "@/lib/llm/chat-engine";
 import { compactConversation } from "@/lib/llm/compaction";
 import { createToolRegistry } from "@/lib/tools";
 import { getModelContextLimit } from "@/lib/llm/context-budget";
-import { deriveBuildState } from "@/lib/llm/messages";
+import { deriveBuildState, latestValidationSnapshots } from "@/lib/llm/messages";
 import { getSession, saveCompactContext, isSessionCompacting } from "@/lib/sessions";
 import type { BuildSnapshot } from "@/lib/catalog/build-snapshot";
 import {
@@ -91,6 +91,7 @@ export async function POST(request: Request): Promise<Response> {
       systemPrompt,
       messages: modelMessages,
       snapshot: sessionSnapshot,
+      snapshots: latestValidationSnapshots(uiMessages),
       contextLimit,
       force: body.force ?? true,
       abortSignal: request.signal

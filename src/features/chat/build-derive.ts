@@ -71,6 +71,8 @@ export type BuildComponent = {
   advisoryNote?: string;
   status?: "ok" | "failed" | "unverified" | "advisory";
   notInCatalog?: boolean;
+  /** Not bought: a part the user already owns, or a stock cooler included with the CPU (price 0). */
+  kept?: "owned" | "included";
 };
 
 export type DerivedBuild = {
@@ -968,6 +970,35 @@ export function markTextDerivedBuilds(builds: DerivedBuild[], toolParts: ToolPar
   });
 }
 
+/** Whether a snapshot part is owned or an included stock cooler rather than bought. */
+function keptKind(snapComp: BuildSnapshotComponent): BuildComponent["kept"] {
+  return snapComp.owned ? "owned" : snapComp.included ? "included" : undefined;
+}
+
+/** Card row for a part that isn't bought: price 0, no retailer, never "not in catalog". */
+function keptComponent(
+  snapComp: BuildSnapshotComponent,
+  category: string,
+  categoryLabel: string,
+  currency: string,
+  kept: NonNullable<BuildComponent["kept"]>,
+  statusInfo: ReturnType<typeof decorateComponentStatus>
+): BuildComponent {
+  const productId = typeof snapComp.product_id === "string" && snapComp.product_id.trim() ? snapComp.product_id.trim() : undefined;
+  const rawName = typeof snapComp.name === "string" ? snapComp.name.trim() : "";
+  return {
+    category,
+    categoryLabel,
+    name: rawName && !isOpaqueProductId(rawName, productId) ? rawName : categoryLabel,
+    registryKey: undefined,
+    productId,
+    price: 0,
+    currency: typeof snapComp.currency === "string" && snapComp.currency ? snapComp.currency : currency,
+    kept,
+    ...statusInfo
+  };
+}
+
 /**
  * Render a build straight from a `validate_build` snapshot. Snapshots are the
  * catalog-calculated data the rules engine produced, so this is what a turn
@@ -998,6 +1029,8 @@ export function derivedBuildFromSnapshot(
         ? findComponentIssue(validation.issues ?? [], category, productId, rawName)
         : undefined;
       const statusInfo = decorateComponentStatus(issue, Boolean(validation));
+      const kept = keptKind(snapComp);
+      if (kept) return keptComponent(snapComp, category, categoryLabel, currency, kept, statusInfo);
 
       return {
         category,
@@ -1343,6 +1376,36 @@ export function findMatchingValidation(
   return findMatchingValidationResult(build, validateParts)?.validation ?? null;
 }
 
+type ShownValidation = ValidationResult & { snapshot?: BuildSnapshot };
+
+/** One build in a present_build input: label and product IDs, or legacy inline parts. */
+type PresentInputBuild = {
+  label?: string;
+  product_ids?: string[];
+  parts?: Array<{
+    category: string;
+    product_id?: string;
+    name: string;
+    price?: number | null;
+    currency?: string;
+    retailer?: string;
+    url?: string;
+  }>;
+  notes?: string;
+};
+
+/**
+ * The builds a finished present_build call showed, when its output carries
+ * each one's validation (see present_build's Presented type), else null.
+ */
+function shownBuilds(presentPart: ToolPart): Array<{ label?: string; product_ids?: string[]; notes?: string; validation: ShownValidation }> | null {
+  const output = (presentPart as { output?: unknown }).output as { presented?: unknown; builds?: unknown } | undefined;
+  if (!output || output.presented === false || !Array.isArray(output.builds) || output.builds.length === 0) return null;
+  const builds = output.builds as Array<{ label?: unknown; validation?: { snapshot?: unknown } }>;
+  if (!builds.every((b) => typeof b?.label === "string" && b.validation && typeof b.validation === "object" && b.validation.snapshot)) return null;
+  return builds as Array<{ label?: string; product_ids?: string[]; notes?: string; validation: ShownValidation }>;
+}
+
 export function deriveBuildsFromToolParts(
   parts: ToolPart[],
   fallbackCurrency: string,
@@ -1356,26 +1419,13 @@ export function deriveBuildsFromToolParts(
     [...parts].reverse().find((part) => isFinishedPresentPart(part));
 
   if (presentPart) {
-    const input = presentPart.input as
-      | {
-          builds?: Array<{
-            label?: string;
-            product_ids?: string[];
-            parts?: Array<{
-              category: string;
-              product_id?: string;
-              name: string;
-              price?: number | null;
-              currency?: string;
-              retailer?: string;
-              url?: string;
-            }>;
-            notes?: string;
-          }>;
-        }
-      | undefined;
+    const input = presentPart.input as { builds?: PresentInputBuild[] } | undefined;
+    // Builds present_build showed, each with the validation it was shown from;
+    // older saved chats lack them, so their input is matched to validate_build results.
+    const shown = shownBuilds(presentPart);
+    const builds = shown ?? input?.builds;
 
-    if (input?.builds && Array.isArray(input.builds)) {
+    if (builds && Array.isArray(builds)) {
       const presentIdx = parts.indexOf(presentPart);
       const relevantParts = presentIdx !== -1 ? parts.slice(0, presentIdx + 1) : parts;
       const validateParts = relevantParts.filter(
@@ -1394,9 +1444,11 @@ export function deriveBuildsFromToolParts(
         presentPart.state === "output-error" ||
         Boolean((presentPart as { output?: unknown }).output);
 
-      const derived = input.builds.map((build) => {
+      const derived = builds.map((build: PresentInputBuild & { validation?: ShownValidation }) => {
         const isLegacy = Array.isArray(build.parts);
-        const matched = findMatchingValidationResult(build, validateParts);
+        const matched: MatchedValidation | null = build.validation
+          ? { validation: build.validation, snapshot: build.validation.snapshot }
+          : findMatchingValidationResult(build, validateParts);
         const matchedValidation = matched?.validation ?? null;
         const matchedSnapshot = matched?.snapshot ?? null;
 
@@ -1419,6 +1471,8 @@ export function deriveBuildsFromToolParts(
                   )
                 : undefined;
               const statusInfo = decorateComponentStatus(issue, Boolean(matchedValidation));
+              const kept = keptKind(snapComp);
+              if (kept) return keptComponent(snapComp, category, categoryLabel, currency, kept, statusInfo);
 
               if (hasCatalogId) {
                 return {

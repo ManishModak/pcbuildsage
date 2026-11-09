@@ -15,7 +15,7 @@
 import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import { RESOURCE_MIME_TYPE, registerAppResource, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import type { Tool } from "ai";
-import { createToolRegistry, createTurnValidationStore, normalizeLabel, type TurnValidationStore } from "@/lib/tools";
+import { createToolRegistry, createTurnValidationStore, normalizeLabel, toModelPresentOutput, type TurnValidationStore } from "@/lib/tools";
 import type { AppConfig } from "@/types";
 import { BUILD_CARD_URI, buildCardHtml } from "./build-card";
 import { resolveAiSchema, toStandardSchema } from "./standard-schema";
@@ -38,14 +38,15 @@ export function toCallToolResult(output: unknown): CallToolResult {
 
 /** Adds each presented build's validated snapshot, which is what the card draws. */
 function withCards(output: unknown, store: TurnValidationStore): unknown {
-  const result = output as { presented?: boolean; builds?: Array<{ label: string; notes?: string }> };
+  const result = output as { presented?: boolean; builds?: Array<{ label: string; notes?: string; validation?: { snapshot?: unknown } }> };
   if (!result?.presented || !Array.isArray(result.builds)) return output;
   const cards = result.builds.map((build) => ({
     label: build.label,
     ...(build.notes ? { notes: build.notes } : {}),
-    snapshot: store.get(normalizeLabel(build.label))?.snapshot
+    snapshot: build.validation?.snapshot ?? store.get(normalizeLabel(build.label))?.snapshot
   }));
-  return { ...result, cards };
+  // The cards carry the snapshots; each build's full validation would only bloat the host model's text.
+  return { ...(toModelPresentOutput(result) as object), cards };
 }
 
 /** Builds an MCP server exposing the chat tool registry for one session. */

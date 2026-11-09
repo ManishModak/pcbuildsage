@@ -84,12 +84,14 @@ export async function discoverModels(entry: LLMChainEntry, fetchImpl: typeof fet
       context_length?: number;
       context_window?: number;
       max_model_len?: number;
+      /** llama.cpp's llama-server reports the context it was started with here. */
+      meta?: { n_ctx?: number };
       supported_parameters?: string[];
       pricing?: { prompt?: string | number; completion?: string | number };
     }>;
   }>(`${base}/models`, fetchImpl, resolveApiKey(entry, keyEnv(entry.provider)));
   return (json.data ?? []).map((model) => {
-    const rawLimit = model.context_length ?? model.context_window ?? model.max_model_len;
+    const rawLimit = model.context_length ?? model.context_window ?? model.max_model_len ?? model.meta?.n_ctx;
     const supportedParameters = Array.isArray(model.supported_parameters) ? model.supported_parameters : undefined;
     const toolCapable = supportedParameters
       ? supportedParameters.some((param) => param.toLowerCase() === "tools")

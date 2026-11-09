@@ -9,6 +9,7 @@ export type StripBadge = {
 export function ruleLabel(rule: string): string {
   const map: Record<string, string> = {
     socket: "Socket",
+    cpu_support: "CPU",
     ddr: "Memory",
     wattage: "Wattage",
     clearance: "Clearance",

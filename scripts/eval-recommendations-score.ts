@@ -71,6 +71,12 @@ export function scoreBuild(build: PresentedBuild, evalCase: EvalCase, lookup: Ca
   // the model's own text, which must not reach the published scorecard.
   const components = snap.components.map((c) => {
     if (c.included) return { category: c.category, name: "stock cooler" }; // ships with the CPU
+    if (c.owned) {
+      // Only the owned-GPU prompt says the user owns something; anywhere else
+      // "owned" would let a build skip buying the part.
+      if (!(c.category === "gpu" && evalCase.gpu === "none")) failures.push(`${c.category} is marked owned but the user doesn't own one`);
+      return { category: c.category, name: "owned part", owned: true };
+    }
     const row = c.product_id ? lookup(c.product_id) : undefined;
     if (!row) failures.push(`${c.category} is not a catalog product`);
     else if (row.category !== c.category) failures.push(`${c.category} "${row.name}" is a ${row.category} in the catalog`);
@@ -81,8 +87,10 @@ export function scoreBuild(build: PresentedBuild, evalCase: EvalCase, lookup: Ca
   const has = (category: string) => components.some((c) => c.category === category);
   const missing = CORE_CATEGORIES.filter((category) => !has(category));
   if (missing.length > 0) failures.push(`missing core parts: ${missing.join(", ")}`);
-  if (evalCase.gpu === "required" && !has("gpu")) failures.push("GPU required but none in the build");
-  if (evalCase.gpu === "none" && has("gpu")) failures.push("GPU excluded but the build has one");
+  // The GPU rule is about buying one: a GPU the user already owns doesn't count.
+  const buysGpu = components.some((c) => c.category === "gpu" && !("owned" in c));
+  if (evalCase.gpu === "required" && !buysGpu) failures.push("GPU required but none in the build");
+  if (evalCase.gpu === "none" && buysGpu) failures.push("GPU excluded but the build has one");
 
   const summary = snap.validation_summary;
   if (!snap.valid) failures.push("snapshot is not valid");

@@ -8,6 +8,7 @@ import {
   formatShortlistForContext
 } from "../llm/compaction";
 import type { BuildSnapshot } from "../catalog/build-snapshot";
+import { latestValidationSnapshots } from "../llm/messages";
 import { RESERVED_OUTPUT_TOKENS } from "../llm/context-budget";
 
 type JsonSerializable =
@@ -479,6 +480,55 @@ describe("compaction", () => {
       expect(content).toContain("Total: USD 299.99");
       expect(content).toContain("Total: USD 549.99");
       expect(content).toContain("Total: USD 999.99");
+    });
+
+    it("skips the trimmed model-view snapshots in tool results for the full ones passed in", () => {
+      const trimmed = { total: 299.99, components: budgetSnapshot.components.map((c) => ({ category: c.category, name: c.name, price: c.price })) };
+      const messages: ModelMessage[] = [
+        { role: "assistant", content: [{ type: "tool-call", toolCallId: "v", toolName: "validate_build", input: {} }] },
+        {
+          role: "tool",
+          content: [{ type: "tool-result", toolCallId: "v", toolName: "validate_build", output: { type: "json", value: { builds: { "Within budget": { valid: true, snapshot: trimmed } } } as unknown as JsonSerializable } }]
+        }
+      ];
+      expect(extractBuildSnapshots(messages, [budgetSnapshot, upgradeSnapshot])).toEqual([budgetSnapshot, upgradeSnapshot]);
+      expect(extractBuildSnapshots(messages)).toEqual([]);
+
+      // An older full validation doesn't stand in for the latest, trimmed one.
+      const older: ModelMessage[] = [
+        { role: "assistant", content: [{ type: "tool-call", toolCallId: "old", toolName: "validate_build", input: {} }] },
+        { role: "tool", content: [{ type: "tool-result", toolCallId: "old", toolName: "validate_build", output: { type: "json", value: { builds: { Old: { valid: true, snapshot: maxPerfSnapshot } } } as unknown as JsonSerializable } }] }
+      ];
+      expect(extractBuildSnapshots([...older, ...messages], [budgetSnapshot])).toEqual([budgetSnapshot]);
+    });
+
+    it("finds every build's full snapshot in the latest finished validation of a UI history", () => {
+      const ui = (id: string, output: unknown, state = "output-available") => ({ id, role: "assistant", parts: [{ type: "tool-validate_build", toolCallId: id, state, input: {}, output }] });
+      const history = [
+        ui("a", { builds: { Old: { valid: true, snapshot: maxPerfSnapshot } } }),
+        ui("b", { builds: { "Within budget": { valid: true, snapshot: budgetSnapshot }, "Small upgrade": { valid: true, snapshot: upgradeSnapshot } } }),
+        ui("c", undefined, "input-streaming")
+      ];
+      expect(latestValidationSnapshots(history as never)).toEqual([budgetSnapshot, upgradeSnapshot]);
+    });
+
+    it("keeps the session snapshot when no full validation is left in history", async () => {
+      // The chat route strips tool parts of older turns, so history can yield no snapshots.
+      const res = await compactConversation({
+        chain: [{ provider: "gemini", model: "gemini-2.0-flash", keySource: "none" }],
+        systemPrompt: "You are a PC building assistant.",
+        messages: [
+          { role: "user", content: "Build me a PC" },
+          { role: "assistant", content: "Here is the build. ".repeat(2000) },
+          { role: "user", content: "Make it quieter" }
+        ],
+        snapshot: budgetSnapshot,
+        snapshots: [],
+        contextLimit: 32768,
+        force: true
+      });
+      if (!res.compacted) throw new Error(`Expected compaction to succeed: ${res.reason}`);
+      expect(res.messages.map((m) => m.content).join("\n")).toContain("Label: Within budget");
     });
 
     // Item 4: Failed searches with term instead of query are correctly extracted as search history notes

@@ -28,6 +28,12 @@ describe("discovery per provider", () => {
     expect(models.map((model) => model.id)).toEqual(["nvidia/nemotron"]);
   });
 
+  it("reads the context a llama.cpp server was started with", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ data: [{ id: "Ornith-1.5-9B", owned_by: "llamacpp", meta: { n_ctx: 131072, n_ctx_train: 262144 } }] }));
+    const models = await discoverModels({ provider: "openai-compatible", model: "x", keySource: "none", baseUrl: "http://127.0.0.1:8080/v1" }, fetchMock);
+    expect(models[0].contextLimit).toBe(131072);
+  });
+
   it("lists Anthropic models with its own key header and marks them tool-capable", async () => {
     const fetchMock = vi.fn(async () => Response.json({ data: [{ id: "claude-x", display_name: "Claude X" }] }));
     const models = await discoverModels({ provider: "anthropic", model: "x", keySource: "ui", apiKey: "sk-ant-test" }, fetchMock);

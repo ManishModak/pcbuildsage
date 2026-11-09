@@ -6,7 +6,9 @@ export function formatSingleSnapshot(snapshot: BuildSnapshot): string {
       const priceStr = c.price !== null ? `${c.currency} ${c.price}` : "Price unknown / unlisted";
       const retailerStr = c.retailer ? ` (Retailer: ${c.retailer})` : "";
       const idStr = c.product_id ? ` [ID: ${c.product_id}]` : "";
-      const includedStr = c.included ? ` [Included with CPU: ${snapshot.currency} 0]` : ` — ${priceStr}${retailerStr}`;
+      const includedStr = c.included
+        ? ` [Included with CPU: ${snapshot.currency} 0]`
+        : c.owned ? ` [Already owned: ${snapshot.currency} 0]` : ` — ${priceStr}${retailerStr}`;
       return `- ${c.category.toUpperCase()}: ${c.name}${idStr}${includedStr}`;
     })
     .join("\n");

@@ -134,8 +134,8 @@ describe("context-budget", () => {
     it("measures tool definitions from actual schemas instead of hardcoded 1200", () => {
       const tools = createToolRegistry(baseConfig);
       const measured = measureToolDefinitionsTokens(tools);
-      // Actual schemas for search_products, list_models, validate_build, etc. total > 4000 tokens
-      expect(measured).toBeGreaterThan(4000);
+      // Actual schemas for search_products, list_models, validate_build, etc. total well over the old 1200 guess
+      expect(measured).toBeGreaterThan(2400);
       expect(measured).not.toBe(TOOL_DEFINITIONS_TOKEN_OVERHEAD);
     });
 

@@ -74,6 +74,17 @@ describe("short product IDs", () => {
     expect(comps.map((c) => c.product_id)).toContain(FULL_BOARD);
   });
 
+  it("moves a listing passed in another category's empty slot to its own", async () => {
+    const tool = createValidateBuildTool(scope, repo);
+    const out = (await tool.execute!(
+      { builds: [{ label: "A", parts: { cooler: { product_id: FULL_CPU.slice(0, 10) }, motherboard: { product_id: FULL_BOARD } } }] },
+      ctx
+    )) as { builds: Record<string, { moved_parts_note?: string; snapshot: { components: Array<{ category: string; product_id: string }> } }> };
+    const build = out.builds.A;
+    expect(build.snapshot.components.find((c) => c.product_id === FULL_CPU)?.category).toBe("cpu");
+    expect(build.moved_parts_note).toContain(`${FULL_CPU.slice(0, 10)} from cooler to cpu`);
+  });
+
   it("model output shows only first 10 chars", async () => {
     const tool = createValidateBuildTool(scope, repo);
     const out = (await tool.execute!(

@@ -34,7 +34,7 @@ export type ValidationSummary = {
   text: string;
 };
 
-export type BuildPart = string | { product_id?: string; key?: string; name?: string; category?: ComponentCategory };
+export type BuildPart = string | { product_id?: string; key?: string; name?: string; category?: ComponentCategory; owned?: boolean };
 export type BuildParts = Partial<Record<ComponentCategory, BuildPart | BuildPart[]>>;
 
 export type IssueSeverity = "blocking" | "needs_research" | "needs_verification" | "advisory";
@@ -455,16 +455,15 @@ export function makeResolved(key: string, category: ComponentCategory, spec: Reg
   return { key, category, spec, confidence, source };
 }
 
-function isMarkedIncluded(part: BuildPart): boolean {
+/**
+ * True when a cooler entry stands for the CPU's boxed cooler rather than a
+ * product: "included", "stock", or a name like "Stock cooler (included with
+ * Ryzen 5 5600G)". A part with a product_id is a catalog product, and a
+ * negation ("no stock cooler", "not included") never counts.
+ */
+export function isMarkedIncluded(part: BuildPart | undefined): boolean {
   if (!part) return false;
-  if (typeof part === "string") {
-    const p = part.toLowerCase().trim();
-    return p === "included" || p === "stock" || p === "stock cooler" || p === "stock-cooler";
-  }
-  const k = (part.key ?? "").toLowerCase().trim();
-  const n = (part.name ?? "").toLowerCase().trim();
-  return (
-    k === "included" || k === "stock" || k === "stock cooler" || k === "stock-cooler" ||
-    n === "included" || n === "stock" || n === "stock cooler" || n === "stock-cooler"
-  );
+  if (typeof part === "object" && part.product_id?.trim()) return false;
+  const texts = typeof part === "string" ? [part] : [part.key ?? "", part.name ?? ""];
+  return texts.some((text) => /\b(stock|included|boxed|bundled)\b/i.test(text) && !/\b(not|no|without)\b/i.test(text));
 }

@@ -2,22 +2,25 @@ import { tool } from "ai";
 import { z } from "zod";
 import { resolveComponent, withTitleGpuLength, type ComponentCategory } from "../registry";
 import { parseSpecsFromTitle } from "../spec-parsers";
-import { getCatalogRepository, type CatalogRepository, type CatalogScope } from "../catalog";
-import { validateBuild, type BuildParts, type BuildPart, type ValidationResult } from "../rules-engine";
+import { getCatalogRepository, type CatalogRepository, type CatalogScope, type SearchProductItem } from "../catalog";
+import { validateBuild, type BuildIssue, type BuildParts, type BuildPart, type ValidationResult } from "../rules-engine";
 import { createBuildSnapshot, type BuildSnapshot } from "../catalog/build-snapshot";
 import { createTurnValidationStore, recordValidation, type TurnValidationStore } from "./turn-state";
-import { formatPrice, parsedJson } from "./lenient-input";
+import { formatPrice, leadingJsonValue, lenientToolSchema, parsedJson } from "./lenient-input";
 import { distinguishingPrefix, MIN_PREFIX_LEN, resolveIdPrefix, shortId } from "./product-ids";
+import { unnamedOwnedNote, unnamedOwnedParts } from "./owned-parts";
 
-const componentCategorySchema = z.enum(["cpu", "gpu", "motherboard", "ram", "storage", "psu", "case", "cooler"]);
 
+// The field guidance lives once on `parts`, not on each of its nine slots: a
+// per-slot copy made this the largest tool schema small models are sent.
+// The slot names the category, so a part carries none of its own.
 const partSchema = z.union([
-  z.string().describe("Registry key, component name, or catalog product ID prefix."),
+  z.string(),
   z.object({
-    product_id: z.string().min(1).optional().describe("Catalog product ID or unique prefix (>=8 chars, first 10 shown by search_products). Preferred for catalog parts; specs are looked up server-side."),
-    key: z.string().optional().describe("Canonical registry key when known."),
-    name: z.string().optional().describe("Human-readable component name when key is not known."),
-    category: componentCategorySchema.optional().describe("Component category hint.")
+    product_id: z.string().min(1).optional(),
+    name: z.string().optional(),
+    owned: z.boolean().optional(),
+    key: z.string().optional()
   }).refine((part) => Boolean(part.product_id?.trim() || part.key?.trim() || part.name?.trim()), { message: "Part object must include at least one of product_id, key or name." })
 ]);
 
@@ -30,16 +33,20 @@ export const singleBuildValidationSchema = z.object({
     ),
   parts: z
     .object({
-      cpu: partSchema.optional().describe("Selected CPU."),
-      gpu: partSchema.optional().describe("Selected GPU."),
-      motherboard: partSchema.optional().describe("Selected motherboard."),
-      ram: partSchema.optional().describe("Selected memory kit."),
-      storage: z.union([partSchema, z.array(partSchema)]).optional().describe("Selected storage drive or drives."),
-      psu: partSchema.optional().describe("Selected power supply."),
-      case: partSchema.optional().describe("Selected case."),
-      cooler: partSchema.optional().describe("Selected CPU cooler.")
+      cpu: partSchema.optional(),
+      gpu: partSchema.optional(),
+      motherboard: partSchema.optional(),
+      ram: partSchema.optional(),
+      storage: z.union([partSchema, z.array(partSchema)]).optional(),
+      psu: partSchema.optional(),
+      case: partSchema.optional(),
+      cooler: partSchema.optional()
     })
-    .describe("Every part of this build, keyed by component category. The tool keeps no state between calls: pass the full build each time.")
+    // Unknown keys fail the call instead of silently dropping a part (see normalizeParts).
+    .strict()
+    .describe(
+      "Every part of this build, keyed by category; storage may be a list. A part to buy is {\"product_id\": the 10-character ID from search_products}. A part the user already owns is {\"name\": \"RTX 3070\", \"owned\": true}: checked for compatibility, costs 0. The tool keeps no state between calls: pass the full build each time."
+    )
 });
 
 export const validateBuildInputSchema = z.object({
@@ -63,6 +70,30 @@ export const validateBuildInputSchema = z.object({
 
 export type ValidateBuildInput = z.infer<typeof validateBuildInputSchema>;
 
+/**
+ * The provider schema with each build's `parts` as a free-form object, its
+ * categories named in the description. Under tool_choice "required" or a named
+ * tool, NIM (and llama.cpp) generate arguments from a grammar that fixes the
+ * key order to the schema's (cpu before gpu), so Lightning, writing the GPU
+ * first as the system prompt's cascade orders it, could not add the CPU after
+ * it: every r35 gaming failure. Validation still checks every part.
+ */
+export function freeOrderParts(jsonSchema: Record<string, unknown>): Record<string, unknown> {
+  type Parts = { type?: string; description?: string; properties?: Record<string, unknown>; additionalProperties?: unknown };
+  const out = structuredClone(jsonSchema) as { properties?: { builds?: { items?: { properties?: { parts?: Parts } } } } };
+  const props = out.properties?.builds?.items?.properties;
+  const storage = props?.parts?.properties?.storage;
+  if (!props?.parts || !storage) return jsonSchema;
+  // Storage's schema (a part or a list of parts) covers every slot's value. A
+  // bare {"type":"object"} made NIM's grammar emit an empty object.
+  props.parts = {
+    type: "object",
+    additionalProperties: storage,
+    description: `${props.parts.description ?? ""} Keys, in any order: cpu, gpu, motherboard, ram, storage (one part or a list), psu, case, cooler.`.trim()
+  };
+  return out as Record<string, unknown>;
+}
+
 /** Budget figures for one build; over_by and under_by are non-negative and at most one is non-zero. */
 export interface BuildBudgetFigures {
   target: number;
@@ -80,6 +111,9 @@ export interface VsCheapest {
 type PricedResult = { snapshot: BuildSnapshot; budget?: BuildBudgetFigures; vs_cheapest?: VsCheapest; price_summary?: string };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Share of the budget past which an over-budget build gets a note to cut it down (the prompt allows ~2–3% for a clear value jump). */
+export const FAR_OVER_BUDGET = 0.05;
 
 /**
  * Adds code-computed price figures to each build result, in place, so the
@@ -107,6 +141,13 @@ export function addPriceFigures(results: Record<string, PricedResult>, budget?: 
             ? `${formatPrice(-diff, currency)} under the ${formatPrice(budget, currency)} budget`
             : `exactly the ${formatPrice(budget, currency)} budget`
       );
+      // Lightning presented a build ₹177 over budget labelled "Within budget" (r9 esports).
+      if (diff > 0 && /within budget/i.test(label)) {
+        parts.push(`labelled '${label}' but over budget: swap a part to bring it under, or relabel it and add a build within the budget`);
+      } else if (diff > budget * FAR_OVER_BUDGET) {
+        // Lightning presented builds 47% and 61% over a ₹1,00,000 budget, saying so in its text (r17 all-amd).
+        parts.push(`${Math.round((diff / budget) * 100)}% over: the budget is the user's limit, so swap the priciest parts for cheaper search_products picks and validate again; present a build this far over only beside one within the budget`);
+      }
     }
     if (cheapest) {
       const moreBy = round2(total - (cheapest[1].snapshot.total as number));
@@ -115,6 +156,56 @@ export function addPriceFigures(results: Record<string, PricedResult>, budget?: 
     }
     if (parts.length > 1) result.price_summary = parts.join("; ");
   }
+}
+
+/**
+ * Model numbers a build label names ("3050" in "RTX 3050 Esports", "7600x")
+ * that no part name in the build contains. Resolutions ("1080p") and budget
+ * figures ("60k", "45000") aren't parts, so they're skipped.
+ */
+/**
+ * A note when a label names a model no part in the build is, e.g. "RTX 3050
+ * Esports" with no GPU passed: Lightning validated and presented such builds
+ * (r11 no-rgb "GTX 1650", r24 esports "RTX 3050").
+ */
+function labelNote(label: string, snapshot: BuildSnapshot): { label_note?: string } {
+  const missing = labelModelsMissing(label, snapshot.components.map((c) => String(c.name ?? "")));
+  return missing.length > 0
+    ? { label_note: `The label names ${missing.join(", ")}, but no part in this build does. Add that part (pass every part each call) or rename the build.` }
+    : {};
+}
+
+const GAMING_REQUEST = /\b(gaming|games?|esports|fps|valorant|cs2|gta|aaa)\b/i;
+const NO_GPU_REQUEST = /\b(no|without|don'?t (?:need|want|include))\s+(?:a\s+|any\s+)?(?:dedicated\s+|separate\s+)?(?:gpu|graphics)/i;
+
+/** True when the user's words ask for gaming and don't rule out a graphics card. */
+export function wantsGamingGpu(userText: string): boolean {
+  return GAMING_REQUEST.test(userText) && !NO_GPU_REQUEST.test(userText);
+}
+
+/**
+ * A note when the user asked for gaming and a whole build has no graphics
+ * card: Lightning dropped the GPU for a 5600G's integrated graphics (r27 and
+ * r34 esports) although a GPU build fit the budget, and the system prompt's
+ * rule alone didn't hold late in the turn.
+ */
+function gamingGpuNote(userText: string | undefined, snapshot: BuildSnapshot): { gpu_note?: string } {
+  if (userText === undefined || !wantsGamingGpu(userText)) return {};
+  const categories = new Set(snapshot.components.map((c) => c.category));
+  if (!categories.has("cpu") || categories.has("gpu")) return {};
+  return {
+    gpu_note:
+      "The user asked for a gaming PC and this build has no graphics card. Give a gaming build a dedicated GPU as its largest part, with cheaper parts around it; leave it out only if no GPU fits the budget, and say so."
+  };
+}
+
+export function labelModelsMissing(label: string, partNames: readonly string[]): string[] {
+  const names = partNames.join(" ").toLowerCase();
+  return label
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((t) => /\d{3,}/.test(t) && !/^\d+p$/.test(t) && !/^\d+k$/.test(t) && !/^0+$/.test(t) && !(/^\d+$/.test(t) && Number(t) >= 10000))
+    .filter((t) => !names.includes(t));
 }
 
 /**
@@ -212,10 +303,43 @@ function failAmbiguousParts(
   validation.valid = false;
 }
 
+/** Records one failed, blocking check on a validation, keeping its summary in step. */
+function failCheck(validation: ValidationResult, rule: BuildIssue["rule"], detail: string): void {
+  validation.issues = [...validation.issues, { severity: "blocking", rule, components: [], detail }];
+  validation.checks = [...(validation.checks ?? []), { rule, status: "failed", components: [], message: detail }];
+  const { passed, failed, unverified } = validation.summary;
+  validation.summary = { passed, failed: failed + 1, unverified, text: `${failed + 1} check(s) failed · ${passed} passed · ${unverified} unverified` };
+  validation.valid = false;
+}
+
+/** Spec fields that are provenance or lookup aids, not facts the model reasons with. */
+const MODEL_SPEC_NOISE = new Set(["aliases", "sources", "researched_at", "confidence", "brand", "model", "spec_conflict"]);
+
+/** Build fields the model view rebuilds (snapshot, notes, issues) or drops (checks repeat issues; resolved becomes per-part specs). */
+const MODEL_VALIDATE_DROPPED = new Set(["checks", "resolved", "snapshot", "not_purchasable_note", "missing_parts_note", "owned_note", "gpu_note", "unnamed_owned", "issues"]);
+
+function shortIdIfLong(id: unknown): unknown {
+  return typeof id === "string" && id.length > 10 ? shortId(id) : id;
+}
+
+/** A resolved part's specs as the model sees them: scalar facts only. */
+function modelSpecs(resolved: unknown): Record<string, unknown> | undefined {
+  const spec = (resolved as { spec?: unknown } | null)?.spec;
+  if (!spec || typeof spec !== "object") return undefined;
+  const kept = Object.entries(spec).filter(([key, value]) => !MODEL_SPEC_NOISE.has(key) && value !== null && typeof value !== "object");
+  return kept.length > 0 ? Object.fromEntries(kept) : undefined;
+}
+
 /**
- * Model-only view: only {builds}, with product IDs shortened to 10 chars.
- * Also runs on replayed history: an output with no `builds` (an older saved
- * single-build shape) passes through unchanged rather than being emptied.
+ * Model-only view: only {builds}, each led by what to fix (not_purchasable_note,
+ * missing_parts_note) and trimmed to what the model acts on. A whole build's
+ * full output ran ~5K characters (specs with aliases and sources, every check
+ * twice as issues and checks, retailer URLs), and Lightning missed the fix
+ * note inside it (r12 office). Product IDs are shortened to 10 chars; each
+ * snapshot component keeps name, price and its resolved specs. The full
+ * output still goes to the UI and the turn store. Also runs on replayed
+ * history: an output with no `builds` (an older saved single-build shape)
+ * passes through unchanged rather than being emptied.
  */
 export function toModelValidateOutput(output: unknown): unknown {
   if (!output || typeof output !== "object") return output;
@@ -229,36 +353,245 @@ export function toModelValidateOutput(output: unknown): unknown {
       continue;
     }
     const e = entry as Record<string, unknown>;
-    const snap = e.snapshot as
-      | { components?: Array<Record<string, unknown>> }
-      | undefined;
+    const snap = e.snapshot as Record<string, unknown> | undefined;
     if (!snap || !Array.isArray(snap.components)) {
       shortBuilds[label] = e;
       continue;
     }
+    const { resolved, not_purchasable_note, missing_parts_note, owned_note, gpu_note, issues } = e;
+    const rest = Object.fromEntries(Object.entries(e).filter(([key]) => !MODEL_VALIDATE_DROPPED.has(key)));
+    const resolvedByCategory = (resolved && typeof resolved === "object" ? resolved : {}) as Record<string, unknown>;
     shortBuilds[label] = {
-      ...e,
+      ...(owned_note !== undefined ? { owned_note } : {}),
+      ...(gpu_note !== undefined ? { gpu_note } : {}),
+      ...(not_purchasable_note !== undefined ? { not_purchasable_note } : {}),
+      ...(missing_parts_note !== undefined ? { missing_parts_note } : {}),
+      ...rest,
+      ...(Array.isArray(issues)
+        ? { issues: issues.map((issue) => {
+            const { components, ...fields } = (issue ?? {}) as Record<string, unknown>;
+            return Array.isArray(components) ? { ...fields, components: components.map(shortIdIfLong) } : fields;
+          }) }
+        : {}),
       snapshot: {
-        ...(snap as object),
-        components: snap.components.map((c) => ({
-          ...c,
-          product_id:
-            typeof c.product_id === "string" && c.product_id.length > 10
-              ? shortId(c.product_id)
-              : c.product_id
-        }))
+        total: snap.total,
+        ...(snap.total == null && snap.subtotal != null ? { subtotal: snap.subtotal, missing_prices: snap.missing_prices } : {}),
+        components: (snap.components as Array<Record<string, unknown>>).map((c) => {
+          const specs = typeof c.category === "string" ? modelSpecs(resolvedByCategory[c.category]) : undefined;
+          return {
+            category: c.category,
+            product_id: shortIdIfLong(c.product_id),
+            name: c.name,
+            price: c.price,
+            ...(c.included ? { included: true } : {}),
+            ...(c.owned ? { owned: true } : {}),
+            ...(specs ? { specs } : {})
+          };
+        })
       }
     };
   }
   return { builds: shortBuilds };
 }
 
-export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US", currency: "USD" }, repository?: CatalogRepository, store?: TurnValidationStore) {
+/** True for a part entry that names nothing: null, "", or an object without product_id, key or name. */
+function isEmptyPart(part: unknown): boolean {
+  if (part === null || part === undefined) return true;
+  if (typeof part === "string") return part.trim() === "";
+  if (Array.isArray(part)) return part.every(isEmptyPart);
+  if (typeof part !== "object") return false;
+  const p = part as { product_id?: unknown; key?: unknown; name?: unknown };
+  return ![p.product_id, p.key, p.name].some((v) => typeof v === "string" && v.trim() !== "");
+}
+
+/**
+ * True for a GPU entry that stands for the CPU's own graphics rather than a
+ * card: no product_id and a name like "Integrated Radeon Graphics (no discrete
+ * GPU)". Lightning sent one marked owned for a 5600G build (r11 hinglish).
+ */
+function isIntegratedGraphicsPlaceholder(part: unknown): boolean {
+  const entry = part as { product_id?: unknown; name?: unknown } | null;
+  const name = typeof part === "string" ? part : entry?.product_id ? undefined : entry?.name;
+  return typeof name === "string" && /\b(integrated|onboard|on-board|igpu)\b|\bno (discrete|dedicated)\b/i.test(name);
+}
+
+/**
+ * True for a cooler entry that stands for the CPU's boxed cooler rather than a
+ * listing: no product_id, not owned, and a name like "Wraith Stealth (included
+ * with Ryzen 5 5600G)". Lightning passed these as parts to buy (r12 local-ai,
+ * aaa), which made the build unpresentable.
+ */
+function isStockCoolerPlaceholder(part: unknown): boolean {
+  const entry = part as { product_id?: unknown; name?: unknown; owned?: unknown } | null;
+  const name = typeof part === "string" ? part : entry?.product_id || entry?.owned === true ? undefined : entry?.name;
+  return typeof name === "string" && /\b(stock|included|bundled|in[- ]box|boxed|wraith)\b/i.test(name);
+}
+
+/** Part keys models use for a category, after lowercasing and turning spaces and hyphens into underscores. */
+const PART_KEY_ALIASES: Record<string, string> = {
+  processor: "cpu",
+  graphics: "gpu", graphics_card: "gpu", video_card: "gpu",
+  mainboard: "motherboard", mobo: "motherboard", board: "motherboard",
+  memory: "ram",
+  ssd: "storage", hdd: "storage", drive: "storage",
+  power_supply: "psu",
+  cabinet: "case", chassis: "case",
+  cpu_cooler: "cooler"
+};
+
+/** The category a part key names: the key itself, normalized, or the category it is an alias of. */
+function partCategory(key: string): string {
+  const normalized = key.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return PART_KEY_ALIASES[normalized] ?? normalized;
+}
+
+/**
+ * Cleans each build's parts before validation. Keys are mapped to their
+ * category ("Processor" -> cpu, "mainboard" -> motherboard): providers are sent
+ * parts with free key names (see freeOrderParts), and the schema rejects any
+ * key left unknown rather than dropping that part. A key whose category is
+ * already taken stays as written, so it is rejected too. Drops entries that
+ * name nothing (Lightning sent `"cooler":{}` for "no cooler"), GPU entries
+ * standing for integrated graphics and cooler entries standing for a boxed
+ * cooler, so they read as an absent part instead of failing the whole call,
+ * counting as an owned card or blocking presentation.
+ */
+export function normalizeParts(input: Record<string, unknown>): Record<string, unknown> {
+  const builds = typeof input.builds === "string" ? (() => { try { return JSON.parse(input.builds as string) as unknown; } catch { return leadingJsonValue(input.builds as string) ?? input.builds; } })() : input.builds;
+  if (!Array.isArray(builds)) return input;
+  return {
+    ...input,
+    builds: builds.map((build) => {
+      const parts = (build as { parts?: unknown } | null)?.parts;
+      if (!parts || typeof parts !== "object" || Array.isArray(parts)) return build;
+      // Keys already naming their category first, so an alias never displaces one.
+      const entries = Object.entries(parts).sort(([a], [b]) => Number(a !== partCategory(a)) - Number(b !== partCategory(b)));
+      const keyed: Record<string, unknown> = {};
+      for (const [key, part] of entries) {
+        const category = partCategory(key);
+        keyed[category in keyed ? key : category] = part;
+      }
+      return { ...(build as object), parts: Object.fromEntries(Object.entries(keyed).filter(([category, part]) => !isEmptyPart(part) && !(category === "gpu" && isIntegratedGraphicsPlaceholder(part)) && !(category === "cooler" && isStockCoolerPlaceholder(part)))) };
+    })
+  };
+}
+
+/** Ends a rejected validate_build call's error, so the model can fix the call instead of dropping `builds`. */
+export const VALIDATE_BUILD_INPUT_HINT =
+  'Pass builds as a JSON array (not a string) of 1 to 5 objects, each with a unique label and parts holding every part of that build. Example: {"budget":45000,"builds":[{"label":"Within budget","parts":{"cpu":{"product_id":"da6670a41d"},"motherboard":{"product_id":"3a1ade8a84"},"ram":{"product_id":"245608e19e"},"storage":{"product_id":"d5ac436749"},"psu":{"product_id":"cfcdeeb795"},"case":{"product_id":"c2e05370d9"}}}]}';
+
+/** A part a presented build couldn't be bought with: not owned, not an included cooler, not an in-stock listing. */
+export interface UnpurchasablePart {
+  category: string;
+  name: string;
+  reason: "unknown product ID" | "not a catalog product" | "out of stock" | "listed under another category";
+  /** In-stock catalog listings whose names match this part, to swap in. */
+  in_stock_matches?: PartMatch[];
+}
+
+/** An in-stock listing offered in place of an unpurchasable part. */
+export interface PartMatch {
+  product_id: string;
+  name: string;
+  price: number | null;
+}
+
+/**
+ * Search terms for finding a named part in the catalog: the name itself, then
+ * its longest token with a digit ("10100" from "intel-core-i3-10100"), since
+ * catalog search is a substring match and models write names in many shapes.
+ */
+export function partMatchTerms(name: string): string[] {
+  const modelToken = name
+    .split(/[\s\-_/(),]+/)
+    .filter((token) => /\d/.test(token) && token.length >= 3)
+    .sort((a, b) => b.length - a.length)[0];
+  return [...new Set([name.trim(), modelToken].filter((term): term is string => Boolean(term)))];
+}
+
+/**
+ * Parts of a snapshot that keep it from being presented as a build to buy.
+ * A part in a category with no in-stock catalog listings at all is left
+ * alone: there the prompt asks for a derived requirement ("Any 650 W PSU").
+ */
+export async function unpurchasableParts(
+  snapshot: BuildSnapshot,
+  byId: Map<string, { category: string; in_stock?: boolean }>,
+  stockedCategory: (category: string) => Promise<boolean>,
+  findMatches?: (category: string, name: string) => Promise<PartMatch[]>
+): Promise<UnpurchasablePart[]> {
+  const found: UnpurchasablePart[] = [];
+  for (const component of snapshot.components) {
+    if (component.included || component.owned) continue;
+    const category = String(component.category);
+    const product = component.product_id ? byId.get(component.product_id) : undefined;
+    const reason: UnpurchasablePart["reason"] | undefined = !product
+      ? component.product_id ? "unknown product ID" : "not a catalog product"
+      : product.category !== category ? "listed under another category"
+        : product.in_stock === false ? "out of stock" : undefined;
+    if (!reason || !(await stockedCategory(category))) continue;
+    const matches = findMatches ? await findMatches(category, component.name) : [];
+    found.push({ category, name: component.name, reason, ...(matches.length ? { in_stock_matches: matches } : {}) });
+  }
+  return found;
+}
+
+/** Tells the model how to make a build presentable again. */
+export function notPurchasableNote(parts: UnpurchasablePart[]): string {
+  const listed = parts
+    .map((p) => {
+      const matches = p.in_stock_matches?.map((m) => `${m.product_id} ${m.name}${m.price === null ? "" : ` at ${m.price}`}`).join("; ");
+      return `${p.category} "${p.name}" (${p.reason}${matches ? `; in stock: ${matches}` : ""})`;
+    })
+    .join(", ");
+  return `This build can't be presented until every part is an in-stock catalog listing: ${listed}. Replace each with a product_id from search_products for that category. For a part the user already owns, pass {"name":"...","owned":true}; when the CPU includes a stock cooler, leave the cooler out.`;
+}
+
+/**
+ * Builds the validate_build tool. `requireCatalogParts` (chat) adds
+ * not_purchasable to builds a user couldn't buy as shown; such builds still
+ * validate (spot checks with named parts stay useful) but can't be presented.
+ * `userText` (chat: the user's messages) adds unnamed_owned for owned parts
+ * the user never named, which likewise can't be presented.
+ */
+export function createValidateBuildTool(
+  scope: CatalogScope = { countryCode: "US", currency: "USD" },
+  repository?: CatalogRepository,
+  store?: TurnValidationStore,
+  options?: { requireCatalogParts?: boolean; userText?: string }
+) {
   const turnStore = store ?? createTurnValidationStore();
+  // Per tool instance (one chat turn): whether a category has any in-stock listing.
+  const stockedCache = new Map<string, Promise<boolean>>();
+  const stockedCategory = (category: string): Promise<boolean> => {
+    let known = stockedCache.get(category);
+    if (!known) {
+      const repo = repository ?? getCatalogRepository();
+      known = repo
+        .searchProducts({ category, in_stock: true, inStockOnly: true, limit: 1 }, scope)
+        .then((r) => r.results.length > 0)
+        .catch(() => false);
+      stockedCache.set(category, known);
+    }
+    return known;
+  };
+  // Up to 3 in-stock listings per term in partMatchTerms, first term that finds any.
+  const findMatches = async (category: string, name: string): Promise<PartMatch[]> => {
+    const repo = repository ?? getCatalogRepository();
+    for (const term of partMatchTerms(name)) {
+      const found = await repo
+        .searchProducts({ term, category, in_stock: true, inStockOnly: true, limit: 3 }, scope)
+        .catch(() => ({ results: [] as SearchProductItem[] }));
+      if (found.results.length) {
+        return found.results.map((p) => ({ product_id: p.id.slice(0, 10), name: p.name, price: typeof p.price === "number" ? p.price : null }));
+      }
+    }
+    return [];
+  };
   return tool({
     description:
       "Use validate_build to validate 1 to 5 proposed PC builds side by side in a single call before presenting them. Each build must have a short label naming its tradeoff (e.g. 'Within budget', 'Small upgrade', 'Max Performance') and its component parts. Returns compatibility results and authoritative code-calculated build snapshots with catalog prices, product IDs, and totals keyed by label. Pass the user's budget to get code-computed budget.over_by/under_by per build, and vs_cheapest when comparing 2+ builds; quote these figures and each price_summary rather than calculating differences yourself. Preferred parts format uses catalog product ID prefixes from search_products (first 10 chars, min 8): {\"budget\":45000,\"builds\":[{\"label\":\"Within budget\",\"parts\":{\"cpu\":{\"product_id\":\"da6670a41d\"},\"gpu\":{\"product_id\":\"a1f8c14e1a\"}}}]}.",
-    inputSchema: validateBuildInputSchema,
+    inputSchema: lenientToolSchema(validateBuildInputSchema, "validate_build", VALIDATE_BUILD_INPUT_HINT, normalizeParts, freeOrderParts),
     toModelOutput: async ({ output }) => ({ type: "json", value: toModelValidateOutput(output) }) as never,
     execute: async (rawInput: unknown) => {
       const input = (rawInput ?? {}) as {
@@ -388,12 +721,23 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
         };
 
         const normalizedParts: BuildParts = {};
+        // Listings passed in another category's slot (Lightning put its CPU
+        // under "cooler", r12 aaa) move to their own slot when it is empty.
+        const moved: string[] = [];
         for (const [category, raw] of Object.entries(b.parts) as [ComponentCategory, BuildPart | BuildPart[]][]) {
           if (!raw) continue;
           if (Array.isArray(raw)) {
             normalizedParts[category] = raw.map(normalizePart);
+            continue;
+          }
+          const part = normalizePart(raw);
+          const pid = typeof part === "object" && part?.product_id ? part.product_id : undefined;
+          const home = pid ? (byId.get(pid)?.category as ComponentCategory | undefined) : undefined;
+          if (pid && home && home !== category && !b.parts[home] && !normalizedParts[home]) {
+            normalizedParts[home] = part;
+            moved.push(`${shortId(pid)} from ${category} to ${home}`);
           } else {
-            normalizedParts[category] = normalizePart(raw);
+            normalizedParts[category] = part;
           }
         }
 
@@ -439,17 +783,30 @@ export function createValidateBuildTool(scope: CatalogScope = { countryCode: "US
 
         failAmbiguousParts(validation, normalizedParts, (pid, category) => ambiguityMessage(pid, category));
 
+        const missing = missingCoreParts(normalizedParts);
+        // A build with a board and no CPU is a whole build missing its CPU, not an
+        // upgrade pick: a failed check, recorded before the snapshot copies the
+        // verdict. (r35's ten such Lightning calls a turn came from the provider
+        // grammar dropping a CPU written after the GPU: see freeOrderParts.)
+        const boardWithoutCpu = missing.includes("cpu") && !missing.includes("motherboard");
+        if (boardWithoutCpu) failCheck(validation, "cpu_support", "No CPU in this build: a build with a motherboard needs its CPU.");
         const snapshot = createBuildSnapshot({ label: b.label, parts: normalizedParts, validation, productsById: byId, scope });
-        const missing = missingCoreParts(b.parts);
+        const unpurchasable = options?.requireCatalogParts ? await unpurchasableParts(snapshot, byId, stockedCategory, findMatches) : [];
+        const unnamedOwned = options?.userText !== undefined ? unnamedOwnedParts(snapshot.components, options.userText) : [];
         results[b.label] = {
           ...validation,
           snapshot,
           ...(missing.length
             ? {
                 missing_parts: missing,
-                missing_parts_note: `Only the parts passed in this call were validated; the tool keeps no parts between calls. Not included: ${missing.join(", ")}. Pass every part of the build in one call unless the user already owns the missing ones.`
+                missing_parts_note: `${boardWithoutCpu ? 'Invalid: no CPU in parts. Naming a CPU in the label does not add it; put it in parts as "cpu":{"product_id":"..."}. ' : ""}Only the parts passed in this call were validated; the tool keeps no parts between calls. Not included: ${missing.join(", ")}. Pass every part of the build in one call; for a part the user already owns, pass {"name":"...","owned":true}. A whole build missing a part can't be presented.`
               }
-            : {})
+            : {}),
+          ...(unpurchasable.length ? { not_purchasable: unpurchasable, not_purchasable_note: notPurchasableNote(unpurchasable) } : {}),
+          ...(unnamedOwned.length ? { unnamed_owned: unnamedOwned, owned_note: unnamedOwnedNote(unnamedOwned) } : {}),
+          ...(moved.length ? { moved_parts_note: `Moved to the slot of their catalog category: ${moved.join("; ")}. Pass them there next time.` } : {}),
+          ...labelNote(b.label, snapshot),
+          ...gamingGpuNote(options?.userText, snapshot)
         };
         recordValidation(turnStore, b.label, results[b.label]);
       }

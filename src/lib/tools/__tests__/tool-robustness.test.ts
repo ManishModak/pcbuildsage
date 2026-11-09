@@ -4,7 +4,7 @@ import { initializeSchema } from "@/lib/db";
 import { SqliteCatalogRepository } from "@/lib/catalog/sqlite-repository";
 import { createSearchProductsTool, searchProducts } from "../search-products";
 import { createListModelsTool, listModels } from "../list-models";
-import { addPriceFigures, createValidateBuildTool } from "../validate-build";
+import { addPriceFigures, createValidateBuildTool, labelModelsMissing } from "../validate-build";
 import type { BuildSnapshot } from "@/lib/catalog/build-snapshot";
 
 const scope = { countryCode: "IN", currency: "INR" };
@@ -146,6 +146,38 @@ describe("tool results against a catalog", () => {
     expect(out.builds["Pro"].price_summary).toBe("Total ₹40,000; ₹5,000 under the ₹45,000 budget; ₹10,000 more than 'Within budget'");
   });
 
+  it("validate_build flags a build labelled Within budget that is over the budget", async () => {
+    const tool = createValidateBuildTool(scope, repo);
+    const out = (await tool.execute!({ budget: 25000, builds: [{ label: "Within budget", parts: { gpu: { product_id: "g1" } } }] }, ctx)) as {
+      builds: Record<string, { price_summary?: string }>;
+    };
+    expect(out.builds["Within budget"].price_summary).toBe(
+      "Total ₹30,000; ₹5,000 over the ₹25,000 budget; labelled 'Within budget' but over budget: swap a part to bring it under, or relabel it and add a build within the budget"
+    );
+  });
+
+  it("validate_build tells the model to cut a build far over the budget, not one just over it", async () => {
+    const tool = createValidateBuildTool(scope, repo);
+    const run = async (budget: number) =>
+      ((await tool.execute!({ budget, builds: [{ label: "Pro", parts: { gpu: { product_id: "g2" } } }] }, ctx)) as {
+        builds: Record<string, { price_summary?: string }>;
+      }).builds["Pro"].price_summary;
+    // ₹40,000 against ₹35,000 is 14% over.
+    expect(await run(35000)).toBe(
+      "Total ₹40,000; ₹5,000 over the ₹35,000 budget; 14% over: the budget is the user's limit, so swap the priciest parts for cheaper search_products picks and validate again; present a build this far over only beside one within the budget"
+    );
+    // 2.6% over is the small value-jump margin the prompt allows.
+    expect(await run(39000)).toBe("Total ₹40,000; ₹1,000 over the ₹39,000 budget");
+  });
+
+  it("finds model numbers a label names that no part in the build has", () => {
+    const parts = ["AMD Ryzen 3 3200G 4 Cores", "MSI B450M Pro-VDH Max", "Klevv Bolt X 16GB DDR4"];
+    expect(labelModelsMissing("RTX 3050 Esports", parts)).toEqual(["3050"]);
+    expect(labelModelsMissing("3200G iGPU build", parts)).toEqual([]);
+    // Resolutions, budgets and price fragments aren't parts.
+    expect(labelModelsMissing("1080p under 60k (₹45,000 / 45000)", parts)).toEqual([]);
+  });
+
   it("validate_build names the core parts a partial build left out", async () => {
     const tool = createValidateBuildTool(scope, repo);
     const out = (await tool.execute!(
@@ -154,6 +186,37 @@ describe("tool results against a catalog", () => {
     )) as { builds: Record<string, { missing_parts?: string[]; missing_parts_note?: string }> };
     expect(out.builds["Partial"].missing_parts).toEqual(["cpu", "motherboard", "ram", "storage", "psu", "case"]);
     expect(out.builds["Partial"].missing_parts_note).toContain("keeps no parts between calls");
+    expect(out.builds["Partial"].missing_parts_note).not.toContain("no CPU in parts");
+  });
+
+  it("sends providers parts with no fixed key order, and still validates each part", async () => {
+    const { asSchema } = await import("ai");
+    const tool = createValidateBuildTool(scope, repo);
+    const json = (await asSchema(tool.inputSchema as never).jsonSchema) as { properties: { builds: { items: { properties: { parts: Record<string, unknown> } } } } };
+    const parts = json.properties.builds.items.properties.parts;
+    // Listed properties make a grammar-constrained provider emit them in schema order only.
+    expect(parts.properties).toBeUndefined();
+    expect(parts.additionalProperties).toBeTruthy();
+    expect(String(parts.description)).toContain("in any order: cpu, gpu");
+    const validate = (input: unknown) => (asSchema(tool.inputSchema as never) as { validate: (v: unknown) => { success: boolean } }).validate(input);
+    expect((await validate({ builds: [{ label: "A", parts: { gpu: { product_id: "g1" }, cpu: { product_id: "c1" } } }] })).success).toBe(true);
+    expect((await validate({ builds: [{ label: "A", parts: { cpu: 42 } }] })).success).toBe(false);
+  });
+
+  it("validate_build fails a build that has a motherboard and no CPU", async () => {
+    const tool = createValidateBuildTool(scope, repo);
+    const out = (await tool.execute!(
+      { builds: [{ label: "RX 7600 + Ryzen 5 5600", parts: { gpu: { product_id: "g1" }, motherboard: { product_id: "m1" } } }] },
+      ctx
+    )) as { builds: Record<string, { valid?: boolean; missing_parts_note?: string; issues: Array<{ severity: string }>; summary: { failed: number }; snapshot: { valid: boolean; validation_summary: { failed: number } } }> };
+    const build = out.builds["RX 7600 + Ryzen 5 5600"];
+    expect(build.valid).toBe(false);
+    expect(build.missing_parts_note).toMatch(/^Invalid: no CPU in parts/);
+    // The card and the snapshot show the same failed check.
+    expect(build.issues.filter((i) => i.severity === "blocking")).toHaveLength(1);
+    expect(build.summary.failed).toBeGreaterThan(0);
+    expect(build.snapshot.valid).toBe(false);
+    expect(build.snapshot.validation_summary.failed).toBe(build.summary.failed);
   });
 });
 

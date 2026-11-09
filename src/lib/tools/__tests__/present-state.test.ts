@@ -37,8 +37,8 @@ async function validateAB(repo: SqliteCatalogRepository) {
   const validate = createValidateBuildTool(scope, repo, store);
   const validateInput = {
     builds: [
-      { label: "Max Performance", parts: { cpu: { product_id: I9 }, motherboard: { product_id: BOARD } } },
-      { label: "Within budget", parts: { cpu: { product_id: I5 }, motherboard: { product_id: BOARD } } }
+      { label: "Max Performance", parts: { cpu: { product_id: I9 }, motherboard: { product_id: BOARD }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } } },
+      { label: "Within budget", parts: { cpu: { product_id: I5 }, motherboard: { product_id: BOARD }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } } }
     ]
   };
   const validateOutput = await validate.execute!(validateInput, ctx);
@@ -116,6 +116,17 @@ describe("present_build outcome across panel, engine and resume state", () => {
     ]);
     expect(state?.source).toBe("validate_build");
     expect(state?.parts).toEqual(validateInput.builds[0].parts);
+  });
+
+  it("the panel draws a presented build from the validation present_build carries", async () => {
+    const { present } = await validateAB(repo);
+    const presentInput = { builds: [{ label: "Within budget" }] };
+    const presentOutput = await present(presentInput);
+    // No validate_build part to match: a build validated inside present_build has none in the stream.
+    const [build] = deriveBuildsFromToolParts([toolPart("present_build", "p1", presentInput, presentOutput)], "INR");
+    expect(build.label).toBe("Within budget");
+    expect(build.detailsUnavailable).toBe(false);
+    expect(build.components.map((c) => c.productId)).toEqual(expect.arrayContaining([I5, BOARD]));
   });
 
   it("a label-only present of the second validated build resumes from that build", async () => {

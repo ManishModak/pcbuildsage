@@ -206,7 +206,7 @@ describe("ToolSet provenance (real MCP server, in-memory transport)", () => {
         builds: [
           {
             label: "Within budget",
-            parts: { cpu: { product_id: "da6670a41d" }, motherboard: { product_id: "b2f9d25f2b" } }
+            parts: { cpu: { product_id: "da6670a41d" }, motherboard: { product_id: "b2f9d25f2b" }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } }
           }
         ]
       },

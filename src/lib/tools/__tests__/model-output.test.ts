@@ -173,6 +173,38 @@ describe("model-only trimming via toModelOutput", () => {
     expect(builds["Within budget"].snapshot.components[0].product_id).toBe("da6670a41d");
   });
 
+  it("validate model output leads with fix notes and drops checks, provenance and retailer fields", () => {
+    const output = {
+      builds: {
+        A: {
+          valid: true,
+          issues: [{ severity: "needs_verification", rule: "socket", components: ["da6670a41d06377759be1c70e28f32230239c099"], detail: "unverified" }],
+          checks: [{ rule: "socket", status: "unverified" }],
+          resolved: { cpu: { key: "k", spec: { socket: "AM4", tdp_w: 65, aliases: ["x"], sources: ["https://x"], confidence: "high" } } },
+          not_purchasable_note: "Replace the psu",
+          snapshot: {
+            total: null,
+            subtotal: 1000,
+            missing_prices: ["psu: x"],
+            validation_summary: { passed: 0 },
+            components: [{ category: "cpu", product_id: "da6670a41d06377759be1c70e28f32230239c099", name: "Ryzen", price: 1000, url: "https://r", retailer: "R", currency: "INR", included: false }]
+          }
+        }
+      }
+    };
+    const build = (toModelValidateOutput(output) as { builds: Record<string, Record<string, unknown>> }).builds.A;
+    expect(Object.keys(build)[0]).toBe("not_purchasable_note");
+    expect(build).not.toHaveProperty("checks");
+    expect(build).not.toHaveProperty("resolved");
+    expect(build.issues).toEqual([{ severity: "needs_verification", rule: "socket", detail: "unverified", components: ["da6670a41d"] }]);
+    expect(build.snapshot).toEqual({
+      total: null,
+      subtotal: 1000,
+      missing_prices: ["psu: x"],
+      components: [{ category: "cpu", product_id: "da6670a41d", name: "Ryzen", price: 1000, specs: { socket: "AM4", tdp_w: 65 } }]
+    });
+  });
+
   it("search tool exposes toModelOutput and keeps full execute output", async () => {
     const tool = createSearchProductsTool({ countryCode: "IN", currency: "INR" });
     expect(typeof (tool as unknown as { toModelOutput?: unknown }).toModelOutput).toBe("function");

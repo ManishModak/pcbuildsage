@@ -34,7 +34,8 @@ function normalizeLabel(label: string): string {
 
 /**
  * Accumulates an ask turn from stream parts: text deltas, finished steps,
- * validate_build snapshots (by label) and successful present_build calls.
+ * validate_build snapshots (by label, for present_build outputs that carry
+ * none) and successful present_build calls.
  */
 export function createAskTurnCollector() {
   let content = "";
@@ -66,13 +67,15 @@ export function createAskTurnCollector() {
       } else if (toolName === "present_build") {
         const obj = out as { presented?: unknown; builds?: unknown };
         if (obj.presented === false || !Array.isArray(obj.builds)) return;
-        for (const raw of obj.builds as Array<{ label?: unknown; product_ids?: unknown; notes?: unknown }>) {
+        for (const raw of obj.builds as Array<{ label?: unknown; product_ids?: unknown; notes?: unknown; validation?: { snapshot?: BuildSnapshot } }>) {
           if (typeof raw?.label !== "string") continue;
+          // The snapshot present_build carries is the one shown; older outputs have none, so match the label.
+          const snapshot = raw.validation?.snapshot ?? snapshots.get(normalizeLabel(raw.label));
           presented.push({
             label: raw.label,
             ...(Array.isArray(raw.product_ids) ? { product_ids: raw.product_ids as string[] } : {}),
             ...(typeof raw.notes === "string" ? { notes: raw.notes } : {}),
-            ...(snapshots.has(normalizeLabel(raw.label)) ? { snapshot: snapshots.get(normalizeLabel(raw.label)) } : {})
+            ...(snapshot ? { snapshot } : {})
           });
         }
       }

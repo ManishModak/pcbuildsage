@@ -20,6 +20,15 @@ describe("stopAfterFollowups", () => {
     expect(stopAfterFollowups({ steps })).toBe(true);
   });
 
+  it("keeps a build turn going before its first validation, once every core category is searched", () => {
+    const searches = ["cpu", "motherboard", "ram", "storage", "psu", "case"].map((category, i) => ({ toolName: "search_products", toolCallId: `q${i}`, input: { category } }));
+    const steps = [
+      { text: "", toolCalls: searches, toolResults: [] },
+      { text: "Here is my plan.", toolCalls: [{ toolName: "suggest_followups", toolCallId: "s1" }], toolResults: [] }
+    ];
+    expect(stopAfterFollowups({ steps })).toBe(false);
+  });
+
   it("keeps going when no text reply has been written yet", () => {
     const steps = [
       { text: "  ", toolCalls: [{ toolName: "suggest_followups", toolCallId: "s1" }], toolResults: [] }

@@ -142,6 +142,22 @@ describe("step retry and stream plumbing", () => {
     expect(seen[0]).toMatchObject({ maxRetries: 1 });
   });
 
+  it("takes the per-step retry count from PCBUILDSAGE_LLM_MAX_RETRIES (used by the eval)", async () => {
+    const seen: Array<Record<string, unknown>> = [];
+    aiState.streamImpl = (args) => {
+      seen.push(args as Record<string, unknown>);
+      return { fullStream: (async function* () { yield { type: "text-delta", text: "hi" }; })() };
+    };
+    vi.stubEnv("PCBUILDSAGE_LLM_MAX_RETRIES", "5");
+    try {
+      const chain = [{ provider: "ollama", model: "m", keySource: "none" }] as never[];
+      await streamTextWithFallback({ chain, messages: [{ role: "user", content: "hi" }], firstTokenTimeoutMs: 2000 });
+      expect(seen[0]).toMatchObject({ maxRetries: 5 });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("preserves the original textStream (no dead override)", async () => {
     const textStream = (async function* () {
       yield "hello";
