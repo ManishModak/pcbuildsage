@@ -157,6 +157,30 @@ describe("late-turn research gate", () => {
     expect(search).toHaveBeenCalledTimes(3);
   });
 
+  it("says a repeated search found nothing the first time, instead of offering rows to pick from", async () => {
+    const { tools, search } = fakeTools();
+    const gated = gateResearchTools(tools, () => null, { validated: () => false, stepsUsed: () => 3 });
+    const run = (input: unknown) => (gated.search_products.execute as Exec)(input, {});
+    search.mockResolvedValueOnce({ results: [] } as never);
+    await run({ category: "motherboard", socket: "AM4", form_factor: "Mini-ITX" });
+    expect(await run({ category: "motherboard", socket: "AM4", form_factor: "Mini-ITX" })).toMatchObject({
+      message: "Same call as step 4, which found nothing, so it would find nothing again. Drop or change a filter (term, socket, form_factor, price) and search again."
+    });
+  });
+
+  it("points an identical call in the same step at the first one while it is still running", async () => {
+    const { tools, search } = fakeTools();
+    const gated = gateResearchTools(tools, () => null, { validated: () => false, stepsUsed: () => 3 });
+    const run = (input: unknown) => (gated.search_products.execute as Exec)(input, {});
+    let finish!: (value: unknown) => void;
+    search.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }) as never);
+    const first = run({ category: "motherboard", form_factor: "Mini-ITX" });
+    const duplicate = await run({ category: "motherboard", form_factor: "Mini-ITX" });
+    finish({ results: [] });
+    await first;
+    expect(duplicate).toMatchObject({ message: "Same call as another one in this step: use that call's result." });
+  });
+
   it("runs the retry of a research call that failed", async () => {
     const { tools, search } = fakeTools();
     const gated = gateResearchTools(tools, () => null, { validated: () => false, stepsUsed: () => 3 });

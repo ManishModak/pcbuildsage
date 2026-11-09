@@ -413,20 +413,35 @@ export function remainingSearchNote(left: readonly string[]): string {
 /**
  * Tool result for a research call identical to an earlier one this turn,
  * listing that call's top rows: Lightning re-ran one search 7 times when the
- * result only pointed back at it (r20 1440p).
+ * result only pointed back at it (r20 1440p). When the earlier call found
+ * nothing it says so: Lightning re-ran an empty AM4 Mini-ITX board search
+ * three times on "Pick from these" with nothing listed. An identical call in
+ * the same step runs while the first is still pending, so it only points at it.
  */
-export function repeatedSearchMessage(firstStep: number, rows: readonly string[] = []): string {
+export function repeatedSearchMessage(firstStep: number, rows: readonly string[] = [], outcome: RepeatOutcome = "rows"): string {
+  if (outcome === "pending") return "Same call as another one in this step: use that call's result.";
+  if (outcome === "empty") {
+    return `Same call as step ${firstStep}, which found nothing, so it would find nothing again. Drop or change a filter (term, socket, form_factor, price) and search again.`;
+  }
   const top = rows.length > 0 ? ` Its top results: ${rows.join("; ")}.` : "";
   return `Same call as step ${firstStep}.${top} Pick from these or the rest of its results earlier in this turn, or change the filters.`;
 }
 
+/** What the earlier identical research call returned: still running, rows, or nothing. */
+export type RepeatOutcome = "pending" | "rows" | "empty";
+
 /** Rows a repeated research call lists from the earlier one. */
 const REPEAT_ROWS = 5;
 
+/** The rows of a search_products result, or the models of a list_models result. */
+function resultRows(output: unknown): unknown[] | undefined {
+  const value = output as { results?: unknown; models?: unknown } | null;
+  return Array.isArray(value?.results) ? value.results : Array.isArray(value?.models) ? value.models : undefined;
+}
+
 /** "id name price" for the top rows of a search_products result, or the names of a list_models result. */
 function topRows(output: unknown): string[] {
-  const value = output as { results?: unknown; models?: unknown } | null;
-  const rows = Array.isArray(value?.results) ? value.results : Array.isArray(value?.models) ? value.models : [];
+  const rows = resultRows(output) ?? [];
   return rows.slice(0, REPEAT_ROWS).flatMap((row) => {
     const r = row as { id?: unknown; model_id?: unknown; name?: unknown; price?: unknown } | null;
     if (typeof r?.name !== "string") return [];
@@ -476,7 +491,7 @@ export function gateResearchTools(tools: ToolSet, closedStepsLeft: () => number 
   const gated: ToolSet = { ...tools };
   const searched = new Set<string>();
   // First step of each distinct research call; Lightning re-ran identical searches up to 4 times (r12 aaa).
-  const seen = new Map<string, { step: number; rows: string[] }>();
+  const seen = new Map<string, { step: number; rows: string[]; outcome: RepeatOutcome }>();
   const allCoreSearched = () => CORE_SEARCH_CATEGORIES.every((category) => searched.has(category));
   const mustValidateFirst = () =>
     Boolean(progress?.validateCalled) &&
@@ -506,11 +521,11 @@ export function gateResearchTools(tools: ToolSet, closedStepsLeft: () => number 
         const key = researchCallKey(name, input);
         const earlier = seen.get(key);
         if (earlier !== undefined) {
-          return { results: [], search_closed: true, message: repeatedSearchMessage(earlier.step, earlier.rows) } satisfies ClosedResearchOutput;
+          return { results: [], search_closed: true, message: repeatedSearchMessage(earlier.step, earlier.rows, earlier.outcome) } satisfies ClosedResearchOutput;
         }
         // Recorded before the await so a parallel identical call in the same step is caught;
         // a failed call is forgotten so its retry runs.
-        const entry = { step: (progress?.stepsUsed() ?? 0) + 1, rows: [] as string[] };
+        const entry = { step: (progress?.stepsUsed() ?? 0) + 1, rows: [] as string[], outcome: "pending" as RepeatOutcome };
         seen.set(key, entry);
         let output: unknown;
         try {
@@ -526,6 +541,7 @@ export function gateResearchTools(tools: ToolSet, closedStepsLeft: () => number 
         const category = (input as { category?: unknown } | null)?.category;
         if (typeof category === "string") searched.add(category.trim().toLowerCase());
         entry.rows = topRows(output);
+        entry.outcome = resultRows(output)?.length === 0 ? "empty" : "rows";
         if (!output || typeof output !== "object" || Array.isArray(output)) return output;
         if (shouldNudge()) return { ...output, next_step: validateNextNote(progress!.stepsUsed() + 1) };
         const left = CORE_SEARCH_CATEGORIES.filter((c) => !searched.has(c));
