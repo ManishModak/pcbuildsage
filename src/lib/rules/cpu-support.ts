@@ -124,16 +124,35 @@ function am4Column(identity: CpuIdentity): Am4Column {
   return identity.series as Am4Column;
 }
 
-/** "Ryzen 3000, 4000 or 5000" - the columns a matrix row supports. */
-function supportedColumns(row: readonly Am4Cell[]): string {
+/** "a, b or c". */
+function orList(names: string[]): string {
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}` : names.join("");
+}
+
+/** "Ryzen 3000 non-G, 4000 or 5000" - the columns a matrix row supports.
+ *  A supported column that shares its name with the CPU's G column gets
+ *  "non-G", so "Ryzen 3000" can't be read as covering a 3200G. */
+function supportedColumns(row: readonly Am4Cell[], cpuColumn: Am4Column): string {
   let ryzenSeen = false;
   const names = AM4_COLUMNS.filter((_, i) => row[i] === "yes").map((c) => {
-    if (!c.startsWith("Ryzen ")) return c;
-    const name = ryzenSeen ? c.slice("Ryzen ".length) : c;
+    const label = `${c}G` === cpuColumn ? `${c} non-G` : c;
+    if (!c.startsWith("Ryzen ")) return label;
+    const name = ryzenSeen ? label.slice("Ryzen ".length) : label;
     ryzenSeen = true;
     return name;
   });
-  return names.length > 1 ? `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}` : names.join("");
+  return orList(names);
+}
+
+/** "a" or "an" before a chipset or CPU-family name (an X570, an Athlon). */
+function withArticle(name: string): string {
+  return `${/^[AX]/.test(name) ? "an" : "a"} ${name}`;
+}
+
+/** The AM4 chipsets AMD lists as supporting a column, in matrix order. */
+function chipsetsSupporting(column: Am4Column): string {
+  const index = AM4_COLUMNS.indexOf(column);
+  return orList(Object.entries(AM4_SUPPORT).filter(([, row]) => row[index] === "yes").map(([chipset]) => chipset));
 }
 
 type ChipsetFamily = "am4-300" | "am4-400" | "am4-500" | "lga1700-600" | "lga1700-700" | "lga1851-800";
@@ -198,11 +217,12 @@ export function checkCpuSupport(
   if (identity.platform === "AM4" && family.startsWith("am4")) {
     const row = AM4_SUPPORT[compact];
     if (!row) return;
-    const cell = row[AM4_COLUMNS.indexOf(am4Column(identity))];
+    const column = am4Column(identity);
+    const cell = row[AM4_COLUMNS.indexOf(column)];
     if (!cell) return;
     if (cell === "no" && family === "am4-500") {
       recordCheck("cpu_support", "failed", components,
-        `${chipset} boards don't support ${cpuName} (AMD's AM4 compatibility chart). Pick a ${supportedColumns(row)} CPU instead.`);
+        `${chipset} boards don't support ${column} CPUs such as ${cpuName} (AMD's AM4 compatibility chart). Pick ${withArticle(supportedColumns(row, column))} CPU, or ${withArticle(chipsetsSupporting(column))} board.`);
       return;
     }
     if (cell === "no") {

@@ -148,7 +148,15 @@ describe("CPU support review", () => {
     for (const [model, chipset, status] of cases) {
       expect(support(model, chipset).status, `${model} + ${chipset}`).toBe(status);
     }
-    expect(support("AMD Ryzen 5 1600", "X570").message).toMatch(/Pick a Ryzen 2000, 3000G, 3000, 4000 or 5000 CPU instead/);
+    expect(support("AMD Ryzen 5 1600", "X570").message).toBe(
+      "X570 boards don't support Ryzen 1000 CPUs such as AMD Ryzen 5 1600 (AMD's AM4 compatibility chart). Pick a Ryzen 2000, 3000G, 3000, 4000 or 5000 CPU, or an X470, X370, B350 or A320 board."
+    );
+  });
+
+  it("names the G column a failed APU falls in, so the supported Ryzen 3000 column doesn't read as including it", () => {
+    expect(support("AMD Ryzen 3 3200G", "A520").message).toBe(
+      "A520 boards don't support Ryzen 3000G CPUs such as AMD Ryzen 3 3200G (AMD's AM4 compatibility chart). Pick a Ryzen 3000 non-G, 4000 or 5000 CPU, or an X570, X470, B450, X370, B350 or A320 board."
+    );
   });
 
   it("stays silent on AM4 chipsets missing from AMD's matrix", () => {
