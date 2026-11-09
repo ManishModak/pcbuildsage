@@ -96,9 +96,13 @@ export type Revalidate = (label: string, parts: Record<string, unknown>, budget?
 /**
  * Parts for a build made of the given product IDs, when every one is a part
  * some validation this turn resolved or a search this turn returned (`found`:
- * full ID to category), plus the owned parts of `entry`. A supplied ID that
- * `entry` had as owned stays owned (costs 0). Null when an ID is unknown or
- * ambiguous, or two IDs share a single-part category.
+ * full ID to category), plus the owned parts of `entry` and its included
+ * cooler as it was first given (a registry key resolves it, a bare name may not).
+ * A supplied ID that `entry` had as owned stays owned (costs 0). Null when an
+ * ID is unknown or ambiguous, two IDs share a single-part category, or the
+ * parts hold fewer of some category than `entry` does: Lightning presented a
+ * whole office build with only its CPU's ID, and the revalidation turned it
+ * into a CPU alone (r38 office).
  */
 function partsFromKnownIds(
   store: TurnValidationStore,
@@ -112,10 +116,11 @@ function partsFromKnownIds(
       if (typeof c?.product_id === "string" && typeof c.category === "string") known.set(c.product_id, c.category);
     }
   }
-  const owned = (entry.snapshot?.components ?? []).filter((c) => c?.owned && typeof c.category === "string");
+  const components = (entry.snapshot?.components ?? []).filter((c) => typeof c?.category === "string");
+  const owned = components.filter((c) => c.owned || c.included);
   const ownedIds = new Set(owned.map((c) => c.product_id).filter((id): id is string => typeof id === "string"));
   const parts: Record<string, unknown> = {};
-  const add = (category: string, part: Record<string, unknown>): boolean => {
+  const add = (category: string, part: unknown): boolean => {
     if (category === "storage") parts.storage = [...((parts.storage as unknown[] | undefined) ?? []), part];
     else if (parts[category]) return false;
     else parts[category] = part;
@@ -132,10 +137,14 @@ function partsFromKnownIds(
   }
   for (const c of owned) {
     if (c.product_id && used.has(c.product_id)) continue;
-    // An owned part fills its slot unless a supplied part took it (storage holds several).
-    if (c.category === "storage" || !parts[c.category]) add(c.category, c.product_id ? { product_id: c.product_id, owned: true } : { name: c.name, owned: true });
+    // An owned part or included cooler fills its slot unless a supplied part took it (storage holds several).
+    if (c.category === "storage" || !parts[c.category]) {
+      add(c.category, c.included ? (entry.snapshot?.parts?.cooler ?? { name: c.name }) : c.product_id ? { product_id: c.product_id, owned: true } : { name: c.name, owned: true });
+    }
   }
-  return parts;
+  const count = (category: string) => [parts[category] ?? []].flat().length;
+  const dropsPart = components.some((c) => count(c.category) < components.filter((o) => o.category === c.category).length);
+  return dropsPart ? null : parts;
 }
 
 /**

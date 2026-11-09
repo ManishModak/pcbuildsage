@@ -124,9 +124,54 @@ describe("present_build per-turn validation", () => {
     // The label's owned parts came along, so the revalidated build is whole.
     expect(store.get("split")?.snapshot.components.filter((c) => c.owned)).toHaveLength(4);
 
+    // IDs that leave out a part the validated build has don't shrink it to those parts.
+    const shrunk = (await present.execute!({ builds: [{ label: "Split", product_ids: [FULL_CPU.slice(0, 10)] }] }, ctx)) as { presented: boolean; error: string };
+    expect(shrunk.presented).toBe(false);
+    expect(shrunk.error).toContain("differ from its validation snapshot");
+    expect(store.get("split")?.snapshot.components.map((c) => c.category)).toContain("motherboard");
+
     // An ID no validation this turn resolved is still refused.
     const unknown = (await present.execute!({ builds: [{ label: "Split", product_ids: [FULL_CPU.slice(0, 10), "ffffffffff"] }] }, ctx)) as { presented: boolean };
     expect(unknown.presented).toBe(false);
+  });
+
+  it("revalidates a split build only when the IDs keep every part, included cooler and drive it had", async () => {
+    const SSD_A = "5a5a5a5a5a06377759be1c70e28f32230239c301";
+    const SSD_B = "5b5b5b5b5b06377759be1c70e28f32230239c302";
+    // An i5-12400 ships with the Laminar RM1 its 65 W fits.
+    const CPU = "c4c4c4c4c406377759be1c70e28f32230239c303";
+    insert(db, { id: CPU, name: "Intel Core i5-12400 Desktop Processor", category: "cpu", registry_key: "intel-core-i5-12400", price: 13000, country_code: "IN" });
+    insert(db, { id: SSD_A, name: "Samsung 990 Pro 1TB NVMe SSD", category: "storage", price: 9000, country_code: "IN" });
+    insert(db, { id: SSD_B, name: "Crucial MX500 2TB SATA SSD", category: "storage", price: 11000, country_code: "IN" });
+    const store = createTurnValidationStore();
+    const validate = createValidateBuildTool(scope, repo, store);
+    const owned = { ram: { name: "16GB DDR5", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } };
+    const split = { cpu: { product_id: CPU }, cooler: { key: "intel-laminar-rm1", name: "Stock cooler (included)" }, storage: [{ product_id: SSD_A }, { product_id: SSD_B }], ...owned };
+    await validate.execute!({ builds: [{ label: "Split", parts: split }] }, ctx);
+    await validate.execute!({ builds: [{ label: "Board", parts: { motherboard: { product_id: FULL_BOARD } } }] }, ctx);
+    expect(store.get("split")?.snapshot.components.some((c) => c.category === "cooler" && c.included)).toBe(true);
+    const revalidated: Array<Record<string, unknown>> = [];
+    const revalidate = (label: string, parts: Record<string, unknown>) => {
+      revalidated.push(parts);
+      return Promise.resolve(validate.execute!({ builds: [{ label, parts }] } as never, ctx));
+    };
+    const present = createPresentBuildTool(store, { revalidate });
+    const ids = (...full: string[]) => full.map((id) => id.slice(0, 10));
+
+    // Leaving out one of two drives doesn't drop it.
+    const fewer = (await present.execute!({ builds: [{ label: "Split", product_ids: ids(CPU, FULL_BOARD, SSD_A) }] }, ctx)) as { presented: boolean };
+    expect(fewer.presented).toBe(false);
+    expect(store.get("split")?.snapshot.components.filter((c) => c.category === "storage")).toHaveLength(2);
+
+    // Every bought part plus the new board: the included cooler and both drives come along.
+    const whole = (await present.execute!({ builds: [{ label: "Split", product_ids: ids(CPU, FULL_BOARD, SSD_A, SSD_B) }] }, ctx)) as { presented: boolean };
+    expect(whole.presented).toBe(true);
+    // The cooler goes back as first given, registry key included.
+    expect(revalidated.at(-1)?.cooler).toEqual(split.cooler);
+    const components = store.get("split")?.snapshot.components ?? [];
+    expect(components.some((c) => c.category === "cooler" && c.included)).toBe(true);
+    expect(components.filter((c) => c.category === "storage")).toHaveLength(2);
+    expect(components.some((c) => c.category === "motherboard")).toBe(true);
   });
 
   it("presents a build whose part was only searched this turn, carrying the validation it was shown from", async () => {
