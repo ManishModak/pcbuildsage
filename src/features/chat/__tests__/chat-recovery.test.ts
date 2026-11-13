@@ -1,10 +1,51 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { UIMessage } from "ai";
-import { ChatRecovery, isRecoverableChatError, prepareChatRecovery } from "../chat-recovery";
+import { ChatRecovery, isRateLimitError, isRecoverableChatError, prepareChatRecovery, RATE_LIMIT_RECOVERY_DELAY_MS } from "../chat-recovery";
 
 afterEach(() => vi.useRealTimers());
 
 describe("bounded chat recovery", () => {
+  it("waits out a provider rate-limit window instead of retrying inside it", () => {
+    vi.useFakeTimers();
+    const recovery = new ChatRecovery();
+    const resume = vi.fn();
+    expect(
+      recovery.schedule(
+        // The shape the UI receives: the server's plain copy plus the status.
+        new Error(
+          "You've hit the free limit. Wait a bit or pick another free model. [HTTP 429] Rate limit reached for tokens per minute (You've hit the free limit. Wait a bit or pick another free model.)"
+        ),
+        resume
+      )
+    ).toBe(true);
+    vi.advanceTimersByTime(RATE_LIMIT_RECOVERY_DELAY_MS - 1);
+    expect(resume).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(resume).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a transient fault almost immediately", () => {
+    vi.useFakeTimers();
+    const recovery = new ChatRecovery();
+    const resume = vi.fn();
+    expect(recovery.schedule(new Error("502 bad gateway"), resume)).toBe(true);
+    vi.advanceTimersByTime(750);
+    expect(resume).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [{ status: 429 }, true],
+    [{ statusCode: 429 }, true],
+    [new Error("429 Too Many Requests"), true],
+    [new Error("rate limit reached for tokens per minute"), true],
+    // The server's plain copy keeps the status in brackets.
+    [new Error("You've hit the free limit. Wait a bit or pick another free model. [HTTP 429] Rate limit"), true],
+    [new Error("502 bad gateway"), false],
+    [new Error("context_length_exceeded"), false]
+  ])("classifies %s as a rate limit: %s", (error, expected) => {
+    expect(isRateLimitError(error)).toBe(expected);
+  });
+
   it("retries once, resets for a new request, and can cancel a pending attempt", () => {
     vi.useFakeTimers();
     const recovery = new ChatRecovery();

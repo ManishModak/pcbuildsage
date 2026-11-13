@@ -36,15 +36,17 @@ export function getEntryTimeoutMs(): number {
 }
 
 /**
- * SDK retries per step (exponential backoff from 2 s, honours Retry-After).
- * 1 keeps a waiting user's turn short; the recommendation eval raises it with
+ * SDK retries per step (2 s, then 4 s, honouring Retry-After up to 60 s).
+ * 2 gives a rate-limited step two more chances before the turn fails; free
+ * providers' windows reset within a minute, so a longer budget mostly just
+ * makes the user wait. The recommendation eval raises it with
  * PCBUILDSAGE_LLM_MAX_RETRIES to ride out shared free endpoints' 429s.
  */
 export function getStepMaxRetries(): number {
   const raw = process.env.PCBUILDSAGE_LLM_MAX_RETRIES;
   const parsed = raw ? Number.parseInt(raw, 10) : NaN;
   if (Number.isFinite(parsed) && parsed >= 0) return parsed;
-  return 1;
+  return 2;
 }
 
 export type ServedText<T = unknown> = T & {
@@ -205,6 +207,35 @@ export function localNoThinkingOptions(entry: LLMChainEntry) {
   return { providerOptions: { "openai-compatible": { chat_template_kwargs: { enable_thinking: false } } } };
 }
 
+/**
+ * Ask Gemini for thought summaries, which the chat renders as "How the sage
+ * reasoned". Without `includeThoughts` the API returns no thinking parts at
+ * all, even when the model thinks. The Google provider merges these options
+ * over the thinking level/budget it resolves from `reasoning`, so the user's
+ * effort setting still decides how much the model thinks.
+ *
+ * Only for the chat stream: subagent and compaction calls do not show a trace,
+ * so paying for summaries there would be waste.
+ */
+export function geminiThinkingOptions(entry: LLMChainEntry): Pick<Parameters<typeof streamText>[0], "providerOptions"> {
+  if (entry.provider !== "gemini" || !supportsGeminiThoughts(entry.model)) return {};
+  return { providerOptions: { google: { thinkingConfig: { includeThoughts: true } } } };
+}
+
+/**
+ * Models that accept thinkingConfig. Every Gemini 4 and 3 model thinks, so
+ * Flash-Lite counts too (it defaults to "minimal"); in the 2.5 series only Pro
+ * and Flash think, and 2.5 Flash-Lite does not. Image, audio and embedding
+ * models are left alone because this app chats in text.
+ */
+export function supportsGeminiThoughts(model: string): boolean {
+  const id = model.toLowerCase().replace(/^models\//, "");
+  if (/(image|embedding|tts|live)/.test(id)) return false;
+  if (/^gemini-(3|4)/.test(id)) return true;
+  if (/^gemini-2\.5/.test(id)) return !id.includes("lite");
+  return false;
+}
+
 export async function streamTextWithFallback(args: {
   chain: LLMChainEntry[];
   system?: string;
@@ -243,9 +274,9 @@ export async function streamTextWithFallback(args: {
         ...streamArgs,
         model: createLanguageModel(entry),
         ...(entry.reasoningEffort ? { reasoning: entry.reasoningEffort } : {}),
-        ...(thinking === false ? localNoThinkingOptions(entry) : {}),
-        // Per-step retry with SDK exponential backoff: 429/5xx on step 2+
-        // retries that step once instead of failing the turn.
+        ...(thinking === false ? localNoThinkingOptions(entry) : geminiThinkingOptions(entry)),
+        // Per-step retry with SDK exponential backoff: a 429/5xx on any step
+        // gets retried instead of failing the whole turn.
         maxRetries: getStepMaxRetries(),
         abortSignal
       });

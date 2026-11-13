@@ -116,7 +116,7 @@ describe("generateTextWithFallback chain errors", () => {
 });
 
 describe("step retry and stream plumbing", () => {
-  it("retries each step once with backoff via SDK maxRetries", async () => {
+  it("retries each step twice with backoff via SDK maxRetries", async () => {
     const seen: Array<Record<string, unknown>> = [];
     aiState.generateImpl = async (args) => {
       seen.push(args);
@@ -124,10 +124,10 @@ describe("step retry and stream plumbing", () => {
     };
     const chain = [{ provider: "ollama", model: "m", keySource: "none" }] as never[];
     await generateTextWithFallback({ chain, prompt: "hi", timeoutMsPerEntry: 2000 });
-    expect(seen[0]).toMatchObject({ maxRetries: 1 });
+    expect(seen[0]).toMatchObject({ maxRetries: 2 });
   });
 
-  it("passes maxRetries 1 to streamText so 429/5xx on step 2+ retries once", async () => {
+  it("passes maxRetries 2 to streamText so a rate-limited step gets two more attempts", async () => {
     const seen: Array<Record<string, unknown>> = [];
     aiState.streamImpl = (args) => {
       seen.push(args as Record<string, unknown>);
@@ -139,7 +139,7 @@ describe("step retry and stream plumbing", () => {
     };
     const chain = [{ provider: "ollama", model: "m", keySource: "none" }] as never[];
     await streamTextWithFallback({ chain, messages: [{ role: "user", content: "hi" }], firstTokenTimeoutMs: 2000 });
-    expect(seen[0]).toMatchObject({ maxRetries: 1 });
+    expect(seen[0]).toMatchObject({ maxRetries: 2 });
   });
 
   it("takes the per-step retry count from PCBUILDSAGE_LLM_MAX_RETRIES (used by the eval)", async () => {

@@ -46,7 +46,7 @@ import {
 } from "./session-save-queue";
 import { CONFLICT_ADOPTED_NOTICE, describeSaveFailure, SaveAlert, shouldShowNotSavedYet } from "./save-failure-notice";
 import { TranscriptMenu } from "./transcript-menu";
-import { ChatRecovery, isIncompleteChatFinish, prepareChatRecovery, isContextLimitError } from "./chat-recovery";
+import { ChatRecovery, isIncompleteChatFinish, prepareChatRecovery, isContextLimitError, isRateLimitError } from "./chat-recovery";
 import { getModelContextLimit, estimateTokens, shouldTriggerCompaction, TOOL_DEFINITIONS_TOKEN_OVERHEAD } from "@/lib/llm/context-budget";
 
 function deriveTitle(messages: ChatUIMessage[]): string {
@@ -103,11 +103,28 @@ function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedB
   return null;
 }
 
+/**
+ * A recovery that is scheduled but not running yet. The reason is kept because
+ * the wait differs: a rate limit needs the provider's minute window to clear,
+ * while a dropped stream or 5xx is retried almost at once.
+ */
+export type RecoveryWait = "rate-limit" | "transient";
+
 // The composer's model line: which model answers and whether it's busy. The
 // dot is the only colour; a rune spinner stands in for animated dots while busy.
-function ModelStatus({ modelName, streaming, isCompacting }: { modelName: string; streaming: boolean; isCompacting?: boolean }) {
+function ModelStatus({
+  modelName,
+  streaming,
+  isCompacting,
+  recovering
+}: {
+  modelName: string;
+  streaming: boolean;
+  isCompacting?: boolean;
+  recovering?: RecoveryWait | null;
+}) {
   const displayName = useMemo(() => formatModelName(modelName), [modelName]);
-  const busy = streaming || isCompacting;
+  const busy = streaming || isCompacting || Boolean(recovering);
 
   return (
     <div
@@ -116,11 +133,22 @@ function ModelStatus({ modelName, streaming, isCompacting }: { modelName: string
     >
       <span
         aria-hidden
-        className={cn("h-2 w-2 shrink-0 rounded-full", isCompacting ? "bg-warn" : streaming ? "bg-accent" : "bg-ok")}
+        className={cn(
+          "h-2 w-2 shrink-0 rounded-full",
+          isCompacting || recovering === "rate-limit" ? "bg-warn" : streaming || recovering ? "bg-accent" : "bg-ok"
+        )}
       />
       <span className="truncate">
         <span className="font-mono text-text-secondary">{displayName}</span>{" "}
-        {isCompacting ? "is shortening the chat" : streaming ? "is answering" : "ready"}
+        {recovering === "rate-limit"
+          ? "is waiting out the rate limit"
+          : recovering
+            ? "is retrying"
+            : isCompacting
+              ? "is shortening the chat"
+              : streaming
+                ? "is answering"
+                : "ready"}
       </span>
       {busy ? <RuneSpinner /> : null}
     </div>
@@ -256,11 +284,15 @@ export function ChatView({
   const [incompleteNotice, setIncompleteNotice] = useState<{ sessionId: string } | null>(null);
   const [isCompacting, setIsCompacting] = useState(false);
   const [contextExceededNotice, setContextExceededNotice] = useState<string | null>(null);
+  // A recovery is scheduled but not running yet (up to 10 s for a rate limit):
+  // the composer must still show Stop and say what it is waiting for.
+  const [recovering, setRecovering] = useState<RecoveryWait | null>(null);
 
   const [prevSessionId, setPrevSessionId] = useState(sessionId);
   if (sessionId !== prevSessionId) {
     setPrevSessionId(sessionId);
     setIsCompacting(false);
+    setRecovering(null);
     setContextExceededNotice(null);
     setSaveFailureNotice(null);
     setConflictNotice(null);
@@ -290,9 +322,12 @@ export function ChatView({
       }
       if (isIncompleteChatFinish(message, { isAbort, isError })) {
         const scheduled = recovery.scheduleIncomplete(() => {
+          setRecovering(null);
           setMessages((current) => prepareChatRecovery(current));
           void sendMessage();
         });
+        // A turn that ended without an answer is not a rate limit: it retries at once.
+        setRecovering(scheduled ? "transient" : null);
         setIncompleteNotice(scheduled ? null : { sessionId });
       } else {
         setIncompleteNotice(null);
@@ -428,10 +463,12 @@ export function ChatView({
         }
         return;
       }
-      recovery.schedule(chatError, () => {
+      const scheduled = recovery.schedule(chatError, () => {
+        setRecovering(null);
         setMessagesRef.current((current) => prepareChatRecovery(current));
         void sendMessageRef.current();
       });
+      setRecovering(scheduled ? (isRateLimitError(chatError) ? "rate-limit" : "transient") : null);
     };
   });
 
@@ -894,6 +931,7 @@ export function ChatView({
   const send = (text: string) => {
     if (!text.trim() || streaming || isLoading) return;
     recovery.reset();
+    setRecovering(null);
     setIncompleteNotice(null);
     if (checkShouldCompact(messages, text)) {
       setIsCompacting(true);
@@ -910,6 +948,7 @@ export function ChatView({
   const handleEditMessage = (index: number, newText: string) => {
     if (streaming || isLoading) return;
     recovery.reset();
+    setRecovering(null);
     setIncompleteNotice(null);
     const truncated = messages.slice(0, index);
     if (checkShouldCompact(truncated, newText)) {
@@ -1059,15 +1098,24 @@ export function ChatView({
                 onSend={send}
                 onStop={() => {
                   recovery.cancel();
+                  setRecovering(null);
                   setIsCompacting(false);
                   void stop();
                 }}
                 // A half-loaded chat must not be messaged into: the transcript it
                 // would be appended to is not the one the user is looking at.
                 disabled={isLoading}
-                streaming={streaming || activeIsCompacting}
+                // A scheduled recovery is still "busy": sending now would race it.
+                streaming={streaming || activeIsCompacting || recovering !== null}
                 initialValue={initialPrompt}
-                status={<ModelStatus modelName={activeModel} streaming={streaming} isCompacting={activeIsCompacting} />}
+                status={
+                  <ModelStatus
+                    modelName={activeModel}
+                    streaming={streaming}
+                    isCompacting={activeIsCompacting}
+                    recovering={recovering}
+                  />
+                }
               />
               <p className="mt-2 text-center text-caption text-text-muted">
                 {isHostedMode() ? (

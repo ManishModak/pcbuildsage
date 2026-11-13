@@ -27,6 +27,9 @@ export function isRecoverableChatError(error: unknown): boolean {
   if (value?.name === "AbortError" || /abort|cancel|unauthorized|forbidden|invalid.*(?:key|credential)|\b40[13]\b/i.test(message)) return false;
   const status = value?.statusCode ?? value?.status;
   if (status === 401 || status === 403) return false;
+  // One definition of "rate limited", shared with the delay picker: a spelling
+  // that classifies as a rate limit must also be retried, or the wait never runs.
+  if (isRateLimitError(error)) return true;
   return status === 429 || (status !== undefined && status >= 500 && status < 600) ||
     /\b(?:429|5\d\d)\b|upstream|provider.*error|network|fetch failed|failed to fetch|connection|econnreset|timeout|timed out|rate limit|temporarily unavailable/i.test(message);
 }
@@ -55,6 +58,29 @@ export function isIncompleteChatFinish(message: UIMessage, flags: { isAbort: boo
   });
 }
 
+/** A 5xx or a dropped stream is usually healthy again almost immediately. */
+const TRANSIENT_RECOVERY_DELAY_MS = 750;
+/**
+ * Provider rate limits are counted per minute (Groq's and Gemini's free tiers
+ * both report a token window that resets inside a minute), so a retry inside
+ * the same window always fails and only spends the request budget. Ten seconds
+ * is about a window reset; waiting longer would look like a frozen app.
+ */
+export const RATE_LIMIT_RECOVERY_DELAY_MS = 10_000;
+
+/**
+ * True when the failure is a provider quota/rate limit rather than a transient
+ * fault. The server prefixes its plain-language copy but keeps `[HTTP 429]` and
+ * the provider's wording, so matching the text works on what the UI receives.
+ */
+export function isRateLimitError(error: unknown): boolean {
+  const value = error as { status?: number; statusCode?: number; message?: string } | null;
+  const status = value?.statusCode ?? value?.status;
+  if (status === 429) return true;
+  const message = value?.message ?? String(error);
+  return /\b429\b|rate.?limit|too many requests|token.{0,10}(per minute|window)|quota/i.test(message);
+}
+
 /** One delayed recovery per user request; reset only for a new user action. */
 export class ChatRecovery {
   private used = false;
@@ -67,17 +93,21 @@ export class ChatRecovery {
 
   schedule(error: unknown, recover: () => void): boolean {
     if (!isRecoverableChatError(error)) return false;
-    return this.scheduleIncomplete(recover);
+    return this.scheduleOnce(recover, isRateLimitError(error) ? RATE_LIMIT_RECOVERY_DELAY_MS : TRANSIENT_RECOVERY_DELAY_MS);
   }
 
   // Silent early endings and explicit errors share the same retry budget.
   scheduleIncomplete(recover: () => void): boolean {
+    return this.scheduleOnce(recover, TRANSIENT_RECOVERY_DELAY_MS);
+  }
+
+  private scheduleOnce(recover: () => void, delayMs: number): boolean {
     if (this.used) return false;
     this.used = true;
     this.timer = setTimeout(() => {
       this.timer = undefined;
       recover();
-    }, 750);
+    }, delayMs);
     return true;
   }
 
