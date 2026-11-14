@@ -42,8 +42,17 @@ const targets: ValidationTarget[] = [
     name: "search",
     schemaPath: "data/schemas/search.schema.json",
     dataDir: "data/search"
+  },
+  {
+    name: "benchmarks",
+    schemaPath: "data/schemas/benchmark.schema.json",
+    dataDir: "data/benchmarks"
   }
 ];
+
+// Benchmark scores are keyed by chip-level entries in these registry files.
+const BENCHMARK_REGISTRY_FILES = { gpu: "data/registry/gpus.json", cpu: "data/registry/cpus.json" } as const;
+const benchmarkMetricFiles = new Map<string, string>();
 
 const ajv = new Ajv2020({ allErrors: true });
 addFormats(ajv);
@@ -167,9 +176,27 @@ for (const target of targets) {
             console.error(`${filePath}: entry "${key}" is classified as air cooler but defines radiator_size_mm.`);
           }
         }
+
+        if (category === "gpus" && spec.chip !== undefined) {
+          const chip = entries[spec.chip as string];
+          if (spec.chip === key || !chip || typeof chip !== "object" || chip.chip !== undefined) {
+            registryHasErrors = true;
+            hasErrors = true;
+            console.error(`${filePath}: entry "${key}" has chip "${String(spec.chip)}", which must be another gpus.json entry without its own chip.`);
+          }
+        }
       }
 
       if (registryHasErrors) {
+        continue;
+      }
+    }
+
+    if (target.name === "benchmarks") {
+      const errors = benchmarkErrors(data.value as BenchmarkFile, filePath);
+      if (errors.length > 0) {
+        hasErrors = true;
+        for (const error of errors) console.error(`${filePath}: ${error}`);
         continue;
       }
     }
@@ -180,6 +207,54 @@ for (const target of targets) {
 
 if (hasErrors) {
   process.exitCode = 1;
+}
+
+type BenchmarkFile = {
+  metric: string;
+  baselines: Partial<Record<keyof typeof BENCHMARK_REGISTRY_FILES, string>>;
+  scores: Partial<Record<keyof typeof BENCHMARK_REGISTRY_FILES, Record<string, number>>>;
+  runs: Record<string, number>;
+};
+
+/**
+ * Checks a schema-valid benchmark dataset against the registry: one dataset
+ * per metric, every baseline scores exactly 100, every score key is a chip
+ * entry (not a board-partner card), and every score has a run count.
+ */
+function benchmarkErrors(dataset: BenchmarkFile, filePath: string): string[] {
+  const errors: string[] = [];
+  const earlier = benchmarkMetricFiles.get(dataset.metric);
+  if (earlier) errors.push(`metric "${dataset.metric}" is already provided by ${earlier}; keep one dataset per metric.`);
+  benchmarkMetricFiles.set(dataset.metric, filePath);
+
+  const scoredKeys = new Set<string>();
+  for (const category of Object.keys(BENCHMARK_REGISTRY_FILES) as Array<keyof typeof BENCHMARK_REGISTRY_FILES>) {
+    const scores = dataset.scores[category];
+    const baseline = dataset.baselines[category];
+    if (!scores) {
+      if (baseline) errors.push(`baselines.${category} is set but scores.${category} is missing.`);
+      continue;
+    }
+    if (!baseline || scores[baseline] !== 100) {
+      errors.push(`scores.${category} needs its baseline (${baseline ?? "unset"}) at exactly 100.`);
+    }
+    const registry = readJson<Record<string, Record<string, unknown>>>(BENCHMARK_REGISTRY_FILES[category]);
+    if (!registry.ok) {
+      errors.push(`could not read ${BENCHMARK_REGISTRY_FILES[category]}.`);
+      continue;
+    }
+    for (const key of Object.keys(scores)) {
+      scoredKeys.add(key);
+      const entry = registry.value[key];
+      if (!entry || typeof entry !== "object") errors.push(`scores.${category}.${key} is not a key in ${BENCHMARK_REGISTRY_FILES[category]}.`);
+      else if (entry.chip !== undefined) errors.push(`scores.${category}.${key} is a board-partner card; score its chip (${String(entry.chip)}) instead.`);
+      if (dataset.runs[key] === undefined) errors.push(`runs.${key} is missing.`);
+    }
+  }
+  for (const key of Object.keys(dataset.runs)) {
+    if (!scoredKeys.has(key)) errors.push(`runs.${key} has no score.`);
+  }
+  return errors;
 }
 
 function listJsonFiles(dir: string, recursive = false): string[] {

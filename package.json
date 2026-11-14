@@ -42,6 +42,7 @@
     "export-research": "tsx scripts/export-research.ts",
     "publish-catalog": "tsx scripts/publish-catalog.ts",
     "catalog-coverage": "tsx scripts/catalog-coverage.ts",
+    "import-blender-benchmarks": "tsx scripts/import-blender-benchmarks.ts",
     "build-guides": "tsx scripts/build-guides.ts"
   },
   "dependencies": {

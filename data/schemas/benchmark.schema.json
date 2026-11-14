@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pcbuildsage.local/schemas/benchmark.schema.json",
+  "title": "PCBuildSage Benchmark Dataset",
+  "description": "One benchmark source and method. Scores are a relative index (the category baseline is 100) keyed by chip-level registry keys. Only scores from the same dataset are comparable.",
+  "type": "object",
+  "required": ["id", "metric", "source", "method", "baselines", "scores", "runs"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*$" },
+    "metric": { "enum": ["rendering"] },
+    "source": {
+      "type": "object",
+      "required": ["name", "url", "licence", "snapshot"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "licence": { "type": "string", "minLength": 1 },
+        "snapshot": { "type": "string", "format": "date" }
+      },
+      "additionalProperties": false
+    },
+    "method": { "type": "string", "minLength": 1 },
+    "baselines": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "gpu": { "$ref": "#/$defs/key" },
+        "cpu": { "$ref": "#/$defs/key" }
+      },
+      "additionalProperties": false
+    },
+    "scores": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "gpu": { "$ref": "#/$defs/scoreMap" },
+        "cpu": { "$ref": "#/$defs/scoreMap" }
+      },
+      "additionalProperties": false
+    },
+    "runs": {
+      "description": "Per scored key: the fewest runs behind any one scene's median.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/key" },
+      "additionalProperties": { "type": "integer", "minimum": 1 }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "scoreMap": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/key" },
+      "additionalProperties": { "type": "number", "exclusiveMinimum": 0 }
+    }
+  }
+}
