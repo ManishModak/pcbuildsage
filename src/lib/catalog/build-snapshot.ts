@@ -1,6 +1,7 @@
 import type { ComponentCategory, ResolvedSpec } from "../registry";
 import type { BuildPart, BuildParts, ValidationResult } from "../rules-engine";
 import { isMarkedIncluded, isStockCooler } from "../rules-engine";
+import { getCpuCoolerInclusion } from "../rules/quality";
 import type { CatalogScope, SearchProductItem } from "./repository";
 import { toPriceMinor, fromPriceMinor } from "@/types/catalog";
 
@@ -108,6 +109,18 @@ export function createBuildSnapshot({
   const components: BuildSnapshotComponent[] = [];
   const primaryCurrency = scope.currency || "USD";
 
+  const resolvedCpu = validation.resolved.cpu as ResolvedSpec | undefined;
+  const cpuPart = Array.isArray(parts.cpu) ? undefined : parts.cpu;
+  const cpuProductId = typeof cpuPart === "object" && cpuPart?.product_id ? cpuPart.product_id.trim() : undefined;
+  const cpuProduct = cpuProductId ? productsById.get(cpuProductId) : undefined;
+  const cpuExcludesStockCooler = Boolean(
+    resolvedCpu &&
+    getCpuCoolerInclusion(resolvedCpu, {
+      name: cpuProduct?.name ?? (typeof cpuPart === "object" ? cpuPart?.name : undefined),
+      specs: cpuProduct?.specs ?? null
+    }).status === "not_included"
+  );
+
   for (const category of CATEGORY_ORDER) {
     const raw = parts[category];
     if (!raw) continue;
@@ -120,16 +133,8 @@ export function createBuildSnapshot({
           : undefined;
       const catalogProduct = productId ? productsById.get(productId) : undefined;
 
-      // Check for included cooler
-      if (category === "cooler") {
-        const resolvedCooler = validation.resolved.cooler as ResolvedSpec | undefined;
-        const included = resolveIncludedCooler(item as BuildPart, resolvedCooler, catalogProduct, primaryCurrency);
-        if (included) {
-          components.push(included);
-          continue;
-        }
-      }
-
+      // Owned parts take precedence over stock-cooler inference so an owned
+      // stock cooler never bypasses unnamed-owned verification.
       if (isOwnedPart(item as BuildPart)) {
         const owned = item as Exclude<BuildPart, string>;
         components.push({
@@ -142,6 +147,16 @@ export function createBuildSnapshot({
           owned: true
         });
         continue;
+      }
+
+      // Check for included cooler only when the CPU isn't known to ship without one
+      if (category === "cooler" && !cpuExcludesStockCooler) {
+        const resolvedCooler = validation.resolved.cooler as ResolvedSpec | undefined;
+        const included = resolveIncludedCooler(item as BuildPart, resolvedCooler, catalogProduct, primaryCurrency);
+        if (included) {
+          components.push(included);
+          continue;
+        }
       }
 
       if (catalogProduct) {

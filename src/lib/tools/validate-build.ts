@@ -1,9 +1,9 @@
 import { tool } from "ai";
-import { resolveComponent, withTitleGpuLength, type ComponentCategory } from "../registry";
+import { resolveComponent, withTitleGpuLength, type ComponentCategory, type ResolvedSpec } from "../registry";
 import { parseSpecsFromTitle } from "../spec-parsers";
 import { getCatalogRepository, type CatalogRepository, type CatalogScope, type SearchProductItem } from "../catalog";
 import { validateBuild, type BuildIssue, type BuildParts, type BuildPart, type ComponentQualityMeta, type ValidationResult } from "../rules-engine";
-import { wantsGamingGpu } from "../rules/quality";
+import { getCpuCoolerInclusion, wantsGamingGpu } from "../rules/quality";
 export { wantsGamingGpu };
 import { createBuildSnapshot, type BuildSnapshot } from "../catalog/build-snapshot";
 import { createTurnValidationStore, recordValidation, type TurnValidationStore } from "./turn-state";
@@ -66,7 +66,7 @@ export function addPriceFigures(results: Record<string, PricedResult>, budget?: 
       );
       const isWithinLabel = diff > 0 && /within budget/i.test(label);
       const isRecommendedLabel = diff > 0 && /\brecommended\b/i.test(label);
-      const exceedsValueJump = hasWithinBudget && diff > budget * VALUE_JUMP_MARGIN;
+      const exceedsValueJump = diff > budget * VALUE_JUMP_MARGIN;
       const farOver = diff > budget * FAR_OVER_BUDGET;
 
       // Lightning presented a build ₹177 over budget labelled "Within budget" (r9 esports).
@@ -75,9 +75,9 @@ export function addPriceFigures(results: Record<string, PricedResult>, budget?: 
       }
       if (isRecommendedLabel && (exceedsValueJump || farOver)) {
         const pct = Math.round((diff / budget) * 100);
-        const warning = exceedsValueJump
+        const warning = hasWithinBudget
           ? `labelled '${label}' but ${pct}% (${formatPrice(diff, currency)}) over budget while an in-budget option exists (exceeds ~3% value-jump margin): do not label an over-budget build 'Recommended' when recommending the in-budget build — relabel it or swap parts to fit within budget`
-          : `labelled '${label}' but ${pct}% (${formatPrice(diff, currency)}) over budget: swap the priciest parts for cheaper search_products picks to bring it near/within budget, or relabel it`;
+          : `labelled '${label}' but ${pct}% (${formatPrice(diff, currency)}) over budget (exceeds ~3% value-jump margin): swap the priciest parts for cheaper search_products picks to bring it within budget, or relabel it`;
         parts.push(warning);
         result.label_note = result.label_note ? `${result.label_note} ${warning}` : warning;
       } else if (!isWithinLabel && farOver) {
@@ -561,12 +561,16 @@ export function createValidateBuildTool(
             // when resolveComponent already merged the same title); RAM keeps its
             // title capacity normalization.
             const withTitle = category === "gpu" ? withTitleGpuLength(resolved, product.name) : resolved;
-            const titleSpecs =
-              category === "ram"
-                ? parseSpecsFromTitle(product.name, category)
-                : category === "cpu" && resolved.spec.cooler_included === undefined && resolved.spec.includes_cooler === undefined
-                  ? parseSpecsFromTitle(product.name, category)
-                  : undefined;
+            let titleSpecs: Record<string, unknown> | undefined;
+            if (category === "ram") {
+              titleSpecs = parseSpecsFromTitle(product.name, category);
+            } else if (category === "cpu") {
+              const parsedCpu = parseSpecsFromTitle(product.name, category);
+              const pkgOverrides: Record<string, unknown> = {};
+              if (parsedCpu?.cooler_included !== undefined) pkgOverrides.cooler_included = parsedCpu.cooler_included;
+              if (parsedCpu?.cooler_name !== undefined) pkgOverrides.cooler_name = parsedCpu.cooler_name;
+              if (Object.keys(pkgOverrides).length > 0) titleSpecs = pkgOverrides;
+            }
             const safeProductSpecs: Record<string, unknown> = {};
             if (product.specs?.spec_conflict) safeProductSpecs.spec_conflict = product.specs.spec_conflict;
             if (category === "cpu") {
@@ -591,6 +595,15 @@ export function createValidateBuildTool(
         failAmbiguousParts(validation, normalizedParts, (pid, category) => ambiguityMessage(pid, category));
 
         const missing = missingCoreParts(normalizedParts);
+        const resolvedCpu = validation.resolved.cpu as ResolvedSpec | undefined;
+        if (
+          missing.length === 0 &&
+          !normalizedParts.cooler &&
+          resolvedCpu &&
+          getCpuCoolerInclusion(resolvedCpu, componentMeta.cpu).status === "not_included"
+        ) {
+          missing.push("cooler");
+        }
         // A build with a board and no CPU is a whole build missing its CPU, not an
         // upgrade pick: a failed check, recorded before the snapshot copies the
         // verdict. (r35's ten such Lightning calls a turn came from the provider

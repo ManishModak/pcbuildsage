@@ -192,6 +192,7 @@ describe("Getting found 4: part-quality floor and build quality gate", () => {
     ])("blocks a fanless case inferred from product title '%s' under a gaming GPU", (model) => {
       const fanlessCase = makeResolved("case-title-fanless", "case", {
         ...base.case.spec,
+        included_fans: undefined,
         model,
         aliases: [model]
       });
@@ -434,6 +435,18 @@ describe("Getting found 4: part-quality floor and build quality gate", () => {
             {
               label: "Recommended",
               parts: {
+                cpu: { product_id: "cpu-5600-001" },
+                motherboard: { product_id: "mobo-b550-01" },
+                gpu: { product_id: "gpu-5060-01" },
+                ram: { product_id: "ram-16gb-01" },
+                storage: { product_id: "ssd-1tb-001" },
+                psu: { product_id: "psu-pf450-2250" },
+                case: { product_id: "case-atx-mid" }
+              }
+            },
+            {
+              label: "Fake stock",
+              parts: {
                 cpu: { product_id: "cpu-7600x-01" },
                 motherboard: { product_id: "mobo-b550-01" },
                 gpu: { product_id: "gpu-5060-01" },
@@ -459,8 +472,11 @@ describe("Getting found 4: part-quality floor and build quality gate", () => {
       expect(b2.valid).toBe(false);
       expect(String(b2.quality_note)).toMatch(/quiet/i);
       expect(String(b2.quality_note)).toMatch(/compact\/SFF/i);
-      expect(String(b2.quality_note)).toMatch(/does not include a stock cooler/i);
       expect(String(b2.label_note)).toMatch(/over budget/i);
+
+      const b3 = view.builds["Fake stock"];
+      expect(b3.valid).toBe(false);
+      expect(String(b3.quality_note)).toMatch(/does not include a stock cooler/i);
     });
 
     it("surfaces redundant paid cooler advisory in validate_build for non-quiet boxed CPU", async () => {
@@ -491,6 +507,342 @@ describe("Getting found 4: part-quality floor and build quality gate", () => {
       const view = toModelValidateOutput(out) as { builds: Record<string, Record<string, unknown>> };
       expect(view.builds["Within budget"].valid).toBe(true);
       expect(String(view.builds["Within budget"].quality_note)).toMatch(/already includes a stock cooler/i);
+    });
+
+    it("S1/S10/S11: blocks claimed stock cooler, missing cooler on no-cooler CPU, offer-level spec overrides, and owned stock cooler spoofing through inputSchema -> execute", async () => {
+      insertProduct(db, {
+        id: "cpu-5600-tray",
+        name: "AMD Ryzen 5 5600 Processor",
+        category: "cpu",
+        registry_key: "amd-ryzen-5-5600",
+        price: 10500,
+        specs: { includes_cooler: false }
+      });
+      insertProduct(db, {
+        id: "case-a3-matx",
+        name: "Lian Li DAN Cases A3-mATX Mini Tower",
+        category: "case",
+        registry_key: "lian-li-a3-matx",
+        price: 6800
+      });
+      insertProduct(db, {
+        id: "case-spaced-0",
+        name: "Budget Mesh Cabinet",
+        category: "case",
+        registry_key: "corsair-4000d-airflow",
+        price: 4000,
+        specs: { included_fans: " 0 " }
+      });
+
+      const tool = createValidateBuildTool(scope, repo, undefined, {
+        requireCatalogParts: true,
+        userText: "Build me a gaming PC under ₹80,000"
+      });
+      const validate = (tool.inputSchema as unknown as { validate: (input: unknown) => Promise<{ success: boolean; value?: unknown }> }).validate;
+
+      // S1: { name: "Stock Cooler", included: true } must survive normalizeParts + partSchema and fail validation on includes_cooler: false CPU
+      const rawClaimed = {
+        budget: 80000,
+        builds: [
+          {
+            label: "Claimed stock",
+            parts: {
+              cpu: { product_id: "cpu-5600-tray" },
+              motherboard: { product_id: "mobo-b550-01" },
+              gpu: { product_id: "gpu-5060-01" },
+              ram: { product_id: "ram-16gb-01" },
+              storage: { product_id: "ssd-1tb-001" },
+              psu: { product_id: "psu-good-550" },
+              case: { product_id: "case-atx-mid" },
+              cooler: { name: "Stock Cooler", included: true }
+            }
+          },
+          {
+            label: "Omitted cooler",
+            parts: {
+              cpu: { product_id: "cpu-5600-tray" },
+              motherboard: { product_id: "mobo-b550-01" },
+              gpu: { product_id: "gpu-5060-01" },
+              ram: { product_id: "ram-16gb-01" },
+              storage: { product_id: "ssd-1tb-001" },
+              psu: { product_id: "psu-good-550" },
+              case: { product_id: "case-atx-mid" }
+            }
+          },
+          {
+            label: "Owned stock bypass",
+            parts: {
+              cpu: { product_id: "cpu-5600-tray" },
+              motherboard: { product_id: "mobo-b550-01" },
+              gpu: { product_id: "gpu-5060-01" },
+              ram: { product_id: "ram-16gb-01" },
+              storage: { product_id: "ssd-1tb-001" },
+              psu: { product_id: "psu-good-550" },
+              case: { product_id: "case-a3-matx" },
+              cooler: { name: "AMD Wraith Stealth", owned: true }
+            }
+          },
+          {
+            label: "Spaced zero fans",
+            parts: {
+              cpu: { product_id: "cpu-5600-001" },
+              motherboard: { product_id: "mobo-b550-01" },
+              gpu: { product_id: "gpu-5060-01" },
+              ram: { product_id: "ram-16gb-01" },
+              storage: { product_id: "ssd-1tb-001" },
+              psu: { product_id: "psu-good-550" },
+              case: { product_id: "case-spaced-0" }
+            }
+          }
+        ]
+      };
+
+      const parsed = await validate(rawClaimed);
+      expect(parsed.success).toBe(true);
+      const out = (await tool.execute!(parsed.value as never, ctx)) as {
+        builds: Record<string, {
+          valid: boolean;
+          missing_parts?: string[];
+          unnamed_owned?: Array<{ category: string; name: string }>;
+          snapshot: BuildSnapshot;
+          issues: Array<{ rule: string; severity: string; detail: string }>;
+        }>;
+      };
+
+      // S1 + S10: offer-level includes_cooler: false survived registry match and blocked claimed stock cooler
+      expect(out.builds["Claimed stock"].valid).toBe(false);
+      expect(out.builds["Claimed stock"].issues).toContainEqual(
+        expect.objectContaining({ severity: "blocking", rule: "cooler" })
+      );
+      expect(out.builds["Claimed stock"].snapshot.components.find((c) => c.category === "cooler")?.included).toBe(false);
+
+      // S1: omitting cooler on complete no-cooler CPU build blocks + reports missing_parts: ["cooler"]
+      expect(out.builds["Omitted cooler"].valid).toBe(false);
+      expect(out.builds["Omitted cooler"].missing_parts).toContain("cooler");
+
+      // S11 + S3: owned Wraith Stealth stays owned: true (not included: true) and triggers unnamed_owned; Lian Li A3-mATX is blocked as fanless
+      const ownedCoolerComp = out.builds["Owned stock bypass"].snapshot.components.find((c) => c.category === "cooler");
+      expect(ownedCoolerComp?.owned).toBe(true);
+      expect(ownedCoolerComp?.included).toBe(false);
+      expect(out.builds["Owned stock bypass"].unnamed_owned).toContain('cooler "AMD Wraith Stealth"');
+      expect(out.builds["Owned stock bypass"].valid).toBe(false);
+      expect(out.builds["Owned stock bypass"].issues).toContainEqual(
+        expect.objectContaining({ severity: "blocking", rule: "quality", detail: expect.stringMatching(/zero included fans/i) })
+      );
+
+      // S10: offer-level included_fans: " 0 " survived registry match and blocked
+      expect(out.builds["Spaced zero fans"].valid).toBe(false);
+      expect(out.builds["Spaced zero fans"].issues).toContainEqual(
+        expect.objectContaining({ severity: "blocking", rule: "quality", detail: expect.stringMatching(/zero included fans/i) })
+      );
+    });
+  });
+
+  describe("Regression checks for PSU spoofing, unknown fans, negated intent, sole Recommended, and boxed 5600F (S2-S6)", () => {
+    it("S2: parses 80+ Bronze from titles, blocks compatibility-spoofed generic PSUs & cheap EUR/GBP PSUs, and ignores marketing 'Quiet' in PSU titles", () => {
+      const spoofed = makeResolved("psu-spoof", "psu", {
+        brand: "Generic",
+        model: "Generic 550W Corsair-compatible SMPS",
+        aliases: ["Generic 550W Corsair-compatible SMPS"],
+        wattage: 550,
+        form_factor: "ATX"
+      });
+      const spoofRes = validateBuild(
+        { cpu: base.cpu.key, psu: spoofed.key },
+        {
+          resolve: (p) => (p === base.cpu.key ? base.cpu : p === spoofed.key ? spoofed : undefined),
+          currency: "INR",
+          componentMeta: { psu: { price: 650, currency: "INR", name: "Generic 550W Corsair-compatible SMPS" } }
+        }
+      );
+      expect(spoofRes.valid).toBe(false);
+
+      // Cheap GBP/EUR generic PSU is blocked
+      const gbpCheap = makeResolved("psu-gbp", "psu", {
+        brand: "Unknown",
+        model: "Value 500W PSU",
+        aliases: ["Value 500W PSU"],
+        wattage: 500,
+        form_factor: "ATX"
+      });
+      for (const currency of ["GBP", "EUR"] as const) {
+        const res = validateBuild(
+          { cpu: base.cpu.key, psu: gbpCheap.key },
+          {
+            resolve: (p) => (p === base.cpu.key ? base.cpu : p === gbpCheap.key ? gbpCheap : undefined),
+            currency,
+            componentMeta: { psu: { price: 10, currency, name: "Value 500W PSU" } }
+          }
+        );
+        expect(res.valid, currency).toBe(false);
+      }
+
+      // 80+ Bronze in title (without efficiency field) passes ₹1,900 floor
+      const title80Plus = makeResolved("psu-80plus-title", "psu", {
+        brand: "Circle",
+        model: "Circle 500W 80+ Bronze PSU",
+        aliases: ["Circle 500W 80+ Bronze PSU"],
+        wattage: 500,
+        form_factor: "ATX"
+      });
+      const title80Res = validateBuild(
+        { cpu: base.cpu.key, psu: title80Plus.key },
+        {
+          resolve: (p) => (p === base.cpu.key ? base.cpu : p === title80Plus.key ? title80Plus : undefined),
+          currency: "INR",
+          componentMeta: { psu: { price: 1900, currency: "INR", name: "Circle 500W 80+ Bronze PSU" } }
+        }
+      );
+      expect(title80Res.valid).toBe(true);
+
+      // Bare "Ultra Quiet Fan" marketing word does NOT suppress quiet-build PSU advisory
+      const noisyMarketing = makeResolved("psu-pf450-q", "psu", {
+        brand: "DeepCool",
+        model: "DeepCool PF450 450W Ultra Quiet Fan",
+        aliases: ["PF450"],
+        wattage: 450,
+        efficiency: "80+",
+        form_factor: "ATX"
+      });
+      const quietRes = validateBuild(
+        { cpu: base.cpu.key, psu: noisyMarketing.key },
+        {
+          resolve: (p) => (p === base.cpu.key ? base.cpu : p === noisyMarketing.key ? noisyMarketing : undefined),
+          userText: "Quiet PC under ₹40,000",
+          currency: "INR",
+          componentMeta: { psu: { price: 2250, currency: "INR", name: "DeepCool PF450 450W Ultra Quiet Fan" } }
+        }
+      );
+      expect(quietRes.issues).toContainEqual(
+        expect.objectContaining({ severity: "advisory", rule: "quality", detail: expect.stringMatching(/quiet/i) })
+      );
+    });
+
+    it("S3: records unknown case fan count as unverified rather than passed", () => {
+      const unknownFansCase = makeResolved("case-unknown-fans", "case", {
+        brand: "Fractal Design",
+        model: "Mystery Box Case",
+        aliases: ["Mystery Box Case"],
+        max_gpu_length_mm: 350,
+        max_cooler_height_mm: 170,
+        form_factors: ["ATX", "Micro-ATX"],
+        supported_psu_form_factors: ["ATX"]
+      });
+      const result = run({ case: unknownFansCase });
+      expect(result.valid).toBe(true);
+      expect(result.checks).toContainEqual(
+        expect.objectContaining({ rule: "quality", status: "unverified", message: expect.stringMatching(/does not specify included fan count/i) })
+      );
+    });
+
+    it("S4: respects negated clauses in compact and quiet user intent", () => {
+      const atxCase = makeResolved("corsair-4000d", "case", {
+        ...base.case.spec,
+        model: "Corsair 4000D AIRFLOW Mid Tower",
+        form_factors: ["E-ATX", "ATX", "Micro-ATX", "Mini-ITX"]
+      });
+      const matxBoard = makeResolved("mobo-matx", "motherboard", {
+        ...base.motherboard.spec,
+        form_factor: "Micro-ATX"
+      });
+      const budgetPsu = makeResolved("psu-2250", "psu", {
+        brand: "DeepCool",
+        model: "DeepCool PF450 450W 80+",
+        aliases: ["PF450"],
+        wattage: 450,
+        efficiency: "80+",
+        form_factor: "ATX"
+      });
+
+      // "compact build, no mid-tower" must still block mid-tower!
+      const noMidTower = validateBuild(
+        { cpu: base.cpu.key, motherboard: matxBoard.key, case: atxCase.key },
+        {
+          resolve: (p) => (p === base.cpu.key ? base.cpu : p === matxBoard.key ? matxBoard : p === atxCase.key ? atxCase : undefined),
+          userText: "I want a compact build, no mid-tower"
+        }
+      );
+      expect(noMidTower.valid).toBe(false);
+
+      // "I do not need a compact build" must NOT block ATX mid-tower
+      const notCompact = validateBuild(
+        { cpu: base.cpu.key, motherboard: matxBoard.key, case: atxCase.key },
+        {
+          resolve: (p) => (p === base.cpu.key ? base.cpu : p === matxBoard.key ? matxBoard : p === atxCase.key ? atxCase : undefined),
+          userText: "I do not need a compact build"
+        }
+      );
+      expect(notCompact.valid).toBe(true);
+
+      // "I do not need a quiet build" must NOT emit quiet PSU warning
+      const notQuiet = validateBuild(
+        { cpu: base.cpu.key, psu: budgetPsu.key },
+        {
+          resolve: (p) => (p === base.cpu.key ? base.cpu : p === budgetPsu.key ? budgetPsu : undefined),
+          userText: "I do not need a quiet build",
+          currency: "INR",
+          componentMeta: { psu: { price: 2250, currency: "INR", name: "DeepCool PF450 450W 80+" } }
+        }
+      );
+      expect(notQuiet.issues.filter((i) => i.rule === "quality")).toEqual([]);
+    });
+
+    it("S5: flags a sole 'Recommended' build that is >3% (e.g. 4%) over budget", () => {
+      const results: Record<string, { snapshot: BuildSnapshot; price_summary?: string; label_note?: string }> = {
+        Recommended: { snapshot: { total: 10400, currency: "INR" } as BuildSnapshot }
+      };
+      addPriceFigures(results, 10000);
+      expect(results["Recommended"].label_note).toMatch(/4%.*over budget/i);
+      expect(results["Recommended"].price_summary).toMatch(/4%.*over budget/i);
+    });
+
+    it("S6: detects boxed Ryzen 5 5600F stock cooler and lets Tray offer title override boxed default", () => {
+      const cpu5600f = makeResolved("cpu-5600f", "cpu", {
+        brand: "AMD",
+        model: "AMD Ryzen 5 5600F",
+        aliases: ["Ryzen 5 5600F"],
+        socket: "AM4",
+        tdp_w: 65
+      });
+      const paidCooler = makeResolved("ag400", "cooler", {
+        brand: "DeepCool",
+        model: "DeepCool AG400",
+        aliases: ["AG400"],
+        cooler_type: "air",
+        height_mm: 150,
+        sockets: ["AM4"],
+        tdp_rating_w: 220
+      });
+      const boxedRes = validateBuild(
+        { cpu: cpu5600f.key, cooler: paidCooler.key },
+        {
+          resolve: (p) => (p === cpu5600f.key ? cpu5600f : p === paidCooler.key ? paidCooler : undefined),
+          userText: "Gaming PC under ₹60,000",
+          currency: "INR",
+          componentMeta: {
+            cpu: { name: "AMD Ryzen 5 5600F Desktop Processor 100-000001903BOX" },
+            cooler: { price: 1850, currency: "INR", name: "DeepCool AG400" }
+          }
+        }
+      );
+      expect(boxedRes.issues).toContainEqual(
+        expect.objectContaining({ severity: "advisory", rule: "cooler", detail: expect.stringMatching(/already includes a stock cooler/i) })
+      );
+
+      // Tray offer title overrides boxed registry default -> no redundant cooler advisory
+      const trayRes = validateBuild(
+        { cpu: cpu5600f.key, cooler: paidCooler.key },
+        {
+          resolve: (p) => (p === cpu5600f.key ? cpu5600f : p === paidCooler.key ? paidCooler : undefined),
+          userText: "Gaming PC under ₹60,000",
+          currency: "INR",
+          componentMeta: {
+            cpu: { name: "AMD Ryzen 5 5600F Tray Processor Without Fan" },
+            cooler: { price: 1850, currency: "INR", name: "DeepCool AG400" }
+          }
+        }
+      );
+      expect(trayRes.issues.filter((i) => i.rule === "cooler" && i.severity === "advisory")).toEqual([]);
     });
   });
 });

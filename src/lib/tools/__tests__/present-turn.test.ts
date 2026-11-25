@@ -62,7 +62,7 @@ describe("present_build per-turn validation", () => {
     const store = createTurnValidationStore();
     const validate = createValidateBuildTool(scope, repo, store);
     await validate.execute!(
-      { builds: [{ label: "Within budget", parts: { cpu: { product_id: FULL_CPU }, motherboard: { product_id: FULL_BOARD }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } } }] },
+      { builds: [{ label: "Within budget", parts: { cpu: { product_id: FULL_CPU }, motherboard: { product_id: FULL_BOARD }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true }, cooler: { name: "360mm AIO", owned: true } } }] },
       ctx
     );
     const present = createPresentBuildTool(store);
@@ -79,7 +79,7 @@ describe("present_build per-turn validation", () => {
   it("presents an unvalidated label whose product IDs are exactly one validated build, labelled honestly", async () => {
     const store = createTurnValidationStore();
     const validate = createValidateBuildTool(scope, repo, store);
-    const owned = { ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } };
+    const owned = { ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true }, cooler: { name: "360mm AIO", owned: true } };
     await validate.execute!({ budget: 90000, builds: [{ label: "Build 1", parts: { cpu: { product_id: FULL_CPU }, motherboard: { product_id: FULL_BOARD }, ...owned } }] }, ctx);
     const present = createPresentBuildTool(store);
     const out = (await present.execute!({ builds: [{ label: "Within budget", product_ids: [FULL_CPU.slice(0, 10), FULL_BOARD.slice(0, 10)] }] }, ctx)) as {
@@ -109,7 +109,7 @@ describe("present_build per-turn validation", () => {
   it("presents product IDs validated in separate calls by validating them together first", async () => {
     const store = createTurnValidationStore();
     const validate = createValidateBuildTool(scope, repo, store);
-    const owned = { ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } };
+    const owned = { ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true }, cooler: { name: "360mm AIO", owned: true } };
     // The CPU alone under one label, the board under another (a model splitting one build across calls).
     await validate.execute!({ builds: [{ label: "Split", parts: { cpu: { product_id: FULL_CPU }, ...owned } }] }, ctx);
     await validate.execute!({ builds: [{ label: "Board", parts: { motherboard: { product_id: FULL_BOARD } } }] }, ctx);
@@ -122,7 +122,7 @@ describe("present_build per-turn validation", () => {
     expect(out.presented).toBe(true);
     expect(out.builds[0].product_ids).toEqual(expect.arrayContaining([FULL_CPU, FULL_BOARD]));
     // The label's owned parts came along, so the revalidated build is whole.
-    expect(store.get("split")?.snapshot.components.filter((c) => c.owned)).toHaveLength(4);
+    expect(store.get("split")?.snapshot.components.filter((c) => c.owned)).toHaveLength(5);
 
     // IDs that leave out a part the validated build has don't shrink it to those parts.
     const shrunk = (await present.execute!({ builds: [{ label: "Split", product_ids: [FULL_CPU.slice(0, 10)] }] }, ctx)) as { presented: boolean; error: string };
@@ -177,7 +177,7 @@ describe("present_build per-turn validation", () => {
   it("presents a build whose part was only searched this turn, carrying the validation it was shown from", async () => {
     const store = createTurnValidationStore();
     const validate = createValidateBuildTool(scope, repo, store);
-    const owned = { ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } };
+    const owned = { ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true }, cooler: { name: "360mm AIO", owned: true } };
     // The CPU was validated; the board only came back from a search (Lightning r29 esports).
     await validate.execute!({ builds: [{ label: "Esports", parts: { cpu: { product_id: FULL_CPU }, ...owned } }] }, ctx);
     const revalidate = (label: string, parts: Record<string, unknown>) => Promise.resolve(validate.execute!({ builds: [{ label, parts }] } as never, ctx));
@@ -198,8 +198,8 @@ describe("present_build per-turn validation", () => {
 
   it("keeps a part owned when present_build rebuilds the build from IDs", async () => {
     const store = createTurnValidationStore();
-    const validate = createValidateBuildTool(scope, repo, store, { userText: "I have an i9-14900K, 16GB DDR5, a 750W PSU, an ATX case and two SSDs: a 1TB NVMe and a 2TB SATA" });
-    const owned = { ram: { name: "16GB DDR5", owned: true }, storage: [{ name: "1TB NVMe SSD", owned: true }, { name: "2TB SATA SSD", owned: true }], psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } };
+    const validate = createValidateBuildTool(scope, repo, store, { userText: "I have an i9-14900K, 16GB DDR5, a 750W PSU, an ATX case, a 360mm AIO cooler and two SSDs: a 1TB NVMe and a 2TB SATA" });
+    const owned = { ram: { name: "16GB DDR5", owned: true }, storage: [{ name: "1TB NVMe SSD", owned: true }, { name: "2TB SATA SSD", owned: true }], psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true }, cooler: { name: "360mm AIO", owned: true } };
     await validate.execute!({ builds: [{ label: "Upgrade", parts: { cpu: { product_id: FULL_CPU, owned: true }, ...owned } }] }, ctx);
     const revalidate = (label: string, parts: Record<string, unknown>) => Promise.resolve(validate.execute!({ builds: [{ label, parts }] } as never, ctx));
     const found = new Map([[FULL_BOARD, "motherboard"]]);
@@ -250,7 +250,7 @@ describe("present_build per-turn validation", () => {
     const store = createTurnValidationStore();
     const validate = createValidateBuildTool(scope, repo, store);
     await validate.execute!(
-      { builds: [{ label: "Within budget", parts: { cpu: { product_id: FULL_CPU.slice(0, 10) }, motherboard: { product_id: FULL_BOARD.slice(0, 10) }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } } }] },
+      { builds: [{ label: "Within budget", parts: { cpu: { product_id: FULL_CPU.slice(0, 10) }, motherboard: { product_id: FULL_BOARD.slice(0, 10) }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true }, cooler: { name: "360mm AIO", owned: true } } }] },
       ctx
     );
     const present = createPresentBuildTool(store);
@@ -305,7 +305,7 @@ describe("present_build per-turn validation", () => {
     const store = createTurnValidationStore();
     const validate = createValidateBuildTool(scope, repo, store);
     await validate.execute!(
-      { builds: [{ label: "Within budget", parts: { cpu: { product_id: FULL_CPU }, motherboard: { product_id: FULL_BOARD }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } } }] },
+      { builds: [{ label: "Within budget", parts: { cpu: { product_id: FULL_CPU }, motherboard: { product_id: FULL_BOARD }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true }, cooler: { name: "360mm AIO", owned: true } } }] },
       ctx
     );
     const present = createPresentBuildTool(store);

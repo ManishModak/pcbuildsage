@@ -315,9 +315,20 @@ export function checkCooler(
   cooler: ResolvedSpec | undefined,
   recordCheck: CheckRecorder,
   issues: BuildIssue[],
-  options?: { cpuMeta?: ComponentQualityMeta; coolerPart?: BuildPart }
+  options?: { cpuMeta?: ComponentQualityMeta; coolerPart?: BuildPart; hasCompleteCoreParts?: boolean }
 ) {
-  if (!cpu || !cooler) return;
+  if (!cpu) return;
+  if (!cooler) {
+    if (!options?.coolerPart && options?.hasCompleteCoreParts && getCpuCoolerInclusion(cpu, options?.cpuMeta).status === "not_included") {
+      recordCheck(
+        "cooler",
+        "failed",
+        [cpu.key],
+        `${cpu.spec.model || cpu.key} does not include a stock cooler. Add a compatible aftermarket CPU cooler.`
+      );
+    }
+    return;
+  }
   const isClaimedStock =
     isMarkedIncluded(options?.coolerPart) ||
     (isStockCooler(cooler) && !hasProductId(options?.coolerPart) && !isOwnedBuildPart(options?.coolerPart));

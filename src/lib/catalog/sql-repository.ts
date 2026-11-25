@@ -118,6 +118,48 @@ export function rowToProduct(row: unknown): Product {
   };
 }
 
+/** Parses persisted offer-level JSON specs safely into a plain object. */
+function parseOfferSpecs(raw: Product["specs"]): Record<string, unknown> | undefined {
+  if (!raw) return undefined;
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {}
+  }
+  return undefined;
+}
+
+/**
+ * Merges offer-level package, fan-count, and conflict metadata on top of a
+ * matched registry spec so listing-specific overrides (e.g. tray CPU
+ * `includes_cooler: false` or `included_fans: 0`) are never erased by a
+ * generic registry entry.
+ */
+function mergeOfferSpecs(
+  registrySpec: RegistrySpec | undefined,
+  offerSpecs: Record<string, unknown> | undefined
+): Record<string, unknown> | null {
+  if (!registrySpec && !offerSpecs) return null;
+  if (!registrySpec) return { ...offerSpecs };
+  if (!offerSpecs) return { ...registrySpec };
+  const merged: Record<string, unknown> = { ...registrySpec };
+  for (const key of ["includes_cooler", "cooler_included", "cooler_name", "included_fans", "spec_conflict"] as const) {
+    if (offerSpecs[key] !== undefined) {
+      merged[key] = offerSpecs[key];
+    }
+  }
+  if (offerSpecs.efficiency !== undefined && merged.efficiency === undefined) {
+    merged.efficiency = offerSpecs.efficiency;
+  }
+  return merged;
+}
+
 export class SqlCatalogRepository implements CatalogRepository {
   constructor(
     protected driver: SqlDriver,
@@ -386,6 +428,7 @@ export class SqlCatalogRepository implements CatalogRepository {
       product: Product;
       registry: ResolvedSpec | undefined;
       resolvedSpec: RegistrySpec | undefined;
+      offerSpecs: Record<string, unknown> | undefined;
     }> = [];
 
     while (true) {
@@ -405,22 +448,14 @@ export class SqlCatalogRepository implements CatalogRepository {
 
       for (const product of rows) {
         const registry = this.resolveProductSpec(product, effectiveScope);
-        let resolvedSpec = registry?.spec;
-        if (!resolvedSpec && product.specs) {
-          if (typeof product.specs === "object") {
-            resolvedSpec = product.specs as RegistrySpec;
-          } else if (typeof product.specs === "string") {
-            try {
-              resolvedSpec = JSON.parse(product.specs);
-            } catch {}
-          }
-        }
+        const offerSpecs = parseOfferSpecs(product.specs);
+        const resolvedSpec = registry?.spec ?? (offerSpecs as RegistrySpec | undefined);
 
         if (this.matchesRegistryFilters(product, resolvedSpec, input, registry?.key ?? product.registry_key ?? undefined)) {
           if (skipped < requestOffset) {
             skipped++;
           } else {
-            matches.push({ product, registry, resolvedSpec });
+            matches.push({ product, registry, resolvedSpec, offerSpecs });
             if (!spread && !hasRegistryFilters && matches.length >= limit + 1) break;
           }
         }
@@ -443,7 +478,7 @@ export class SqlCatalogRepository implements CatalogRepository {
       ? { min: pricedMatches[0].product.price as number, max: pricedMatches[pricedMatches.length - 1].product.price as number }
       : undefined;
     const results: SearchProductItem[] = (spread ? spreadByRank(pricedMatches, limit) : matches.slice(0, limit)).map(
-      ({ product, registry, resolvedSpec }) => {
+      ({ product, registry, offerSpecs }) => {
         const isInStock = product.in_stock === 1 || Boolean(product.in_stock);
         const offer: ProductOffer = {
           id: product.id,
@@ -485,7 +520,7 @@ export class SqlCatalogRepository implements CatalogRepository {
           in_stock: isInStock,
           inStock: isInStock,
           registry_key: registry?.key ?? product.registry_key ?? null,
-          specs: (registry?.spec ?? resolvedSpec ?? null) as Record<string, unknown> | null,
+          specs: mergeOfferSpecs(registry?.spec, offerSpecs),
           offers: [offer],
           first_seen: product.first_seen,
           last_scraped: product.last_scraped

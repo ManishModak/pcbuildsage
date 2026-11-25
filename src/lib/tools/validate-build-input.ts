@@ -13,6 +13,7 @@ const partSchema = z.union([
     product_id: z.string().min(1).optional(),
     name: z.string().optional(),
     owned: z.boolean().optional(),
+    included: z.boolean().optional(),
     key: z.string().optional()
   }).refine((part) => Boolean(part.product_id?.trim() || part.key?.trim() || part.name?.trim()), { message: "Part object must include at least one of product_id, key or name." })
 ]);
@@ -115,7 +116,8 @@ function isIntegratedGraphicsPlaceholder(part: unknown): boolean {
  * aaa), which made the build unpresentable.
  */
 function isStockCoolerPlaceholder(part: unknown): boolean {
-  const entry = part as { product_id?: unknown; name?: unknown; owned?: unknown } | null;
+  const entry = part as { product_id?: unknown; name?: unknown; owned?: unknown; included?: unknown } | null;
+  if (entry && typeof entry === "object" && entry.included === true) return false;
   const name = typeof part === "string" ? part : entry?.product_id || entry?.owned === true ? undefined : entry?.name;
   return typeof name === "string" && /\b(stock|included|bundled|in[- ]box|boxed|wraith)\b/i.test(name);
 }

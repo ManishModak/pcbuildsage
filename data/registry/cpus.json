@@ -1604,6 +1604,8 @@
     "igpu": false,
     "cores": 6,
     "boost_clock_ghz": 4.6,
+    "cooler_included": "included",
+    "cooler_name": "AMD Wraith Stealth",
     "aliases": [
       "AMD Ryzen 5 5600X",
       "Ryzen 5 5600X",
@@ -1629,6 +1631,8 @@
     "igpu": false,
     "cores": 6,
     "boost_clock_ghz": 4.4,
+    "cooler_included": "included",
+    "cooler_name": "AMD Wraith Stealth",
     "aliases": [
       "AMD Ryzen 5 5600",
       "Ryzen 5 5600",
@@ -1652,6 +1656,8 @@
     "max_power_w": 88,
     "ddr": "DDR4",
     "igpu": true,
+    "cooler_included": "included",
+    "cooler_name": "AMD Wraith Stealth",
     "aliases": [
       "Ryzen 5 5600G",
       "5600G",

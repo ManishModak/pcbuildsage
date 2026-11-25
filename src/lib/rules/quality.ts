@@ -38,6 +38,29 @@ const QUIET_REQUEST = /\b(quiet|silent|silence|low[- ]?noise|whisper|noise[- ]?f
 const COMPACT_REQUEST = /\b(compact|sff|small[\s-]+form[\s-]+factor|mini[\s-]?itx|mini[\s-]+pc|small[\s-]+(?:pc|build|case|cabinet|chassis|desktop|footprint|desk)|tiny[\s-]+(?:pc|build|case))\b/i;
 const OVERCLOCK_REQUEST = /\b(overclock(?:ing)?|oc\b|pbo|heavy\s+render|sustained\s+all-core)\b/i;
 
+const CLAUSE_SPLIT = /[.!?;,\n]+|\b(?:but|however|though|although|except|instead)\b/i;
+const NEGATION_PREFIX =
+  /\b(?:no|not|never|without|skip|avoid|don'?t|do\s+not|doesn'?t|does\s+not|didn'?t|won'?t|wouldn'?t|shouldn'?t|can'?t|cannot|neither|nor|rather\s+than)\b(?:\s+(?:a|an|any|the|really|very|too|need|want|looking\s+for|care\s+about|require|prefer|like|have|be|being)){0,4}\s*$/i;
+
+/**
+ * True when `pattern` matches in at least one clause without a preceding
+ * negation phrase in that same clause (e.g. "no mid-tower" or "do not need a
+ * quiet build" do not count as affirmative matches).
+ */
+export function hasAffirmativeMatch(text: string | undefined, pattern: RegExp): boolean {
+  if (!text) return false;
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  for (const clause of text.split(CLAUSE_SPLIT)) {
+    const re = new RegExp(pattern.source, flags);
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(clause)) !== null) {
+      const before = clause.slice(0, match.index);
+      if (!NEGATION_PREFIX.test(before)) return true;
+    }
+  }
+  return false;
+}
+
 /** True when the user's words ask for gaming and don't rule out a graphics card. */
 export function wantsGamingGpu(userText: string): boolean {
   return GAMING_REQUEST.test(userText) && !NO_GPU_REQUEST.test(userText);
@@ -45,17 +68,17 @@ export function wantsGamingGpu(userText: string): boolean {
 
 /** True when the user explicitly asks for a quiet / silent build. */
 export function wantsQuietBuild(userText?: string): boolean {
-  return Boolean(userText && QUIET_REQUEST.test(userText));
+  return hasAffirmativeMatch(userText, QUIET_REQUEST);
 }
 
 /** True when the user explicitly asks for a compact / SFF / mini PC. */
 export function wantsCompactBuild(userText?: string): boolean {
-  return Boolean(userText && COMPACT_REQUEST.test(userText));
+  return hasAffirmativeMatch(userText, COMPACT_REQUEST);
 }
 
 /** True when the user asks for overclocking or sustained heavy thermal loads. */
 export function wantsOverclocking(userText?: string): boolean {
-  return Boolean(userText && OVERCLOCK_REQUEST.test(userText));
+  return hasAffirmativeMatch(userText, OVERCLOCK_REQUEST);
 }
 
 const KNOWN_PSU_BRAND_OR_SERIES =
@@ -64,11 +87,25 @@ const KNOWN_PSU_BRAND_OR_SERIES =
 const EXPLICIT_GENERIC_PSU =
   /\b(generic|unbranded|no[- ]?name|noname|local\s+smps|oem\s+smps)\b/i;
 
+const EIGHTY_PLUS_PATTERN = /\b80\s*(?:\+(?!\w)|(?:pro\s+)?plus\b)/i;
+
 const QUIET_PSU_SIGNAL =
-  /\b(be\s*quiet!?|bequiet|quiet|silent|zero[- ]?rpm|fanless|semi[- ]?passive|80\s*(?:\+|plus)\s*(?:gold|platinum|titanium))\b/i;
+  /\b(be\s*quiet!?|bequiet|zero[- ]?rpm|fanless|semi[- ]?passive|cybenetics\s+a\b|lambda\s+a\b|80\s*(?:\+(?!\w)|plus\b)\s*(?:gold|platinum|titanium))\b/i;
+
+const PSU_PRICE_FLOORS: Record<string, { standard: number; ultraCheap: number; quiet: number }> = {
+  INR: { standard: 2000, ultraCheap: 1200, quiet: 3500 },
+  USD: { standard: 25, ultraCheap: 15, quiet: 50 },
+  EUR: { standard: 25, ultraCheap: 15, quiet: 50 },
+  GBP: { standard: 22, ultraCheap: 14, quiet: 45 },
+  CAD: { standard: 35, ultraCheap: 20, quiet: 70 },
+  AUD: { standard: 40, ultraCheap: 25, quiet: 80 }
+};
 
 const ZERO_FANS_TITLE =
   /\b(no\s+fans?(?!\s+(?:controller|hub|splitter))|without\s+(?:any\s+)?fans?(?!\s+(?:controller|hub|splitter))|0\s*x?\s*fans?|zero\s+fans?|fans?\s+not\s+included|fanless|w\/o\s+fans?|no\s+pre-?installed\s+fans?)\b/i;
+
+const POSITIVE_FANS_TITLE =
+  /\b([1-9]\d?\s*(?:x\s*)?(?:(?:120|140|200)\s*mm\s*)?(?:(?:pre-?installed|included|inbuilt|built-?in|a?rgb|rgb|rainbow|led|pwm|auto-?rgb|fixed-?rgb|mesh|cooling)\s+){0,2}fans?|with\s+[1-9]\d?\s*(?:a?rgb\s+|rgb\s+|led\s+)?fans?|pre-?installed\s+fans?)\b/i;
 
 const NO_STOCK_COOLER_SKU =
   /\b(?:i[3579][-\s]?\d{4,5}k[fs]?|ultra\s*[3579]\s*\d{3}k[fs]?|ryzen\s*[3579]\s*\d{4}x3d|ryzen\s*[579]\s*[79]\d{3}x|ryzen\s*[79]\s*5[789]00x)\b/i;
@@ -81,7 +118,7 @@ const BOXED_STOCK_COOLER_SKU: Array<{ pattern: RegExp; key: string; model: strin
     tdp_rating_w: 105
   },
   {
-    pattern: /\bryzen\s*[357]\s*(?:3600|4500|5500|5600|5600x|5600g|5600gt|5500gt|5700g|7600|8500g|8600g|8700g)\b(?!x3d)/i,
+    pattern: /\bryzen\s*[357]\s*(?:3600|4500|5500|5600|5600f|5600t|5600x|5600xt|5600g|5600gt|5500gt|5700g|7600|8400f|8500g|8600g|8700g)\b(?!x3d)/i,
     key: "amd-wraith-stealth",
     model: "AMD Wraith Stealth",
     tdp_rating_w: 65
@@ -93,6 +130,12 @@ const BOXED_STOCK_COOLER_SKU: Array<{ pattern: RegExp; key: string; model: strin
     tdp_rating_w: 65
   }
 ];
+
+function stripCompatibilityPhrases(text: string): string {
+  return text
+    .replace(/\b[\w-]+[-\s]+compatible\b/gi, " ")
+    .replace(/\b(?:compatible|works|for\s+use)\s+with\b[^,;()]+/gi, " ");
+}
 
 function productDescriptorText(spec: ResolvedSpec, meta?: ComponentQualityMeta): string {
   return [
@@ -124,6 +167,7 @@ function resolveCurrency(spec: ResolvedSpec, meta?: ComponentQualityMeta, fallba
 
 export function evaluatePsuQuality(params: {
   text: string;
+  brand?: string;
   quietText?: string;
   efficiency?: string;
   price?: number;
@@ -131,20 +175,20 @@ export function evaluatePsuQuality(params: {
   hasWattage?: boolean;
   userText?: string;
 }): { blockingReason?: string; quietAdvisory?: string } {
-  const { text, quietText = text, efficiency, price, currency, hasWattage = true, userText } = params;
+  const { text, brand, quietText = text, efficiency, price, currency, hasWattage = true, userText } = params;
   const has80Plus = Boolean(
-    (efficiency && /80\s*(?:\+|plus)/i.test(efficiency)) ||
-    /\b80\s*(?:\+|(?:pro\s+)?plus)\b/i.test(text) ||
+    (efficiency && EIGHTY_PLUS_PATTERN.test(efficiency)) ||
+    EIGHTY_PLUS_PATTERN.test(text) ||
     /\bcybenetics\b/i.test(text)
   );
-  const hasKnownBrand = KNOWN_PSU_BRAND_OR_SERIES.test(text);
   const isGeneric = EXPLICIT_GENERIC_PSU.test(text);
+  const brandIsKnown = Boolean(brand && !EXPLICIT_GENERIC_PSU.test(brand) && KNOWN_PSU_BRAND_OR_SERIES.test(brand));
+  const hasKnownBrand = brandIsKnown || (!isGeneric && KNOWN_PSU_BRAND_OR_SERIES.test(stripCompatibilityPhrases(text)));
 
-  const isInr = currency === "INR";
-  const isUsd = currency === "USD";
-  const standardFloor = isInr ? 2000 : isUsd ? 25 : undefined;
-  const ultraCheapFloor = isInr ? 1200 : isUsd ? 15 : undefined;
-  const quietFloor = isInr ? 3500 : isUsd ? 50 : undefined;
+  const floors = PSU_PRICE_FLOORS[currency.toUpperCase()];
+  const standardFloor = floors?.standard;
+  const ultraCheapFloor = floors?.ultraCheap;
+  const quietFloor = floors?.quiet;
 
   const belowStandardPrice =
     price !== undefined &&
@@ -152,9 +196,10 @@ export function evaluatePsuQuality(params: {
     ultraCheapFloor !== undefined &&
     ((price < standardFloor && !has80Plus && !hasKnownBrand) || (price < ultraCheapFloor && !hasKnownBrand));
 
-  const unpricedGeneric = price === undefined && isGeneric && !has80Plus && !hasKnownBrand && hasWattage;
+  const wattagePresent = hasWattage || /\b\d{3,4}\s*w\b/i.test(text);
+  const explicitGenericBlocked = isGeneric && !hasKnownBrand && !has80Plus && wattagePresent;
 
-  if (belowStandardPrice || unpricedGeneric) {
+  if (belowStandardPrice || explicitGenericBlocked) {
     return {
       blockingReason:
         "fails the PSU quality floor: unbranded or ultra-budget power supplies without 80 Plus certification or a reputable PSU series risk instability and hardware damage. Pick an 80 Plus certified unit from a reputable brand (e.g. Corsair CX/CV, MSI MAG A-BN, DeepCool PK-D, Cooler Master MWE, Seasonic, Antec)."
@@ -185,11 +230,37 @@ export function evaluatePsuQuality(params: {
   return {};
 }
 
+export type CaseFanStatus = "fanless" | "has_fans" | "unknown";
+
+/** Parses non-negative integer fan counts from numeric or whitespace-padded string specs. */
+export function parseIncludedFans(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    return Math.floor(value);
+  }
+  if (typeof value === "string" && /^\s*\d+\s*$/.test(value)) {
+    return Number(value.trim());
+  }
+  return undefined;
+}
+
+/** Determines whether a case includes pre-installed fans, ships fanless, or is unverified. */
+export function getCaseFanStatus(pcCase: ResolvedSpec, meta?: ComponentQualityMeta): CaseFanStatus {
+  const offerFans = parseIncludedFans(meta?.specs?.included_fans);
+  if (offerFans === 0) return "fanless";
+  if (offerFans !== undefined && offerFans > 0) return "has_fans";
+  if (meta?.name && ZERO_FANS_TITLE.test(meta.name)) return "fanless";
+  const registryFans = parseIncludedFans(pcCase.spec.included_fans);
+  if (registryFans === 0) return "fanless";
+  if (registryFans !== undefined && registryFans > 0) return "has_fans";
+  const text = combinedText(pcCase, meta);
+  if (ZERO_FANS_TITLE.test(text)) return "fanless";
+  if (POSITIVE_FANS_TITLE.test(text)) return "has_fans";
+  return "unknown";
+}
+
 /** True when a case spec or title explicitly states zero included fans. */
 export function isFanlessCase(pcCase: ResolvedSpec, meta?: ComponentQualityMeta): boolean {
-  const specFans = meta?.specs?.included_fans ?? pcCase.spec.included_fans;
-  if (specFans === 0 || specFans === "0") return true;
-  return ZERO_FANS_TITLE.test(combinedText(pcCase, meta));
+  return getCaseFanStatus(pcCase, meta) === "fanless";
 }
 
 /**
@@ -223,50 +294,63 @@ export function isAtxMidOrFullTower(pcCase: ResolvedSpec, meta?: ComponentQualit
 
 /**
  * Determines whether a CPU includes a stock cooler:
- * explicit `includes_cooler` / `cooler_included` specs win, then title
- * packaging keywords, then known retail CPU SKUs.
+ * offer-level explicit specs win, then offer-level title packaging (so Tray/OEM
+ * overrides a boxed registry default), then registry specs, then model-title
+ * packaging, then known retail CPU SKUs.
  */
 export function getCpuCoolerInclusion(
   cpu: ResolvedSpec,
   meta?: ComponentQualityMeta
 ): { status: CpuCoolerStatus; stockCooler?: { key: string; model: string; tdp_rating_w: number } } {
-  const specIncludes = meta?.specs?.includes_cooler ?? cpu.spec.includes_cooler;
-  const specCoolerIncluded = meta?.specs?.cooler_included ?? cpu.spec.cooler_included;
+  const text = combinedText(cpu, meta);
+  const resolveStockCooler = (explicitName?: string) => {
+    const matched = BOXED_STOCK_COOLER_SKU.find((entry) => entry.pattern.test(text));
+    const coolerName = explicitName ?? (typeof cpu.spec.cooler_name === "string" ? cpu.spec.cooler_name : matched?.model);
+    return matched
+      ? { stockCooler: matched }
+      : coolerName
+        ? { stockCooler: { key: "included-stock-cooler", model: coolerName, tdp_rating_w: 65 } }
+        : {};
+  };
 
-  if (specIncludes === false || specCoolerIncluded === "not_included") {
+  // 1. Offer-level explicit specs
+  const offerIncludes = meta?.specs?.includes_cooler;
+  const offerCoolerIncluded = meta?.specs?.cooler_included;
+  if (offerIncludes === false || offerCoolerIncluded === "not_included") {
     return { status: "not_included" };
   }
-
-  const text = combinedText(cpu, meta);
-  if (specIncludes === true || specCoolerIncluded === "included") {
-    const matched = BOXED_STOCK_COOLER_SKU.find((entry) => entry.pattern.test(text));
-    const coolerName = typeof cpu.spec.cooler_name === "string" ? cpu.spec.cooler_name : matched?.model;
-    return {
-      status: "included",
-      ...(matched
-        ? { stockCooler: matched }
-        : coolerName
-          ? { stockCooler: { key: "included-stock-cooler", model: coolerName, tdp_rating_w: 65 } }
-          : {})
-    };
+  if (offerIncludes === true || offerCoolerIncluded === "included") {
+    const offerName = typeof meta?.specs?.cooler_name === "string" ? meta.specs.cooler_name : undefined;
+    return { status: "included", ...resolveStockCooler(offerName) };
   }
 
-  if (meta?.name || typeof cpu.spec.model === "string") {
-    const pkg = parseCpuPackage(meta?.name ?? String(cpu.spec.model));
-    if (pkg.cooler_included === "not_included") return { status: "not_included" };
-    if (pkg.cooler_included === "included") {
-      const matched = BOXED_STOCK_COOLER_SKU.find((entry) => entry.pattern.test(text));
-      return {
-        status: "included",
-        ...(matched
-          ? { stockCooler: matched }
-          : pkg.cooler_name
-            ? { stockCooler: { key: "included-stock-cooler", model: pkg.cooler_name, tdp_rating_w: 65 } }
-            : {})
-      };
+  // 2. Offer-level title packaging (Tray/OEM/WOF overrides boxed defaults)
+  if (meta?.name) {
+    const offerPkg = parseCpuPackage(meta.name);
+    if (offerPkg.cooler_included === "not_included") return { status: "not_included" };
+    if (offerPkg.cooler_included === "included") {
+      return { status: "included", ...resolveStockCooler(offerPkg.cooler_name) };
     }
   }
 
+  // 3. Registry / resolved specs
+  if (cpu.spec.includes_cooler === false || cpu.spec.cooler_included === "not_included") {
+    return { status: "not_included" };
+  }
+  if (cpu.spec.includes_cooler === true || cpu.spec.cooler_included === "included") {
+    return { status: "included", ...resolveStockCooler() };
+  }
+
+  // 4. Model-title packaging fallback
+  if (typeof cpu.spec.model === "string") {
+    const modelPkg = parseCpuPackage(cpu.spec.model);
+    if (modelPkg.cooler_included === "not_included") return { status: "not_included" };
+    if (modelPkg.cooler_included === "included") {
+      return { status: "included", ...resolveStockCooler(modelPkg.cooler_name) };
+    }
+  }
+
+  // 5. Known retail SKU rules
   if (NO_STOCK_COOLER_SKU.test(text)) {
     return { status: "not_included" };
   }
@@ -314,6 +398,7 @@ export function checkBuildQuality(params: {
     const psuQuietText = psu ? productDescriptorText(psu, meta.psu) : (meta.psu?.name ?? "");
     const psuVerdict = evaluatePsuQuality({
       text: psuText,
+      brand: typeof psu?.spec.brand === "string" ? psu.spec.brand : undefined,
       quietText: psuQuietText,
       efficiency,
       price: psu ? resolvePrice(psu, meta.psu) : (typeof meta.psu?.price === "number" ? meta.psu.price : undefined),
@@ -365,22 +450,32 @@ export function checkBuildQuality(params: {
     );
     const gpuKey = gpu?.key;
 
-    if (hasGamingOrWarmGpu && isFanlessCase(effectiveCase, meta.case)) {
+    if (hasGamingOrWarmGpu) {
+      const fanStatus = getCaseFanStatus(effectiveCase, meta.case);
       const comps = [effectiveCase.key, ...(gpuKey ? [gpuKey] : [])];
-      recordCheck(
-        "quality",
-        "failed",
-        comps,
-        `Case ${caseName} indicates zero included fans, which provides insufficient airflow for a dedicated gaming GPU${gpu ? ` (${gpu.spec.model || gpu.key})` : ""}. Choose a case with pre-installed fans.`
-      );
-    } else if (hasGamingOrWarmGpu && pcCase) {
-      recordCheck("quality", "passed", [effectiveCase.key, ...(gpuKey ? [gpuKey] : [])], `Case ${caseName} is not flagged as fanless for this GPU build.`);
+      if (fanStatus === "fanless") {
+        recordCheck(
+          "quality",
+          "failed",
+          comps,
+          `Case ${caseName} indicates zero included fans, which provides insufficient airflow for a dedicated gaming GPU${gpu ? ` (${gpu.spec.model || gpu.key})` : ""}. Choose a case with pre-installed fans.`
+        );
+      } else if (fanStatus === "has_fans") {
+        recordCheck("quality", "passed", comps, `Case ${caseName} includes pre-installed fan(s) for this GPU build.`);
+      } else if (pcCase) {
+        recordCheck(
+          "quality",
+          "unverified",
+          comps,
+          `Case ${caseName} does not specify included fan count; verify pre-installed airflow fans before buying for a dedicated GPU build.`
+        );
+      }
     }
 
     if (wantsCompactBuild(context.userText)) {
       const userAskedAtx =
-        /\b(compact\s+atx|mid[\s-]?tower)\b/i.test(context.userText ?? "") &&
-        !/\b(mini[\s-]?itx|itx|sff|micro[\s-]?atx|m[\s-]?atx)\b/i.test(context.userText ?? "");
+        hasAffirmativeMatch(context.userText, /\b(compact\s+atx|mid[\s-]?tower)\b/i) &&
+        !hasAffirmativeMatch(context.userText, /\b(mini[\s-]?itx|itx|sff|micro[\s-]?atx|m[\s-]?atx)\b/i);
       const mbFf = typeof motherboard?.spec.form_factor === "string" ? canonicalizeFormFactor(motherboard.spec.form_factor) : undefined;
       const ownedAtxBoard = Boolean(motherboard && isOwnedBuildPart(parts.motherboard as BuildPart | undefined, meta.motherboard) && (mbFf === "atx" || mbFf === "e-atx"));
 

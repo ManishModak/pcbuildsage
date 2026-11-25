@@ -227,6 +227,15 @@ export function validateBuild(
     (isMarkedIncluded(coolerPart) || (isStockCooler(cooler) && !hasProductId(coolerPart) && !isOwnedBuildPart(coolerPart)))
   );
 
+  const hasCompleteCoreParts = Boolean(
+    parts.cpu &&
+    parts.motherboard &&
+    parts.ram &&
+    parts.psu &&
+    parts.case &&
+    (Array.isArray(parts.storage) ? parts.storage.length > 0 : Boolean(parts.storage))
+  );
+
   checkSocket(cpu, motherboard, recordCheckLocal, extraIssues, parts);
   checkCpuSupport(cpu, motherboard, recordCheckLocal, extraIssues);
   checkDdr(cpu, motherboard, ram, recordCheckLocal, extraIssues, parts);
@@ -234,7 +243,7 @@ export function validateBuild(
   checkWattage(cpu, gpu, psu, hasGpu, recordCheckLocal, extraIssues);
   checkDisplayOutput(cpu, gpu, hasGpu, recordCheckLocal, extraIssues);
   checkClearance(gpu, pcCase, claimedStockOnNoCoolerCpu ? undefined : cooler, motherboard, psu, recordCheckLocal, extraIssues);
-  checkCooler(cpu, cooler, recordCheckLocal, extraIssues, { cpuMeta: componentMeta.cpu, coolerPart });
+  checkCooler(cpu, cooler, recordCheckLocal, extraIssues, { cpuMeta: componentMeta.cpu, coolerPart, hasCompleteCoreParts });
   checkStorage(motherboard, storage, recordCheckLocal, extraIssues);
   checkBuildQuality({
     psu,
@@ -262,8 +271,9 @@ export function validateBuild(
     cpu?.spec.includes_cooler === true ||
     (parts.cooler !== undefined && isMarkedIncluded(parts.cooler as BuildPart));
 
+  const coolerCheckRan = checks.some((check) => check.rule === "cooler");
   const skipped_checks = RULE_INPUTS.flatMap(({ rule, needs }) => {
-    if (rule === "cooler" && isCoolerIncluded) {
+    if (rule === "cooler" && (isCoolerIncluded || coolerCheckRan)) {
       return [];
     }
     const missing = needs.filter((category) => {
