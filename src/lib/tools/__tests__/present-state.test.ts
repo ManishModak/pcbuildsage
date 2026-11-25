@@ -37,8 +37,8 @@ async function validateAB(repo: SqliteCatalogRepository) {
   const validate = createValidateBuildTool(scope, repo, store);
   const validateInput = {
     builds: [
-      { label: "Max Performance", parts: { cpu: { product_id: I9 }, motherboard: { product_id: BOARD }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } } },
-      { label: "Within budget", parts: { cpu: { product_id: I5 }, motherboard: { product_id: BOARD }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true } } }
+      { label: "Max Performance", parts: { cpu: { product_id: I9 }, motherboard: { product_id: BOARD }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true }, cooler: { name: "360mm AIO", owned: true } } },
+      { label: "Within budget", parts: { cpu: { product_id: I5 }, motherboard: { product_id: BOARD }, ram: { name: "16GB DDR5", owned: true }, storage: { name: "1TB NVMe SSD", owned: true }, psu: { name: "750W PSU", owned: true }, case: { name: "ATX case", owned: true }, cooler: { name: "360mm AIO", owned: true } } }
     ]
   };
   const validateOutput = await validate.execute!(validateInput, ctx);

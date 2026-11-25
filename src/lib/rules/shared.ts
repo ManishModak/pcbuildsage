@@ -144,3 +144,17 @@ export function isStockCooler(cooler: ResolvedSpec): boolean {
     norm.includes("intel laminar")
   );
 }
+
+/**
+ * True when a cooler entry stands for the CPU's boxed cooler rather than a
+ * product: "included", "stock", `included: true`, or a name like "Stock cooler
+ * (included with Ryzen 5 5600G)". A part with a product_id is a catalog
+ * product, and a negation ("no stock cooler", "not included") never counts.
+ */
+export function isMarkedIncluded(part: BuildPart | undefined): boolean {
+  if (!part) return false;
+  if (typeof part === "object" && part.product_id?.trim()) return false;
+  if (typeof part === "object" && part.included === true) return true;
+  const texts = typeof part === "string" ? [part] : [part.key ?? "", part.name ?? ""];
+  return texts.some((text) => /\b(stock|included|boxed|bundled)\b/i.test(text) && !/\b(not|no|without)\b/i.test(text));
+}

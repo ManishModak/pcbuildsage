@@ -7,10 +7,17 @@
  */
 import { canonicalizeFormFactor, canonicalizeSocket } from "../spec-canonical";
 import type { ResolvedSpec } from "../registry";
-import type { BuildIssue } from "../rules-engine";
+import type { BuildIssue, BuildPart } from "../rules-engine";
+import {
+  getCpuCoolerInclusion,
+  hasProductId,
+  isOwnedBuildPart,
+  type ComponentQualityMeta,
+} from "./quality";
 import {
   arraySpec,
   confidenceGate,
+  isMarkedIncluded,
   isStockCooler,
   lowNames,
   needsResearch,
@@ -307,9 +314,33 @@ export function checkCooler(
   cpu: ResolvedSpec | undefined,
   cooler: ResolvedSpec | undefined,
   recordCheck: CheckRecorder,
-  issues: BuildIssue[]
+  issues: BuildIssue[],
+  options?: { cpuMeta?: ComponentQualityMeta; coolerPart?: BuildPart; hasCompleteCoreParts?: boolean }
 ) {
-  if (!cpu || !cooler) return;
+  if (!cpu) return;
+  if (!cooler) {
+    if (!options?.coolerPart && options?.hasCompleteCoreParts && getCpuCoolerInclusion(cpu, options?.cpuMeta).status === "not_included") {
+      recordCheck(
+        "cooler",
+        "failed",
+        [cpu.key],
+        `${cpu.spec.model || cpu.key} does not include a stock cooler. Add a compatible aftermarket CPU cooler.`
+      );
+    }
+    return;
+  }
+  const isClaimedStock =
+    isMarkedIncluded(options?.coolerPart) ||
+    (isStockCooler(cooler) && !hasProductId(options?.coolerPart) && !isOwnedBuildPart(options?.coolerPart));
+  if (isClaimedStock && getCpuCoolerInclusion(cpu, options?.cpuMeta).status === "not_included") {
+    recordCheck(
+      "cooler",
+      "failed",
+      [cpu.key, cooler.key],
+      `${cpu.spec.model || cpu.key} does not include a stock cooler. Remove the claimed stock cooler and add a compatible aftermarket CPU cooler.`
+    );
+    return;
+  }
   if (cooler.key === "included-stock-cooler") {
     recordCheck(
       "cooler",

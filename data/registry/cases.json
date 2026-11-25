@@ -1070,6 +1070,7 @@
       "ATX"
     ],
     "max_psu_length_mm": 220,
+    "included_fans": 0,
     "aliases": [
       "Lian Li O11 Dynamic EVO",
       "O11 Dynamic EVO",
@@ -1103,6 +1104,7 @@
       "ATX"
     ],
     "max_psu_length_mm": 232,
+    "included_fans": 0,
     "aliases": [
       "Lian Li O11 Vision",
       "O11 Vision",
@@ -1136,6 +1138,7 @@
       "SFX-L"
     ],
     "max_psu_length_mm": 220,
+    "included_fans": 0,
     "aliases": [
       "Lian Li A3-mATX",
       "A3-mATX",

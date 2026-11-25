@@ -4,13 +4,16 @@
  * Zero LLM calls, zero network: per-tier part plan + createValidateBuildTool
  * + validate_build, exactly like scripts/build-sample-fixture.ts. For each
  * budget tier it takes the cheapest in-stock candidates for every part but
- * the GPU, spends what's left on the strongest GPU class that fits
- * (GPU_LADDER), validates the in-budget combinations, and keeps the valid,
- * fully-priced, blocking-issue-free build with the fewest unverified specs
- * (needs_research/needs_verification), then the lowest total. A budget with no such build is SKIPPED (logged, no
- * page published). If EVERY tier is skipped the script exits 1 and writes
- * nothing, so the Pages deploy never runs and the last good site stays up.
- * Nothing here is ever called "best".
+ * the GPU, applies the deterministic part-quality gate (PSU floor, no fanless
+ * case under a gaming GPU, no redundant paid cooler when the boxed CPU
+ * includes an adequate stock cooler), spends what's left on the highest GPU
+ * tier on the catalog ladder that fits (GPU_LADDER), validates the in-budget
+ * combinations, and keeps the valid, fully-priced, blocking-issue-free build
+ * with the fewest unverified specs (needs_research/needs_verification), then
+ * the lowest total. A budget with no such build is SKIPPED (logged, no page
+ * published). If EVERY tier is skipped the script exits 1 and writes nothing,
+ * so the Pages deploy never runs and the last good site stays up. Nothing here
+ * makes unsourced "fastest", "strongest", or "best" claims.
  *
  *   npx tsx scripts/build-guides.ts [--db <path>] [--out <dir>]
  *
@@ -35,9 +38,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatPrice } from "../src/lib/format";
 import { SqliteCatalogRepository } from "../src/lib/catalog/sqlite-repository";
-import type { CatalogScope, SearchProductsInput } from "../src/lib/catalog/repository";
+import type { CatalogScope, SearchProductItem, SearchProductsInput } from "../src/lib/catalog/repository";
 import type { BuildSnapshot } from "../src/lib/catalog/build-snapshot";
-import type { ValidationResult } from "../src/lib/rules-engine";
+import { resolveComponent } from "../src/lib/registry";
+import type { BuildPart, ValidationResult } from "../src/lib/rules-engine";
+import { evaluatePsuQuality, getCpuCoolerInclusion, isFanlessCase } from "../src/lib/rules/quality";
 import { createValidateBuildTool } from "../src/lib/tools/validate-build";
 import {
   API_KEY_FAQS,
@@ -70,14 +75,15 @@ export interface TierPlan {
   resolution: Resolution;
   /** Search filters for every part except the GPU; cheapest in-stock wins. */
   plan: Record<FixedCategory, SearchProductsInput>;
-  /** GPU classes this tier may use, weakest first; the strongest that fits wins. */
+  /** GPU classes this tier may use, entry-level first; the highest fitting tier wins. */
   gpuClasses: readonly string[];
 }
 
 /**
- * GPU classes (search terms), roughly weakest to strongest. Current families
- * only: last-gen cards still listed at launch-era prices (RTX 4060, 3060) are
- * left out. The order is an approximation of relative gaming performance.
+ * GPU classes (search terms), ordered roughly from entry-level to higher-tier
+ * on this guide's catalog ladder (not an absolute benchmark ranking). Current
+ * families only: last-gen cards still listed at launch-era prices (RTX 4060,
+ * 3060) are left out.
  */
 export const GPU_LADDER = [
   "RTX 3050",
@@ -142,21 +148,22 @@ export const BUDGET_TIERS: TierPlan[] = [
 
 /**
  * Cheapest in-stock candidates tried per category. The full combination
- * space (3 * 2^7 = 384) fits under MAX_COMBOS, so every candidate is tried;
- * combinations over budget are dropped by price before validation.
+ * space (3 * 4 * 3 * 2 * 2 * 3 * 3 * 2 = 2,592) fits under MAX_COMBOS, so
+ * every candidate is tried; combinations over budget are dropped by price
+ * before validation.
  */
 export const CANDIDATES_PER_CATEGORY: Record<GuideCategory, number> = {
-  cpu: 2,
-  gpu: 3,
-  motherboard: 2,
+  cpu: 3,
+  gpu: 4,
+  motherboard: 3,
   ram: 2,
   storage: 2,
-  psu: 2,
-  case: 2,
+  psu: 3,
+  case: 3,
   cooler: 2
 };
 export const MAX_COMBOS = 3000;
-/** GPU classes tried per tier (strongest fitting first) before skipping it. */
+/** GPU classes tried per tier (top fitting tier first) before skipping it. */
 export const MAX_GPU_CLASS_TRIES = 2;
 
 /**
@@ -298,15 +305,91 @@ export function resolveOutDir(args: string[] = process.argv.slice(2)): string {
   return path.resolve(flagValue("--out", args) ?? path.join(process.cwd(), "site"));
 }
 
-type Candidate = { id: string; name: string; price: number | null };
+type Candidate = {
+  id: string;
+  name: string;
+  price: number | null;
+  registry_key?: string | null;
+  specs?: Record<string, unknown> | null;
+};
 
 const toCandidate = (product: Candidate): Candidate => ({
   id: product.id,
   name: product.name,
-  price: product.price
+  price: product.price,
+  registry_key: product.registry_key ?? null,
+  specs: product.specs ?? null
 });
 
-/** Weakest GPU class a tier may publish: its minimum, and above `above` (a ladder index) when set. */
+export function passesGuideQualityCandidate(
+  category: GuideCategory,
+  candidate: Candidate,
+  scope: CatalogScope
+): boolean {
+  if (category === "psu") {
+    const resolved = resolveComponent(
+      { key: candidate.registry_key ?? undefined, name: candidate.name, category: "psu" },
+      { skipDbLookup: true }
+    );
+    const text = [
+      candidate.name,
+      resolved?.spec.brand,
+      resolved?.spec.model,
+      ...(Array.isArray(resolved?.spec.aliases) ? resolved.spec.aliases : [])
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const efficiency =
+      (candidate.specs && typeof candidate.specs.efficiency === "string" ? candidate.specs.efficiency : undefined) ??
+      (typeof resolved?.spec.efficiency === "string" ? resolved.spec.efficiency : undefined);
+    const verdict = evaluatePsuQuality({
+      text,
+      brand: typeof resolved?.spec.brand === "string" ? resolved.spec.brand : undefined,
+      efficiency,
+      price: typeof candidate.price === "number" ? candidate.price : undefined,
+      currency: scope.currency
+    });
+    return !verdict.blockingReason;
+  }
+  if (category === "case") {
+    const resolved = resolveComponent(
+      { key: candidate.registry_key ?? undefined, name: candidate.name, category: "case" },
+      { skipDbLookup: true }
+    );
+    const spec = resolved ?? {
+      key: candidate.id,
+      category: "case" as const,
+      spec: { brand: "", model: candidate.name, aliases: [] },
+      source: "registry" as const,
+      confidence: "low" as const
+    };
+    return !isFanlessCase(spec, { name: candidate.name, specs: candidate.specs ?? null });
+  }
+  return true;
+}
+
+function includedStockCoolerForCpu(
+  cpu: Candidate,
+  db: Database.Database
+): { key: string; model: string; tdp_rating_w: number } | undefined {
+  const resolved = resolveComponent(
+    { key: cpu.registry_key ?? undefined, name: cpu.name, category: "cpu" },
+    { db }
+  );
+  const spec = resolved ?? {
+    key: cpu.id,
+    category: "cpu" as const,
+    spec: { brand: "", model: cpu.name, aliases: [] },
+    source: "registry" as const,
+    confidence: "low" as const
+  };
+  const inclusion = getCpuCoolerInclusion(spec, { name: cpu.name, specs: cpu.specs ?? null });
+  if (inclusion.status !== "included" || !inclusion.stockCooler) return undefined;
+  const cpuTdp = typeof resolved?.spec.tdp_w === "number" ? resolved.spec.tdp_w : 65;
+  return cpuTdp <= inclusion.stockCooler.tdp_rating_w ? inclusion.stockCooler : undefined;
+}
+
+/** Lowest GPU class a tier may publish: its minimum, and above `above` (a ladder index) when set. */
 function weakestAllowed(tier: TierPlan, above: number | undefined): string {
   const floor = Math.max(GPU_LADDER.indexOf(tier.gpuClasses[0] as (typeof GPU_LADDER)[number]), (above ?? -1) + 1);
   return GPU_LADDER[Math.min(floor, GPU_LADDER.length - 1)];
@@ -320,20 +403,29 @@ async function inStockCandidates(
   category: GuideCategory,
   filters: SearchProductsInput
 ): Promise<{ candidates: Candidate[]; fallback: boolean }> {
+  const fetchLimit = category === "psu" || category === "case"
+    ? CANDIDATES_PER_CATEGORY[category] * 5
+    : CANDIDATES_PER_CATEGORY[category];
   const search = async (input: SearchProductsInput) =>
     repo.searchProducts(
-      { ...input, category, inStockOnly: true, limit: CANDIDATES_PER_CATEGORY[category], sort_by: "price", order: "asc" },
+      { ...input, category, inStockOnly: true, limit: fetchLimit, sort_by: "price", order: "asc" },
       scope
     );
-  let result = await search(filters);
+  const filterResults = (items: SearchProductItem[]) =>
+    items
+      .map(toCandidate)
+      .filter((candidate) => passesGuideQualityCandidate(category, candidate, scope));
+
+  let filtered = filterResults((await search(filters)).results);
   let fallback = false;
-  if (result.results.length === 0 && !NO_FALLBACK_CATEGORIES.includes(category)) {
-    // Commodity filters too narrow for this scrape: fall back to cheapest
-    // in-stock in the category and let validate_build decide compatibility.
-    result = await search({});
-    fallback = result.results.length > 0;
+  if (filtered.length === 0 && !NO_FALLBACK_CATEGORIES.includes(category)) {
+    // Commodity filters too narrow (or every matched listing failed quality
+    // filtering): fall back to cheapest in-stock in the category and let
+    // validate_build decide compatibility.
+    filtered = filterResults((await search({})).results);
+    fallback = filtered.length > 0;
   }
-  return { candidates: result.results.map(toCandidate), fallback };
+  return { candidates: filtered.slice(0, CANDIDATES_PER_CATEGORY[category]), fallback };
 }
 
 async function resolveScope(
@@ -346,10 +438,11 @@ async function resolveScope(
        WHERE in_stock = 1 GROUP BY country_code, currency ORDER BY count DESC`
     )
     .all();
+  const requiredCategories = CATEGORIES.filter((category) => category !== "cooler");
   for (const market of markets) {
     const scope: CatalogScope = { countryCode: market.country_code, currency: market.currency };
     const coverage = await Promise.all(
-      CATEGORIES.map((category) => repo.getCategoryBaseline(category, scope))
+      requiredCategories.map((category) => repo.getCategoryBaseline(category, scope))
     );
     if (coverage.every((baseline) => baseline.in_stock_total > 0)) return scope;
   }
@@ -388,6 +481,13 @@ type ToolOutput = Record<string, ValidationResult & { snapshot?: BuildSnapshot }
   builds?: Record<string, ValidationResult & { snapshot?: BuildSnapshot }>;
 };
 
+export interface RunnerUpCandidate {
+  name: string;
+  price: number;
+  retailer?: string;
+  sameModelOffer?: boolean;
+}
+
 export interface PublishedGuide {
   tier: Pick<TierPlan, "budget" | "resolution">;
   slug: string;
@@ -395,6 +495,10 @@ export interface PublishedGuide {
   currency: string;
   componentCount: number;
   partsSummary: string;
+  runnerUp?: {
+    gpu?: RunnerUpCandidate;
+    cpu?: RunnerUpCandidate;
+  };
 }
 
 /** Public-page wording for an unverified check: part names, not internal ids or engine text. */
@@ -420,8 +524,9 @@ function renderGuidePage(args: {
   validation: ValidationResult;
   generatedAt: string;
   rankByCategory: Map<string, { rank: number; of: number; term: string }>;
+  runnerUp?: PublishedGuide["runnerUp"];
 }): string {
-  const { tier, snapshot, validation, generatedAt, rankByCategory } = args;
+  const { tier, snapshot, validation, generatedAt, rankByCategory, runnerUp } = args;
   const title = guideTitle(tier);
   const passed = validation.summary?.passed ?? validation.checks.filter((c) => c.status === "passed").length;
   const totalChecks = validation.checks.length;
@@ -430,17 +535,40 @@ function renderGuidePage(args: {
       const rank = rankByCategory.get(String(component.category));
       // The case search term is a form factor ("ATX" also matches M-ATX), so name the category instead.
       const termLabel = rank && component.category === "case" ? "case" : rank?.term;
-      const reason = rank
-        ? `Cheapest in-stock ${escapeHtml(termLabel ?? "")} in this tier (#${rank.rank} of ${rank.of}).`
-        : "";
+      const reason = component.included
+        ? "Included stock cooler with boxed CPU."
+        : rank
+          ? `Cheapest in-stock ${escapeHtml(termLabel ?? "")} in this tier (#${rank.rank} of ${rank.of}).`
+          : "";
       const price = component.price === null ? "—" : escapeHtml(wholePrice(component.price, snapshot.currency));
       const name = escapeHtml(component.name);
       const buy = component.url
         ? `<a href="${escapeHtml(component.url)}">Buy</a>`
         : "—";
-      return `      <tr><td>${escapeHtml(String(component.category))}</td><td>${name}</td><td>${price}</td><td>${escapeHtml(component.retailer ?? "")}</td><td>${buy}</td><td>${reason}</td></tr>`;
+      const retailer = component.included ? "Included" : escapeHtml(component.retailer ?? "");
+      return `      <tr><td>${escapeHtml(String(component.category))}</td><td>${name}</td><td>${price}</td><td>${retailer}</td><td>${buy}</td><td>${reason}</td></tr>`;
     })
     .join("\n");
+  const runnerUpItems: string[] = [];
+  if (runnerUp?.gpu) {
+    const gpuLabel = runnerUp.gpu.sameModelOffer
+      ? "Alternate GPU offer considered within budget"
+      : "Runner-up GPU considered within budget";
+    runnerUpItems.push(
+      `  <li>${gpuLabel}: ${escapeHtml(runnerUp.gpu.name)} (${escapeHtml(wholePrice(runnerUp.gpu.price, snapshot.currency))}${runnerUp.gpu.retailer ? `, ${escapeHtml(runnerUp.gpu.retailer)}` : ""})</li>`
+    );
+  }
+  if (runnerUp?.cpu) {
+    const cpuLabel = runnerUp.cpu.sameModelOffer
+      ? "Alternate CPU offer considered within budget"
+      : "Runner-up CPU considered within budget";
+    runnerUpItems.push(
+      `  <li>${cpuLabel}: ${escapeHtml(runnerUp.cpu.name)} (${escapeHtml(wholePrice(runnerUp.cpu.price, snapshot.currency))}${runnerUp.cpu.retailer ? `, ${escapeHtml(runnerUp.cpu.retailer)}` : ""})</li>`
+    );
+  }
+  const runnerUpBlock = runnerUpItems.length
+    ? `\n<h2>Alternatives considered</h2>\n<ul>\n${runnerUpItems.join("\n")}\n</ul>`
+    : "";
   const partsSummary = snapshot.components.map((c) => `${c.category}: ${c.name}`).join("; ");
   const customise = customiseUrl(tier, partsSummary);
   const total = snapshot.total === null ? "—" : escapeHtml(wholePrice(snapshot.total, snapshot.currency));
@@ -469,7 +597,7 @@ function renderGuidePage(args: {
 <tbody>
 ${rows}
 </tbody>
-</table>
+</table>${runnerUpBlock}
 <p><a href="${escapeHtml(customise)}">Customise this build</a> — opens the PCBuildSage demo with this request prefilled.</p>
 <p><a href="./">All guides</a></p>
 </body>
@@ -604,35 +732,56 @@ export async function runBuildGuides(
     >[1];
 
     // Validates every in-budget combination of the per-category candidate
-    // lists (CATEGORIES order) and returns the picker's choice, or null.
-    const pickValid = async (label: string, budget: number, lists: Candidate[][]) => {
-      const valid: Array<{ validation: ValidationResult; snapshot: BuildSnapshot }> = [];
-      for (const combo of combos(lists)) {
-        // Cheap price check first: most combinations never need validating.
-        const sum = guideTotal(combo);
-        if (sum === null || sum > budget) continue;
-        const parts: Record<string, { product_id: string }> = {};
-        CATEGORIES.forEach((category, index) => {
-          parts[category] = { product_id: combo[index].id };
-        });
-        const output = (await tool.execute!({ builds: [{ label, parts }] }, context)) as unknown as ToolOutput;
-        const entry = output.builds?.[label];
-        const snapshot = entry?.snapshot;
-        if (!entry || !snapshot || !entry.valid || !snapshot.is_complete || typeof snapshot.total !== "number") continue;
-        if (entry.issues.some((issue) => issue.severity === "blocking")) continue;
-        if (snapshot.total > budget) continue;
-        valid.push({ validation: entry, snapshot });
-      }
-      return pickBuildForBudget(
-        valid.map((v) => ({
-          value: v,
-          total: v.snapshot.total,
-          unverified: v.validation.issues.filter(
+    // lists and returns the picker's choice plus all valid builds (for
+    // recording real runner-up GPU/CPU alternatives).
+    const db = repo.getDatabase();
+    const NON_COOLER_CATEGORIES = CATEGORIES.filter((c) => c !== "cooler");
+
+    type ValidatedCandidate = { validation: ValidationResult; snapshot: BuildSnapshot; unverified: number };
+    const pickValid = async (
+      label: string,
+      budget: number,
+      byCategory: Map<GuideCategory, Candidate[]>
+    ): Promise<{ picked: NonNullable<ReturnType<typeof pickBuildForBudget<{ value: ValidatedCandidate; total: number | null; unverified: number }>>>; allValid: ValidatedCandidate[] } | null> => {
+      const valid: ValidatedCandidate[] = [];
+      const paidCoolers = byCategory.get("cooler") ?? [];
+      const baseLists = NON_COOLER_CATEGORIES.map((category) => byCategory.get(category) ?? []);
+
+      for (const combo of combos(baseLists)) {
+        const byCat = new Map<GuideCategory, Candidate>();
+        NON_COOLER_CATEGORIES.forEach((category, index) => byCat.set(category, combo[index]));
+        const cpu = byCat.get("cpu")!;
+        const stockCooler = includedStockCoolerForCpu(cpu, db);
+
+        const coolerVariants: Array<{ part: BuildPart; price: number | null }> = stockCooler
+          ? [{ part: { key: stockCooler.key, name: `${stockCooler.model} (included with CPU)` }, price: 0 }]
+          : paidCoolers.map((c) => ({ part: { product_id: c.id }, price: c.price }));
+
+        for (const coolerChoice of coolerVariants) {
+          const baseTotal = guideTotal(combo);
+          if (baseTotal === null || coolerChoice.price === null || baseTotal + coolerChoice.price > budget) continue;
+          const parts: Record<string, BuildPart> = {};
+          for (const category of NON_COOLER_CATEGORIES) {
+            parts[category] = { product_id: byCat.get(category)!.id };
+          }
+          parts.cooler = coolerChoice.part;
+          const output = (await tool.execute!({ builds: [{ label, parts }] }, context)) as unknown as ToolOutput;
+          const entry = output.builds?.[label];
+          const snapshot = entry?.snapshot;
+          if (!entry || !snapshot || !entry.valid || !snapshot.is_complete || typeof snapshot.total !== "number") continue;
+          if (entry.issues.some((issue) => issue.severity === "blocking")) continue;
+          if (snapshot.total > budget) continue;
+          const unverified = entry.issues.filter(
             (issue) => issue.severity === "needs_research" || issue.severity === "needs_verification"
-          ).length
-        })),
+          ).length;
+          valid.push({ validation: entry, snapshot, unverified });
+        }
+      }
+      const picked = pickBuildForBudget(
+        valid.map((v) => ({ value: v, total: v.snapshot.total, unverified: v.unverified })),
         budget
       );
+      return picked ? { picked, allValid: valid } : null;
     };
 
     for (const tier of BUDGET_TIERS) {
@@ -650,6 +799,13 @@ export async function runBuildGuides(
       for (const category of FIXED_CATEGORIES) {
         const { candidates, fallback } = await inStockCandidates(repo, scope, category, tier.plan[category]);
         if (candidates.length === 0) {
+          if (category === "cooler") {
+            const cpus = lists.get("cpu") ?? [];
+            if (cpus.length > 0 && cpus.some((c) => Boolean(includedStockCoolerForCpu(c, db)))) {
+              lists.set("cooler", []);
+              continue;
+            }
+          }
           missing = category;
           break;
         }
@@ -670,20 +826,37 @@ export async function runBuildGuides(
         continue;
       }
 
-      // What the cheapest other parts leave buys the GPU: the strongest class
-      // (from the top of the tier's ladder) with an in-stock card that fits.
-      const restMin = [...lists.values()].reduce(
-        (sum, candidates) => sum + Math.min(...candidates.map((c) => c.price ?? Number.POSITIVE_INFINITY)),
-        0
+      // What the cheapest other parts leave buys the GPU: the top GPU tier
+      // on the ladder with an in-stock card that fits.
+      const cpuCandidates = lists.get("cpu") ?? [];
+      const paidCoolerCandidates = lists.get("cooler") ?? [];
+      const minPaidCooler = paidCoolerCandidates.length > 0
+        ? Math.min(...paidCoolerCandidates.map((c) => c.price ?? Number.POSITIVE_INFINITY))
+        : Number.POSITIVE_INFINITY;
+      const minCpuPlusCooler = Math.min(
+        ...cpuCandidates.map((cpu) => {
+          const cpuPrice = cpu.price ?? Number.POSITIVE_INFINITY;
+          const coolerCost = includedStockCoolerForCpu(cpu, db) ? 0 : minPaidCooler;
+          return cpuPrice + coolerCost;
+        })
       );
+      const otherFixedMin = FIXED_CATEGORIES
+        .filter((c) => c !== "cpu" && c !== "cooler")
+        .reduce(
+          (sum, category) => sum + Math.min(...(lists.get(category) ?? []).map((c) => c.price ?? Number.POSITIVE_INFINITY)),
+          0
+        );
+      const restMin = minCpuPlusCooler + otherFixedMin;
       const gpuBudget = tier.budget - restMin;
       // A 1440p page must beat the 1080p page's GPU at the same budget, or it
       // would just be that page with a weaker CPU.
       const above = tier.resolution === "1440p" ? gpuClass1080.get(tier.budget) : undefined;
-      let picked: Awaited<ReturnType<typeof pickValid>> = null;
+      let pickedResult: Awaited<ReturnType<typeof pickValid>> = null;
       let gpuClass = "";
       let tries = 0;
-      for (const cls of [...tier.gpuClasses].reverse()) {
+      const reversedClasses = [...tier.gpuClasses].reverse();
+      let winningClassPos = -1;
+      for (const [pos, cls] of reversedClasses.entries()) {
         if (gpuBudget <= 0 || tries >= MAX_GPU_CLASS_TRIES) break;
         if (above !== undefined && GPU_LADDER.indexOf(cls as (typeof GPU_LADDER)[number]) <= above) break;
         const gpus = (
@@ -703,14 +876,15 @@ export async function runBuildGuides(
         if (gpus.length === 0) continue;
         tries += 1;
         lists.set("gpu", gpus);
-        picked = await pickValid(label, tier.budget, CATEGORIES.map((category) => lists.get(category)!));
-        if (picked) {
+        pickedResult = await pickValid(label, tier.budget, lists);
+        if (pickedResult) {
           gpuClass = cls;
-          addRanks("gpu", gpus, `${cls} (the strongest GPU class that fits the budget)`);
+          winningClassPos = pos;
+          addRanks("gpu", gpus, `${cls} (highest-positioned GPU tier on the catalog ladder within budget)`);
           break;
         }
       }
-      if (!picked) {
+      if (!pickedResult) {
         const reason =
           gpuBudget <= 0
             ? `the other parts alone cost ${formatPrice(restMin, scope.currency)}`
@@ -721,6 +895,95 @@ export async function runBuildGuides(
         skipped.push(`${label} (${reason})`);
         continue;
       }
+
+      const picked = pickedResult.picked;
+      const pickedGpu = picked.value.snapshot.components.find((c) => c.category === "gpu");
+      const pickedCpu = picked.value.snapshot.components.find((c) => c.category === "cpu");
+
+      const modelIdentity = (
+        build: ValidatedCandidate,
+        category: "gpu" | "cpu",
+        comp: BuildSnapshot["components"][number]
+      ): string => {
+        const spec = build.validation.resolved[category];
+        if (spec && !Array.isArray(spec)) {
+          const brand = typeof spec.spec.brand === "string" ? spec.spec.brand.trim().toLowerCase() : "";
+          const model = typeof spec.spec.model === "string" ? spec.spec.model.trim().toLowerCase() : "";
+          if (model) return `${brand}|${model}`;
+        }
+        return comp.name.trim().toLowerCase();
+      };
+
+      const findAlternative = (
+        builds: ValidatedCandidate[],
+        category: "gpu" | "cpu",
+        pickedBuild: ValidatedCandidate,
+        pickedComp: BuildSnapshot["components"][number] | undefined
+      ): RunnerUpCandidate | undefined => {
+        if (!pickedComp) return undefined;
+        const pickedIdentity = modelIdentity(pickedBuild, category, pickedComp);
+        const candidates = builds
+          .map((b) => ({
+            build: b,
+            comp: b.snapshot.components.find((c) => c.category === category)
+          }))
+          .filter((entry): entry is { build: ValidatedCandidate; comp: BuildSnapshot["components"][number] } =>
+            Boolean(entry.comp && typeof entry.comp.price === "number" && entry.comp.product_id !== pickedComp.product_id)
+          );
+        const distinctModel = candidates.filter(
+          (entry) => modelIdentity(entry.build, category, entry.comp) !== pickedIdentity
+        );
+        const sameModelOffer = distinctModel.length === 0;
+        const pool = sameModelOffer ? candidates : distinctModel;
+        if (pool.length === 0) return undefined;
+        pool.sort((a, b) => pickScore({ total: a.build.snapshot.total ?? 0, unverified: a.build.unverified }) - pickScore({ total: b.build.snapshot.total ?? 0, unverified: b.build.unverified }));
+        const chosen = pool[0].comp;
+        return {
+          name: chosen.name,
+          price: chosen.price as number,
+          ...(chosen.retailer ? { retailer: chosen.retailer } : {}),
+          ...(sameModelOffer ? { sameModelOffer: true } : {})
+        };
+      };
+
+      const runnerUpCpu = findAlternative(pickedResult.allValid, "cpu", picked.value, pickedCpu);
+      let runnerUpGpu = findAlternative(pickedResult.allValid, "gpu", picked.value, pickedGpu);
+      if (!runnerUpGpu && winningClassPos !== -1) {
+        for (const cls of reversedClasses.slice(winningClassPos + 1)) {
+          if (above !== undefined && GPU_LADDER.indexOf(cls as (typeof GPU_LADDER)[number]) <= above) break;
+          const lowerGpus = (
+            await repo.searchProducts(
+              {
+                term: cls,
+                category: "gpu",
+                price_max: gpuBudget,
+                inStockOnly: true,
+                limit: CANDIDATES_PER_CATEGORY.gpu,
+                sort_by: "price",
+                order: "asc"
+              },
+              scope
+            )
+          ).results.map(toCandidate);
+          if (lowerGpus.length === 0) continue;
+          lists.set("gpu", lowerGpus);
+          const lowerResult = await pickValid(label, tier.budget, lists);
+          if (lowerResult) {
+            const altGpu = lowerResult.picked.value.snapshot.components.find((c) => c.category === "gpu");
+            if (altGpu && typeof altGpu.price === "number") {
+              runnerUpGpu = {
+                name: altGpu.name,
+                price: altGpu.price,
+                ...(altGpu.retailer ? { retailer: altGpu.retailer } : {})
+              };
+              break;
+            }
+          }
+        }
+      }
+      const runnerUp = runnerUpGpu || runnerUpCpu
+        ? { ...(runnerUpGpu ? { gpu: runnerUpGpu } : {}), ...(runnerUpCpu ? { cpu: runnerUpCpu } : {}) }
+        : undefined;
 
       // Challenger self-check: every product ID resolves + total equals sum of parts.
       const ids = picked.value.snapshot.components.map((c) => c.product_id).filter(Boolean) as string[];
@@ -750,7 +1013,7 @@ export async function runBuildGuides(
       mkdirSync(outDir, { recursive: true });
       writeFileSync(
         path.join(outDir, `${label}.html`),
-        renderGuidePage({ tier, snapshot: picked.value.snapshot, validation: picked.value.validation, generatedAt, rankByCategory: ranks })
+        renderGuidePage({ tier, snapshot: picked.value.snapshot, validation: picked.value.validation, generatedAt, rankByCategory: ranks, runnerUp })
       );
       published.push({
         tier: { budget: tier.budget, resolution: tier.resolution },
@@ -758,7 +1021,8 @@ export async function runBuildGuides(
         total: picked.value.snapshot.total ?? 0,
         currency: picked.value.snapshot.currency,
         componentCount: picked.value.snapshot.component_count,
-        partsSummary: picked.value.snapshot.components.map((c) => `${c.category}: ${c.name}`).join("; ")
+        partsSummary: picked.value.snapshot.components.map((c) => `${c.category}: ${c.name}`).join("; "),
+        ...(runnerUp ? { runnerUp } : {})
       });
       console.log(
         `[build-guides] published ${label}: ${formatPrice(picked.value.snapshot.total, picked.value.snapshot.currency)}` +
