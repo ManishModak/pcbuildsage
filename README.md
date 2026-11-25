@@ -1,15 +1,16 @@
 # PCBuildSage 🧙‍♂️🖥️
 
-**Plan a PC in plain language, using only parts in stock at retailers today, with exact totals, buy links, and compatibility checked by code, not the AI.**
-
-The live demo covers India. Starter profiles for the Philippines, Australia, the United Kingdom and the United States let you scrape those countries locally, and each needs more retailers: a retailer is one JSON profile, no code required.
+**AI PC builder for India:** say your budget or the parts you already own, and get a compatible PC build from in-stock parts at Indian stores — with exact totals, buy links, and compatibility checked by code, not the AI.
 
 <!-- badges -->
 ![License: MIT](https://img.shields.io/badge/license-MIT-green) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen) ![GitHub Stars](https://img.shields.io/github/stars/ManishModak/pcbuildsage?style=social) ![Privacy First](https://img.shields.io/badge/privacy--first-blue)
 
-🌐 **Live demo:** [pcbuildsage.onrender.com](https://pcbuildsage.onrender.com). It runs on free hosting, so the first visit after a quiet spell can take about a minute to wake up. Bring a free API key from Gemini, Groq, OpenRouter or NVIDIA.
+- **No API key needed:** browse [today's validated budget build guides](https://manishmodak.github.io/pcbuildsage/) or inspect the example build on the [live hosted demo](https://pcbuildsage.onrender.com).
+- **Custom & owned-part builds (free BYOK):** chat on [pcbuildsage.onrender.com](https://pcbuildsage.onrender.com) with a free API key from **Gemini**, **OpenRouter**, or **NVIDIA** *(free hosting can take ~1 minute to wake up after a quiet spell)*.
 
 ![The PCBuildSage landing page with an example 1080p gaming build: each part has its retailer, buy link and price](docs/images/landing.png)
+
+> **Developers & other regions:** starter profiles for the Philippines, Australia, the United Kingdom, and the United States run locally (adding a retailer or country is one JSON profile, no code required). Jump to [Quick start (local)](#quick-start-local) or [Contributing](#contributing-most-contributions-need-zero-code).
 
 ---
 
@@ -33,7 +34,7 @@ What you get:
 | | |
 | :-- | :-- |
 | 🌍 **India live, 4 more countries locally** | Retailers are defined in JSON profiles. India runs on the demo; the Philippines, Australia, the UK and the US run locally. Adding a retailer or a whole country is a pull request, no code required. |
-| 🤖 **AI consultant, real data** | Chat with the model of your choice: free keys from Gemini, Groq, OpenRouter or NVIDIA, paid ones from OpenAI, Anthropic, DeepSeek, xAI or Mistral, or a model on your own machine (Ollama or any OpenAI-compatible server). It searches freshly scraped listings, never its memory. |
+| 🤖 **AI consultant, real data** | Chat with the model of your choice: free keys from Gemini, OpenRouter or NVIDIA, paid ones from OpenAI, Anthropic, DeepSeek, xAI or Mistral, or a model on your own machine (Ollama or any OpenAI-compatible server). It searches freshly scraped listings, never its memory. |
 | ✅ **One more trust layer** | The AI proposes parts; a deterministic rules engine checks sockets, DDR generation, PSU wattage and physical clearances before a build is presented. Anything it can't verify is shown as unverified. The engine is young: if you spot a wrong verdict, please [open an issue](https://github.com/ManishModak/pcbuildsage/issues). |
 | 🔒 **Private** | No accounts and no tracking cookies. Run it 100% locally, or use the demo, where your key and chats stay in your browser and the server keeps only anonymous daily totals. |
 | 💻 **Web app and terminal** | A friendly web wizard, or an interactive CLI with scriptable subcommands. |
@@ -45,7 +46,7 @@ What you get:
 [pcbuildsage.onrender.com](https://pcbuildsage.onrender.com):
 
 - **India catalog**, refreshed twice a day from Indian retailers such as MDComputers, PrimeABGB, Vedant Computers and Kryptronix. Prices and stock are snapshots, so confirm them at checkout.
-- **Bring your own key.** Setup lists the free providers first: [Google AI Studio](https://aistudio.google.com/app/apikey) (Gemini), [Groq](https://console.groq.com/keys), [OpenRouter](https://openrouter.ai/keys) (its free models) and [NVIDIA](https://build.nvidia.com/settings/api-keys). Cerebras (trial credits) and paid keys from OpenAI, Anthropic, DeepSeek, xAI and Mistral work too. The demo never uses server-side keys.
+- **Bring your own key.** For free full builds, use [Google AI Studio](https://aistudio.google.com/app/apikey) (Gemini), [OpenRouter](https://openrouter.ai/keys) (free models) or [NVIDIA](https://build.nvidia.com/settings/api-keys). [Groq](https://console.groq.com/keys) is supported, though its free tier's 8K TPM limit is too small for multi-step builds. Cerebras (trial credits) and paid keys from OpenAI, Anthropic, DeepSeek, xAI and Mistral work too. The demo never uses server-side keys.
 - **Your key stays in your browser.** It's kept in this tab's session storage and sent with each request only to reach your provider. It's never written to disk, stored in a database, or logged on the server.
 - **Your chats stay in your browser** too (IndexedDB). The server keeps no sessions.
 - **Anonymous usage totals only:** the demo keeps daily totals of six events: landing view, onboarding completed, chat started, build presented, provider used (the provider name only, e.g. `gemini`) and error type (a coarse class, e.g. `rate_limit`). It never stores IPs, cookies, user or session IDs, chat content, API keys, or model names. Local mode counts nothing.
@@ -178,7 +179,7 @@ npm run validate:data
 
 **Which countries work?** The live demo covers India. Local scrapes also cover the Philippines, Australia, the United Kingdom and the United States, each with a few retailers so far. Adding a retailer or a country means writing a JSON profile (no code), and we'd love the help. See [CONTRIBUTING.md](CONTRIBUTING.md#2-add-a-retailer-or-a-country).
 
-**Why does the demo ask for an API key?** The demo runs on free hosting with no budget for AI usage, so you bring your own key. Gemini, Groq, OpenRouter and NVIDIA all offer free keys.
+**Why does the demo ask for an API key?** The demo runs on free hosting with no budget for AI usage, so you bring your own key. Gemini, OpenRouter and NVIDIA all offer free keys.
 
 **Does it work offline?** Scraped data, search, and compatibility checks work fully offline. Chat needs whatever your model needs (a local Ollama model is fully offline).
 
