@@ -150,11 +150,32 @@ def test_pagination_repeated_page_is_partial_not_an_endless_loop() -> None:
     assert products.partial is True
 
 
-def test_page_overlapping_earlier_results_is_partial() -> None:
-    # A collection that shifted mid-crawl may have pushed a listing past us.
+def test_page_overlapping_earlier_results_deduplicates_cleanly() -> None:
+    # A collection shift overlapping one item deduplicates and continues cleanly.
     _fetcher, products = crawl([page("a", "b"), page("b", "c"), json.dumps({"products": []})])
 
-    assert products.partial is True
+    assert [p.url.rsplit("/", 1)[1] for p in products] == ["a", "b", "c"]
+    assert products.partial is False
+
+
+def test_multi_path_shopify_deduplicates_across_collections() -> None:
+    cat = CategoryConfig(
+        name="cooler",
+        path="collections/liquid-cooler",
+        paths=("collections/liquid-cooler", "collections/cpu-air-cooler"),
+        max_pages=10,
+    )
+    fetcher = FakeHttpFetcher([
+        page("aio-1", "shared-cooler"),
+        json.dumps({"products": []}),
+        page("shared-cooler", "air-1"),
+        json.dumps({"products": []}),
+    ])
+    crawler = ScraperCrawler(fetcher=fetcher, delay_ms=0, llm_enabled=False)
+    products = asyncio.run(crawler.crawl_shopify_collection(site(), cat, 10))
+
+    assert [p.url.rsplit("/", 1)[1] for p in products] == ["aio-1", "shared-cooler", "air-1"]
+    assert products.partial is False
 
 
 def test_later_page_failure_keeps_earlier_pages_as_partial() -> None:

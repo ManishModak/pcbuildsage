@@ -59,7 +59,7 @@ def test_all_advertised_rows_complete_without_empty_probe():
     CrawlError("timeout"), HttpStatusError("https://example.test", 404),
     HttpStatusError("https://example.test", 403),
     ("<title>Just a moment...</title>", {}), ("{}", {}),
-    response([]), response([item(1)]), response([item(101)], 102),
+    response([]), response([item(1)]),
     (json.dumps([item(101)]), {}),
 ])
 def test_later_failure_or_inconsistent_listing_preserves_partial(later):
@@ -67,12 +67,22 @@ def test_later_failure_or_inconsistent_listing_preserves_partial(later):
     assert len(found) == 100 and found.partial and found.partial_error
 
 
+def test_overlapping_items_and_total_shift_deduplicate_cleanly():
+    # Live stores shift pagination when items are added/removed mid-crawl:
+    # page 2 overlaps item 100 and reports total=102, yet finishes cleanly.
+    found = crawl([
+        response([item(i) for i in range(1, 101)], total=101, pages=2),
+        response([item(100), item(101), item(102)], total=102, pages=2),
+    ])
+    assert len(found) == 102 and not found.partial
+
+
 def test_cap_is_partial_even_with_valid_first_page():
     found = crawl([response([item(i) for i in range(1, 101)])], limit=1)
     assert len(found) == 100 and found.partial
 
 
-@pytest.mark.parametrize("first", [CrawlError("blocked"), ("not JSON", {}), response([item()], 100, 1)])
+@pytest.mark.parametrize("first", [CrawlError("blocked"), ("not JSON", {}), response([], 100, 1)])
 def test_first_failure_is_not_a_complete_empty_listing(first):
     with pytest.raises(CrawlError):
         crawl([first])
@@ -80,8 +90,28 @@ def test_first_failure_is_not_a_complete_empty_listing(first):
 
 def test_empty_category_and_duplicate_ids_within_page():
     assert not crawl([response([], 0, 0)]).partial
-    with pytest.raises(CrawlError, match="repeated"):
-        crawl([response([item(), item()], 2, 1)])
+    deduped = crawl([response([item(1), item(1)], 2, 1)])
+    assert len(deduped) == 1 and not deduped.partial
+
+
+def test_malformed_item_is_skipped_when_valid_items_exist():
+    bad = item(2)
+    bad["prices"] = {"currency_code": "INR", "price": "NaN", "currency_minor_unit": 2}
+    found = crawl([response([item(1), bad, item(3)], 3, 1)])
+    assert [p.url for p in found] == [item(1)["permalink"], item(3)["permalink"]]
+    assert not found.partial
+
+
+def test_multi_path_woocommerce_deduplicates_across_slugs():
+    s = site()
+    storage = s.categories["storage"]
+    assert storage.all_paths == ("ssd", "internal-hard-drive")
+    c = crawler([
+        response([item(1), item(2)], total=2, pages=1),
+        response([item(2), item(3)], total=2, pages=1),
+    ])
+    found = asyncio.run(crawl_woocommerce_category(c, s, storage, 100))
+    assert len(found) == 3 and not found.partial
 
 
 def test_current_price_stock_image_and_variable_product_fields():
@@ -231,11 +261,20 @@ def test_profile_check_stops_all_categories_after_block(monkeypatch):
 
 
 def test_production_requests_each_intended_category_and_advances_page(monkeypatch, tmp_path):
-    expected = {"cpu": "cpu-processor", "gpu": "graphic-cards-gpu", "motherboard": "motherboards",
-                "ram": "ram-memory", "storage": "ssd", "psu": "power-supplies-smps",
-                "case": "pc-cases-cabinet", "cooler": "cpu-cooler"}
+    expected_calls = [
+        ("cpu-processor", 1),
+        ("cpu-processor", 2),
+        ("graphic-cards-gpu", 1),
+        ("motherboards", 1),
+        ("ram-memory", 1),
+        ("ssd", 1),
+        ("internal-hard-drive", 1),
+        ("power-supplies-smps", 1),
+        ("pc-cases-cabinet", 1),
+        ("cpu-cooler", 1),
+    ]
     responses = [response_page_limit(), response([item(101)])]
-    responses += [response([item(i)], 1, 1) for i in range(102, 109)]
+    responses += [response([item(i)], 1, 1) for i in range(102, 110)]
     fetch = AsyncMock(side_effect=responses)
     monkeypatch.setattr(Crawl4AIFetcher, "fetch_http_response", fetch)
     args = cli.build_parser().parse_args([
@@ -243,7 +282,6 @@ def test_production_requests_each_intended_category_and_advances_page(monkeypatc
         "--delay-ms", "0", "--no-llm-fallback",
     ])
     assert asyncio.run(cli.run_scrape(args, cli.EventEmitter(False))) == 0
-    expected_calls = [(expected["cpu"], 1), (expected["cpu"], 2)] + [(slug, 1) for name, slug in expected.items() if name != "cpu"]
     assert len(fetch.await_args_list) == len(expected_calls)
     for call, (slug, page) in zip(fetch.await_args_list, expected_calls):
         url = urlparse(call.args[0])

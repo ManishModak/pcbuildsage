@@ -20,6 +20,12 @@ class CategoryConfig:
     max_pages: int
     pagination_pattern: str | None = None
     search_pattern: str | None = None
+    paths: tuple[str, ...] = ()
+
+    @property
+    def all_paths(self) -> tuple[str, ...]:
+        """All configured shelf/collection paths for this category (at least one)."""
+        return self.paths if self.paths else (self.path,)
 
 
 @dataclass(frozen=True)

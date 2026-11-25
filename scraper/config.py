@@ -28,6 +28,18 @@ def _require(value: dict[str, Any], key: str, expected: type | tuple[type, ...])
     return value[key]
 
 
+def _parse_category_paths(site_name: str, category_name: str, raw_path: Any) -> list[str]:
+    """Normalize a category's `path` field: either one string or a non-empty list of strings."""
+    if isinstance(raw_path, str):
+        if not raw_path:
+            raise ProfileError(f"{site_name}/{category_name}: path must be a non-empty string")
+        return [raw_path]
+    if isinstance(raw_path, list) and raw_path and all(isinstance(p, str) and p for p in raw_path):
+        # Preserve order while dropping accidental duplicates.
+        return list(dict.fromkeys(raw_path))
+    raise ProfileError(f"{site_name}/{category_name}: path must be a string or non-empty list of strings")
+
+
 def _validate_profile(raw: dict[str, Any]) -> None:
     for key in ("$schema", "schema_version", "profile_name", "country_code", "default_currency", "sites"):
         _require(raw, key, (str, int, list) if key == "schema_version" else object)
@@ -83,14 +95,14 @@ def _validate_profile(raw: dict[str, Any]) -> None:
                 raise ProfileError(f"{site['site_name']}: category names must be non-empty strings")
             if not isinstance(category, dict):
                 raise ProfileError(f"{site['site_name']}/{category_name}: category must be an object")
-            if not isinstance(category.get("path"), str):
-                raise ProfileError(f"{site['site_name']}/{category_name}: path must be a string")
+            paths = _parse_category_paths(site["site_name"], category_name, category.get("path"))
             if not isinstance(category.get("max_pages"), int) or category["max_pages"] < 1:
                 raise ProfileError(f"{site['site_name']}/{category_name}: max_pages must be >= 1")
-            if site["scraping_type"] == SHOPIFY_JSON and not SHOPIFY_COLLECTION_PATH.fullmatch(category["path"]):
-                raise ProfileError(f"{site['site_name']}/{category_name}: path must be collections/<handle> for shopify_json")
-            if site["scraping_type"] == WOOCOMMERCE_JSON and not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", category["path"]):
-                raise ProfileError(f"{site['site_name']}/{category_name}: path must be a category slug for woocommerce_json")
+            for cat_path in paths:
+                if site["scraping_type"] == SHOPIFY_JSON and not SHOPIFY_COLLECTION_PATH.fullmatch(cat_path):
+                    raise ProfileError(f"{site['site_name']}/{category_name}: path must be collections/<handle> for shopify_json")
+                if site["scraping_type"] == WOOCOMMERCE_JSON and not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", cat_path):
+                    raise ProfileError(f"{site['site_name']}/{category_name}: path must be a category slug for woocommerce_json")
             if "pagination_pattern" in category and "{page}" not in category["pagination_pattern"]:
                 raise ProfileError(f"{site['site_name']}/{category_name}: pagination_pattern must include {{page}}")
             if "search_pattern" in category and "{query}" not in category["search_pattern"]:
@@ -132,16 +144,17 @@ def load_profile(profile: str | Path, profiles_dir: Path = DEFAULT_PROFILES_DIR)
             if raw_site["scraping_type"] not in {SHOPIFY_JSON, WOOCOMMERCE_JSON}
             else BrowserConfig()
         )
-        categories = {
-            name: CategoryConfig(
+        categories = {}
+        for name, category in raw_site["categories"].items():
+            parsed_paths = _parse_category_paths(raw_site["site_name"], name, category["path"])
+            categories[name] = CategoryConfig(
                 name=name,
-                path=category["path"],
+                path=parsed_paths[0],
+                paths=tuple(parsed_paths),
                 pagination_pattern=category.get("pagination_pattern"),
                 search_pattern=category.get("search_pattern"),
                 max_pages=category["max_pages"],
             )
-            for name, category in raw_site["categories"].items()
-        }
         sites.append(
             SiteConfig(
                 site_name=raw_site["site_name"],
