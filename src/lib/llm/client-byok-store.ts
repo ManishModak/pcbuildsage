@@ -20,6 +20,47 @@ export const DEFAULT_BYOK_PROVIDERS: readonly string[] = LLM_PROVIDER_IDS;
 
 let customSessionStorage: Storage | undefined;
 let customLocalStorage: Storage | undefined;
+const byokListeners = new Set<() => void>();
+let byokStorageListenerRegistered = false;
+
+function handleByokStorageEvent(event: StorageEvent): void {
+  if (!event.key || event.key.startsWith(BYOK_PREFIX) || event.key.startsWith(BYOK_COLON_PREFIX)) {
+    notifyByokListeners();
+  }
+}
+
+function ensureByokStorageListener(): void {
+  if (!byokStorageListenerRegistered && typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("storage", handleByokStorageEvent);
+    byokStorageListenerRegistered = true;
+  }
+}
+
+function notifyByokListeners(): void {
+  for (const listener of byokListeners) {
+    try {
+      listener();
+    } catch {
+      // Ignore individual subscriber callback errors
+    }
+  }
+}
+
+/**
+ * Subscribe to BYOK key, model, active provider, or reasoning-effort changes.
+ * Returns an unsubscribe callback.
+ */
+export function subscribeByokStore(listener: () => void): () => void {
+  byokListeners.add(listener);
+  ensureByokStorageListener();
+  return () => {
+    byokListeners.delete(listener);
+    if (byokListeners.size === 0 && byokStorageListenerRegistered && typeof window !== "undefined") {
+      window.removeEventListener("storage", handleByokStorageEvent);
+      byokStorageListenerRegistered = false;
+    }
+  };
+}
 
 /**
  * Configure custom storage backends (primarily for unit testing environments).
@@ -33,8 +74,13 @@ export function setByokStorageForTesting(session?: Storage, local?: Storage): vo
  * Reset test storage backends.
  */
 export function resetByokStoreForTesting(): void {
+  byokListeners.clear();
   customSessionStorage = undefined;
   customLocalStorage = undefined;
+  if (byokStorageListenerRegistered && typeof window !== "undefined") {
+    window.removeEventListener("storage", handleByokStorageEvent);
+    byokStorageListenerRegistered = false;
+  }
 }
 
 function getSessionStorage(): Storage | undefined {
@@ -200,6 +246,7 @@ export function setByokKey(provider: string, key: string, persist = false): void
       // ignore
     }
   }
+  notifyByokListeners();
 }
 
 /**
@@ -229,6 +276,7 @@ export function clearByokKey(provider: string): void {
       // ignore
     }
   }
+  notifyByokListeners();
 }
 
 /**
@@ -255,6 +303,7 @@ export function clearAllByokKeys(): void {
 
   purge(getSessionStorage());
   purge(getLocalStorage());
+  notifyByokListeners();
 }
 
 /**
@@ -371,6 +420,7 @@ export function setByokModel(provider: string, model: string, persist = false): 
       // Quota or security error
     }
   }
+  notifyByokListeners();
 }
 
 /**
@@ -385,6 +435,7 @@ export function clearByokModel(provider: string): void {
   } catch {
     // Ignore
   }
+  notifyByokListeners();
 }
 
 const REASONING_EFFORT_SUFFIX = "_reasoning_effort";
@@ -431,6 +482,7 @@ export function setByokReasoningEffort(provider: string, effort?: ReasoningEffor
       // Quota or security error
     }
   }
+  notifyByokListeners();
 }
 
 /**
@@ -445,6 +497,7 @@ export function clearByokReasoningEffort(provider: string): void {
   } catch {
     // Ignore
   }
+  notifyByokListeners();
 }
 
 /**
@@ -478,6 +531,81 @@ export function setActiveByokProvider(provider: string, persist = false): void {
     } catch {
       // Ignore
     }
+  }
+  notifyByokListeners();
+}
+
+const MODEL_EFFORT_SUFFIX = "_model_efforts";
+
+type StoredModelEffort = ReasoningEffort | "default";
+
+function readModelEfforts(provider: string): Record<string, StoredModelEffort> {
+  const norm = normalizeProvider(provider);
+  const key = `${BYOK_PREFIX}${norm}${MODEL_EFFORT_SUFFIX}`;
+  const raw = getSessionStorage()?.getItem(key) ?? getLocalStorage()?.getItem(key);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const clean: Record<string, StoredModelEffort> = {};
+    for (const [m, v] of Object.entries(parsed)) {
+      if (v === "low" || v === "medium" || v === "high" || v === "default") clean[m] = v;
+    }
+    return clean;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Returns the remembered per-model reasoning effort for a BYOK (provider, model).
+ * Falls back to the provider-level effort only when no per-model choices exist yet.
+ */
+export function getByokModelReasoningEffort(provider: string, model: string): ReasoningEffort | undefined {
+  if (!provider || !model) return undefined;
+  const map = readModelEfforts(provider);
+  if (Object.prototype.hasOwnProperty.call(map, model)) {
+    const stored = map[model];
+    return stored === "default" ? undefined : stored;
+  }
+  if (Object.keys(map).length === 0) {
+    return getByokReasoningEffort(provider);
+  }
+  return undefined;
+}
+
+/**
+ * Stores per-model reasoning effort in the BYOK store alongside the active
+ * provider-level effort (if `syncActiveProvider` is true, default true).
+ */
+export function setByokModelReasoningEffort(
+  provider: string,
+  model: string,
+  effort?: ReasoningEffort,
+  persist = false,
+  syncActiveProvider = true
+): void {
+  if (!provider || !model) return;
+  const norm = normalizeProvider(provider);
+  const key = `${BYOK_PREFIX}${norm}${MODEL_EFFORT_SUFFIX}`;
+  const map = readModelEfforts(provider);
+  map[model] = effort ?? "default";
+  const serialized = JSON.stringify(map);
+  try {
+    getSessionStorage()?.setItem(key, serialized);
+  } catch {
+    // Ignore
+  }
+  if (persist) {
+    try {
+      getLocalStorage()?.setItem(key, serialized);
+    } catch {
+      // Ignore
+    }
+  }
+  if (syncActiveProvider) {
+    setByokReasoningEffort(provider, effort, persist);
+  } else {
+    notifyByokListeners();
   }
 }
 

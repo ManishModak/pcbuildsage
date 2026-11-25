@@ -135,9 +135,30 @@ describe("resolveChatRequestBody", () => {
 });
 
 describe("resolveActiveModel", () => {
-  it("prioritizes last assistant message metadata model", () => {
+  it("prioritizes configured chatChain model over stale lastAssistantModel so in-chat switches reflect immediately", () => {
     const config = { ...DEFAULT_CONFIG, chatChain: [{ id: "c1", provider: "openrouter" as const, model: "openrouter-default", keySource: "ui" as const }] };
-    expect(resolveActiveModel(config, "anthropic/claude-3.5-sonnet")).toBe("anthropic/claude-3.5-sonnet");
+    expect(resolveActiveModel(config, "anthropic/claude-3.5-sonnet", { isHosted: false })).toBe("openrouter-default");
+  });
+
+  it("falls back to lastAssistantModel when no model is configured yet", () => {
+    const config = { ...DEFAULT_CONFIG, chatChain: [] };
+    expect(
+      resolveActiveModel(config, "anthropic/claude-3.5-sonnet", {
+        isHosted: false,
+        hasKey: () => false
+      })
+    ).toBe("anthropic/claude-3.5-sonnet");
+  });
+
+  it("prioritizes active hosted BYOK selection over stale lastAssistantModel", () => {
+    const config = { ...DEFAULT_CONFIG, chatChain: [] };
+    const model = resolveActiveModel(config, "gemini-2.5-flash", {
+      isHosted: true,
+      activeByokProvider: "openrouter",
+      hasKey: (p) => p === "openrouter",
+      getModel: (p) => (p === "openrouter" ? "nex-agi/nex-n2.5-pro:free" : undefined)
+    });
+    expect(model).toBe("nex-agi/nex-n2.5-pro:free");
   });
 
   it("uses config.chatChain model when present", () => {

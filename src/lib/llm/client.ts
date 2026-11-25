@@ -7,6 +7,7 @@ import type { LLMChainEntry, LLMProvider, LLMRole } from "@/types";
 import { isHostedDemo } from "../config/deployment";
 import { isPrivateCrawlHost } from "../web-search";
 import { envKeyAllowed } from "./env-key-scope";
+import { isGemini4Model, supportsGeminiThoughts } from "./model-capabilities";
 import { getProvider } from "./providers";
 import { emptyStepRetryMiddleware } from "./empty-step-retry";
 import { forcedToolTextMiddleware } from "./forced-tool-text";
@@ -162,6 +163,7 @@ export async function generateTextWithFallback(args: {
       const prompt = args.messages
         ? { messages: args.messages }
         : { prompt: args.prompt ?? "" };
+      const reasoningOptions = entryReasoningCallOptions(entry, { includeThoughts: false });
       const result = await generateText({
         model: createLanguageModel(entry),
         ...prompt,
@@ -169,7 +171,7 @@ export async function generateTextWithFallback(args: {
         tools: args.tools,
         stopWhen: args.stopWhen,
         abortSignal: signal,
-        ...(entry.reasoningEffort ? { reasoning: entry.reasoningEffort } : {}),
+        ...reasoningOptions,
         // Retry each step once with SDK exponential backoff (2s initial,
         // honours Retry-After). 429/5xx on step 2+ resume without failing
         // the turn; step-1 failures still fall through to the next entry.
@@ -207,33 +209,52 @@ export function localNoThinkingOptions(entry: LLMChainEntry) {
   return { providerOptions: { "openai-compatible": { chat_template_kwargs: { enable_thinking: false } } } };
 }
 
+export { isGemini4Model, supportsGeminiThoughts } from "./model-capabilities";
+
 /**
  * Ask Gemini for thought summaries, which the chat renders as "How the sage
  * reasoned". Without `includeThoughts` the API returns no thinking parts at
- * all, even when the model thinks. The Google provider merges these options
- * over the thinking level/budget it resolves from `reasoning`, so the user's
- * effort setting still decides how much the model thinks.
+ * all, even when the model thinks.
  *
- * Only for the chat stream: subagent and compaction calls do not show a trace,
- * so paying for summaries there would be waste.
+ * For Gemini 4 models, `@ai-sdk/google` 4.0.11 only matches `gemini-3[.-]` in
+ * `isGemini3Model`, so passing top-level `reasoning` would emit deprecated
+ * `thinkingBudget` instead of `thinkingLevel` (and sending both causes a 400).
+ * For Gemini 4 we therefore pass `thinkingConfig.thinkingLevel` directly here
+ * and omit top-level `reasoning`.
  */
-export function geminiThinkingOptions(entry: LLMChainEntry): Pick<Parameters<typeof streamText>[0], "providerOptions"> {
-  if (entry.provider !== "gemini" || !supportsGeminiThoughts(entry.model)) return {};
-  return { providerOptions: { google: { thinkingConfig: { includeThoughts: true } } } };
+export function geminiThinkingOptions(
+  entry: LLMChainEntry,
+  options?: { includeThoughts?: boolean }
+): Pick<Parameters<typeof streamText>[0], "providerOptions"> {
+  if (entry.provider !== "gemini") return {};
+  const includeThoughts = (options?.includeThoughts ?? true) && supportsGeminiThoughts(entry.model);
+  const thinkingLevel = isGemini4Model(entry.model) ? entry.reasoningEffort : undefined;
+  if (!includeThoughts && !thinkingLevel) return {};
+  return {
+    providerOptions: {
+      google: {
+        thinkingConfig: {
+          ...(includeThoughts ? { includeThoughts: true } : {}),
+          ...(thinkingLevel ? { thinkingLevel } : {})
+        }
+      }
+    }
+  };
 }
 
-/**
- * Models that accept thinkingConfig. Every Gemini 4 and 3 model thinks, so
- * Flash-Lite counts too (it defaults to "minimal"); in the 2.5 series only Pro
- * and Flash think, and 2.5 Flash-Lite does not. Image, audio and embedding
- * models are left alone because this app chats in text.
- */
-export function supportsGeminiThoughts(model: string): boolean {
-  const id = model.toLowerCase().replace(/^models\//, "");
-  if (/(image|embedding|tts|live)/.test(id)) return false;
-  if (/^gemini-(3|4)/.test(id)) return true;
-  if (/^gemini-2\.5/.test(id)) return !id.includes("lite");
-  return false;
+function entryReasoningCallOptions(
+  entry: LLMChainEntry,
+  options: { includeThoughts: boolean; thinking?: boolean }
+): Partial<Pick<Parameters<typeof streamText>[0], "reasoning" | "providerOptions">> {
+  const isGemini4 = entry.provider === "gemini" && isGemini4Model(entry.model);
+  const isGeminiNonThinking = entry.provider === "gemini" && !supportsGeminiThoughts(entry.model);
+  const reasoningPart =
+    !isGemini4 && !isGeminiNonThinking && entry.reasoningEffort ? { reasoning: entry.reasoningEffort } : {};
+  const providerPart =
+    options.thinking === false
+      ? localNoThinkingOptions(entry)
+      : geminiThinkingOptions(entry, { includeThoughts: options.includeThoughts });
+  return { ...reasoningPart, ...providerPart };
 }
 
 export async function streamTextWithFallback(args: {
@@ -270,11 +291,11 @@ export async function streamTextWithFallback(args: {
     const timer = setTimeout(() => entryController.abort(new Error(`First token timeout after ${firstTokenTimeout}ms`)), firstTokenTimeout);
     const abortSignal = args.abortSignal ? AbortSignal.any([args.abortSignal, entryController.signal]) : entryController.signal;
     try {
+      const reasoningOptions = entryReasoningCallOptions(entry, { includeThoughts: true, thinking });
       const result = streamText({
         ...streamArgs,
         model: createLanguageModel(entry),
-        ...(entry.reasoningEffort ? { reasoning: entry.reasoningEffort } : {}),
-        ...(thinking === false ? localNoThinkingOptions(entry) : geminiThinkingOptions(entry)),
+        ...reasoningOptions,
         // Per-step retry with SDK exponential backoff: a 429/5xx on any step
         // gets retried instead of failing the whole turn.
         maxRetries: getStepMaxRetries(),

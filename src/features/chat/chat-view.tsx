@@ -6,11 +6,12 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import { Maximize2, Minimize2, Package, TriangleAlert, X } from "lucide-react";
 import { fetchStatus, isHostedMode } from "@/lib/api-client";
 import { apiKeyHeaders } from "@/lib/client-config-store";
-import { injectByokHeaders } from "@/lib/llm/client-byok-store";
+import { injectByokHeaders, subscribeByokStore } from "@/lib/llm/client-byok-store";
 import { getMarketPreference } from "@/lib/market/client-market-store";
 import { getClientSession } from "@/lib/sessions/client-store";
 import type { StoredCompactContext } from "@/lib/sessions/compact-context";
-import { resolveActiveModel, resolveChatRequestBody } from "./chat-config-resolver";
+import { resolveActiveModel, resolveActiveSelection, resolveChatRequestBody } from "./chat-config-resolver";
+import { ModelPicker, type RecoveryWait } from "./model-picker";
 import type { ClientConfig, StatusResponse } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/components/ui/cn";
@@ -27,7 +28,7 @@ import { getFollowups } from "@/lib/followups";
 import { isToolPart } from "@/lib/message-parts";
 import type { ToolPart } from "./tool-chip";
 import { useApp } from "@/components/app/app-provider";
-import { getErrorMessage, formatRelativeTime, formatPrice, formatModelName } from "@/lib/format";
+import { getErrorMessage, formatRelativeTime, formatPrice } from "@/lib/format";
 import { useIsDesktop } from "@/hooks/use-mobile";
 import {
   Sheet,
@@ -108,52 +109,7 @@ function findLatestBuilds(messages: ChatUIMessage[], currency: string): DerivedB
  * the wait differs: a rate limit needs the provider's minute window to clear,
  * while a dropped stream or 5xx is retried almost at once.
  */
-export type RecoveryWait = "rate-limit" | "transient";
-
-// The composer's model line: which model answers and whether it's busy. The
-// dot is the only colour; a rune spinner stands in for animated dots while busy.
-function ModelStatus({
-  modelName,
-  streaming,
-  isCompacting,
-  recovering
-}: {
-  modelName: string;
-  streaming: boolean;
-  isCompacting?: boolean;
-  recovering?: RecoveryWait | null;
-}) {
-  const displayName = useMemo(() => formatModelName(modelName), [modelName]);
-  const busy = streaming || isCompacting || Boolean(recovering);
-
-  return (
-    <div
-      className="flex min-w-0 select-none items-center gap-2 px-1.5 text-caption text-text-muted"
-      title={modelName ? `Model: ${modelName}` : undefined}
-    >
-      <span
-        aria-hidden
-        className={cn(
-          "h-2 w-2 shrink-0 rounded-full",
-          isCompacting || recovering === "rate-limit" ? "bg-warn" : streaming || recovering ? "bg-accent" : "bg-ok"
-        )}
-      />
-      <span className="truncate">
-        <span className="font-mono text-text-secondary">{displayName}</span>{" "}
-        {recovering === "rate-limit"
-          ? "is waiting out the rate limit"
-          : recovering
-            ? "is retrying"
-            : isCompacting
-              ? "is shortening the chat"
-              : streaming
-                ? "is answering"
-                : "ready"}
-      </span>
-      {busy ? <RuneSpinner /> : null}
-    </div>
-  );
-}
+export type { RecoveryWait };
 
 export function ChatView({
   config,
@@ -613,11 +569,18 @@ export function ChatView({
     [onStreamingChange, sessionId]
   );
 
+  const [byokEpoch, bumpByokEpoch] = useReducer((tick: number) => tick + 1, 0);
+  useEffect(() => subscribeByokStore(bumpByokEpoch), []);
+
   const lastAssistantMessage = [...messages].reverse().find((m) => m.role === "assistant");
-  const activeModel = useMemo(
-    () => resolveActiveModel(config, lastAssistantMessage?.metadata?.model),
-    [config, lastAssistantMessage?.metadata?.model]
+  const activeSelection = useMemo(
+    () => {
+      void byokEpoch;
+      return resolveActiveSelection(config, lastAssistantMessage?.metadata?.model);
+    },
+    [config, lastAssistantMessage?.metadata?.model, byokEpoch]
   );
+  const activeModel = activeSelection.model;
 
   const safeAlternativeIndex = Math.min(
     Math.max(0, selectedAlternativeIndex),
@@ -1109,11 +1072,14 @@ export function ChatView({
                 streaming={streaming || activeIsCompacting || recovering !== null}
                 initialValue={initialPrompt}
                 status={
-                  <ModelStatus
-                    modelName={activeModel}
+                  <ModelPicker
+                    config={config}
+                    activeSelection={activeSelection}
                     streaming={streaming}
                     isCompacting={activeIsCompacting}
                     recovering={recovering}
+                    updateConfig={updateConfig}
+                    onByokSelectionChange={bumpByokEpoch}
                   />
                 }
               />

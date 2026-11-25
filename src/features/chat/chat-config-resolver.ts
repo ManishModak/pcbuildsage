@@ -159,31 +159,81 @@ export function resolveChatRequestBody(
   };
 }
 
+export interface ActiveSelection {
+  provider?: string;
+  model: string;
+  reasoningEffort?: ReasoningEffort;
+}
+
+/**
+ * Resolves the active (provider, model, reasoningEffort) for UI headers,
+ * status indicators, and the in-chat model picker.
+ *
+ * The user's currently configured selection always takes precedence over
+ * `lastAssistantModel` so switching models mid-conversation updates the UI
+ * immediately; `lastAssistantModel` is only a fallback when no model is
+ * configured yet.
+ */
+export function resolveActiveSelection(
+  config: ClientConfig,
+  lastAssistantModel?: string,
+  options?: ResolveChatOptions
+): ActiveSelection {
+  const isHosted = options?.isHosted !== undefined ? options.isHosted : isHostedMode();
+  const hasKeyFn = options?.hasKey ?? hasByokKey;
+  const getModelFn = options?.getModel ?? getByokModel;
+  const getReasoningEffortFn = options?.getReasoningEffort ?? getByokReasoningEffort;
+  const activeProvider =
+    options?.activeByokProvider !== undefined
+      ? options.activeByokProvider
+      : getActiveByokProvider();
+
+  if (isHosted) {
+    const preferred = pickHostedProvider(activeProvider, hasKeyFn, getModelFn);
+    if (preferred) {
+      return {
+        provider: preferred.provider,
+        model: preferred.model,
+        reasoningEffort: getReasoningEffortFn(preferred.provider)
+      };
+    }
+    return {
+      model: lastAssistantModel || config.chatChain?.[0]?.model || "Sage"
+    };
+  }
+
+  const primary = config.chatChain?.[0];
+  if (primary?.model) {
+    return {
+      provider: primary.provider,
+      model: primary.model,
+      reasoningEffort: primary.reasoningEffort
+    };
+  }
+
+  const preferred = pickHostedProvider(activeProvider, hasKeyFn, getModelFn);
+  if (preferred) {
+    return {
+      provider: preferred.provider,
+      model: preferred.model,
+      reasoningEffort: getReasoningEffortFn(preferred.provider)
+    };
+  }
+
+  return {
+    provider: primary?.provider,
+    model: lastAssistantModel || "Sage",
+    reasoningEffort: primary?.reasoningEffort
+  };
+}
+
 /**
  * Resolves the active model identifier for UI headers and status indicators.
- * Respects last assistant message metadata, chatChain configuration, and
- * client-side BYOK provider preferences.
  */
 export function resolveActiveModel(
   config: ClientConfig,
   lastAssistantModel?: string,
   options?: ResolveChatOptions
 ): string {
-  if (lastAssistantModel) return lastAssistantModel;
-
-  const isHosted = options?.isHosted !== undefined ? options.isHosted : isHostedMode();
-  const hasKeyFn = options?.hasKey ?? hasByokKey;
-  const getModelFn = options?.getModel ?? getByokModel;
-  const activeProvider =
-    options?.activeByokProvider !== undefined
-      ? options.activeByokProvider
-      : getActiveByokProvider();
-
-  // If in hosted mode or chatChain is unpopulated, check active BYOK provider
-  if (isHosted || !config.chatChain || config.chatChain.length === 0) {
-    const preferred = pickHostedProvider(activeProvider, hasKeyFn, getModelFn);
-    if (preferred) return preferred.model;
-  }
-
-  return config.chatChain?.[0]?.model || "Sage";
+  return resolveActiveSelection(config, lastAssistantModel, options).model;
 }
