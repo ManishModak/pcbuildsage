@@ -7,7 +7,7 @@ import { shortId } from "./product-ids";
 const MODEL_SPEC_NOISE = new Set(["aliases", "sources", "researched_at", "confidence", "brand", "model", "spec_conflict"]);
 
 /** Build fields the model view rebuilds (snapshot, notes, issues) or drops (checks repeat issues; resolved becomes per-part specs). */
-const MODEL_VALIDATE_DROPPED = new Set(["checks", "resolved", "snapshot", "not_purchasable_note", "missing_parts_note", "owned_note", "gpu_note", "unnamed_owned", "issues"]);
+const MODEL_VALIDATE_DROPPED = new Set(["checks", "resolved", "snapshot", "not_purchasable_note", "missing_parts_note", "owned_note", "gpu_note", "quality_note", "label_note", "unnamed_owned", "issues"]);
 
 function shortIdIfLong(id: unknown): unknown {
   return typeof id === "string" && id.length > 10 ? shortId(id) : id;
@@ -49,12 +49,14 @@ export function toModelValidateOutput(output: unknown): unknown {
       shortBuilds[label] = e;
       continue;
     }
-    const { resolved, not_purchasable_note, missing_parts_note, owned_note, gpu_note, issues } = e;
+    const { resolved, not_purchasable_note, missing_parts_note, owned_note, gpu_note, quality_note, label_note, issues } = e;
     const rest = Object.fromEntries(Object.entries(e).filter(([key]) => !MODEL_VALIDATE_DROPPED.has(key)));
     const resolvedByCategory = (resolved && typeof resolved === "object" ? resolved : {}) as Record<string, unknown>;
     shortBuilds[label] = {
       ...(owned_note !== undefined ? { owned_note } : {}),
       ...(gpu_note !== undefined ? { gpu_note } : {}),
+      ...(quality_note !== undefined ? { quality_note } : {}),
+      ...(label_note !== undefined ? { label_note } : {}),
       ...(not_purchasable_note !== undefined ? { not_purchasable_note } : {}),
       ...(missing_parts_note !== undefined ? { missing_parts_note } : {}),
       ...rest,

@@ -3,9 +3,20 @@ import { canonicalizeSocket } from "./spec-canonical";
 import { checkClearance, checkCooler } from "./rules/clearance";
 import { checkCpuSupport } from "./rules/cpu-support";
 import { checkDdr } from "./rules/ddr";
+import {
+  checkBuildQuality,
+  checkRedundantCoolerAdvisory,
+  getCpuCoolerInclusion,
+  hasProductId,
+  isOwnedBuildPart,
+  type ComponentQualityMeta,
+  type QualityCheckContext,
+} from "./rules/quality";
 import { checkStorage } from "./rules/storage";
 import {
   confidenceGate,
+  isMarkedIncluded,
+  isStockCooler,
   label,
   lowNames,
   needsResearch,
@@ -15,12 +26,12 @@ import {
   type CheckRecorder,
 } from "./rules/shared";
 
-export type { CheckRecorder };
-export { isSingleModuleRam, isStockCooler } from "./rules/shared";
+export type { CheckRecorder, ComponentQualityMeta, QualityCheckContext };
+export { isMarkedIncluded, isSingleModuleRam, isStockCooler } from "./rules/shared";
 
 export type RuleCheckStatus = "passed" | "failed" | "unverified";
 export type CheckStatus = RuleCheckStatus;
-export type RuleName = "socket" | "cpu_support" | "ddr" | "wattage" | "clearance" | "cooler" | "storage" | "display_output" | "spec_resolution";
+export type RuleName = "socket" | "cpu_support" | "ddr" | "wattage" | "clearance" | "cooler" | "storage" | "display_output" | "spec_resolution" | "quality";
 export type RuleCheckResult = {
   rule: RuleName;
   status: RuleCheckStatus;
@@ -34,7 +45,7 @@ export type ValidationSummary = {
   text: string;
 };
 
-export type BuildPart = string | { product_id?: string; key?: string; name?: string; category?: ComponentCategory; owned?: boolean };
+export type BuildPart = string | { product_id?: string; key?: string; name?: string; category?: ComponentCategory; owned?: boolean; included?: boolean };
 export type BuildParts = Partial<Record<ComponentCategory, BuildPart | BuildPart[]>>;
 
 export type IssueSeverity = "blocking" | "needs_research" | "needs_verification" | "advisory";
@@ -122,9 +133,17 @@ export function resolveIncludedCooler(
   };
 }
 
+export type ValidateBuildOptions = {
+  resolve?: Resolver;
+  getUnresolvedMessage?: UnresolvedMessageGetter;
+  userText?: string;
+  currency?: string;
+  componentMeta?: Partial<Record<ComponentCategory, ComponentQualityMeta>>;
+};
+
 export function validateBuild(
   parts: BuildParts,
-  options: { resolve?: Resolver; getUnresolvedMessage?: UnresolvedMessageGetter } = {}
+  options: ValidateBuildOptions = {}
 ): ValidationResult {
   const resolve = options.resolve ?? ((part, category) => resolveComponent(toLookup(part, category)));
   const extraIssues: BuildIssue[] = [];
@@ -192,12 +211,21 @@ export function validateBuild(
   const ram = one("ram");
   const storage = many("storage");
 
-  if (!cooler && cpu?.spec.cooler_included === "included" && parts.cooler === undefined) {
+  if (!cooler && (cpu?.spec.cooler_included === "included" || cpu?.spec.includes_cooler === true) && parts.cooler === undefined) {
     cooler = resolveIncludedCooler(cpu, undefined, resolve);
     if (cooler) {
       resolved.cooler = cooler;
     }
   }
+
+  const componentMeta = options.componentMeta ?? {};
+  const coolerPart = Array.isArray(parts.cooler) ? undefined : parts.cooler;
+  const claimedStockOnNoCoolerCpu = Boolean(
+    cpu &&
+    cooler &&
+    getCpuCoolerInclusion(cpu, componentMeta.cpu).status === "not_included" &&
+    (isMarkedIncluded(coolerPart) || (isStockCooler(cooler) && !hasProductId(coolerPart) && !isOwnedBuildPart(coolerPart)))
+  );
 
   checkSocket(cpu, motherboard, recordCheckLocal, extraIssues, parts);
   checkCpuSupport(cpu, motherboard, recordCheckLocal, extraIssues);
@@ -205,12 +233,33 @@ export function validateBuild(
   const hasGpu = parts.gpu !== undefined && parts.gpu !== null;
   checkWattage(cpu, gpu, psu, hasGpu, recordCheckLocal, extraIssues);
   checkDisplayOutput(cpu, gpu, hasGpu, recordCheckLocal, extraIssues);
-  checkClearance(gpu, pcCase, cooler, motherboard, psu, recordCheckLocal, extraIssues);
-  checkCooler(cpu, cooler, recordCheckLocal, extraIssues);
+  checkClearance(gpu, pcCase, claimedStockOnNoCoolerCpu ? undefined : cooler, motherboard, psu, recordCheckLocal, extraIssues);
+  checkCooler(cpu, cooler, recordCheckLocal, extraIssues, { cpuMeta: componentMeta.cpu, coolerPart });
   checkStorage(motherboard, storage, recordCheckLocal, extraIssues);
+  checkBuildQuality({
+    psu,
+    pcCase,
+    gpu,
+    motherboard,
+    parts,
+    context: { userText: options.userText, currency: options.currency, componentMeta },
+    recordCheck: recordCheckLocal,
+    issues: extraIssues
+  });
+  checkRedundantCoolerAdvisory({
+    cpu,
+    cooler,
+    cpuMeta: componentMeta.cpu,
+    coolerMeta: componentMeta.cooler,
+    coolerPart,
+    userText: options.userText,
+    currency: options.currency,
+    issues: extraIssues
+  });
 
   const isCoolerIncluded =
     cpu?.spec.cooler_included === "included" ||
+    cpu?.spec.includes_cooler === true ||
     (parts.cooler !== undefined && isMarkedIncluded(parts.cooler as BuildPart));
 
   const skipped_checks = RULE_INPUTS.flatMap(({ rule, needs }) => {
@@ -453,17 +502,4 @@ function toLookup(part: BuildPart, category: ComponentCategory) {
 
 export function makeResolved(key: string, category: ComponentCategory, spec: RegistrySpec, confidence: Confidence = "high", source: "registry" | "research" = "registry"): ResolvedSpec {
   return { key, category, spec, confidence, source };
-}
-
-/**
- * True when a cooler entry stands for the CPU's boxed cooler rather than a
- * product: "included", "stock", or a name like "Stock cooler (included with
- * Ryzen 5 5600G)". A part with a product_id is a catalog product, and a
- * negation ("no stock cooler", "not included") never counts.
- */
-export function isMarkedIncluded(part: BuildPart | undefined): boolean {
-  if (!part) return false;
-  if (typeof part === "object" && part.product_id?.trim()) return false;
-  const texts = typeof part === "string" ? [part] : [part.key ?? "", part.name ?? ""];
-  return texts.some((text) => /\b(stock|included|boxed|bundled)\b/i.test(text) && !/\b(not|no|without)\b/i.test(text));
 }

@@ -2,7 +2,9 @@ import { tool } from "ai";
 import { resolveComponent, withTitleGpuLength, type ComponentCategory } from "../registry";
 import { parseSpecsFromTitle } from "../spec-parsers";
 import { getCatalogRepository, type CatalogRepository, type CatalogScope, type SearchProductItem } from "../catalog";
-import { validateBuild, type BuildIssue, type BuildParts, type BuildPart, type ValidationResult } from "../rules-engine";
+import { validateBuild, type BuildIssue, type BuildParts, type BuildPart, type ComponentQualityMeta, type ValidationResult } from "../rules-engine";
+import { wantsGamingGpu } from "../rules/quality";
+export { wantsGamingGpu };
 import { createBuildSnapshot, type BuildSnapshot } from "../catalog/build-snapshot";
 import { createTurnValidationStore, recordValidation, type TurnValidationStore } from "./turn-state";
 import { formatPrice, lenientToolSchema } from "./lenient-input";
@@ -26,12 +28,14 @@ export interface VsCheapest {
   more_by: number;
 }
 
-type PricedResult = { snapshot: BuildSnapshot; budget?: BuildBudgetFigures; vs_cheapest?: VsCheapest; price_summary?: string };
+type PricedResult = { snapshot: BuildSnapshot; budget?: BuildBudgetFigures; vs_cheapest?: VsCheapest; price_summary?: string; label_note?: string };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Share of the budget past which an over-budget build gets a note to cut it down (the prompt allows ~2–3% for a clear value jump). */
 export const FAR_OVER_BUDGET = 0.05;
+/** Maximum over-budget margin (~3%) allowed for a clear value jump when labelling a build "Recommended". */
+export const VALUE_JUMP_MARGIN = 0.03;
 
 /**
  * Adds code-computed price figures to each build result, in place, so the
@@ -44,6 +48,7 @@ export function addPriceFigures(results: Record<string, PricedResult>, budget?: 
   const cheapest = priced.length >= 2
     ? priced.reduce((min, entry) => ((entry[1].snapshot.total as number) < (min[1].snapshot.total as number) ? entry : min))
     : undefined;
+  const hasWithinBudget = budget !== undefined && priced.some(([, r]) => (r.snapshot.total as number) <= budget);
 
   for (const [label, result] of priced) {
     const total = result.snapshot.total as number;
@@ -59,10 +64,23 @@ export function addPriceFigures(results: Record<string, PricedResult>, budget?: 
             ? `${formatPrice(-diff, currency)} under the ${formatPrice(budget, currency)} budget`
             : `exactly the ${formatPrice(budget, currency)} budget`
       );
+      const isWithinLabel = diff > 0 && /within budget/i.test(label);
+      const isRecommendedLabel = diff > 0 && /\brecommended\b/i.test(label);
+      const exceedsValueJump = hasWithinBudget && diff > budget * VALUE_JUMP_MARGIN;
+      const farOver = diff > budget * FAR_OVER_BUDGET;
+
       // Lightning presented a build ₹177 over budget labelled "Within budget" (r9 esports).
-      if (diff > 0 && /within budget/i.test(label)) {
+      if (isWithinLabel) {
         parts.push(`labelled '${label}' but over budget: swap a part to bring it under, or relabel it and add a build within the budget`);
-      } else if (diff > budget * FAR_OVER_BUDGET) {
+      }
+      if (isRecommendedLabel && (exceedsValueJump || farOver)) {
+        const pct = Math.round((diff / budget) * 100);
+        const warning = exceedsValueJump
+          ? `labelled '${label}' but ${pct}% (${formatPrice(diff, currency)}) over budget while an in-budget option exists (exceeds ~3% value-jump margin): do not label an over-budget build 'Recommended' when recommending the in-budget build — relabel it or swap parts to fit within budget`
+          : `labelled '${label}' but ${pct}% (${formatPrice(diff, currency)}) over budget: swap the priciest parts for cheaper search_products picks to bring it near/within budget, or relabel it`;
+        parts.push(warning);
+        result.label_note = result.label_note ? `${result.label_note} ${warning}` : warning;
+      } else if (!isWithinLabel && farOver) {
         // Lightning presented builds 47% and 61% over a ₹1,00,000 budget, saying so in its text (r17 all-amd).
         parts.push(`${Math.round((diff / budget) * 100)}% over: the budget is the user's limit, so swap the priciest parts for cheaper search_products picks and validate again; present a build this far over only beside one within the budget`);
       }
@@ -93,14 +111,6 @@ function labelNote(label: string, snapshot: BuildSnapshot): { label_note?: strin
     : {};
 }
 
-const GAMING_REQUEST = /\b(gaming|games?|esports|fps|valorant|cs2|gta|aaa)\b/i;
-const NO_GPU_REQUEST = /\b(no|without|don'?t (?:need|want|include))\s+(?:a\s+|any\s+)?(?:dedicated\s+|separate\s+)?(?:gpu|graphics)/i;
-
-/** True when the user's words ask for gaming and don't rule out a graphics card. */
-export function wantsGamingGpu(userText: string): boolean {
-  return GAMING_REQUEST.test(userText) && !NO_GPU_REQUEST.test(userText);
-}
-
 /**
  * A note when the user asked for gaming and a whole build has no graphics
  * card: Lightning dropped the GPU for a 5600G's integrated graphics (r27 and
@@ -115,6 +125,16 @@ function gamingGpuNote(userText: string | undefined, snapshot: BuildSnapshot): {
     gpu_note:
       "The user asked for a gaming PC and this build has no graphics card. Give a gaming build a dedicated GPU as its largest part, with cheaper parts around it; leave it out only if no GPU fits the budget, and say so."
   };
+}
+
+function qualityNote(validation: ValidationResult): { quality_note?: string } {
+  const relevant = validation.issues.filter(
+    (issue) =>
+      issue.rule === "quality" ||
+      (issue.rule === "cooler" && (issue.severity === "advisory" || issue.severity === "blocking"))
+  );
+  if (relevant.length === 0) return {};
+  return { quality_note: relevant.map((issue) => issue.detail).join(" ") };
 }
 
 export function labelModelsMissing(label: string, partNames: readonly string[]): string[] {
@@ -511,6 +531,22 @@ export function createValidateBuildTool(
           return `No ${category} specs found in registry or research cache.`;
         };
 
+        const componentMeta: Partial<Record<ComponentCategory, ComponentQualityMeta>> = {};
+        for (const [category, raw] of Object.entries(normalizedParts) as [ComponentCategory, BuildPart | BuildPart[]][]) {
+          if (!raw || Array.isArray(raw)) continue;
+          const pid = typeof raw === "object" && raw.product_id ? raw.product_id.trim() : undefined;
+          const product = pid ? byId.get(pid) : undefined;
+          const owned = typeof raw === "object" && raw.owned === true;
+          const name = product?.name ?? (typeof raw === "string" ? raw : raw.name ?? raw.key);
+          componentMeta[category] = {
+            price: product?.price ?? null,
+            currency: product?.currency ?? scope.currency,
+            name,
+            owned,
+            specs: product?.specs ?? null
+          };
+        }
+
         const validation = validateBuild(normalizedParts, {
           resolve: (part, category) => {
             if (typeof part === "string" || !part.product_id) {
@@ -525,10 +561,31 @@ export function createValidateBuildTool(
             // when resolveComponent already merged the same title); RAM keeps its
             // title capacity normalization.
             const withTitle = category === "gpu" ? withTitleGpuLength(resolved, product.name) : resolved;
-            const titleSpecs = category === "ram" ? parseSpecsFromTitle(product.name, category) : undefined;
-            return { ...withTitle, key: product.id, spec: { ...withTitle.spec, ...titleSpecs, ...(product.specs?.spec_conflict ? { spec_conflict: product.specs.spec_conflict } : {}) } };
+            const titleSpecs =
+              category === "ram"
+                ? parseSpecsFromTitle(product.name, category)
+                : category === "cpu" && resolved.spec.cooler_included === undefined && resolved.spec.includes_cooler === undefined
+                  ? parseSpecsFromTitle(product.name, category)
+                  : undefined;
+            const safeProductSpecs: Record<string, unknown> = {};
+            if (product.specs?.spec_conflict) safeProductSpecs.spec_conflict = product.specs.spec_conflict;
+            if (category === "cpu") {
+              if (product.specs?.includes_cooler !== undefined) safeProductSpecs.includes_cooler = product.specs.includes_cooler;
+              if (product.specs?.cooler_included !== undefined) safeProductSpecs.cooler_included = product.specs.cooler_included;
+              if (product.specs?.cooler_name !== undefined) safeProductSpecs.cooler_name = product.specs.cooler_name;
+            }
+            if (category === "case" && product.specs?.included_fans !== undefined) {
+              safeProductSpecs.included_fans = product.specs.included_fans;
+            }
+            if (category === "psu" && product.specs?.efficiency !== undefined && resolved.spec.efficiency === undefined) {
+              safeProductSpecs.efficiency = product.specs.efficiency;
+            }
+            return { ...withTitle, key: product.id, spec: { ...withTitle.spec, ...titleSpecs, ...safeProductSpecs } };
           },
-          getUnresolvedMessage
+          getUnresolvedMessage,
+          userText: options?.userText,
+          currency: scope.currency,
+          componentMeta
         });
 
         failAmbiguousParts(validation, normalizedParts, (pid, category) => ambiguityMessage(pid, category));
@@ -556,7 +613,8 @@ export function createValidateBuildTool(
           ...(unnamedOwned.length ? { unnamed_owned: unnamedOwned, owned_note: unnamedOwnedNote(unnamedOwned) } : {}),
           ...(moved.length ? { moved_parts_note: `Moved to the slot of their catalog category: ${moved.join("; ")}. Pass them there next time.` } : {}),
           ...labelNote(b.label, snapshot),
-          ...gamingGpuNote(options?.userText, snapshot)
+          ...gamingGpuNote(options?.userText, snapshot),
+          ...qualityNote(validation)
         };
         recordValidation(turnStore, b.label, results[b.label]);
       }

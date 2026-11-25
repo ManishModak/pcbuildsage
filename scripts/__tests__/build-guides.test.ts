@@ -153,7 +153,74 @@ describe("runBuildGuides end to end", () => {
       const html1440 = readFileSync(path.join(out, "gaming-1440p-under-90000.html"), "utf8");
       expect(html1440).toContain("RTX 5060 Ti");
       expect(html1440).toContain("prices checked 28 Sep 2026");
+      // Uses included stock cooler instead of buying an unnecessary paid cooler.
+      expect(html1440).toContain("AMD Wraith Stealth");
+      expect(html1440).toContain("Included stock cooler with boxed CPU");
+      // Records real runner-up candidates when available (1080p has RX 7600 and a second Ryzen 5 5600 listing).
+      const g1080 = result.published.find((g) => g.slug === "gaming-1080p-under-90000");
+      expect(g1080?.runnerUp?.gpu?.name).toContain("RX 7600");
+      expect(g1080?.runnerUp?.cpu?.name).toContain("Ryzen 5 5600");
+      // Strictly factual copy: no unsourced "fastest", "strongest", or "best" claims in rendered pages.
+      for (const guide of result.published) {
+        const html = readFileSync(path.join(out, `${guide.slug}.html`), "utf8");
+        expect(html).not.toMatch(/\b(fastest|strongest|best)\b/i);
+      }
       expect(existsSync(path.join(out, "index.html"))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it("enforces the part-quality gate: skips unbranded/fanless tiers and prefers quality-passing parts without relaxing rules", async () => {
+    const fixture = JSON.parse(
+      readFileSync(path.join(process.cwd(), "scripts", "__tests__", "fixtures", "guides-catalog.json"), "utf8")
+    ) as Array<Record<string, unknown>>;
+    const withoutPsusOrCases = fixture.filter((row) => row.category !== "psu" && row.category !== "case");
+    const badOnly = [
+      ...withoutPsusOrCases,
+      {
+        id: "bad-psu-650-inr",
+        name: "Generic 550W SMPS Power Supply",
+        normalized_name: "generic 550w smps power supply",
+        registry_key: null,
+        price: 650,
+        currency: "INR",
+        country_code: "IN",
+        retailer: "Shop",
+        url: "https://example.com/bad-psu",
+        image_url: null,
+        in_stock: 1,
+        category: "psu",
+        subcategory: null,
+        specs: null,
+        first_seen: "2026-09-28T08:50:00Z",
+        last_scraped: "2026-09-28T08:50:00Z"
+      },
+      {
+        id: "bad-case-nofan",
+        name: "Generic ATX Cabinet Without Fan",
+        normalized_name: "generic atx cabinet without fan",
+        registry_key: null,
+        price: 1200,
+        currency: "INR",
+        country_code: "IN",
+        retailer: "Shop",
+        url: "https://example.com/bad-case",
+        image_url: null,
+        in_stock: 1,
+        category: "case",
+        subcategory: null,
+        specs: JSON.stringify({ included_fans: 0 }),
+        first_seen: "2026-09-28T08:50:00Z",
+        last_scraped: "2026-09-28T08:50:00Z"
+      }
+    ];
+    const { dir, db } = tempCatalog(badOnly);
+    const out = path.join(dir, "site");
+    try {
+      const result = await runQuietly(["--db", db, "--out", out]);
+      expect(result.exitCode).toBe(1);
+      expect(result.published).toHaveLength(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
