@@ -160,6 +160,42 @@ describe("Route Guarding & Defense-in-Depth Integration", () => {
       const response = await modelsRoute(request);
       expect(response.status).toBe(400);
     });
+
+    it("rejects GET /api/models for local openai-compatible with implicit baseUrl or hosted provider without BYOK key", async () => {
+      process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "hosted-demo";
+
+      const implicitLocal = await modelsRoute(
+        new Request("http://localhost/api/models?provider=openai-compatible", { method: "GET" })
+      );
+      expect(implicitLocal.status).toBe(400);
+
+      const missingKey = await modelsRoute(
+        new Request("http://localhost/api/models?provider=gemini", { method: "GET" })
+      );
+      expect(missingKey.status).toBe(400);
+    });
+
+    it("rejects POST /api/llm/probe for local openai-compatible with implicit baseUrl or hosted provider without BYOK key", async () => {
+      process.env.PCBUILDSAGE_DEPLOYMENT_MODE = "hosted-demo";
+
+      const implicitLocal = await probeRoute(
+        new Request("http://localhost/api/llm/probe", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ provider: "openai-compatible", model: "local-qwen" })
+        })
+      );
+      expect(implicitLocal.status).toBe(400);
+
+      const missingKey = await probeRoute(
+        new Request("http://localhost/api/llm/probe", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ provider: "gemini", model: "gemini-4-hydrogen" })
+        })
+      );
+      expect(missingKey.status).toBe(400);
+    });
   });
 
   describe("In local mode", () => {

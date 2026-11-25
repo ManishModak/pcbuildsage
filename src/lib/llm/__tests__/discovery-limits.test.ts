@@ -42,6 +42,33 @@ describe("discovery per provider", () => {
     expect(init.headers).toEqual({ "x-api-key": "sk-ant-test", "anthropic-version": "2023-06-01" });
     expect(models).toEqual([{ id: "claude-x", name: "Claude X", toolCapable: true }]);
   });
+
+  it("filters out embedding-only Gemini models using supportedGenerationMethods", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        models: [
+          {
+            name: "models/gemini-4-hydrogen",
+            displayName: "Gemini 4 Hydrogen",
+            inputTokenLimit: 1048576,
+            supportedGenerationMethods: ["generateContent", "countTokens"]
+          },
+          {
+            name: "models/gemini-embedding-2",
+            displayName: "Gemini Embedding 2",
+            supportedGenerationMethods: ["embedContent"]
+          },
+          {
+            name: "models/aqa",
+            displayName: "Attributed Question Answering",
+            supportedGenerationMethods: ["generateAnswer"]
+          }
+        ]
+      })
+    );
+    const models = await discoverModels({ provider: "gemini", model: "x", keySource: "ui", apiKey: "AIzaSyTest" }, fetchMock);
+    expect(models.map((m) => m.id)).toEqual(["gemini-4-hydrogen"]);
+  });
 });
 
 describe("discovery concurrency", () => {

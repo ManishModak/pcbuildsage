@@ -11,7 +11,7 @@
  */
 
 import type { ReasoningEffort } from "@/types/config";
-import { LLM_PROVIDER_IDS } from "@/lib/llm/providers";
+import { LLM_PROVIDER_IDS, getProvider } from "@/lib/llm/providers";
 
 export const BYOK_PREFIX = "pcbuildsage_byok_";
 export const BYOK_COLON_PREFIX = "pcbuildsage:byok:";
@@ -20,6 +20,47 @@ export const DEFAULT_BYOK_PROVIDERS: readonly string[] = LLM_PROVIDER_IDS;
 
 let customSessionStorage: Storage | undefined;
 let customLocalStorage: Storage | undefined;
+const byokListeners = new Set<() => void>();
+let byokStorageListenerRegistered = false;
+
+function handleByokStorageEvent(event: StorageEvent): void {
+  if (!event.key || event.key.startsWith(BYOK_PREFIX) || event.key.startsWith(BYOK_COLON_PREFIX)) {
+    notifyByokListeners();
+  }
+}
+
+function ensureByokStorageListener(): void {
+  if (!byokStorageListenerRegistered && typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("storage", handleByokStorageEvent);
+    byokStorageListenerRegistered = true;
+  }
+}
+
+function notifyByokListeners(): void {
+  for (const listener of byokListeners) {
+    try {
+      listener();
+    } catch {
+      // Ignore individual subscriber callback errors
+    }
+  }
+}
+
+/**
+ * Subscribe to BYOK key, model, active provider, or reasoning-effort changes.
+ * Returns an unsubscribe callback.
+ */
+export function subscribeByokStore(listener: () => void): () => void {
+  byokListeners.add(listener);
+  ensureByokStorageListener();
+  return () => {
+    byokListeners.delete(listener);
+    if (byokListeners.size === 0 && byokStorageListenerRegistered && typeof window !== "undefined") {
+      window.removeEventListener("storage", handleByokStorageEvent);
+      byokStorageListenerRegistered = false;
+    }
+  };
+}
 
 /**
  * Configure custom storage backends (primarily for unit testing environments).
@@ -33,8 +74,13 @@ export function setByokStorageForTesting(session?: Storage, local?: Storage): vo
  * Reset test storage backends.
  */
 export function resetByokStoreForTesting(): void {
+  byokListeners.clear();
   customSessionStorage = undefined;
   customLocalStorage = undefined;
+  if (byokStorageListenerRegistered && typeof window !== "undefined") {
+    window.removeEventListener("storage", handleByokStorageEvent);
+    byokStorageListenerRegistered = false;
+  }
 }
 
 function getSessionStorage(): Storage | undefined {
@@ -200,6 +246,7 @@ export function setByokKey(provider: string, key: string, persist = false): void
       // ignore
     }
   }
+  notifyByokListeners();
 }
 
 /**
@@ -229,6 +276,7 @@ export function clearByokKey(provider: string): void {
       // ignore
     }
   }
+  notifyByokListeners();
 }
 
 /**
@@ -255,6 +303,7 @@ export function clearAllByokKeys(): void {
 
   purge(getSessionStorage());
   purge(getLocalStorage());
+  notifyByokListeners();
 }
 
 /**
@@ -350,6 +399,9 @@ export function getByokModel(provider: string): string | undefined {
 
 /**
  * Stores the chosen model for a given BYOK provider.
+ * If a legacy provider-level reasoning effort exists and no per-model efforts
+ * have been recorded yet, migrates that legacy effort onto the model that was
+ * active before the switch so the newly selected model does not inherit it.
  */
 export function setByokModel(provider: string, model: string, persist = false): void {
   const norm = normalizeProvider(provider);
@@ -359,6 +411,12 @@ export function setByokModel(provider: string, model: string, persist = false): 
     clearByokModel(provider);
     return;
   }
+
+  const previousModel = getByokModel(provider) ?? getProvider(norm)?.defaultModel;
+  if (previousModel && previousModel !== trimmed) {
+    migrateLegacyReasoningEffortToModel(provider, previousModel, persist);
+  }
+
   try {
     getSessionStorage()?.setItem(key, trimmed);
   } catch {
@@ -370,7 +428,14 @@ export function setByokModel(provider: string, model: string, persist = false): 
     } catch {
       // Quota or security error
     }
+  } else {
+    try {
+      getLocalStorage()?.removeItem(key);
+    } catch {
+      // Ignore
+    }
   }
+  notifyByokListeners();
 }
 
 /**
@@ -385,14 +450,15 @@ export function clearByokModel(provider: string): void {
   } catch {
     // Ignore
   }
+  notifyByokListeners();
 }
 
 const REASONING_EFFORT_SUFFIX = "_reasoning_effort";
+const MODEL_EFFORT_SUFFIX = "_model_efforts";
 
-/**
- * Retrieves the user-configured reasoning effort for a given BYOK provider.
- */
-export function getByokReasoningEffort(provider: string): ReasoningEffort | undefined {
+type StoredModelEffort = ReasoningEffort | "default";
+
+function readLegacyReasoningEffort(provider: string): ReasoningEffort | undefined {
   const norm = normalizeProvider(provider);
   const session = getSessionStorage();
   const fromSession = session?.getItem(`${BYOK_PREFIX}${norm}${REASONING_EFFORT_SUFFIX}`);
@@ -409,10 +475,99 @@ export function getByokReasoningEffort(provider: string): ReasoningEffort | unde
   return undefined;
 }
 
+function clearLegacyReasoningEffortRaw(provider: string): void {
+  const norm = normalizeProvider(provider);
+  const key = `${BYOK_PREFIX}${norm}${REASONING_EFFORT_SUFFIX}`;
+  try {
+    getSessionStorage()?.removeItem(key);
+    getLocalStorage()?.removeItem(key);
+  } catch {
+    // Ignore
+  }
+}
+
+function readModelEfforts(provider: string): Record<string, StoredModelEffort> {
+  const norm = normalizeProvider(provider);
+  const key = `${BYOK_PREFIX}${norm}${MODEL_EFFORT_SUFFIX}`;
+  const raw = getSessionStorage()?.getItem(key) ?? getLocalStorage()?.getItem(key);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const clean: Record<string, StoredModelEffort> = {};
+    for (const [m, v] of Object.entries(parsed)) {
+      if (v === "low" || v === "medium" || v === "high" || v === "default") clean[m] = v;
+    }
+    return clean;
+  } catch {
+    return {};
+  }
+}
+
+function writeModelEfforts(provider: string, map: Record<string, StoredModelEffort>, persist: boolean): void {
+  const norm = normalizeProvider(provider);
+  const key = `${BYOK_PREFIX}${norm}${MODEL_EFFORT_SUFFIX}`;
+  const serialized = JSON.stringify(map);
+  try {
+    getSessionStorage()?.setItem(key, serialized);
+  } catch {
+    // Ignore
+  }
+  if (persist) {
+    try {
+      getLocalStorage()?.setItem(key, serialized);
+    } catch {
+      // Ignore
+    }
+  } else {
+    try {
+      getLocalStorage()?.removeItem(key);
+    } catch {
+      // Ignore
+    }
+  }
+}
+
+function migrateLegacyReasoningEffortToModel(provider: string, previousModel: string, persist: boolean): void {
+  const legacy = readLegacyReasoningEffort(provider);
+  if (!legacy) return;
+  const map = readModelEfforts(provider);
+  if (Object.keys(map).length === 0) {
+    map[previousModel] = legacy;
+    writeModelEfforts(provider, map, persist || isByokKeyPersistent(provider));
+  }
+  clearLegacyReasoningEffortRaw(provider);
+}
+
 /**
- * Stores the chosen reasoning effort for a given BYOK provider.
+ * Retrieves the user-configured reasoning effort for a given BYOK provider's
+ * active model (or legacy provider-level effort if no model is stored yet).
+ */
+export function getByokReasoningEffort(provider: string): ReasoningEffort | undefined {
+  if (!provider) return undefined;
+  const currentModel = getByokModel(provider);
+  if (currentModel) {
+    return getByokModelReasoningEffort(provider, currentModel);
+  }
+  const defaultModel = getProvider(normalizeProvider(provider))?.defaultModel;
+  if (defaultModel && Object.keys(readModelEfforts(provider)).length > 0) {
+    return getByokModelReasoningEffort(provider, defaultModel);
+  }
+  return readLegacyReasoningEffort(provider);
+}
+
+/**
+ * Stores the chosen reasoning effort for a given BYOK provider's active model.
+ * When a model is already configured for this provider, writes directly to the
+ * single model-scoped preference store so Settings and the picker never drift.
  */
 export function setByokReasoningEffort(provider: string, effort?: ReasoningEffort, persist = false): void {
+  if (!provider) return;
+  const currentModel = getByokModel(provider);
+  if (currentModel) {
+    setByokModelReasoningEffort(provider, currentModel, effort, persist);
+    return;
+  }
+
   const norm = normalizeProvider(provider);
   const key = `${BYOK_PREFIX}${norm}${REASONING_EFFORT_SUFFIX}`;
   if (!effort) {
@@ -430,21 +585,33 @@ export function setByokReasoningEffort(provider: string, effort?: ReasoningEffor
     } catch {
       // Quota or security error
     }
+  } else {
+    try {
+      getLocalStorage()?.removeItem(key);
+    } catch {
+      // Ignore
+    }
   }
+  notifyByokListeners();
 }
 
 /**
- * Clears the chosen reasoning effort for a given BYOK provider.
+ * Clears all reasoning effort preferences (both per-model map and legacy key)
+ * for a given BYOK provider.
  */
 export function clearByokReasoningEffort(provider: string): void {
   const norm = normalizeProvider(provider);
-  const key = `${BYOK_PREFIX}${norm}${REASONING_EFFORT_SUFFIX}`;
+  const legacyKey = `${BYOK_PREFIX}${norm}${REASONING_EFFORT_SUFFIX}`;
+  const mapKey = `${BYOK_PREFIX}${norm}${MODEL_EFFORT_SUFFIX}`;
   try {
-    getSessionStorage()?.removeItem(key);
-    getLocalStorage()?.removeItem(key);
+    getSessionStorage()?.removeItem(legacyKey);
+    getLocalStorage()?.removeItem(legacyKey);
+    getSessionStorage()?.removeItem(mapKey);
+    getLocalStorage()?.removeItem(mapKey);
   } catch {
     // Ignore
   }
+  notifyByokListeners();
 }
 
 /**
@@ -479,5 +646,49 @@ export function setActiveByokProvider(provider: string, persist = false): void {
       // Ignore
     }
   }
+  notifyByokListeners();
+}
+
+/**
+ * Returns the remembered per-model reasoning effort for a BYOK (provider, model).
+ * Falls back to a legacy provider-level effort only when no per-model choices exist yet.
+ */
+export function getByokModelReasoningEffort(provider: string, model: string): ReasoningEffort | undefined {
+  if (!provider || !model) return undefined;
+  const map = readModelEfforts(provider);
+  if (Object.prototype.hasOwnProperty.call(map, model)) {
+    const stored = map[model];
+    return stored === "default" ? undefined : stored;
+  }
+  if (Object.keys(map).length === 0) {
+    return readLegacyReasoningEffort(provider);
+  }
+  return undefined;
+}
+
+/**
+ * Stores per-model reasoning effort as the single canonical reasoning preference
+ * for `(provider, model)` in the BYOK store.
+ */
+export function setByokModelReasoningEffort(
+  provider: string,
+  model: string,
+  effort?: ReasoningEffort,
+  persist = false
+): void {
+  if (!provider || !model) return;
+  const norm = normalizeProvider(provider);
+  const map = readModelEfforts(provider);
+  if (Object.keys(map).length === 0) {
+    const legacy = readLegacyReasoningEffort(provider);
+    const activeModel = getByokModel(provider) ?? getProvider(norm)?.defaultModel;
+    if (legacy && activeModel && activeModel !== model) {
+      map[activeModel] = legacy;
+    }
+  }
+  map[model] = effort ?? "default";
+  writeModelEfforts(provider, map, persist);
+  clearLegacyReasoningEffortRaw(provider);
+  notifyByokListeners();
 }
 

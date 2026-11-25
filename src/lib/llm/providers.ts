@@ -58,7 +58,7 @@ export const LLM_PROVIDERS = [
     name: "Groq",
     api: "openai-compatible",
     tier: "free",
-    note: "Free key, fast open models",
+    note: "Fast open models; free tier has tight TPM limits (e.g. 8K TPM on default model), often too small for full PC builds",
     envKey: "GROQ_API_KEY",
     baseUrl: "https://api.groq.com/openai/v1",
     keyUrl: "https://console.groq.com/keys",

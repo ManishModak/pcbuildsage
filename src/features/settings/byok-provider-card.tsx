@@ -1,9 +1,10 @@
 "use client";
 
-import { Check, ExternalLink, Eye, EyeOff, RotateCw, Trash2 } from "lucide-react";
+import { Check, ExternalLink, Eye, EyeOff, RotateCw, Trash2, TriangleAlert } from "lucide-react";
 import type { DiscoveredModel, ReasoningEffort } from "@/types/client";
 import type { LLMProvider, ProviderTier } from "@/lib/llm/providers";
 import { maskApiKey } from "@/lib/llm/client-byok-store";
+import { getFreeTierWarning } from "@/lib/llm/model-capabilities";
 import { Button, Field, Input, Spinner, Toggle } from "@/components/ui/primitives";
 import { SearchableModelSelect } from "@/components/ui/searchable-model-select";
 import { Icon } from "@/components/ui/icon";
@@ -76,6 +77,7 @@ export function ByokProviderCard({
   onDetectModels
 }: ByokProviderCardProps) {
   const isConfigured = Boolean(currentKey);
+  const freeTierWarning = getFreeTierWarning(provider.id, selectedModel || provider.defaultModel);
 
   return (
     <div className="flex flex-col gap-4 p-4" data-testid={`byok-card-${provider.id}`}>
@@ -106,6 +108,16 @@ export function ByokProviderCard({
           <Icon icon={ExternalLink} size={12} />
         </a>
       </div>
+
+      {freeTierWarning ? (
+        <p
+          className="flex items-start gap-2 rounded-btn border border-warn/40 bg-warn/10 px-3 py-2 text-caption text-text-secondary"
+          data-testid={`byok-${provider.id}-free-tier-warning`}
+        >
+          <Icon icon={TriangleAlert} size={14} className="mt-0.5 shrink-0 text-warn" />
+          <span>{freeTierWarning.detail}</span>
+        </p>
+      ) : null}
 
       {isConfigured && !isEditing ? (
         <div className="flex flex-col gap-4">

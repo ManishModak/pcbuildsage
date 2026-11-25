@@ -1,5 +1,6 @@
 import type { LLMChainEntry } from "@/types";
 import { defaultBaseUrl, keyEnv, normalizeBaseUrl, resolveApiKey } from "./client";
+import { isChatCapableGeminiModel } from "./model-capabilities";
 import { isFreePricing } from "./model-recommend";
 
 export const DISCOVERY_TIMEOUT_MS = 10_000;
@@ -18,6 +19,8 @@ export type DiscoveredModel = {
   contextLimit?: number;
   /** Raw OpenRouter `supported_parameters` (e.g. includes "tools" when tool calling is supported). */
   supportedParameters?: string[];
+  /** Gemini `supportedGenerationMethods` (e.g. "generateContent" vs "embedContent"). */
+  supportedGenerationMethods?: string[];
   /** Raw OpenRouter `pricing` (per-token prices as strings, e.g. "0" for free models). */
   pricing?: { prompt?: string | number; completion?: string | number };
   /** True when prompt+completion pricing are both zero. */
@@ -26,17 +29,35 @@ export type DiscoveredModel = {
   toolCapable?: boolean;
 };
 
+export { isChatCapableGeminiModel };
+
 export async function discoverModels(entry: LLMChainEntry, fetchImpl: typeof fetch = fetch): Promise<DiscoveredModel[]> {
   if (entry.provider === "gemini") {
     const key = resolveApiKey(entry, keyEnv(entry.provider));
     const url = new URL("https://generativelanguage.googleapis.com/v1beta/models");
     if (key) url.searchParams.set("key", key);
-    const json = await getJson<{ models?: Array<{ name: string; displayName?: string; inputTokenLimit?: number }> }>(url.toString(), fetchImpl);
-    return (json.models ?? []).map((model) => ({
-      id: model.name.replace(/^models\//, ""),
-      name: model.displayName,
-      contextLimit: typeof model.inputTokenLimit === "number" ? model.inputTokenLimit : undefined
-    }));
+    const json = await getJson<{
+      models?: Array<{
+        name: string;
+        displayName?: string;
+        inputTokenLimit?: number;
+        supportedGenerationMethods?: string[];
+      }>;
+    }>(url.toString(), fetchImpl);
+    return (json.models ?? [])
+      .map((model) => {
+        const id = model.name.replace(/^models\//, "");
+        const supportedGenerationMethods = Array.isArray(model.supportedGenerationMethods)
+          ? model.supportedGenerationMethods
+          : undefined;
+        return {
+          id,
+          name: model.displayName,
+          contextLimit: typeof model.inputTokenLimit === "number" ? model.inputTokenLimit : undefined,
+          ...(supportedGenerationMethods ? { supportedGenerationMethods } : {})
+        };
+      })
+      .filter((model) => isChatCapableGeminiModel(model));
   }
   if (entry.provider === "ollama") {
     const base = normalizeBaseUrl(entry.baseUrl ?? process.env.OLLAMA_BASE_URL ?? "http://localhost:11434", "ollama");

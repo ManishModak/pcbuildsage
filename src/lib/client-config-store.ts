@@ -1,4 +1,4 @@
-import type { ChainEntry, ClientConfig, ScrapeRunConfig } from "@/types/client";
+import type { ChainEntry, ClientConfig, ReasoningEffort, ScrapeRunConfig } from "@/types/client";
 import { getByokKey } from "@/lib/llm/client-byok-store";
 import { isSearchProvider, normalizeSearchProvider } from "@/lib/search-providers";
 
@@ -22,6 +22,82 @@ export const RETURNING_BOOTSTRAP = `
 `;
 const SCRAPE_KEY = "pcbuildsage:lastScrape";
 const KEYS_KEY = "pcbuildsage:uiKeys";
+const LOCAL_MODEL_EFFORTS_KEY = "pcbuildsage:localModelEfforts";
+
+type StoredLocalEffort = ReasoningEffort | "default";
+const memoryLocalModelEfforts = new Map<string, StoredLocalEffort>();
+
+function localModelEffortKey(provider: string, model: string, baseUrl?: string): string {
+  const normProvider = provider.trim().toLowerCase();
+  const normBaseUrl = (baseUrl ?? "").trim();
+  const normModel = model.trim();
+  return normBaseUrl ? `${normProvider}::${normBaseUrl}::${normModel}` : `${normProvider}::${normModel}`;
+}
+
+function readLocalModelEfforts(): Record<string, StoredLocalEffort> {
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const raw = window.localStorage.getItem(LOCAL_MODEL_EFFORTS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const clean: Record<string, StoredLocalEffort> = {};
+        for (const [k, v] of Object.entries(parsed)) {
+          if (v === "low" || v === "medium" || v === "high" || v === "default") clean[k] = v;
+        }
+        return clean;
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
+  return Object.fromEntries(memoryLocalModelEfforts.entries());
+}
+
+/** Remembered per-model reasoning effort in local mode, keyed by (provider, baseUrl, model). */
+export function getLocalModelReasoningEffort(
+  provider: string,
+  model: string,
+  baseUrl?: string
+): ReasoningEffort | undefined {
+  if (!provider || !model) return undefined;
+  const key = localModelEffortKey(provider, model, baseUrl);
+  const stored = readLocalModelEfforts()[key];
+  return stored && stored !== "default" ? stored : undefined;
+}
+
+/** Persists per-model reasoning effort in local mode so switching away and back restores it. */
+export function setLocalModelReasoningEffort(
+  provider: string,
+  model: string,
+  effort?: ReasoningEffort,
+  baseUrl?: string
+): void {
+  if (!provider || !model) return;
+  const key = localModelEffortKey(provider, model, baseUrl);
+  const nextValue: StoredLocalEffort = effort ?? "default";
+  memoryLocalModelEfforts.set(key, nextValue);
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const map = readLocalModelEfforts();
+      map[key] = nextValue;
+      window.localStorage.setItem(LOCAL_MODEL_EFFORTS_KEY, JSON.stringify(map));
+    } catch {
+      // ignore quota / private-mode failures
+    }
+  }
+}
+
+/** Clears remembered local per-model reasoning efforts (for unit tests). */
+export function clearLocalModelReasoningEffortsForTesting(): void {
+  memoryLocalModelEfforts.clear();
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      window.localStorage.removeItem(LOCAL_MODEL_EFFORTS_KEY);
+    } catch {
+      // ignore
+    }
+  }
+}
 
 export const DEFAULT_CONFIG: ClientConfig = {
   onboarded: false,

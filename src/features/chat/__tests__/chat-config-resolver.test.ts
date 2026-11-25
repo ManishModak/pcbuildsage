@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { resolveActiveModel, resolveChatRequestBody } from "../chat-config-resolver";
-import { DEFAULT_CONFIG } from "@/lib/client-config-store";
+import { resolveActiveModel, resolveChatRequestBody, resolveChatRequestHeaders } from "../chat-config-resolver";
+import { DEFAULT_CONFIG, saveUiKey } from "@/lib/client-config-store";
 
 describe("resolveChatRequestBody", () => {
   it("resolves local configuration preserving base urls and crawl settings", () => {
@@ -132,12 +132,78 @@ describe("resolveChatRequestBody", () => {
     expect(res.config.chatLlmChain[0].reasoningEffort).toBe("medium");
     expect(res.config.llmChain[0].reasoningEffort).toBe("medium");
   });
+
+  it("builds hosted chat headers exclusively from BYOK keys so legacy local uiKeys cannot override them", () => {
+    const store = new Map<string, string>();
+    const mockLocalStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, v); },
+      removeItem: (k: string) => { store.delete(k); }
+    };
+    const prevWindow = (globalThis as { window?: unknown }).window;
+    (globalThis as { window?: unknown }).window = { localStorage: mockLocalStorage };
+    try {
+      saveUiKey("gemini", "LEGACY_LOCAL_GEMINI_KEY");
+      const config = {
+        ...DEFAULT_CONFIG,
+        tier2Enabled: true,
+        searchProvider: "tavily" as const,
+        chatChain: [{ id: "c1", provider: "gemini" as const, model: "gemini-4-hydrogen", keySource: "ui" as const }]
+      };
+      const body = resolveChatRequestBody(config, "session-hosted-headers", {
+        isHosted: true,
+        activeByokProvider: "gemini",
+        hasKey: (p) => p === "gemini" || p === "tavily",
+        getModel: () => "gemini-4-hydrogen"
+      });
+      const headers = resolveChatRequestHeaders(config, body, {
+        isHosted: true,
+        getByokKey: (p) =>
+          p === "gemini"
+            ? "BYOK_GEMINI_KEY"
+            : p === "tavily"
+              ? "BYOK_TAVILY_KEY"
+              : p === "openai"
+                ? "UNRELATED_OPENAI_KEY"
+                : undefined
+      });
+      expect(headers["x-pcbuildsage-api-key-gemini"]).toBe("BYOK_GEMINI_KEY");
+      expect(headers["x-gemini-api-key"]).toBe("BYOK_GEMINI_KEY");
+      expect(headers["x-pcbuildsage-api-key-tavily"]).toBe("BYOK_TAVILY_KEY");
+      expect(headers["x-tavily-api-key"]).toBe("BYOK_TAVILY_KEY");
+      expect(headers["x-pcbuildsage-api-key-openai"]).toBeUndefined();
+    } finally {
+      if (prevWindow === undefined) delete (globalThis as { window?: unknown }).window;
+      else (globalThis as { window?: unknown }).window = prevWindow;
+    }
+  });
 });
 
 describe("resolveActiveModel", () => {
-  it("prioritizes last assistant message metadata model", () => {
+  it("prioritizes configured chatChain model over stale lastAssistantModel so in-chat switches reflect immediately", () => {
     const config = { ...DEFAULT_CONFIG, chatChain: [{ id: "c1", provider: "openrouter" as const, model: "openrouter-default", keySource: "ui" as const }] };
-    expect(resolveActiveModel(config, "anthropic/claude-3.5-sonnet")).toBe("anthropic/claude-3.5-sonnet");
+    expect(resolveActiveModel(config, "anthropic/claude-3.5-sonnet", { isHosted: false })).toBe("openrouter-default");
+  });
+
+  it("falls back to lastAssistantModel when no model is configured yet", () => {
+    const config = { ...DEFAULT_CONFIG, chatChain: [] };
+    expect(
+      resolveActiveModel(config, "anthropic/claude-3.5-sonnet", {
+        isHosted: false,
+        hasKey: () => false
+      })
+    ).toBe("anthropic/claude-3.5-sonnet");
+  });
+
+  it("prioritizes active hosted BYOK selection over stale lastAssistantModel", () => {
+    const config = { ...DEFAULT_CONFIG, chatChain: [] };
+    const model = resolveActiveModel(config, "gemini-2.5-flash", {
+      isHosted: true,
+      activeByokProvider: "openrouter",
+      hasKey: (p) => p === "openrouter",
+      getModel: (p) => (p === "openrouter" ? "nex-agi/nex-n2.5-pro:free" : undefined)
+    });
+    expect(model).toBe("nex-agi/nex-n2.5-pro:free");
   });
 
   it("uses config.chatChain model when present", () => {

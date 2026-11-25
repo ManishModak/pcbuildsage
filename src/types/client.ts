@@ -112,6 +112,8 @@ export type DiscoveredModel = {
   contextLimit?: number;
   /** Raw OpenRouter `supported_parameters` (e.g. includes "tools" when tool calling is supported). */
   supportedParameters?: string[];
+  /** Gemini `supportedGenerationMethods` (e.g. "generateContent" vs "embedContent"). */
+  supportedGenerationMethods?: string[];
   /** Raw OpenRouter `pricing` (per-token prices as strings, e.g. "0" for free models). */
   pricing?: { prompt?: string | number; completion?: string | number };
   /** True when prompt+completion pricing are both zero. */

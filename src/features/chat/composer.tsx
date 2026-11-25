@@ -5,7 +5,7 @@ import { ArrowUp, Square } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { Icon } from "@/components/ui/icon";
 import { isHostedMode } from "@/lib/api-client";
-import { getActiveByokProvider, getByokModel, hasByokKey } from "@/lib/llm/client-byok-store";
+import { getActiveByokProvider, getByokModel, hasByokKey, subscribeByokStore } from "@/lib/llm/client-byok-store";
 import { pickHostedProvider } from "@/lib/llm/hosted-defaults";
 
 /**
@@ -56,13 +56,15 @@ export function Composer({
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, []);
   // Re-evaluate the hosted BYOK gate when storage changes (key added/removed
-  // in another tab) or when the window regains focus.
+  // in another tab or in-tab via Settings/picker) or when the window regains focus.
   const [byokTick, setByokTick] = useState(0);
   useEffect(() => {
     const refresh = () => setByokTick((tick) => tick + 1);
+    const unsubscribe = subscribeByokStore(refresh);
     window.addEventListener("storage", refresh);
     window.addEventListener("focus", refresh);
     return () => {
+      unsubscribe();
       window.removeEventListener("storage", refresh);
       window.removeEventListener("focus", refresh);
     };

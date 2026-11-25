@@ -11,12 +11,13 @@ import {
   getActiveByokProvider,
   getByokKey,
   getByokModel,
-  getByokReasoningEffort,
+  getByokModelReasoningEffort,
   isByokKeyPersistent,
   setActiveByokProvider,
   setByokKey,
   setByokModel,
-  setByokReasoningEffort
+  setByokModelReasoningEffort,
+  subscribeByokStore
 } from "@/lib/llm/client-byok-store";
 import { Check } from "lucide-react";
 import { cn } from "@/components/ui/cn";
@@ -74,7 +75,9 @@ export function ByokSection({
   const [showDraft, setShowDraft] = useState(() => perProvider(() => false));
   const [selectedModels, setSelectedModels] = useState(() => perProvider((p) => getByokModel(p.id) || p.defaultModel));
   const [reasoningEfforts, setReasoningEfforts] = useState(() =>
-    perProvider<ReasoningEffort | undefined>((p) => getByokReasoningEffort(p.id))
+    perProvider<ReasoningEffort | undefined>((p) =>
+      getByokModelReasoningEffort(p.id, getByokModel(p.id) || p.defaultModel)
+    )
   );
 
   const [models, setModels] = useState<Record<string, DiscoveredModel[]>>({});
@@ -99,6 +102,20 @@ export function ByokSection({
   useEffect(() => {
     onModelChangeRef.current = onModelChange;
   });
+
+  // Stay synchronized when the in-chat model picker updates model or effort.
+  useEffect(() => {
+    return subscribeByokStore(() => {
+      const nextModels = perProvider((p) => getByokModel(p.id) || p.defaultModel);
+      setSelectedModels(nextModels);
+      setReasoningEfforts(
+        perProvider<ReasoningEffort | undefined>((p) =>
+          getByokModelReasoningEffort(p.id, nextModels[p.id])
+        )
+      );
+      setActiveProviderState(getActiveByokProvider() ?? null);
+    });
+  }, []);
 
   const loadModelsForProvider = useCallback(
     async (providerId: ProviderId, apiKey?: string, forceRefresh = false) => {
@@ -206,8 +223,15 @@ export function ByokSection({
   };
 
   const handleReasoningEffortChange = (providerId: ProviderId, effort?: ReasoningEffort) => {
+    const targetModel =
+      selectedModels[providerId] ||
+      getByokModel(providerId) ||
+      BYOK_PROVIDERS.find((p) => p.id === providerId)?.defaultModel ||
+      "";
     setReasoningEfforts((prev) => ({ ...prev, [providerId]: effort }));
-    setByokReasoningEffort(providerId, effort, persists[providerId]);
+    if (targetModel) {
+      setByokModelReasoningEffort(providerId, targetModel, effort, persists[providerId]);
+    }
   };
 
   const handleModelChange = (providerId: ProviderId, modelId: string) => {
@@ -216,6 +240,10 @@ export function ByokSection({
     userPickedRef.current[providerId] = true;
     setSelectedModels((prev) => ({ ...prev, [providerId]: trimmed }));
     setByokModel(providerId, trimmed, persists[providerId]);
+    setReasoningEfforts((prev) => ({
+      ...prev,
+      [providerId]: getByokModelReasoningEffort(providerId, trimmed)
+    }));
     setActiveByokProvider(providerId, persists[providerId]);
     setActiveProviderState(providerId);
     setCustomInputs((prev) => ({ ...prev, [providerId]: false }));
