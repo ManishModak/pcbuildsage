@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Popover as PopoverPrimitive } from "radix-ui";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Bot,
@@ -32,7 +32,7 @@ import { Spinner } from "@/components/ui/primitives";
 import { RuneSpinner } from "@/components/app/rune-spinner";
 import { fetchCredentials, fetchModels, isHostedMode } from "@/lib/api-client";
 import { hasUiKey } from "@/lib/client-config-store";
-import { getByokModel, hasByokKey } from "@/lib/llm/client-byok-store";
+import { getByokModel, hasByokKey, subscribeByokStore } from "@/lib/llm/client-byok-store";
 import { formatErrorMessageFallback } from "@/features/chat/model-picker-error";
 import { formatModelName } from "@/lib/format";
 import { getFreeTierWarning, supportsReasoning } from "@/lib/llm/model-capabilities";
@@ -47,6 +47,7 @@ import {
   buildPickerSections,
   getEligibleProviders,
   resolveDiscoveryRequestParams,
+  type PickerDiscoveredEndpoint,
   type PickerModelItem
 } from "./model-picker-data";
 
@@ -87,14 +88,33 @@ function providerIconFor(id: string): LucideIcon {
   return PROVIDER_ICONS[id] ?? Bot;
 }
 
-function discoveryCacheKey(params: { provider: string; keySource: string; baseUrl?: string; apiKey?: string }): string {
-  const keyTag = params.apiKey ? `k:${params.apiKey.length}:${params.apiKey.slice(-4)}` : "nokey";
-  return `${params.provider}::${params.keySource}::${params.baseUrl ?? ""}::${keyTag}`;
+function fingerprintSecret(secret: string): string {
+  // Fast non-cryptographic FNV-1a hash so rotated keys never collide in the
+  // in-memory discovery cache without placing the raw secret in cache keys.
+  let hash = 2166136261;
+  for (let i = 0; i < secret.length; i++) {
+    hash ^= secret.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `k:${secret.length}:${(hash >>> 0).toString(16)}`;
+}
+
+function discoveryCacheKey(params: {
+  isHosted: boolean;
+  provider: string;
+  keySource: string;
+  baseUrl?: string;
+  apiKey?: string;
+}): string {
+  const mode = params.isHosted ? "hosted" : "local";
+  const keyTag = params.apiKey ? fingerprintSecret(params.apiKey) : "nokey";
+  return `${mode}::${params.provider}::${params.keySource}::${params.baseUrl ?? ""}::${keyTag}`;
 }
 
 export function ModelPicker({
   config,
   activeSelection,
+  inFlightModel,
   streaming,
   isCompacting,
   recovering,
@@ -107,6 +127,8 @@ export function ModelPicker({
 }: {
   config: ClientConfig;
   activeSelection: ActiveSelection;
+  /** The model actually answering the current in-flight turn, if any. */
+  inFlightModel?: string | null;
   streaming: boolean;
   isCompacting?: boolean;
   recovering?: RecoveryWait | null;
@@ -122,31 +144,92 @@ export function ModelPicker({
   const [query, setQuery] = useState("");
   const [showAllAvailable, setShowAllAvailable] = useState(false);
 
+  const [credRevision, bumpCredRevision] = useReducer((tick: number) => tick + 1, 0);
+  useEffect(() => {
+    const unsubByok = subscribeByokStore(bumpCredRevision);
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === "pcbuildsage:uiKeys" || event.key.startsWith("pcbuildsage_byok")) {
+        bumpCredRevision();
+      }
+    };
+    if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+      window.addEventListener("storage", onStorage);
+    }
+    return () => {
+      unsubByok();
+      if (typeof window !== "undefined" && typeof window.removeEventListener === "function") {
+        window.removeEventListener("storage", onStorage);
+      }
+    };
+  }, []);
+
   const [credentials, setCredentials] = useState<CredentialAvailability | null>(initialCredentials ?? null);
   const [credentialsLoaded, setCredentialsLoaded] = useState(initialCredentials !== undefined);
   const [localServerProviders, setLocalServerProviders] = useState<Set<string>>(() => new Set());
-  const [discoveredByProvider, setDiscoveredByProvider] = useState<Record<string, DiscoveredModel[]>>(
-    initialDiscoveredByProvider ?? {}
-  );
-  const [loadingProviders, setLoadingProviders] = useState<Record<string, boolean>>({});
-  const [errorByProvider, setErrorByProvider] = useState<Record<string, string | undefined>>({});
+  const [discoveredByKey, setDiscoveredByKey] = useState<Record<string, DiscoveredModel[]>>({});
+  const [loadingByKey, setLoadingByKey] = useState<Record<string, boolean>>({});
+  const [errorByKey, setErrorByKey] = useState<Record<string, string | undefined>>({});
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const isHosted = isHostedOverride !== undefined ? isHostedOverride : isHostedMode();
   const hasKeyFn = isHosted ? hasByokKey : hasUiKey;
 
-  const eligibleProviders = useMemo(
-    () =>
-      getEligibleProviders({
+  const eligibleProviders = useMemo(() => {
+    void credRevision;
+    return getEligibleProviders({
+      isHosted,
+      chatChain: config.chatChain,
+      subagentChain: config.subagentChain,
+      credentials,
+      hasKey: hasKeyFn,
+      localServerProviders
+    });
+  }, [isHosted, config.chatChain, config.subagentChain, credentials, hasKeyFn, localServerProviders, credRevision]);
+
+  const discoveryTargets = useMemo(() => {
+    void credRevision;
+    const map: Record<
+      string,
+      {
+        req: ReturnType<typeof resolveDiscoveryRequestParams>;
+        requestKey: string;
+        endpoint: PickerDiscoveredEndpoint;
+      }
+    > = {};
+    for (const provider of eligibleProviders) {
+      const req = resolveDiscoveryRequestParams({
+        provider,
         isHosted,
         chatChain: config.chatChain,
-        subagentChain: config.subagentChain,
-        credentials,
-        hasKey: hasKeyFn,
-        localServerProviders
-      }),
-    [isHosted, config.chatChain, config.subagentChain, credentials, hasKeyFn, localServerProviders]
-  );
+        subagentChain: config.subagentChain
+      });
+      const requestKey = discoveryCacheKey({
+        isHosted,
+        provider: req.provider,
+        keySource: req.keySource,
+        baseUrl: req.baseUrl,
+        apiKey: req.apiKey
+      });
+      map[provider.id] = {
+        req,
+        requestKey,
+        endpoint: {
+          baseUrl: req.baseUrl,
+          keySource: req.keySource,
+          presetName: req.presetName,
+          hasSavedKey: req.hasSavedKey
+        }
+      };
+    }
+    return map;
+  }, [eligibleProviders, isHosted, config.chatChain, config.subagentChain, credRevision]);
+
+  const discoveryTargetsRef = useRef(discoveryTargets);
+  useEffect(() => {
+    discoveryTargetsRef.current = discoveryTargets;
+  });
+
+  const requestSeqRef = useRef<Record<string, number>>({});
 
   // If the previously filtered provider disappeared (e.g. key cleared), fall back to All.
   const effectiveSelectedProvider =
@@ -156,37 +239,82 @@ export function ModelPicker({
 
   const loadProviderModels = useCallback(
     async (providerId: string, forceRefresh = false) => {
-      const provider = getProvider(providerId);
-      if (!provider) return;
-      const req = resolveDiscoveryRequestParams({
-        provider,
-        isHosted,
-        chatChain: config.chatChain,
-        subagentChain: config.subagentChain
-      });
+      const target = discoveryTargetsRef.current[providerId];
+      if (!target) return;
+      const { req, requestKey } = target;
       if (isHosted && !req.apiKey) return;
 
-      const cacheKey = discoveryCacheKey(req);
-      if (!forceRefresh && discoveryCache.has(cacheKey)) {
-        const cached = discoveryCache.get(cacheKey)!;
-        setDiscoveredByProvider((prev) => (prev[providerId] === cached ? prev : { ...prev, [providerId]: cached }));
+      if (!forceRefresh && discoveryCache.has(requestKey)) {
+        const cached = discoveryCache.get(requestKey)!;
+        setDiscoveredByKey((prev) => (prev[requestKey] === cached ? prev : { ...prev, [requestKey]: cached }));
         return;
       }
 
-      setLoadingProviders((prev) => ({ ...prev, [providerId]: true }));
-      setErrorByProvider((prev) => ({ ...prev, [providerId]: undefined }));
+      const seq = (requestSeqRef.current[requestKey] ?? 0) + 1;
+      requestSeqRef.current[requestKey] = seq;
+
+      setLoadingByKey((prev) => ({ ...prev, [requestKey]: true }));
+      setErrorByKey((prev) => ({ ...prev, [requestKey]: undefined }));
       try {
         const list = await fetchModels(req);
-        discoveryCache.set(cacheKey, list);
-        setDiscoveredByProvider((prev) => ({ ...prev, [providerId]: list }));
+        if (requestSeqRef.current[requestKey] !== seq) return;
+        discoveryCache.set(requestKey, list);
+        // Ignore superseded credential/endpoint responses for UI state.
+        if (discoveryTargetsRef.current[providerId]?.requestKey !== requestKey) return;
+        setDiscoveredByKey((prev) => ({ ...prev, [requestKey]: list }));
       } catch (err) {
-        setErrorByProvider((prev) => ({ ...prev, [providerId]: formatErrorMessageFallback(err) }));
+        if (requestSeqRef.current[requestKey] !== seq) return;
+        if (discoveryTargetsRef.current[providerId]?.requestKey !== requestKey) return;
+        setErrorByKey((prev) => ({ ...prev, [requestKey]: formatErrorMessageFallback(err) }));
       } finally {
-        setLoadingProviders((prev) => ({ ...prev, [providerId]: false }));
+        if (requestSeqRef.current[requestKey] === seq) {
+          setLoadingByKey((prev) => ({ ...prev, [requestKey]: false }));
+        }
       }
     },
-    [isHosted, config.chatChain, config.subagentChain]
+    [isHosted]
   );
+
+  const discoveredByProvider = useMemo(() => {
+    const result: Record<string, DiscoveredModel[]> = {};
+    for (const provider of eligibleProviders) {
+      if (initialDiscoveredByProvider?.[provider.id]) {
+        result[provider.id] = initialDiscoveredByProvider[provider.id];
+        continue;
+      }
+      const key = discoveryTargets[provider.id]?.requestKey;
+      const list = key ? (discoveredByKey[key] ?? discoveryCache.get(key)) : undefined;
+      if (list) result[provider.id] = list;
+    }
+    return result;
+  }, [eligibleProviders, initialDiscoveredByProvider, discoveryTargets, discoveredByKey]);
+
+  const discoveredEndpointsByProvider = useMemo(() => {
+    const result: Record<string, PickerDiscoveredEndpoint> = {};
+    for (const provider of eligibleProviders) {
+      const target = discoveryTargets[provider.id];
+      if (target) result[provider.id] = target.endpoint;
+    }
+    return result;
+  }, [eligibleProviders, discoveryTargets]);
+
+  const loadingProviders = useMemo(() => {
+    const result: Record<string, boolean> = {};
+    for (const provider of eligibleProviders) {
+      const key = discoveryTargets[provider.id]?.requestKey;
+      if (key && loadingByKey[key]) result[provider.id] = true;
+    }
+    return result;
+  }, [eligibleProviders, discoveryTargets, loadingByKey]);
+
+  const errorByProvider = useMemo(() => {
+    const result: Record<string, string | undefined> = {};
+    for (const provider of eligibleProviders) {
+      const key = discoveryTargets[provider.id]?.requestKey;
+      if (key && errorByKey[key]) result[provider.id] = errorByKey[key];
+    }
+    return result;
+  }, [eligibleProviders, discoveryTargets, errorByKey]);
 
   // Fetch local credentials and eligible providers' models when the popover opens.
   useEffect(() => {
@@ -218,8 +346,9 @@ export function ModelPicker({
     fetchModels({ provider: "ollama", keySource: "none" })
       .then((list) => {
         if (list.length > 0) {
-          discoveryCache.set(discoveryCacheKey({ provider: "ollama", keySource: "none" }), list);
-          setDiscoveredByProvider((prev) => ({ ...prev, ollama: list }));
+          const ollamaKey = discoveryCacheKey({ isHosted: false, provider: "ollama", keySource: "none" });
+          discoveryCache.set(ollamaKey, list);
+          setDiscoveredByKey((prev) => ({ ...prev, [ollamaKey]: list }));
           setLocalServerProviders((prev) => {
             const next = new Set(prev);
             next.add("ollama");
@@ -236,7 +365,9 @@ export function ModelPicker({
     if (!open) return;
     for (const provider of eligibleProviders) {
       if (initialDiscoveredByProvider?.[provider.id]) continue;
-      if (discoveredByProvider[provider.id] || loadingProviders[provider.id] || errorByProvider[provider.id]) {
+      const key = discoveryTargets[provider.id]?.requestKey;
+      if (!key) continue;
+      if (discoveredByKey[key] || discoveryCache.has(key) || loadingByKey[key] || errorByKey[key]) {
         continue;
       }
       void loadProviderModels(provider.id, false);
@@ -245,36 +376,39 @@ export function ModelPicker({
     open,
     eligibleProviders,
     initialDiscoveredByProvider,
-    discoveredByProvider,
-    loadingProviders,
-    errorByProvider,
+    discoveryTargets,
+    discoveredByKey,
+    loadingByKey,
+    errorByKey,
     loadProviderModels
   ]);
 
-  const sections = useMemo(
-    () =>
-      buildPickerSections({
-        eligibleProviders,
-        isHosted,
-        chatChain: config.chatChain,
-        activeProvider: activeSelection.provider,
-        activeModel: activeSelection.model,
-        getByokModel,
-        discoveredByProvider,
-        selectedProvider: effectiveSelectedProvider,
-        query
-      }),
-    [
+  const sections = useMemo(() => {
+    void credRevision;
+    return buildPickerSections({
       eligibleProviders,
       isHosted,
-      config.chatChain,
-      activeSelection.provider,
-      activeSelection.model,
+      chatChain: config.chatChain,
+      activeProvider: activeSelection.provider,
+      activeModel: activeSelection.model,
+      getByokModel,
       discoveredByProvider,
-      effectiveSelectedProvider,
+      discoveredEndpointsByProvider,
+      selectedProvider: effectiveSelectedProvider,
       query
-    ]
-  );
+    });
+  }, [
+    eligibleProviders,
+    isHosted,
+    config.chatChain,
+    activeSelection.provider,
+    activeSelection.model,
+    discoveredByProvider,
+    discoveredEndpointsByProvider,
+    effectiveSelectedProvider,
+    query,
+    credRevision
+  ]);
 
   const activeDiscoveredMeta = useMemo(() => {
     if (!activeSelection.provider) return undefined;
@@ -286,7 +420,12 @@ export function ModelPicker({
       supportsReasoning(activeSelection.provider, activeSelection.model, activeDiscoveredMeta)
   );
 
-  const handleSelectModel = (item: Pick<PickerModelItem, "provider" | "model" | "contextLimit" | "supportedParameters">) => {
+  const handleSelectModel = (
+    item: Pick<
+      PickerModelItem,
+      "sourceEntryId" | "provider" | "model" | "baseUrl" | "keySource" | "presetName" | "hasSavedKey" | "contextLimit" | "supportedParameters"
+    >
+  ) => {
     if (isHosted) {
       applyModelSwitchHosted({
         provider: item.provider,
@@ -297,8 +436,13 @@ export function ModelPicker({
     } else {
       updateConfig((prev) =>
         applyModelSwitchLocal(prev, {
+          sourceEntryId: item.sourceEntryId,
           provider: item.provider,
           model: item.model,
+          baseUrl: item.baseUrl,
+          keySource: item.keySource,
+          presetName: item.presetName,
+          hasSavedKey: item.hasSavedKey,
           contextLimit: item.contextLimit,
           supportedParameters: item.supportedParameters,
           credentials
@@ -319,7 +463,20 @@ export function ModelPicker({
   };
 
   const displayName = useMemo(() => formatModelName(activeSelection.model), [activeSelection.model]);
-  const busy = streaming || isCompacting || Boolean(recovering);
+  const busy = streaming || Boolean(isCompacting) || Boolean(recovering);
+  const switchedMidTurn = Boolean(busy && inFlightModel && inFlightModel !== activeSelection.model);
+  const inFlightDisplayName = useMemo(
+    () => (inFlightModel ? formatModelName(inFlightModel) : null),
+    [inFlightModel]
+  );
+  const busyStatusPhrase =
+    recovering === "rate-limit"
+      ? "is waiting out the rate limit"
+      : recovering
+        ? "is retrying"
+        : isCompacting
+          ? "is shortening the chat"
+          : "is answering";
 
   const trimmedQuery = query.trim();
   const hasSearch = trimmedQuery.length > 0;
@@ -338,7 +495,9 @@ export function ModelPicker({
   const showGroqBanner =
     effectiveSelectedProvider === "groq" ||
     (activeSelection.provider === "groq" && effectiveSelectedProvider === "all");
-  const groqWarning = showGroqBanner ? getFreeTierWarning("groq") : null;
+  const groqWarning = showGroqBanner
+    ? getFreeTierWarning("groq", activeSelection.provider === "groq" ? activeSelection.model : undefined)
+    : null;
 
   const canAddCustomModel =
     hasSearch &&
@@ -386,16 +545,12 @@ export function ModelPicker({
                 {activeSelection.reasoningEffort}
               </span>
             ) : null}
-            <span className="shrink-0">
-              {recovering === "rate-limit"
-                ? "is waiting out the rate limit"
-                : recovering
-                  ? "is retrying"
-                  : isCompacting
-                    ? "is shortening the chat"
-                    : streaming
-                      ? "is answering"
-                      : "ready"}
+            <span className="shrink-0" data-testid="model-picker-status-text">
+              {switchedMidTurn && inFlightDisplayName
+                ? `· ${inFlightDisplayName} ${busyStatusPhrase}`
+                : busy
+                  ? busyStatusPhrase
+                  : "ready"}
             </span>
           </span>
           {busy ? <RuneSpinner /> : null}
@@ -546,9 +701,13 @@ export function ModelPicker({
                         <SectionHeading label="Configured" />
                         {sections.configured.map((item) => (
                           <ModelOptionRow
-                            key={`cfg-${item.provider}-${item.model}`}
+                            key={item.entryKey}
                             item={item}
-                            selected={activeSelection.provider === item.provider && activeSelection.model === item.model}
+                            selected={
+                              activeSelection.provider === item.provider &&
+                              activeSelection.model === item.model &&
+                              (!item.baseUrl || !activeSelection.baseUrl || item.baseUrl === activeSelection.baseUrl)
+                            }
                             showProvider={effectiveSelectedProvider === "all"}
                             onSelect={handleSelectModel}
                           />
@@ -561,9 +720,13 @@ export function ModelPicker({
                         <SectionHeading label="Recommended · tools" />
                         {visibleRecommended.map((item) => (
                           <ModelOptionRow
-                            key={`rec-${item.provider}-${item.model}`}
+                            key={item.entryKey}
                             item={item}
-                            selected={activeSelection.provider === item.provider && activeSelection.model === item.model}
+                            selected={
+                              activeSelection.provider === item.provider &&
+                              activeSelection.model === item.model &&
+                              (!item.baseUrl || !activeSelection.baseUrl || item.baseUrl === activeSelection.baseUrl)
+                            }
                             showProvider={effectiveSelectedProvider === "all"}
                             onSelect={handleSelectModel}
                           />
@@ -576,9 +739,13 @@ export function ModelPicker({
                         <SectionHeading label={visibleRecommended.length > 0 ? "All models" : "Available"} />
                         {visibleAvailable.map((item) => (
                           <ModelOptionRow
-                            key={`avail-${item.provider}-${item.model}`}
+                            key={item.entryKey}
                             item={item}
-                            selected={activeSelection.provider === item.provider && activeSelection.model === item.model}
+                            selected={
+                              activeSelection.provider === item.provider &&
+                              activeSelection.model === item.model &&
+                              (!item.baseUrl || !activeSelection.baseUrl || item.baseUrl === activeSelection.baseUrl)
+                            }
                             showProvider={effectiveSelectedProvider === "all"}
                             onSelect={handleSelectModel}
                           />
@@ -737,7 +904,7 @@ export function ModelPicker({
           {/* Footer */}
           <div className="flex items-center justify-between gap-3 border-t border-border bg-surface-raised/40 px-3 py-2 text-caption text-text-muted">
             <span className="truncate">
-              {streaming ? "Applies from next message" : "Chat model"}
+              {busy ? "Applies from next message" : "Chat model"}
             </span>
             <Link
               href="/settings?tab=llm"

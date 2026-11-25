@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DEFAULT_CONFIG } from "@/lib/client-config-store";
+import { DEFAULT_CONFIG, clearLocalModelReasoningEffortsForTesting } from "@/lib/client-config-store";
 import { resetCachedDeploymentMode, setCachedDeploymentMode } from "@/lib/api-client";
 import {
+  clearByokReasoningEffort,
   getActiveByokProvider,
   getByokModel,
   getByokModelReasoningEffort,
@@ -11,6 +12,8 @@ import {
   setActiveByokProvider,
   setByokKey,
   setByokModel,
+  setByokModelReasoningEffort,
+  setByokReasoningEffort,
   setByokStorageForTesting
 } from "@/lib/llm/client-byok-store";
 import { getProvider } from "@/lib/llm/providers";
@@ -24,7 +27,7 @@ import {
   buildPickerSections,
   getEligibleProviders
 } from "../model-picker-data";
-import { resolveActiveSelection } from "../chat-config-resolver";
+import { resolveActiveSelection, resolveChatRequestBody } from "../chat-config-resolver";
 import type { ClientConfig, DiscoveredModel } from "@/types/client";
 
 class MockStorage implements Storage {
@@ -133,6 +136,56 @@ describe("in-chat model picker eligibility and filtering", () => {
     expect(searched.configured).toHaveLength(0);
     expect(searched.recommended.map((m) => m.model)).toEqual(["anthropic/claude-sonnet-4"]);
   });
+
+  it("keeps distinct providers when both publish the same model ID in All-provider search", () => {
+    const eligible = getEligibleProviders({
+      isHosted: true,
+      chatChain: [],
+      hasKey: (p) => p === "openrouter" || p === "groq"
+    });
+
+    const searched = buildPickerSections({
+      eligibleProviders: eligible,
+      isHosted: true,
+      chatChain: [],
+      getByokModel: (p) => (p === "openrouter" ? "openrouter/free" : "openai/gpt-oss-120b"),
+      discoveredByProvider: {
+        openrouter: [{ id: "openai/gpt-oss-20b", name: "GPT OSS 20B", toolCapable: true }],
+        groq: [{ id: "openai/gpt-oss-20b", name: "GPT OSS 20B" }]
+      },
+      selectedProvider: "all",
+      query: "gpt-oss-20b"
+    });
+
+    const found = [...searched.recommended, ...searched.available].map((m) => `${m.provider}:${m.model}`);
+    expect(found).toContain("openrouter:openai/gpt-oss-20b");
+    expect(found).toContain("groq:openai/gpt-oss-20b");
+  });
+
+  it("excludes embedding-only Gemini models from picker sections", () => {
+    const eligible = getEligibleProviders({
+      isHosted: true,
+      chatChain: [],
+      hasKey: (p) => p === "gemini"
+    });
+    const sections = buildPickerSections({
+      eligibleProviders: eligible,
+      isHosted: true,
+      chatChain: [],
+      getByokModel: () => "gemini-4-hydrogen",
+      discoveredByProvider: {
+        gemini: [
+          { id: "gemini-4-hydrogen", supportedGenerationMethods: ["generateContent"] },
+          { id: "gemini-embedding-2", supportedGenerationMethods: ["embedContent"] }
+        ]
+      },
+      selectedProvider: "gemini",
+      query: ""
+    });
+    expect([...sections.configured, ...sections.recommended, ...sections.available].map((m) => m.model)).toEqual([
+      "gemini-4-hydrogen"
+    ]);
+  });
 });
 
 describe("in-chat model picker persistence", () => {
@@ -146,6 +199,7 @@ describe("in-chat model picker persistence", () => {
     resetByokStoreForTesting();
     setByokStorageForTesting(session, local);
     clearModelPickerDiscoveryCacheForTesting();
+    clearLocalModelReasoningEffortsForTesting();
   });
 
   it("local mode updates chatChain[0] cleanly without wiping backup entries", () => {
@@ -178,8 +232,23 @@ describe("in-chat model picker persistence", () => {
     expect(withEffort.chatChain[0].reasoningEffort).toBe("high");
     expect(withEffort.chatChain.slice(1)).toEqual(config.chatChain.slice(1));
 
+    // Switching to another thinking model clears active effort, and switching back restores Hydrogen's High.
+    const onArgon = applyModelSwitchLocal(withEffort, {
+      provider: "gemini",
+      model: "gemini-4-argon",
+      credentials: { llm: { gemini: true }, search: {} }
+    });
+    expect(onArgon.chatChain[0].reasoningEffort).toBeUndefined();
+
+    const backToHydrogen = applyModelSwitchLocal(onArgon, {
+      provider: "gemini",
+      model: "gemini-4-hydrogen",
+      credentials: { llm: { gemini: true }, search: {} }
+    });
+    expect(backToHydrogen.chatChain[0].reasoningEffort).toBe("high");
+
     // Switching to a non-thinking model clears reasoningEffort without wiping backups.
-    const nonThinking = applyModelSwitchLocal(withEffort, {
+    const nonThinking = applyModelSwitchLocal(backToHydrogen, {
       provider: "groq",
       model: "llama-3.3-70b-versatile",
       credentials: { llm: { groq: true }, search: {} }
@@ -189,26 +258,103 @@ describe("in-chat model picker persistence", () => {
     expect(nonThinking.chatChain.slice(1)).toEqual(config.chatChain.slice(1));
   });
 
-  it("hosted mode persists active provider, model, and per-model reasoning effort via client-byok-store", () => {
+  it("preserves endpoint identity when selecting a configured backup on the same provider", () => {
+    const config: ClientConfig = {
+      ...DEFAULT_CONFIG,
+      chatChain: [
+        { id: "compat-8001", provider: "openai-compatible", model: "qwen3-8b", keySource: "none", baseUrl: "http://127.0.0.1:8001/v1" },
+        { id: "compat-8002", provider: "openai-compatible", model: "qwen3-32b", keySource: "none", baseUrl: "http://127.0.0.1:8002/v1" }
+      ]
+    };
+
+    const eligible = getEligibleProviders({
+      isHosted: false,
+      chatChain: config.chatChain,
+      hasKey: () => false
+    });
+    const sections = buildPickerSections({
+      eligibleProviders: eligible,
+      isHosted: false,
+      chatChain: config.chatChain,
+      discoveredByProvider: {},
+      selectedProvider: "all",
+      query: ""
+    });
+
+    expect(sections.configured).toHaveLength(2);
+    const backupRow = sections.configured.find((row) => row.sourceEntryId === "compat-8002");
+    expect(backupRow?.baseUrl).toBe("http://127.0.0.1:8002/v1");
+
+    const switched = applyModelSwitchLocal(config, {
+      sourceEntryId: backupRow!.sourceEntryId,
+      provider: backupRow!.provider,
+      model: backupRow!.model,
+      baseUrl: backupRow!.baseUrl,
+      keySource: backupRow!.keySource
+    });
+
+    expect(switched.chatChain[0]).toMatchObject({
+      provider: "openai-compatible",
+      model: "qwen3-32b",
+      baseUrl: "http://127.0.0.1:8002/v1"
+    });
+    expect(switched.chatChain[1].baseUrl).toBe("http://127.0.0.1:8002/v1");
+
+    // Two entries with the same provider and model ID on different ports stay distinct.
+    const sameModelDiffPort: ClientConfig = {
+      ...DEFAULT_CONFIG,
+      chatChain: [
+        { id: "p1", provider: "openai-compatible", model: "qwen3", keySource: "none", baseUrl: "http://127.0.0.1:8001/v1" },
+        { id: "p2", provider: "openai-compatible", model: "qwen3", keySource: "none", baseUrl: "http://127.0.0.1:8002/v1" }
+      ]
+    };
+    const sameModelSections = buildPickerSections({
+      eligibleProviders: eligible,
+      isHosted: false,
+      chatChain: sameModelDiffPort.chatChain,
+      discoveredByProvider: {},
+      selectedProvider: "all",
+      query: ""
+    });
+    expect(sameModelSections.configured).toHaveLength(2);
+  });
+
+  it("hosted mode persists active provider, model, and per-model reasoning effort via a single canonical store", () => {
     setByokKey("gemini", "AIzaSyTestKey123", true);
     setByokKey("openrouter", "sk-or-v1-test123", false);
 
-    applyModelSwitchHosted({ provider: "gemini", model: "gemini-4-hydrogen" });
-    expect(getActiveByokProvider()).toBe("gemini");
-    expect(getByokModel("gemini")).toBe("gemini-4-hydrogen");
+    // Legacy provider-level effort on Hydrogen must migrate to Hydrogen and NOT leak onto Argon.
+    setByokModel("gemini", "gemini-4-hydrogen", true);
+    session.setItem("pcbuildsage_byok_gemini_reasoning_effort", "low");
+    applyModelSwitchHosted({ provider: "gemini", model: "gemini-4-argon" });
+    expect(getByokModel("gemini")).toBe("gemini-4-argon");
+    expect(getByokReasoningEffort("gemini")).toBeUndefined();
+    expect(getByokModelReasoningEffort("gemini", "gemini-4-argon")).toBeUndefined();
+    expect(getByokModelReasoningEffort("gemini", "gemini-4-hydrogen")).toBe("low");
 
+    // Picker writes High on Hydrogen, then Settings changes it to Medium -> switching away and back keeps Medium.
+    applyModelSwitchHosted({ provider: "gemini", model: "gemini-4-hydrogen" });
     applyReasoningSwitchHosted("gemini", "gemini-4-hydrogen", "high");
     expect(getByokReasoningEffort("gemini")).toBe("high");
-    expect(getByokModelReasoningEffort("gemini", "gemini-4-hydrogen")).toBe("high");
-
-    // Switching to a non-thinking model on Gemini clears active reasoningEffort.
-    applyModelSwitchHosted({ provider: "gemini", model: "gemini-2.5-flash-lite" });
-    expect(getByokModel("gemini")).toBe("gemini-2.5-flash-lite");
-    expect(getByokReasoningEffort("gemini")).toBeUndefined();
-
-    // Switching back to gemini-4-hydrogen restores its saved reasoning effort.
+    setByokModelReasoningEffort("gemini", "gemini-4-hydrogen", "medium", true);
+    expect(
+      resolveChatRequestBody({ ...DEFAULT_CONFIG, chatChain: [] }, "s1", { isHosted: true }).config.chatLlmChain[0]
+        .reasoningEffort
+    ).toBe("medium");
+    applyModelSwitchHosted({ provider: "gemini", model: "gemini-4-argon" });
     applyModelSwitchHosted({ provider: "gemini", model: "gemini-4-hydrogen" });
-    expect(getByokReasoningEffort("gemini")).toBe("high");
+    expect(getByokReasoningEffort("gemini")).toBe("medium");
+    expect(getByokModelReasoningEffort("gemini", "gemini-4-hydrogen")).toBe("medium");
+
+    // Switching to a non-thinking model on Gemini clears active reasoningEffort without wiping Hydrogen.
+    applyModelSwitchHosted({ provider: "gemini", model: "gemini-2.0-flash" });
+    expect(getByokModel("gemini")).toBe("gemini-2.0-flash");
+    expect(getByokReasoningEffort("gemini")).toBeUndefined();
+    expect(getByokModelReasoningEffort("gemini", "gemini-4-hydrogen")).toBe("medium");
+
+    // Clearing provider reasoning effort in Settings clears the per-model map too.
+    clearByokReasoningEffort("gemini");
+    expect(getByokModelReasoningEffort("gemini", "gemini-4-hydrogen")).toBeUndefined();
 
     // Switching to another provider preserves persistence flag of that provider.
     applyModelSwitchHosted({ provider: "openrouter", model: "openrouter/free" });
@@ -219,6 +365,13 @@ describe("in-chat model picker persistence", () => {
     const config: ClientConfig = { ...DEFAULT_CONFIG, chatChain: [] };
     const resolved = resolveActiveSelection(config, "stale-old-model", { isHosted: true });
     expect(resolved).toMatchObject({ provider: "openrouter", model: "openrouter/free" });
+
+    // Legacy setByokReasoningEffort when no model is set still works and clears cleanly.
+    setByokKey("groq", "gsk_test123", false);
+    setByokReasoningEffort("groq", "low", false);
+    expect(getByokReasoningEffort("groq")).toBe("low");
+    clearByokReasoningEffort("groq");
+    expect(getByokReasoningEffort("groq")).toBeUndefined();
   });
 });
 
@@ -241,7 +394,7 @@ describe("ModelPicker UI rendering", () => {
     setByokStorageForTesting(new MockStorage(), new MockStorage());
   });
 
-  it("renders live status indicators on the trigger", () => {
+  it("renders live status indicators on the trigger and keeps in-flight model truthful when switched mid-turn", () => {
     const baseProps = {
       config: DEFAULT_CONFIG,
       activeSelection: { provider: "gemini", model: "gemini-4-hydrogen", reasoningEffort: "high" as const },
@@ -255,9 +408,22 @@ describe("ModelPicker UI rendering", () => {
     expect(readyHtml).toContain("high");
     expect(readyHtml).toContain("ready");
 
-    const answeringHtml = renderToStaticMarkup(<ModelPicker {...baseProps} streaming={true} />);
+    const answeringHtml = renderToStaticMarkup(
+      <ModelPicker {...baseProps} streaming={true} inFlightModel="gemini-4-hydrogen" />
+    );
     expect(answeringHtml).toContain("is answering");
     expect(answeringHtml).toContain("rune-spinner");
+
+    const switchedMidTurnHtml = renderToStaticMarkup(
+      <ModelPicker
+        {...baseProps}
+        activeSelection={{ provider: "gemini", model: "gemini-4-argon" }}
+        streaming={true}
+        inFlightModel="gemini-4-hydrogen"
+      />
+    );
+    expect(switchedMidTurnHtml).toContain("gemini-4-argon");
+    expect(switchedMidTurnHtml).toContain("gemini-4-hydrogen is answering");
 
     const rateLimitHtml = renderToStaticMarkup(
       <ModelPicker {...baseProps} streaming={false} recovering="rate-limit" />

@@ -24,10 +24,10 @@ export function isGemini4Model(model: string): boolean {
 }
 
 /**
- * Models that accept thinkingConfig. Every Gemini 4 and 3 model thinks, so
- * Flash-Lite counts too (it defaults to "minimal"); in the 2.5 series only Pro
- * and Flash think, and 2.5 Flash-Lite does not. Image, audio and embedding
- * models are left alone because this app chats in text.
+ * Models that think by default and emit thought summaries when `includeThoughts`
+ * is requested. Every Gemini 4 and 3 model thinks by default; in the 2.5 series
+ * Pro and Flash think by default, whereas 2.5 Flash-Lite has thinking off unless
+ * an explicit reasoning effort is requested.
  */
 export function supportsGeminiThoughts(model: string): boolean {
   const id = normalizeGeminiId(model);
@@ -35,6 +35,17 @@ export function supportsGeminiThoughts(model: string): boolean {
   if (/^gemini-(3|4)(?:[.-]|$)/.test(id)) return true;
   if (/^gemini-2\.5/.test(id)) return !id.includes("lite");
   return false;
+}
+
+/**
+ * Gemini text models that accept an explicit reasoning-effort setting:
+ * Gemini 4 and 3 use `thinkingLevel`; Gemini 2.5 (including 2.5 Flash-Lite's
+ * optional thinking) uses `thinkingBudget`.
+ */
+export function supportsGeminiReasoning(model: string): boolean {
+  const id = normalizeGeminiId(model);
+  if (NON_TEXT_GEMINI_PATTERN.test(id)) return false;
+  return /^gemini-(?:2\.5|3|4)(?:[.-]|$)/.test(id);
 }
 
 const REASONING_PARAMS = new Set(["reasoning", "include_reasoning"]);
@@ -45,8 +56,7 @@ const REASONING_PARAMS = new Set(["reasoning", "include_reasoning"]);
  *
  * Groq is always hidden because `sanitizeOpenAICompatibleRequestBody` strips
  * `reasoning_effort` for Groq endpoints. Non-thinking models (Gemini 2.0,
- * Gemini 2.5 Flash-Lite, GPT-4o/4.1, Llama 3.x, Claude 3.5, DeepSeek Chat)
- * are hidden as well.
+ * GPT-4o/4.1, Llama 3.x, Claude 3.5, DeepSeek Chat) are hidden as well.
  */
 export function supportsReasoning(
   provider: string,
@@ -67,7 +77,7 @@ export function supportsReasoning(
   const base = withoutPrefix.slice(withoutPrefix.lastIndexOf("/") + 1).replace(/:[^:]*$/, "");
 
   if (normalizedProvider === "gemini" || withoutPrefix.startsWith("google/gemini-")) {
-    return supportsGeminiThoughts(base);
+    return supportsGeminiReasoning(base);
   }
 
   // OpenAI o-series (o1, o3, o4...), GPT-5+, gpt-oss, codex-mini
@@ -100,17 +110,29 @@ export interface FreeTierWarning {
   detail: string;
 }
 
+const GROQ_FREE_TIER_MODEL_TPM: Record<string, string> = {
+  "openai/gpt-oss-120b": "8K",
+  "openai/gpt-oss-safeguard-20b": "2K"
+};
+
 /**
- * Flags providers/models whose free tier cannot run a full PC build turn.
- * Groq's free tier has an 8K TPM cap vs 15–25K tokens per PC build turn.
+ * Flags providers/models whose free tier has tight TPM caps compared to the
+ * 15–25K tokens per step typical of a full PC build turn.
  */
-export function getFreeTierWarning(provider: string, _modelId?: string): FreeTierWarning | null {
-  void _modelId;
-  if (provider.trim().toLowerCase() === "groq") {
+export function getFreeTierWarning(provider: string, modelId?: string): FreeTierWarning | null {
+  if (provider.trim().toLowerCase() !== "groq") return null;
+
+  const normalizedModel = modelId?.trim().toLowerCase() ?? "";
+  const specificTpm = normalizedModel ? GROQ_FREE_TIER_MODEL_TPM[normalizedModel] : undefined;
+  if (specificTpm) {
     return {
-      badge: "8K TPM free limit",
-      detail: "Groq's free tier (8K tokens/min) is too small for full PC builds (15–25K tokens/step). Use a paid tier or another provider for full builds."
+      badge: `${specificTpm} TPM free limit`,
+      detail: `Groq's free tier for ${modelId} is ${specificTpm} tokens/min (limits vary by model and org), too small for full PC builds (15–25K tokens/step). Use a paid tier or another provider for full builds.`
     };
   }
-  return null;
+
+  return {
+    badge: "Low TPM free limit",
+    detail: "Groq's free tier has tight token-per-minute limits (e.g. 8K TPM on the default openai/gpt-oss-120b; limits vary by model and org), often too small for full PC builds (15–25K tokens/step). Use a paid tier or another provider for full builds."
+  };
 }

@@ -5,12 +5,17 @@ import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Maximize2, Minimize2, Package, TriangleAlert, X } from "lucide-react";
 import { fetchStatus, isHostedMode } from "@/lib/api-client";
-import { apiKeyHeaders } from "@/lib/client-config-store";
-import { injectByokHeaders, subscribeByokStore } from "@/lib/llm/client-byok-store";
+import { subscribeByokStore } from "@/lib/llm/client-byok-store";
 import { getMarketPreference } from "@/lib/market/client-market-store";
 import { getClientSession } from "@/lib/sessions/client-store";
 import type { StoredCompactContext } from "@/lib/sessions/compact-context";
-import { resolveActiveModel, resolveActiveSelection, resolveChatRequestBody } from "./chat-config-resolver";
+import {
+  resolveActiveModel,
+  resolveActiveSelection,
+  resolveChatRequestBody,
+  resolveChatRequestHeaders,
+  type ChatRequestBody
+} from "./chat-config-resolver";
 import { ModelPicker, type RecoveryWait } from "./model-picker";
 import type { ClientConfig, StatusResponse } from "@/types/client";
 import { Icon } from "@/components/ui/icon";
@@ -222,16 +227,55 @@ export function ChatView({
     }
   }, [sessionId]);
 
+  // Snapshot of the active turn's request payload, credentials, and model
+  // captured when the user submits. Automatic retries and context-limit
+  // recovery reuse this snapshot so switching models mid-turn applies only
+  // from the next user message.
+  const inFlightTurnRef = useRef<{
+    body: ChatRequestBody;
+    headers: Record<string, string>;
+    model: string;
+  } | null>(null);
+  const [inFlightModel, setInFlightModel] = useState<string | null>(null);
+
+  const captureTurnSnapshot = useCallback(() => {
+    const body = resolveChatRequestBody(configRef.current, sessionIdRef.current, {
+      compactContext: compactContextRef.current
+    });
+    const headers = resolveChatRequestHeaders(configRef.current, body);
+    const model = body.config.chatLlmChain[0]?.model || resolveActiveModel(configRef.current);
+    inFlightTurnRef.current = { body, headers, model };
+    setInFlightModel(model);
+  }, []);
+
+  const clearInFlightTurn = useCallback(() => {
+    inFlightTurnRef.current = null;
+    setInFlightModel(null);
+  }, []);
+
   const transport = useMemo(
     () =>
-      // eslint-disable-next-line react-hooks/refs -- configRef/sessionIdRef/compactContextRef are read inside the transport's headers/body callbacks, which run at request time, not during render
+      // eslint-disable-next-line react-hooks/refs -- refs are read inside the transport's headers/body callbacks at request time, not during render
       new DefaultChatTransport<ChatUIMessage>({
         api: "/api/chat",
-        headers: () => injectByokHeaders(apiKeyHeaders(configRef.current.chatChain, configRef.current)) as Record<string, string>,
-        body: () =>
-          resolveChatRequestBody(configRef.current, sessionIdRef.current, {
+        headers: () => {
+          if (inFlightTurnRef.current) return inFlightTurnRef.current.headers;
+          const body = resolveChatRequestBody(configRef.current, sessionIdRef.current, {
             compactContext: compactContextRef.current
-          })
+          });
+          return resolveChatRequestHeaders(configRef.current, body);
+        },
+        body: () => {
+          if (inFlightTurnRef.current) {
+            const { body } = inFlightTurnRef.current;
+            return compactContextRef.current
+              ? { ...body, compactContext: compactContextRef.current }
+              : body;
+          }
+          return resolveChatRequestBody(configRef.current, sessionIdRef.current, {
+            compactContext: compactContextRef.current
+          });
+        }
       }),
     []
   );
@@ -249,14 +293,19 @@ export function ChatView({
     setPrevSessionId(sessionId);
     setIsCompacting(false);
     setRecovering(null);
+    setInFlightModel(null);
     setContextExceededNotice(null);
     setSaveFailureNotice(null);
     setConflictNotice(null);
   }
 
   useEffect(() => {
+    inFlightTurnRef.current = null;
     recovery.reset();
-    return () => recovery.cancel();
+    return () => {
+      inFlightTurnRef.current = null;
+      recovery.cancel();
+    };
   }, [recovery, sessionId]);
 
   const handleErrorRef = useRef<(err: Error) => void>(() => {});
@@ -285,8 +334,11 @@ export function ChatView({
         // A turn that ended without an answer is not a rate limit: it retries at once.
         setRecovering(scheduled ? "transient" : null);
         setIncompleteNotice(scheduled ? null : { sessionId });
+        if (!scheduled) clearInFlightTurn();
       } else {
         setIncompleteNotice(null);
+        // On error, onError owns whether a retry is scheduled vs terminal clear.
+        if (!isError) clearInFlightTurn();
       }
     },
     throttle: 50
@@ -358,18 +410,26 @@ export function ChatView({
           setContextExceededNotice(null);
           const scheduled = recovery.scheduleContextRecovery(chatError, async (signal) => {
             try {
+              const turnBody = inFlightTurnRef.current
+                ? (compactContextRef.current
+                    ? { ...inFlightTurnRef.current.body, compactContext: compactContextRef.current }
+                    : inFlightTurnRef.current.body)
+                : resolveChatRequestBody(configRef.current, sessionIdRef.current, {
+                    compactContext: compactContextRef.current
+                  });
+              const turnHeaders =
+                inFlightTurnRef.current?.headers ??
+                resolveChatRequestHeaders(configRef.current, turnBody);
               const res = await fetch("/api/chat/compact", {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
-                  ...(injectByokHeaders(apiKeyHeaders(configRef.current.chatChain, configRef.current)) as Record<string, string>)
+                  ...turnHeaders
                 },
                 body: JSON.stringify({
                   sessionId: sessionIdRef.current,
                   messages: messagesRef.current,
-                  config: resolveChatRequestBody(configRef.current, sessionIdRef.current, {
-                    compactContext: compactContextRef.current
-                  }),
+                  config: turnBody,
                   force: true
                 }),
                 signal
@@ -398,6 +458,7 @@ export function ChatView({
               void sendMessageRef.current();
             } catch {
               setIsCompacting(false);
+              clearInFlightTurn();
               if (!signal.aborted) {
                 setContextExceededNotice(
                   "Context limit exceeded. Compaction was unable to compress history further within this model's context window. Please start a new chat."
@@ -407,12 +468,14 @@ export function ChatView({
           });
           if (!scheduled) {
             setIsCompacting(false);
+            clearInFlightTurn();
             setContextExceededNotice(
               "Context limit exceeded. The conversation history is too large to fit in this model's context window. Please start a new chat."
             );
           }
         } else {
           setIsCompacting(false);
+          clearInFlightTurn();
           setContextExceededNotice(
             "Context limit exceeded. The conversation history is too large to fit in this model's context window. Please start a new chat."
           );
@@ -425,6 +488,7 @@ export function ChatView({
         void sendMessageRef.current();
       });
       setRecovering(scheduled ? (isRateLimitError(chatError) ? "rate-limit" : "transient") : null);
+      if (!scheduled) clearInFlightTurn();
     };
   });
 
@@ -581,6 +645,13 @@ export function ChatView({
     [config, lastAssistantMessage?.metadata?.model, byokEpoch]
   );
   const activeModel = activeSelection.model;
+  // Transcript exports attribute existing assistant replies to the model that
+  // answered them (or is currently answering), never relabeling them to a newly
+  // selected next-turn model.
+  const transcriptModel =
+    lastAssistantMessage?.metadata?.model ||
+    (streaming || activeIsCompacting || recovering !== null ? inFlightModel : null) ||
+    activeModel;
 
   const safeAlternativeIndex = Math.min(
     Math.max(0, selectedAlternativeIndex),
@@ -611,7 +682,7 @@ export function ChatView({
   const headerSignature =
     buildHeaderSignature({
       sessionId,
-      model: activeModel,
+      model: transcriptModel,
       streaming,
       compacting: activeIsCompacting,
       sidePanelOpen,
@@ -659,7 +730,7 @@ export function ChatView({
               id={sessionId}
               title={deriveTitle(messages)}
               messages={messages}
-              modelName={activeModel}
+              modelName={transcriptModel}
               error={error}
               currency={config.currency}
               countryCode={config.countryCode}
@@ -708,7 +779,7 @@ export function ChatView({
     setHeaderSuffix,
     headerSignature,
     notSavedYet,
-    activeModel,
+    transcriptModel,
     streaming,
     activeIsCompacting,
     displayBuilds,
@@ -899,6 +970,7 @@ export function ChatView({
     if (checkShouldCompact(messages, text)) {
       setIsCompacting(true);
     }
+    captureTurnSnapshot();
     void sendMessage({ text });
     const userMsg: ChatUIMessage = {
       id: crypto.randomUUID(),
@@ -918,6 +990,7 @@ export function ChatView({
       setIsCompacting(true);
     }
     setMessages(truncated);
+    captureTurnSnapshot();
     void sendMessage({ text: newText });
     const editedUserMsg: ChatUIMessage = {
       id: crypto.randomUUID(),
@@ -1063,6 +1136,7 @@ export function ChatView({
                   recovery.cancel();
                   setRecovering(null);
                   setIsCompacting(false);
+                  clearInFlightTurn();
                   void stop();
                 }}
                 // A half-loaded chat must not be messaged into: the transcript it
@@ -1075,6 +1149,7 @@ export function ChatView({
                   <ModelPicker
                     config={config}
                     activeSelection={activeSelection}
+                    inFlightModel={inFlightModel}
                     streaming={streaming}
                     isCompacting={activeIsCompacting}
                     recovering={recovering}

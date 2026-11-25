@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { resolveActiveModel, resolveChatRequestBody } from "../chat-config-resolver";
-import { DEFAULT_CONFIG } from "@/lib/client-config-store";
+import { resolveActiveModel, resolveChatRequestBody, resolveChatRequestHeaders } from "../chat-config-resolver";
+import { DEFAULT_CONFIG, saveUiKey } from "@/lib/client-config-store";
 
 describe("resolveChatRequestBody", () => {
   it("resolves local configuration preserving base urls and crawl settings", () => {
@@ -131,6 +131,51 @@ describe("resolveChatRequestBody", () => {
     expect(res.config.chatLlmChain[0].model).toBe("deepseek-r1-distill-llama-70b");
     expect(res.config.chatLlmChain[0].reasoningEffort).toBe("medium");
     expect(res.config.llmChain[0].reasoningEffort).toBe("medium");
+  });
+
+  it("builds hosted chat headers exclusively from BYOK keys so legacy local uiKeys cannot override them", () => {
+    const store = new Map<string, string>();
+    const mockLocalStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, v); },
+      removeItem: (k: string) => { store.delete(k); }
+    };
+    const prevWindow = (globalThis as { window?: unknown }).window;
+    (globalThis as { window?: unknown }).window = { localStorage: mockLocalStorage };
+    try {
+      saveUiKey("gemini", "LEGACY_LOCAL_GEMINI_KEY");
+      const config = {
+        ...DEFAULT_CONFIG,
+        tier2Enabled: true,
+        searchProvider: "tavily" as const,
+        chatChain: [{ id: "c1", provider: "gemini" as const, model: "gemini-4-hydrogen", keySource: "ui" as const }]
+      };
+      const body = resolveChatRequestBody(config, "session-hosted-headers", {
+        isHosted: true,
+        activeByokProvider: "gemini",
+        hasKey: (p) => p === "gemini" || p === "tavily",
+        getModel: () => "gemini-4-hydrogen"
+      });
+      const headers = resolveChatRequestHeaders(config, body, {
+        isHosted: true,
+        getByokKey: (p) =>
+          p === "gemini"
+            ? "BYOK_GEMINI_KEY"
+            : p === "tavily"
+              ? "BYOK_TAVILY_KEY"
+              : p === "openai"
+                ? "UNRELATED_OPENAI_KEY"
+                : undefined
+      });
+      expect(headers["x-pcbuildsage-api-key-gemini"]).toBe("BYOK_GEMINI_KEY");
+      expect(headers["x-gemini-api-key"]).toBe("BYOK_GEMINI_KEY");
+      expect(headers["x-pcbuildsage-api-key-tavily"]).toBe("BYOK_TAVILY_KEY");
+      expect(headers["x-tavily-api-key"]).toBe("BYOK_TAVILY_KEY");
+      expect(headers["x-pcbuildsage-api-key-openai"]).toBeUndefined();
+    } finally {
+      if (prevWindow === undefined) delete (globalThis as { window?: unknown }).window;
+      else (globalThis as { window?: unknown }).window = prevWindow;
+    }
   });
 });
 

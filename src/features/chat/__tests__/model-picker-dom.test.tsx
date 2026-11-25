@@ -258,4 +258,69 @@ describe("ModelPicker DOM interactions", () => {
     expect(getActiveByokProvider()).toBe("openrouter");
     expect(getByokModel("openrouter")).toBe("openrouter/free");
   });
+
+  it("updates rail eligibility and re-fetches catalogs when BYOK credentials rotate or a new provider key is added", async () => {
+    setByokKey("gemini", "AIzaSyInitialKey1111");
+    setByokModel("gemini", "gemini-4-hydrogen");
+    setActiveByokProvider("gemini");
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      if (url.includes("provider=gemini")) {
+        const key = headers["x-pcbuildsage-api-key-gemini"];
+        if (key === "AIzaSyInitialKey1111") {
+          return {
+            ok: true,
+            json: async () => ({ models: [{ id: "gemini-old-catalog-model", name: "Old Gemini Model" }] })
+          };
+        }
+        return {
+          ok: true,
+          json: async () => ({ models: [{ id: "gemini-rotated-catalog-model", name: "Rotated Gemini Model" }] })
+        };
+      }
+      if (url.includes("provider=groq")) {
+        return {
+          ok: true,
+          json: async () => ({ models: [{ id: "openai/gpt-oss-120b", name: "GPT OSS 120B" }] })
+        };
+      }
+      return { ok: true, json: async () => ({ models: [] }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    root = createRoot(container!);
+    await act(async () => {
+      root!.render(
+        <ModelPicker
+          config={DEFAULT_CONFIG}
+          activeSelection={{ provider: "gemini", model: "gemini-4-hydrogen" }}
+          streaming={false}
+          updateConfig={vi.fn()}
+          defaultOpen
+          isHostedOverride
+        />
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[data-testid="picker-provider-gemini"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="picker-provider-groq"]')).toBeNull();
+    expect(document.body.textContent).toContain("Old Gemini Model");
+
+    // Rotate Gemini key and add + activate Groq key.
+    await act(async () => {
+      setByokKey("gemini", "AIzaSyRotatedKey2222");
+      setByokKey("groq", "gsk_FreshGroqKey9999");
+      setActiveByokProvider("groq");
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[data-testid="picker-provider-groq"]')).not.toBeNull();
+    expect(document.body.textContent).toContain("Rotated Gemini Model");
+    expect(document.body.textContent).not.toContain("Old Gemini Model");
+  });
 });

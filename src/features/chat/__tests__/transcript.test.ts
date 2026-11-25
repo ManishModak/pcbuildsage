@@ -180,4 +180,33 @@ describe("transcript utilities", () => {
     expect(posTool2).toBeGreaterThan(posText1);
     expect(posText2).toBeGreaterThan(posTool2);
   });
+
+  it("attributes each assistant reply to its own metadata.model instead of a newly selected next model", () => {
+    const messagesWithMetadata: ChatUIMessage[] = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "First question" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        metadata: { provider: "gemini", model: "gemini-4-hydrogen", fallbackIndex: 0 },
+        parts: [{ type: "text", text: "Answer from Hydrogen." }]
+      },
+      { id: "u2", role: "user", parts: [{ type: "text", text: "Second question" }] },
+      {
+        id: "a2",
+        role: "assistant",
+        metadata: { provider: "openrouter", model: "anthropic/claude-sonnet-4", fallbackIndex: 0 },
+        parts: [{ type: "text", text: "Answer from Sonnet." }]
+      }
+    ];
+
+    const md = formatMarkdownTranscript({
+      title: "Model switch",
+      messages: messagesWithMetadata,
+      modelName: "gemini-4-argon"
+    });
+
+    expect(md).toContain("## 🤖 Assistant (gemini-4-hydrogen)");
+    expect(md).toContain("## 🤖 Assistant (claude-sonnet-4)");
+    expect(md).not.toContain("## 🤖 Assistant (gemini-4-argon)");
+  });
 });

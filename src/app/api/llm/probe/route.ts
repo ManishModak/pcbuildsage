@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { LLM_PROVIDER_IDS } from "@/lib/llm/providers";
 import { generateTextWithFallback, probeToolCapability, PROBE_TIMEOUT_MS } from "@/lib/llm/client";
-import { isHostedDemo, validateChatProviderUrl } from "@/lib/config/deployment";
+import { isHostedDemo } from "@/lib/config/deployment";
 import { probeFailureHint } from "@/lib/llm/probe-outcome";
-import { entryFromRequest } from "../../_lib/credentials";
+import { assertHostedProviderRequest, entryFromRequest, hasHeaderApiKey } from "../../_lib/credentials";
 import { badRequest, json } from "../../_lib/responses";
 
 export const runtime = "nodejs";
@@ -19,27 +19,15 @@ const probeSchema = z.object({
 export async function POST(request: Request): Promise<Response> {
   try {
     const body = probeSchema.parse(await request.json());
-    if (isHostedDemo()) {
-      if (body.provider === "ollama") {
-        return badRequest(new Error("Provider 'ollama' is not supported in hosted-demo mode."));
-      }
-      if (body.baseUrl) {
-        const check = validateChatProviderUrl(body.baseUrl, "hosted-demo");
-        if (!check.allowed) {
-          return badRequest(new Error(check.reason ?? "Custom base URL is not permitted in hosted-demo mode."));
-        }
-      }
-    }
-    const hasHeaderKey = Boolean(
-      request.headers.get(`x-pcbuildsage-api-key-${body.provider.toLowerCase()}`) ||
-      request.headers.get(`x-${body.provider.toLowerCase()}-api-key`)
-    );
+    assertHostedProviderRequest({ provider: body.provider, baseUrl: body.baseUrl, headers: request.headers });
+
+    const hasHeaderKey = hasHeaderApiKey(request.headers, body.provider);
     const entry = entryFromRequest({
       provider: body.provider,
       model: body.model,
       baseUrl: body.baseUrl,
-      apiKey: body.key,
-      keySource: body.keySource ?? (body.key || hasHeaderKey ? "ui" : "env")
+      apiKey: isHostedDemo() ? undefined : body.key,
+      keySource: isHostedDemo() ? "ui" : (body.keySource ?? (body.key || hasHeaderKey ? "ui" : "env"))
     }, request.headers);
     const started = Date.now();
     try {

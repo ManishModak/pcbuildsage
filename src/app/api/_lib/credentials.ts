@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { resolveConfig } from "@/lib/config";
-import { getDeploymentMode, isHostedSearchProviderAllowed, validateChatProviderUrl, validateSearchBaseUrl, type DeploymentMode } from "@/lib/config/deployment";
+import { getDeploymentMode, isHostedDemo, isHostedSearchProviderAllowed, validateChatProviderUrl, validateSearchBaseUrl, type DeploymentMode } from "@/lib/config/deployment";
 import type { AppConfig, ConfigInput, LLMChainEntry, LLMProvider, SearchProvider } from "@/types";
 import { envKeyAllowed } from "@/lib/llm/env-key-scope";
-import { LLM_PROVIDERS, LLM_PROVIDER_IDS, getProvider } from "@/lib/llm/providers";
+import { LLM_PROVIDERS, LLM_PROVIDER_IDS, getProvider, isHostedProvider } from "@/lib/llm/providers";
 import { SEARCH_PROVIDER_IDS, normalizeSearchProvider } from "@/lib/search-providers";
 import { resolveSandboxedPath } from "./paths";
 
@@ -29,6 +29,37 @@ export function assertSafeLlmChain(chain: LLMChainEntry[], mode: DeploymentMode)
       }
     }
   }
+}
+
+/**
+ * Shared hosted-demo boundary guard for model discovery (`/api/models`) and
+ * model probing (`/api/llm/probe`). Enforces the hosted provider allowlist,
+ * validates any custom baseUrl, and requires a request-supplied BYOK key so
+ * server env keys or local/loopback endpoints can never be reached.
+ */
+export function assertHostedProviderRequest(params: {
+  provider: LLMProvider;
+  baseUrl?: string;
+  headers: Headers;
+}): void {
+  if (!isHostedDemo()) return;
+  if (params.baseUrl) {
+    const check = validateChatProviderUrl(params.baseUrl, "hosted-demo");
+    if (!check.allowed) {
+      throw new UnsafeConfigError(check.reason ?? "Custom base URL is not permitted in hosted-demo mode.");
+    }
+  }
+  if (!isHostedProvider(params.provider)) {
+    throw new UnsafeConfigError(`Provider '${params.provider}' is not permitted in hosted-demo mode.`);
+  }
+  if (!hasHeaderApiKey(params.headers, params.provider)) {
+    throw new UnsafeConfigError(`An API key header is required for '${params.provider}' in hosted-demo mode.`);
+  }
+}
+
+/** True when the request includes a non-empty API key header for `provider`. */
+export function hasHeaderApiKey(headers: Headers, provider: string): boolean {
+  return Boolean(headerApiKey(headers, provider)?.trim());
 }
 
 /**

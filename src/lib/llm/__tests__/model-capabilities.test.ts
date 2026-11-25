@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getFreeTierWarning, isGemini4Model, supportsGeminiThoughts, supportsReasoning } from "../model-capabilities";
+import {
+  getFreeTierWarning,
+  isGemini4Model,
+  supportsGeminiReasoning,
+  supportsGeminiThoughts,
+  supportsReasoning
+} from "../model-capabilities";
 
 describe("isGemini4Model and supportsGeminiThoughts", () => {
   it("detects Gemini 4 text models and excludes media/live models", () => {
@@ -11,13 +17,18 @@ describe("isGemini4Model and supportsGeminiThoughts", () => {
     expect(isGemini4Model("gemini-2.5-pro")).toBe(false);
   });
 
-  it("supportsGeminiThoughts matches 4.x, 3.x, and 2.5 non-lite", () => {
+  it("supportsGeminiThoughts matches 4.x, 3.x, and 2.5 non-lite while supportsGeminiReasoning includes 2.5 Flash-Lite", () => {
     expect(supportsGeminiThoughts("gemini-4-hydrogen")).toBe(true);
     expect(supportsGeminiThoughts("gemini-3.5-flash-lite")).toBe(true);
     expect(supportsGeminiThoughts("gemini-2.5-pro")).toBe(true);
     expect(supportsGeminiThoughts("gemini-2.5-flash")).toBe(true);
     expect(supportsGeminiThoughts("gemini-2.5-flash-lite")).toBe(false);
     expect(supportsGeminiThoughts("gemini-2.0-flash")).toBe(false);
+
+    expect(supportsGeminiReasoning("gemini-2.5-flash-lite")).toBe(true);
+    expect(supportsGeminiReasoning("gemini-4-hydrogen")).toBe(true);
+    expect(supportsGeminiReasoning("gemini-2.0-flash")).toBe(false);
+    expect(supportsGeminiReasoning("gemini-embedding-2")).toBe(false);
   });
 });
 
@@ -56,8 +67,8 @@ describe("supportsReasoning", () => {
     ).toBe(true);
   });
 
-  it("hides reasoning for non-thinking models", () => {
-    expect(supportsReasoning("gemini", "gemini-2.5-flash-lite")).toBe(false);
+  it("recognizes optional reasoning on Gemini 2.5 Flash-Lite and hides truly non-thinking models", () => {
+    expect(supportsReasoning("gemini", "gemini-2.5-flash-lite")).toBe(true);
     expect(supportsReasoning("gemini", "gemini-2.0-flash")).toBe(false);
     expect(supportsReasoning("openai", "gpt-4o")).toBe(false);
     expect(supportsReasoning("openai", "gpt-4.1-mini")).toBe(false);
@@ -69,12 +80,24 @@ describe("supportsReasoning", () => {
 });
 
 describe("getFreeTierWarning", () => {
-  it("flags Groq with an 8K TPM free-tier warning", () => {
-    const warning = getFreeTierWarning("groq", "openai/gpt-oss-120b");
-    expect(warning).not.toBeNull();
-    expect(warning?.badge).toContain("8K TPM");
-    expect(warning?.detail).toContain("8K");
-    expect(warning?.detail).toContain("15–25K");
+  it("flags Groq with model-specific TPM limits where documented and qualified copy otherwise", () => {
+    const oss120 = getFreeTierWarning("groq", "openai/gpt-oss-120b");
+    expect(oss120).not.toBeNull();
+    expect(oss120?.badge).toBe("8K TPM free limit");
+    expect(oss120?.detail).toContain("8K");
+    expect(oss120?.detail).toContain("15–25K");
+
+    const safeguard = getFreeTierWarning("groq", "openai/gpt-oss-safeguard-20b");
+    expect(safeguard?.badge).toBe("2K TPM free limit");
+    expect(safeguard?.detail).toContain("2K");
+
+    const other = getFreeTierWarning("groq", "llama-3.3-70b-versatile");
+    expect(other?.badge).toBe("Low TPM free limit");
+    expect(other?.detail).toMatch(/varies by model and org|vary by model and org/i);
+
+    const providerLevel = getFreeTierWarning("groq");
+    expect(providerLevel?.badge).toBe("Low TPM free limit");
+    expect(providerLevel?.detail).toMatch(/varies by model and org|vary by model and org/i);
   });
 
   it("returns null for providers without that free-tier bottleneck", () => {

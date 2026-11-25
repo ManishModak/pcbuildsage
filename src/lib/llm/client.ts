@@ -7,7 +7,7 @@ import type { LLMChainEntry, LLMProvider, LLMRole } from "@/types";
 import { isHostedDemo } from "../config/deployment";
 import { isPrivateCrawlHost } from "../web-search";
 import { envKeyAllowed } from "./env-key-scope";
-import { isGemini4Model, supportsGeminiThoughts } from "./model-capabilities";
+import { isGemini4Model, supportsGeminiReasoning, supportsGeminiThoughts } from "./model-capabilities";
 import { getProvider } from "./providers";
 import { emptyStepRetryMiddleware } from "./empty-step-retry";
 import { forcedToolTextMiddleware } from "./forced-tool-text";
@@ -209,7 +209,7 @@ export function localNoThinkingOptions(entry: LLMChainEntry) {
   return { providerOptions: { "openai-compatible": { chat_template_kwargs: { enable_thinking: false } } } };
 }
 
-export { isGemini4Model, supportsGeminiThoughts } from "./model-capabilities";
+export { isGemini4Model, supportsGeminiReasoning, supportsGeminiThoughts } from "./model-capabilities";
 
 /**
  * Ask Gemini for thought summaries, which the chat renders as "How the sage
@@ -227,7 +227,10 @@ export function geminiThinkingOptions(
   options?: { includeThoughts?: boolean }
 ): Pick<Parameters<typeof streamText>[0], "providerOptions"> {
   if (entry.provider !== "gemini") return {};
-  const includeThoughts = (options?.includeThoughts ?? true) && supportsGeminiThoughts(entry.model);
+  const canIncludeThoughts =
+    supportsGeminiThoughts(entry.model) ||
+    (Boolean(entry.reasoningEffort) && supportsGeminiReasoning(entry.model));
+  const includeThoughts = (options?.includeThoughts ?? true) && canIncludeThoughts;
   const thinkingLevel = isGemini4Model(entry.model) ? entry.reasoningEffort : undefined;
   if (!includeThoughts && !thinkingLevel) return {};
   return {
@@ -247,13 +250,15 @@ function entryReasoningCallOptions(
   options: { includeThoughts: boolean; thinking?: boolean }
 ): Partial<Pick<Parameters<typeof streamText>[0], "reasoning" | "providerOptions">> {
   const isGemini4 = entry.provider === "gemini" && isGemini4Model(entry.model);
-  const isGeminiNonThinking = entry.provider === "gemini" && !supportsGeminiThoughts(entry.model);
+  const isGeminiNonReasoning = entry.provider === "gemini" && !supportsGeminiReasoning(entry.model);
   const reasoningPart =
-    !isGemini4 && !isGeminiNonThinking && entry.reasoningEffort ? { reasoning: entry.reasoningEffort } : {};
+    !isGemini4 && !isGeminiNonReasoning && entry.reasoningEffort ? { reasoning: entry.reasoningEffort } : {};
   const providerPart =
-    options.thinking === false
-      ? localNoThinkingOptions(entry)
-      : geminiThinkingOptions(entry, { includeThoughts: options.includeThoughts });
+    entry.provider === "gemini"
+      ? geminiThinkingOptions(entry, { includeThoughts: options.includeThoughts && options.thinking !== false })
+      : options.thinking === false
+        ? localNoThinkingOptions(entry)
+        : {};
   return { ...reasoningPart, ...providerPart };
 }
 

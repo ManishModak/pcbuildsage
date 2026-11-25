@@ -1,17 +1,21 @@
-import { hasUiKey, savedUiKey } from "@/lib/client-config-store";
+import {
+  getLocalModelReasoningEffort,
+  hasUiKey,
+  savedUiKey,
+  setLocalModelReasoningEffort
+} from "@/lib/client-config-store";
 import {
   getByokKey,
   getByokModel,
-  getByokModelReasoningEffort,
   isByokKeyPersistent,
   setActiveByokProvider,
   setByokModel,
-  setByokModelReasoningEffort,
-  setByokReasoningEffort
+  setByokModelReasoningEffort
 } from "@/lib/llm/client-byok-store";
+import { isChatCapableGeminiModel } from "@/lib/llm/discovery";
 import { hostedDefaultModelFor } from "@/lib/llm/hosted-defaults";
 import { getFreeTierWarning, supportsReasoning, type FreeTierWarning } from "@/lib/llm/model-capabilities";
-import { groupModelsForPicker, isFreeModel, isToolCapableModel } from "@/lib/llm/model-recommend";
+import { isFreeModel, isToolCapableModel } from "@/lib/llm/model-recommend";
 import { LLM_PROVIDERS, getProvider, isLocalProvider, providerName, type ProviderInfo } from "@/lib/llm/providers";
 import type { ChainEntry, ClientConfig, CredentialAvailability, DiscoveredModel, KeySource, LLMProvider, ReasoningEffort } from "@/types/client";
 
@@ -49,11 +53,26 @@ export function getEligibleProviders(input: EligibleProvidersInput): ProviderInf
   });
 }
 
+export interface PickerDiscoveredEndpoint {
+  baseUrl?: string;
+  keySource?: KeySource;
+  presetName?: string;
+  hasSavedKey?: boolean;
+}
+
 export interface PickerModelItem {
+  /** Stable identity distinguishing provider, endpoint, and configured entry. */
+  entryKey: string;
+  /** Original `ChainEntry.id` when built from a configured local chain entry. */
+  sourceEntryId?: string;
   provider: LLMProvider;
   providerLabel: string;
   model: string;
   name?: string;
+  baseUrl?: string;
+  keySource?: KeySource;
+  presetName?: string;
+  hasSavedKey?: boolean;
   contextLimit?: number;
   free: boolean;
   toolCapable: boolean;
@@ -73,6 +92,8 @@ export interface PickerSectionsInput {
   activeModel?: string;
   getByokModel?: (provider: string) => string | undefined;
   discoveredByProvider: Record<string, DiscoveredModel[]>;
+  /** Connection settings that supplied each provider's discovered catalog. */
+  discoveredEndpointsByProvider?: Record<string, PickerDiscoveredEndpoint>;
   selectedProvider: string;
   query: string;
 }
@@ -83,21 +104,51 @@ export interface PickerSectionsResult {
   available: PickerModelItem[];
 }
 
+function modelIdentityKey(provider: string, model: string, baseUrl?: string): string {
+  return `${provider}::${(baseUrl ?? "").trim()}::${model}`;
+}
+
 function makeModelItem(params: {
+  entryKey: string;
+  sourceEntryId?: string;
   provider: LLMProvider;
   model: string;
   name?: string;
+  baseUrl?: string;
+  keySource?: KeySource;
+  presetName?: string;
+  hasSavedKey?: boolean;
   contextLimit?: number;
   discovered?: DiscoveredModel;
   configuredBadge?: string;
   isConfigured: boolean;
 }): PickerModelItem {
-  const { provider, model, name, contextLimit, discovered, configuredBadge, isConfigured } = params;
+  const {
+    entryKey,
+    sourceEntryId,
+    provider,
+    model,
+    name,
+    baseUrl,
+    keySource,
+    presetName,
+    hasSavedKey,
+    contextLimit,
+    discovered,
+    configuredBadge,
+    isConfigured
+  } = params;
   return {
+    entryKey,
+    sourceEntryId,
     provider,
     providerLabel: providerName(provider),
     model,
     name: name ?? discovered?.name,
+    baseUrl,
+    keySource,
+    presetName,
+    hasSavedKey,
     contextLimit: contextLimit ?? discovered?.contextLimit,
     free: discovered ? isFreeModel(discovered) : false,
     toolCapable: discovered ? isToolCapableModel(discovered) : false,
@@ -111,7 +162,7 @@ function makeModelItem(params: {
 
 function matchesMultiWordQuery(item: PickerModelItem, words: string[]): boolean {
   if (words.length === 0) return true;
-  const haystack = `${item.model} ${item.name ?? ""} ${item.providerLabel} ${item.provider}`.toLowerCase();
+  const haystack = `${item.model} ${item.name ?? ""} ${item.providerLabel} ${item.provider} ${item.baseUrl ?? ""}`.toLowerCase();
   return words.every((word) => haystack.includes(word));
 }
 
@@ -128,6 +179,7 @@ export function buildPickerSections(input: PickerSectionsInput): PickerSectionsR
     activeModel,
     getByokModel: getByokModelFn = getByokModel,
     discoveredByProvider,
+    discoveredEndpointsByProvider = {},
     selectedProvider,
     query
   } = input;
@@ -136,9 +188,12 @@ export function buildPickerSections(input: PickerSectionsInput): PickerSectionsR
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
 
   const discoveredLookup = new Map<string, DiscoveredModel>();
+  const discoveredByProviderModel = new Map<string, DiscoveredModel>();
   for (const provider of eligibleProviders) {
+    const endpoint = discoveredEndpointsByProvider[provider.id];
     for (const model of discoveredByProvider[provider.id] ?? []) {
-      discoveredLookup.set(`${provider.id}::${model.id}`, model);
+      discoveredLookup.set(modelIdentityKey(provider.id, model.id, endpoint?.baseUrl), model);
+      discoveredByProviderModel.set(`${provider.id}::${model.id}`, model);
     }
   }
 
@@ -149,15 +204,16 @@ export function buildPickerSections(input: PickerSectionsInput): PickerSectionsR
     for (const provider of eligibleProviders) {
       const model = getByokModelFn(provider.id) || hostedDefaultModelFor(provider.id);
       if (!model) continue;
-      const key = `${provider.id}::${model}`;
+      const key = modelIdentityKey(provider.id, model);
       if (configuredKeys.has(key)) continue;
       configuredKeys.add(key);
       const isActive = activeProvider === provider.id && activeModel === model;
       configuredAll.push(
         makeModelItem({
+          entryKey: `cfg:${key}`,
           provider: provider.id as LLMProvider,
           model,
-          discovered: discoveredLookup.get(key),
+          discovered: discoveredLookup.get(key) ?? discoveredByProviderModel.get(`${provider.id}::${model}`),
           configuredBadge: isActive ? "Active" : "Saved",
           isConfigured: true
         })
@@ -166,15 +222,21 @@ export function buildPickerSections(input: PickerSectionsInput): PickerSectionsR
   } else {
     chatChain.forEach((entry, index) => {
       if (!entry.model || !eligibleIds.has(entry.provider)) return;
-      const key = `${entry.provider}::${entry.model}`;
+      const key = modelIdentityKey(entry.provider, entry.model, entry.baseUrl);
       if (configuredKeys.has(key)) return;
       configuredKeys.add(key);
       configuredAll.push(
         makeModelItem({
+          entryKey: `cfg:${entry.id}`,
+          sourceEntryId: entry.id,
           provider: entry.provider,
           model: entry.model,
+          baseUrl: entry.baseUrl,
+          keySource: entry.keySource,
+          presetName: entry.presetName,
+          hasSavedKey: entry.hasSavedKey,
           contextLimit: entry.contextLimit,
-          discovered: discoveredLookup.get(key),
+          discovered: discoveredLookup.get(key) ?? discoveredByProviderModel.get(`${entry.provider}::${entry.model}`),
           configuredBadge: index === 0 ? "Main" : `Backup ${index}`,
           isConfigured: true
         })
@@ -190,13 +252,20 @@ export function buildPickerSections(input: PickerSectionsInput): PickerSectionsR
   const seenDiscovered = new Set<string>();
   for (const provider of eligibleProviders) {
     if (!providerMatches(provider.id)) continue;
+    const endpoint = isHosted ? undefined : discoveredEndpointsByProvider[provider.id];
     for (const model of discoveredByProvider[provider.id] ?? []) {
-      const key = `${provider.id}::${model.id}`;
+      if (provider.id === "gemini" && !isChatCapableGeminiModel(model)) continue;
+      const key = modelIdentityKey(provider.id, model.id, endpoint?.baseUrl);
       if (configuredKeys.has(key) || seenDiscovered.has(key)) continue;
       seenDiscovered.add(key);
       const item = makeModelItem({
+        entryKey: `disc:${key}`,
         provider: provider.id as LLMProvider,
         model: model.id,
+        baseUrl: endpoint?.baseUrl,
+        keySource: endpoint?.keySource,
+        presetName: endpoint?.presetName,
+        hasSavedKey: endpoint?.hasSavedKey,
         discovered: model,
         isConfigured: false
       });
@@ -206,17 +275,21 @@ export function buildPickerSections(input: PickerSectionsInput): PickerSectionsR
     }
   }
 
-  const { recommended, rest } = groupModelsForPicker(
-    discoveredFlat.map((item) => ({
-      ...item,
-      id: item.model
-    }))
-  );
+  // Split directly by tool capability without raw model-ID deduplication so
+  // two providers publishing the same model ID (e.g. OpenRouter and Groq for
+  // `openai/gpt-oss-20b`) both stay visible in All-provider search.
+  const recommended: PickerModelItem[] = [];
+  const available: PickerModelItem[] = [];
+  for (const item of discoveredFlat) {
+    if (item.toolCapable) recommended.push(item);
+    else available.push(item);
+  }
+  recommended.sort((a, b) => Number(b.free) - Number(a.free));
 
   return {
     configured,
     recommended,
-    available: rest
+    available
   };
 }
 
@@ -228,7 +301,14 @@ export function resolveDiscoveryRequestParams(params: {
   hasUiKeyFn?: (provider: string) => boolean;
   savedUiKeyFn?: (provider: string) => string | undefined;
   getByokKeyFn?: (provider: string) => string | undefined;
-}): { provider: string; keySource: KeySource; apiKey?: string; baseUrl?: string } {
+}): {
+  provider: string;
+  keySource: KeySource;
+  apiKey?: string;
+  baseUrl?: string;
+  presetName?: string;
+  hasSavedKey?: boolean;
+} {
   const {
     provider,
     isHosted,
@@ -257,7 +337,9 @@ export function resolveDiscoveryRequestParams(params: {
       provider: provider.id,
       keySource: chainMatch?.keySource ?? (hasSaved ? "ui" : "none"),
       apiKey: hasSaved ? savedUiKeyFn(provider.id) : undefined,
-      baseUrl: chainMatch?.baseUrl
+      baseUrl: chainMatch?.baseUrl,
+      presetName: chainMatch?.presetName,
+      hasSavedKey: chainMatch?.hasSavedKey
     };
   }
 
@@ -266,18 +348,27 @@ export function resolveDiscoveryRequestParams(params: {
     provider: provider.id,
     keySource: hasSaved ? "ui" : (chainMatch?.keySource ?? "env"),
     apiKey: hasSaved ? savedUiKeyFn(provider.id) : undefined,
-    baseUrl: chainMatch?.baseUrl
+    baseUrl: chainMatch?.baseUrl,
+    presetName: chainMatch?.presetName,
+    hasSavedKey: chainMatch?.hasSavedKey
   };
 }
 
 /**
- * Updates `chatChain[0]` cleanly in local mode without wiping backup entries (`chatChain.slice(1)`).
+ * Updates `chatChain[0]` cleanly in local mode without wiping backup entries (`chatChain.slice(1)`),
+ * preserving the selected entry's connection settings (endpoint, keySource, preset) and
+ * remembering/restoring per-model reasoning effort across switches.
  */
 export function applyModelSwitchLocal(
   prevConfig: ClientConfig,
   selection: {
+    sourceEntryId?: string;
     provider: LLMProvider;
     model: string;
+    baseUrl?: string;
+    keySource?: KeySource;
+    presetName?: string;
+    hasSavedKey?: boolean;
     contextLimit?: number;
     supportedParameters?: string[];
     reasoningEffort?: ReasoningEffort;
@@ -286,8 +377,13 @@ export function applyModelSwitchLocal(
   }
 ): ClientConfig {
   const {
+    sourceEntryId,
     provider,
     model,
+    baseUrl,
+    keySource,
+    presetName,
+    hasSavedKey,
     contextLimit,
     supportedParameters,
     reasoningEffort,
@@ -297,25 +393,56 @@ export function applyModelSwitchLocal(
 
   const existingPrimary = prevConfig.chatChain[0];
   const backups = prevConfig.chatChain.slice(1);
+
+  // Remember the outgoing primary's reasoning effort before switching away so
+  // switching back restores it even if it was configured in Settings.
+  if (existingPrimary?.model && existingPrimary.reasoningEffort !== undefined) {
+    setLocalModelReasoningEffort(
+      existingPrimary.provider,
+      existingPrimary.model,
+      existingPrimary.reasoningEffort,
+      existingPrimary.baseUrl
+    );
+  }
+
+  const allEntries = [...prevConfig.chatChain, ...(prevConfig.subagentChain ?? [])];
   const matchingExisting =
+    (sourceEntryId ? allEntries.find((entry) => entry.id === sourceEntryId) : undefined) ??
+    (baseUrl !== undefined
+      ? allEntries.find((entry) => entry.provider === provider && (entry.baseUrl ?? "") === baseUrl)
+      : undefined) ??
     (existingPrimary?.provider === provider ? existingPrimary : undefined) ??
     prevConfig.chatChain.find((entry) => entry.provider === provider) ??
     prevConfig.subagentChain?.find((entry) => entry.provider === provider);
 
+  const resolvedBaseUrl = baseUrl !== undefined ? baseUrl : matchingExisting?.baseUrl;
+  const resolvedPresetName = presetName !== undefined ? presetName : matchingExisting?.presetName;
+  const resolvedHasSavedKey = hasSavedKey !== undefined ? hasSavedKey : matchingExisting?.hasSavedKey;
+
   const canReason = supportsReasoning(provider, model, { supportedParameters });
-  const isSameEntry = existingPrimary?.provider === provider && existingPrimary?.model === model;
+  const isSameEntry =
+    existingPrimary?.provider === provider &&
+    existingPrimary?.model === model &&
+    (existingPrimary.baseUrl ?? "") === (resolvedBaseUrl ?? "");
 
-  const nextEffort: ReasoningEffort | undefined = canReason
-    ? reasoningEffort !== undefined
-      ? reasoningEffort
-      : isSameEntry
-        ? existingPrimary.reasoningEffort
-        : undefined
-    : undefined;
+  let nextEffort: ReasoningEffort | undefined;
+  if (canReason) {
+    if (reasoningEffort !== undefined) {
+      setLocalModelReasoningEffort(provider, model, reasoningEffort, resolvedBaseUrl);
+      nextEffort = reasoningEffort;
+    } else if (isSameEntry) {
+      nextEffort = existingPrimary.reasoningEffort;
+    } else {
+      nextEffort =
+        getLocalModelReasoningEffort(provider, model, resolvedBaseUrl) ??
+        (matchingExisting?.model === model ? matchingExisting.reasoningEffort : undefined);
+    }
+  }
 
-  const resolvedKeySource: KeySource = matchingExisting?.keySource
-    ? matchingExisting.keySource
-    : isLocalProvider(provider)
+  const resolvedKeySource: KeySource =
+    keySource ??
+    matchingExisting?.keySource ??
+    (isLocalProvider(provider)
       ? hasUiKeyFn(provider)
         ? "ui"
         : "none"
@@ -323,19 +450,23 @@ export function applyModelSwitchLocal(
         ? "ui"
         : credentials?.llm?.[provider]
           ? "env"
-          : "ui";
+          : "ui");
 
   const resolvedContextLimit =
     contextLimit ?? (isSameEntry ? existingPrimary.contextLimit : undefined);
 
+  const reusePrimaryId =
+    existingPrimary?.provider === provider &&
+    (existingPrimary.baseUrl ?? "") === (resolvedBaseUrl ?? "");
+
   const nextPrimary: ChainEntry = {
-    id: existingPrimary?.provider === provider ? existingPrimary.id : `chat-${provider}-${Date.now()}`,
+    id: reusePrimaryId ? existingPrimary.id : `chat-${provider}-${Date.now()}`,
     provider,
     model,
     keySource: resolvedKeySource,
-    ...(matchingExisting?.baseUrl ? { baseUrl: matchingExisting.baseUrl } : {}),
-    ...(matchingExisting?.presetName ? { presetName: matchingExisting.presetName } : {}),
-    ...(matchingExisting?.hasSavedKey !== undefined ? { hasSavedKey: matchingExisting.hasSavedKey } : {}),
+    ...(resolvedBaseUrl ? { baseUrl: resolvedBaseUrl } : {}),
+    ...(resolvedPresetName ? { presetName: resolvedPresetName } : {}),
+    ...(resolvedHasSavedKey !== undefined ? { hasSavedKey: resolvedHasSavedKey } : {}),
     ...(resolvedContextLimit ? { contextLimit: resolvedContextLimit } : {}),
     ...(nextEffort ? { reasoningEffort: nextEffort } : {}),
     ...(isSameEntry && existingPrimary.ping ? { ping: existingPrimary.ping } : {})
@@ -348,7 +479,8 @@ export function applyModelSwitchLocal(
 }
 
 /**
- * Updates `chatChain[0].reasoningEffort` in local mode without touching backup entries.
+ * Updates `chatChain[0].reasoningEffort` in local mode without touching backup entries,
+ * and remembers the choice per `(provider, baseUrl, model)` for future switches.
  */
 export function applyReasoningSwitchLocal(
   prevConfig: ClientConfig,
@@ -356,6 +488,7 @@ export function applyReasoningSwitchLocal(
 ): ClientConfig {
   if (prevConfig.chatChain.length === 0) return prevConfig;
   const [primary, ...backups] = prevConfig.chatChain;
+  setLocalModelReasoningEffort(primary.provider, primary.model, effort, primary.baseUrl);
   const nextPrimary: ChainEntry = { ...primary };
   if (effort) {
     nextPrimary.reasoningEffort = effort;
@@ -369,8 +502,9 @@ export function applyReasoningSwitchLocal(
 }
 
 /**
- * Persists a hosted-mode model switch into the BYOK store while keeping
- * per-model reasoning effort synchronized with `getByokReasoningEffort`.
+ * Persists a hosted-mode model switch into the BYOK store using the single
+ * model-scoped reasoning preference (migrating any legacy effort onto the
+ * outgoing model before switching).
  */
 export function applyModelSwitchHosted(selection: {
   provider: string;
@@ -387,15 +521,12 @@ export function applyModelSwitchHosted(selection: {
   setByokModel(provider, model, persist);
 
   if (!supportsReasoning(provider, model, { supportedParameters })) {
-    setByokReasoningEffort(provider, undefined, persist);
+    setByokModelReasoningEffort(provider, model, undefined, persist);
     return;
   }
 
   if (reasoningEffort !== undefined) {
-    setByokModelReasoningEffort(provider, model, reasoningEffort, persist, true);
-  } else {
-    const remembered = getByokModelReasoningEffort(provider, model);
-    setByokReasoningEffort(provider, remembered, persist);
+    setByokModelReasoningEffort(provider, model, reasoningEffort, persist);
   }
 }
 
@@ -408,5 +539,5 @@ export function applyReasoningSwitchHosted(
   effort?: ReasoningEffort
 ): void {
   const persist = isByokKeyPersistent(provider);
-  setByokModelReasoningEffort(provider, model, effort, persist, true);
+  setByokModelReasoningEffort(provider, model, effort, persist);
 }

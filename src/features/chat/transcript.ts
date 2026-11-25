@@ -42,9 +42,13 @@ export function formatMarkdownTranscript(options: TranscriptOptions): string {
 
   for (const message of messages) {
     const isUser = message.role === "user";
+    const messageModel =
+      !isUser && typeof message.metadata?.model === "string" && message.metadata.model.trim()
+        ? message.metadata.model.trim()
+        : modelName;
     const roleHeader = isUser
       ? "## 👤 User"
-      : `## 🤖 Assistant${modelName ? ` (${formatModelName(modelName)})` : ""}`;
+      : `## 🤖 Assistant${messageModel ? ` (${formatModelName(messageModel)})` : ""}`;
     lines.push(roleHeader);
     lines.push("");
 
@@ -144,6 +148,7 @@ export function formatJsonTranscript(options: TranscriptOptions): string {
     messages: options.messages.map((m, idx) => ({
       id: m.id || `msg-${idx}`,
       role: m.role,
+      ...(m.metadata?.model ? { model: m.metadata.model } : {}),
       createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : undefined,
       parts: m.parts,
       content: (m as unknown as { content?: unknown }).content

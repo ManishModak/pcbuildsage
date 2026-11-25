@@ -77,7 +77,7 @@ export function ByokProviderCard({
   onDetectModels
 }: ByokProviderCardProps) {
   const isConfigured = Boolean(currentKey);
-  const freeTierWarning = getFreeTierWarning(provider.id);
+  const freeTierWarning = getFreeTierWarning(provider.id, selectedModel || provider.defaultModel);
 
   return (
     <div className="flex flex-col gap-4 p-4" data-testid={`byok-card-${provider.id}`}>

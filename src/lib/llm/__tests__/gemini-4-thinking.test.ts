@@ -137,4 +137,24 @@ describe("Gemini 4 thinkingLevel options", () => {
     expect("reasoning" in aiState.streamCalls[0]).toBe(false);
     expect(aiState.streamCalls[0].providerOptions).toBeUndefined();
   });
+
+  it("preserves explicit reasoning on gemini-2.5-flash-lite and keeps Gemini 4 thinkingLevel when thinking:false is set", async () => {
+    await generateTextWithFallback({
+      chain: [geminiEntry("gemini-2.5-flash-lite", "high")],
+      prompt: "hi",
+      timeoutMsPerEntry: 2_000
+    });
+    expect(aiState.generateCalls[0].reasoning).toBe("high");
+
+    await streamTextWithFallback({
+      chain: [geminiEntry("gemini-4-hydrogen", "low")],
+      messages: [{ role: "user", content: "hi" }],
+      thinking: false,
+      firstTokenTimeoutMs: 2_000
+    });
+    expect("reasoning" in aiState.streamCalls[0]).toBe(false);
+    expect(aiState.streamCalls[0].providerOptions).toEqual({
+      google: { thinkingConfig: { thinkingLevel: "low" } }
+    });
+  });
 });
