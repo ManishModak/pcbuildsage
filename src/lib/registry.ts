@@ -5,7 +5,13 @@ import { getDb } from "@/lib/db";
 import type { RegistryResearchEntry } from "@/types";
 import { normalizeTitle, slugifyComponent } from "./normalizer";
 import { canonicalizeFormFactor } from "./spec-canonical";
-import { DASHLESS_ITX_CHIPSET, parseSpecsFromTitle, statesSodimm } from "./spec-parsers";
+import {
+  DASHLESS_ITX_CHIPSET,
+  hasImplausibleTitleCapacity,
+  normalizeSpecCapacities,
+  parseSpecsFromTitle,
+  statesSodimm
+} from "./spec-parsers";
 import { gpuVariant } from "./gpu-variant";
 
 export type ComponentCategory = "cpu" | "gpu" | "motherboard" | "ram" | "storage" | "psu" | "case" | "cooler";
@@ -118,7 +124,9 @@ export function resolveComponent(
     // compute a verdict from it and asks for research instead.
     if (!options.skipDbLookup && options.db !== null) {
       const researched = lookupResearch({ key: trustedKey ?? slugifyComponent(name), name, category }, options.db ?? getDb());
-      if (researched && compatible(researched)) return normalizeResolvedSpec(researched);
+      if (researched && compatible(researched) && !titleConflictsWithSpec(name, researched.spec, researched.category)) {
+        return normalizeResolvedSpec(researched, name !== key ? name : "");
+      }
       if (researched?.category === "gpu" && !compatible(researched)) rejectedGpu ??= researched;
     }
 
@@ -227,6 +235,14 @@ export function titleConflictsWithSpec(title: string, spec: RegistrySpec, catego
     }
   }
 
+  if (category === "storage" || category === "ram") {
+    const sourced = Array.isArray(spec.sources) && spec.sources.length > 0;
+    const specCap = typeof spec.capacity_gb === "number" ? spec.capacity_gb : undefined;
+    if (hasImplausibleTitleCapacity(category, title, { sourcedSpecCapacityGb: sourced ? specCap : undefined })) {
+      return `listing states an implausible ${category} capacity that conflicts with registry record`;
+    }
+  }
+
   return undefined;
 }
 
@@ -265,9 +281,9 @@ export function hasWattageConflict(spec: RegistrySpec): boolean {
   ));
 }
 
-export function normalizeResolvedSpec(resolved?: ResolvedSpec): ResolvedSpec | undefined {
+export function normalizeResolvedSpec(resolved?: ResolvedSpec, productName = ""): ResolvedSpec | undefined {
   if (!resolved || !resolved.spec) return resolved;
-  const spec = { ...resolved.spec };
+  let spec: RegistrySpec = { ...resolved.spec };
   if (spec.wattage_w !== undefined && spec.wattage === undefined) {
     spec.wattage = spec.wattage_w;
   } else if (
@@ -276,11 +292,12 @@ export function normalizeResolvedSpec(resolved?: ResolvedSpec): ResolvedSpec | u
     spec.wattage_conflict = true;
   }
 
-  if (spec.capacity_gb === undefined && typeof spec.capacity === "string") {
-    const match = spec.capacity.match(/^(\d+)\s*GB$/i);
-    if (match) {
-      spec.capacity_gb = parseInt(match[1], 10);
-    }
+  if (resolved.category === "storage" || resolved.category === "ram") {
+    const sourced =
+      resolved.source !== "derived" &&
+      Array.isArray(spec.sources) &&
+      spec.sources.length > 0;
+    spec = normalizeSpecCapacities(resolved.category, spec, productName, { sourced }) ?? spec;
   }
 
   return { ...resolved, spec };
@@ -376,5 +393,13 @@ function lookupResearch(input: { key: string; name: string; category?: string },
     .get(...params) as RegistryResearchEntry | undefined;
   if (!row) return undefined;
   const spec = JSON.parse(row.specs) as RegistrySpec;
+  if (!Array.isArray(spec.sources) && typeof row.sources === "string") {
+    try {
+      const parsedSources = JSON.parse(row.sources);
+      if (Array.isArray(parsedSources) && parsedSources.length > 0) {
+        spec.sources = parsedSources;
+      }
+    } catch {}
+  }
   return { key: row.key, category: row.category as ComponentCategory, spec, source: "research", confidence: row.confidence };
 }

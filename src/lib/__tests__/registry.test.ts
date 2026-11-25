@@ -69,6 +69,96 @@ describe("resolveComponent trust model", () => {
     expect(resolved?.spec).toMatchObject({ interface: "nvme", capacity_gb: 1000, pcie_gen: 4 });
   });
 
+  it("drops impossible capacity_gb from stale research rows and typo storage titles", () => {
+    const staleDb = {
+      prepare: () => ({
+        get: () => ({
+          key: "acer-fa100-256tb-m-2-nvme",
+          category: "storage",
+          specs: JSON.stringify({ brand: "Acer", model: "Acer FA100 256TB M.2 NVMe", aliases: [], interface: "nvme", form_factor: "m2-2280", capacity_gb: 256000 }),
+          sources: JSON.stringify(["https://example.com"]),
+          confidence: "medium",
+          researched_at: "2026-03-01T00:00:00.000Z"
+        })
+      })
+    } as unknown as Database.Database;
+
+    const fromResearch = resolveComponent({ name: "Acer FA100 256TB M.2 NVMe", category: "storage" }, { db: staleDb });
+    expect(fromResearch?.spec.interface).toBe("nvme");
+    expect(fromResearch?.spec.capacity_gb).toBeUndefined();
+
+    const fromTitle = resolveComponent({ name: "Acer FA100 256TB M.2 NVMe", category: "storage" }, { db: emptyDb });
+    expect(fromTitle?.spec.interface).toBe("nvme");
+    expect(fromTitle?.spec.capacity_gb).toBeUndefined();
+  });
+
+  it("rejects fuzzy registry key or research cache hits when listing title states an implausible capacity", () => {
+    const keyedTypo = resolveComponent(
+      { key: "samsung-990-pro-1tb", name: "Samsung 990 PRO 256TB M.2 NVMe", category: "storage" },
+      { db: emptyDb }
+    );
+    expect(keyedTypo?.spec.capacity_gb).toBeUndefined();
+
+    const cached1TbDb = {
+      prepare: () => ({
+        get: () => ({
+          key: "acer-fa100-256tb-m-2-nvme",
+          category: "storage",
+          specs: JSON.stringify({ brand: "Acer", model: "Acer FA100 1TB", aliases: [], interface: "sata", capacity_gb: 1000 }),
+          sources: JSON.stringify(["https://example.com"]),
+          confidence: "medium",
+          researched_at: "2026-03-01T00:00:00.000Z"
+        })
+      })
+    } as unknown as Database.Database;
+    const cachedTypo = resolveComponent(
+      { name: "Acer FA100 256TB M.2 NVMe", category: "storage" },
+      { db: cached1TbDb }
+    );
+    expect(cachedTypo?.spec.capacity_gb).toBeUndefined();
+  });
+
+  it("preserves sourced enterprise SSD capacities and strips invalid string capacity representations", () => {
+    const enterpriseDb = {
+      prepare: () => ({
+        get: () => ({
+          key: "solidigm-d5-p5336-61-44tb",
+          category: "storage",
+          specs: JSON.stringify({ brand: "Solidigm", model: "Solidigm D5-P5336 61.44TB", aliases: [], interface: "nvme", capacity_gb: 61440 }),
+          sources: JSON.stringify(["https://www.solidigm.com/p5336"]),
+          confidence: "high",
+          researched_at: "2026-03-01T00:00:00.000Z"
+        })
+      })
+    } as unknown as Database.Database;
+    const enterprise = resolveComponent(
+      { name: "Solidigm D5-P5336 61.44TB Enterprise NVMe SSD", category: "storage" },
+      { db: enterpriseDb }
+    );
+    expect(enterprise?.spec.capacity_gb).toBe(61440);
+    const byKey = resolveComponent(
+      { key: "solidigm-d5-p5336-61-44tb", name: "Solidigm D5-P5336", category: "storage" },
+      { db: enterpriseDb }
+    );
+    expect(byKey?.spec.capacity_gb).toBe(61440);
+
+    const badRamDb = {
+      prepare: () => ({
+        get: () => ({
+          key: "bad-ram-1600gb",
+          category: "ram",
+          specs: JSON.stringify({ brand: "Corsair", model: "Corsair 1600GB", aliases: [], ddr: "DDR5", capacity: "1600GB" }),
+          sources: JSON.stringify(["https://example.com"]),
+          confidence: "medium",
+          researched_at: "2026-03-01T00:00:00.000Z"
+        })
+      })
+    } as unknown as Database.Database;
+    const badRam = resolveComponent({ name: "Corsair DDR5", category: "ram" }, { db: badRamDb });
+    expect(badRam?.spec.capacity_gb).toBeUndefined();
+    expect(badRam?.spec.capacity).toBeUndefined();
+  });
+
   it("returns nothing for an unknown component in a category with no title parser", () => {
     expect(resolveComponent({ name: "Totally Unknown Widget 9000", category: "cpu" }, { db: emptyDb })).toBeUndefined();
   });

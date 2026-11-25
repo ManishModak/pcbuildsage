@@ -78,6 +78,39 @@ describe("parseStorageSpecs", () => {
     expect(parseSpecsFromTitle("Acer Predator GM7 1TB M.2 NVMe Gen4 SSD", "storage")).toBeDefined();
     expect(parseSpecsFromTitle("AMD Ryzen 7 9700X 8GB", "cpu")).toBeUndefined();
   });
+
+  it("drops impossible SSD capacities from retailer GB-as-TB typos instead of guessing", () => {
+    for (const title of [
+      "Acer FA100 256TB M.2 NVMe",
+      "Kingston NV2 512TB M.2 NVMe SSD",
+      "Crucial P3 128TB M.2 NVMe SSD",
+      "Samsung 990 Pro 1000TB M.2 NVMe SSD"
+    ]) {
+      const spec = parseStorageSpecs(title);
+      expect(spec).toBeDefined();
+      expect(spec?.interface).toBe("nvme");
+      expect(spec?.capacity_gb).toBeUndefined();
+    }
+    // Without an interface or valid capacity, nothing is derived.
+    expect(parseStorageSpecs("Crucial P3 128TB M.2 SSD")).toBeUndefined();
+    expect(parseStorageSpecs("Acer FA100 256TB")).toBeUndefined();
+    expect(parseStorageSpecs("SanDisk 256TB External SSD")).toBeUndefined();
+  });
+
+  it("accepts valid 1TB-8TB SSDs, valid 1TB-24TB HDDs, and external desktop 24TB drives without HDD wording", () => {
+    expect(parseStorageSpecs("Crucial T500 1TB M.2 NVMe Gen4 SSD")?.capacity_gb).toBe(1000);
+    expect(parseStorageSpecs("WD_BLACK SN850X 8TB M.2 NVMe SSD")?.capacity_gb).toBe(8000);
+    expect(parseStorageSpecs("Seagate Barracuda 1TB 3.5-Inch SATA HDD")?.capacity_gb).toBe(1000);
+    expect(parseStorageSpecs("Seagate IronWolf Pro 24TB 7200 RPM SATA HDD")?.capacity_gb).toBe(24000);
+    expect(parseStorageSpecs("WD Elements 24TB External Hard Drive")?.capacity_gb).toBe(24000);
+    expect(parseStorageSpecs("Seagate Expansion Desktop 24TB USB 3.0 Drive")?.capacity_gb).toBe(24000);
+  });
+
+  it("does not mistake throughput figures like 3.5 GB/s for 3.5-inch HDDs", () => {
+    const spec = parseStorageSpecs("Acer FA100 32TB M.2 NVMe SSD up to 3.5 GB/s");
+    expect(spec?.interface).toBe("nvme");
+    expect(spec?.capacity_gb).toBeUndefined();
+  });
 });
 
 describe("parseCpuPackage", () => {
@@ -177,6 +210,24 @@ describe("explicit RAM module configurations", () => {
   });
   it("does not invent stick count from total capacity", () => {
     expect(parseRamSpecs("Corsair 32GB DDR5")).not.toHaveProperty("modules");
+  });
+
+  it("rejects impossible RAM capacities and speed-times-capacity misreads", () => {
+    const typo = parseRamSpecs("Corsair Vengeance 1600GB DDR5");
+    expect(typo?.ddr).toBe("DDR5");
+    expect(typo?.capacity_gb).toBeUndefined();
+    expect(parseRamSpecs("Generic 3200GB")).toBeUndefined();
+
+    // "3200 x 16GB" is speed x per-stick capacity, not 3200 sticks.
+    const speedX = parseRamSpecs("Corsair Vengeance 3200 x 16GB DDR4");
+    expect(speedX?.capacity_gb).toBe(16);
+    expect(speedX?.modules).toBeUndefined();
+
+    // Impossible kit expressions ("4 x 256GB") discard both modules and capacity rather than falling back to 256GB.
+    const badKit = parseRamSpecs("4 x 256GB DDR5");
+    expect(badKit?.ddr).toBe("DDR5");
+    expect(badKit?.modules).toBeUndefined();
+    expect(badKit?.capacity_gb).toBeUndefined();
   });
 });
 

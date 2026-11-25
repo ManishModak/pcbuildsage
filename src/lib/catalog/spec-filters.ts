@@ -1,5 +1,5 @@
 import type { RegistrySpec } from "@/lib/registry";
-import { parseRamSpecs } from "@/lib/spec-parsers";
+import { parseRamKit, parseRamSpecs } from "@/lib/spec-parsers";
 import {
   canonicalizeFormFactor,
   canonicalizeMemory,
@@ -78,14 +78,21 @@ export function resolveRamModules(
     if (Number.isInteger(parsed) && parsed > 0) return parsed;
   }
   // The retail title wins over registry names, which can be shared across kit
-  // variants. parseRamSpecs reads both "2x8GB" and "16GBx2" / "16GB x 1".
+  // variants. parseRamKit reads both "2x8GB" and "16GBx2" / "16GB x 1" and rejects
+  // impossible kits like "4 x 256GB" so they do not pass module filters either.
+  const titleKit = productName ? parseRamKit(productName) : undefined;
+  if (titleKit?.kind === "invalid") return undefined;
+  if (titleKit?.kind === "valid") return titleKit.modules;
   const parsed = productName ? parseRamSpecs(productName)?.modules : undefined;
   const fromTitle = typeof parsed === "number" ? parsed : undefined;
   if (isStickCount(fromTitle)) return fromTitle;
-  const haystack = [registryKey ?? "", typeof spec?.model === "string" ? spec.model : "", productName ?? ""].join(" ");
-  const kitMatch = haystack.match(/\b(\d+)\s*[x×]\s*\d+\s*gb/i) ?? haystack.match(/kit of (\d+)/i);
-  if (kitMatch) {
-    const count = Number.parseInt(kitMatch[1], 10);
+  const fallbackText = [registryKey ?? "", typeof spec?.model === "string" ? spec.model : ""].join(" ");
+  const fallbackKit = parseRamKit(fallbackText);
+  if (fallbackKit?.kind === "valid") return fallbackKit.modules;
+  const haystack = `${fallbackText} ${productName ?? ""}`;
+  const kitOfMatch = haystack.match(/kit of (\d+)/i);
+  if (kitOfMatch) {
+    const count = Number.parseInt(kitOfMatch[1], 10);
     if (isStickCount(count)) return count;
   }
   if (/\bdual[-\s]?channel\b/i.test(haystack)) return 2;

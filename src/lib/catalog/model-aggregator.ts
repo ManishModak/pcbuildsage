@@ -8,6 +8,7 @@
 import type { Product } from "@/types/db";
 import type { RegistrySpec } from "@/lib/registry";
 import { slugifyComponent } from "@/lib/normalizer";
+import { normalizeSpecCapacities, sanitizeSpecCapacityGb } from "@/lib/spec-parsers";
 import { toCompactFunctionalSpecs } from "./compact";
 import type { ComponentModelItem, ListModelsInput } from "./repository";
 import { matchesSocket, matchesFormFactor, matchesDdr, matchesModules } from "./spec-filters";
@@ -71,17 +72,15 @@ export function buildCanonicalModelId(
       }
     }
   } else if (category === "storage" || category === "ram") {
-    if (spec?.capacity_gb !== undefined && spec.capacity_gb !== null) {
-      const cap = Number(spec.capacity_gb);
-      if (Number.isFinite(cap) && cap > 0) {
-        const capGbSuffix = `-${cap}gb`;
-        const capTbSuffix = cap >= 1000 && cap % 1000 === 0 ? `-${cap / 1000}tb` : null;
-        const alreadyHas =
-          baseKey.endsWith(capGbSuffix) ||
-          (capTbSuffix !== null && baseKey.endsWith(capTbSuffix));
-        if (!alreadyHas) {
-          return `${baseKey}${capTbSuffix ?? capGbSuffix}`;
-        }
+    const cap = sanitizeSpecCapacityGb(category, spec, product.name);
+    if (cap !== undefined) {
+      const capGbSuffix = `-${cap}gb`;
+      const capTbSuffix = cap >= 1000 && cap % 1000 === 0 ? `-${cap / 1000}tb` : null;
+      const alreadyHas =
+        baseKey.endsWith(capGbSuffix) ||
+        (capTbSuffix !== null && baseKey.endsWith(capTbSuffix));
+      if (!alreadyHas) {
+        return `${baseKey}${capTbSuffix ?? capGbSuffix}`;
       }
     }
   }
@@ -149,16 +148,14 @@ export function matchesModelId(
       }
     }
   } else if (category === "storage" || category === "ram") {
-    if (spec?.capacity_gb !== undefined && spec.capacity_gb !== null) {
-      const cap = Number(spec.capacity_gb);
-      if (Number.isFinite(cap) && cap > 0) {
-        if (`${baseKey}-${cap}gb` === target) return true;
-        if (rawRegKey && `${rawRegKey}-${cap}gb` === target) return true;
-        if (cap >= 1000 && cap % 1000 === 0) {
-          const tbVal = cap / 1000;
-          if (`${baseKey}-${tbVal}tb` === target) return true;
-          if (rawRegKey && `${rawRegKey}-${tbVal}tb` === target) return true;
-        }
+    const cap = sanitizeSpecCapacityGb(category, spec, product.name);
+    if (cap !== undefined) {
+      if (`${baseKey}-${cap}gb` === target) return true;
+      if (rawRegKey && `${rawRegKey}-${cap}gb` === target) return true;
+      if (cap >= 1000 && cap % 1000 === 0) {
+        const tbVal = cap / 1000;
+        if (`${baseKey}-${tbVal}tb` === target) return true;
+        if (rawRegKey && `${rawRegKey}-${tbVal}tb` === target) return true;
       }
     }
   }
@@ -209,6 +206,10 @@ export function aggregateModels(
       }
     }
 
+    if (spec) {
+      spec = normalizeSpecCapacities(product.category, spec, product.name);
+    }
+
     // In-memory spec filtering for listModels criteria
     if (input.socket && !matchesSocket(spec, input.socket)) continue;
     if (input.ddr && !matchesDdr(spec, input.ddr)) continue;
@@ -217,8 +218,11 @@ export function aggregateModels(
     if (input.min_vram_gb !== undefined && Number(spec?.vram_gb ?? -1) < input.min_vram_gb) {
       continue;
     }
-    if (input.min_capacity_gb !== undefined && Number(spec?.capacity_gb ?? -1) < input.min_capacity_gb) {
-      continue;
+    if (input.min_capacity_gb !== undefined) {
+      const cap = sanitizeSpecCapacityGb(product.category, spec, product.name);
+      if (cap === undefined || cap < input.min_capacity_gb) {
+        continue;
+      }
     }
 
     const modelId = buildCanonicalModelId(product, spec, regKey);

@@ -27,7 +27,283 @@ const EXTERNAL = /\b(external|portable|usb)\b/i;
 const DRIVE_WORD = /\b(drive|ssd|hdd|storage|disk|enclosure)\b/i;
 const M2 = /\bm\.?2\b/i;
 const TWO_FIVE = /\b2\.5\s*(?:inch|in|")?\b/i;
+// Require an explicit inch/form-factor unit so throughput strings like "3.5 GB/s"
+// are never misread as 3.5-inch HDDs.
+const THREE_FIVE = /\b3\.5\s*(?:"|''|[-\s]?(?:inch|in)\b)/i;
+const EXPLICIT_SSD = /\b(?:ssd|nv[mn]e|nnme|m\.?2|solid\s+state)\b/i;
 const PCIE_GEN = /\bgen\s*([345])\b/i;
+
+/** Consumer/prosumer SSDs top out around 8-16 TB; desktop/external HDDs around 24-32 TB;
+ *  sourced enterprise drives reach up to 128 TB. Values like 256TB, 512TB, 1000TB
+ *  are retailer GB-as-TB typos. */
+export const MAX_SSD_CAPACITY_GB = 16_000;
+export const MAX_HDD_CAPACITY_GB = 32_000;
+export const MAX_SOURCED_STORAGE_CAPACITY_GB = 128_000;
+export const MAX_RAM_CAPACITY_GB = 512;
+export const MAX_RAM_MODULES = 8;
+export const MAX_RAM_MODULE_GB = 128;
+
+/** Strict numeric parser: accepts only finite positive numbers or plain numeric strings. */
+function parseStrictPositiveNumber(raw: unknown): number | undefined {
+  if (typeof raw === "number") {
+    return Number.isFinite(raw) && raw > 0 ? raw : undefined;
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!/^\d+(?:\.\d+)?$/.test(trimmed)) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }
+  return undefined;
+}
+
+/** Parses an explicit capacity string such as "16GB" or "2TB" into GB. */
+function parseCapacityTextGb(raw: unknown): number | undefined {
+  if (typeof raw !== "string") return undefined;
+  const match = raw.trim().match(/^(\d+(?:\.\d+)?)\s*(TB|GB)$/i);
+  if (!match) return undefined;
+  const num = Number(match[1]);
+  if (!Number.isFinite(num) || num <= 0) return undefined;
+  return Math.round(num * (match[2].toLowerCase() === "tb" ? 1000 : 1));
+}
+
+/** True when a storage title or form factor explicitly describes an SSD/NVMe/M.2 drive. */
+export function isExplicitSsdStorage(text: string, formFactor?: unknown): boolean {
+  if (EXPLICIT_SSD.test(text)) return true;
+  if (typeof formFactor === "string") {
+    const norm = formFactor.toLowerCase().replace(/[\s"_-]/g, "");
+    if (norm.startsWith("m2")) return true;
+  }
+  return false;
+}
+
+/** True when a storage title or form factor explicitly describes a spinning HDD (SSD wins if both appear). */
+export function isHddStorage(text: string, formFactor?: unknown): boolean {
+  if (isExplicitSsdStorage(text, formFactor)) return false;
+  if (typeof formFactor === "string" && formFactor.toLowerCase().replace(/[\s"_-]/g, "") === "3.5in") {
+    return true;
+  }
+  return SPINNING.test(text) || THREE_FIVE.test(text);
+}
+
+/**
+ * Returns `capacityGb` when it is finite, positive, and within realistic storage
+ * bounds (<=16 TB for explicit SSD/NVMe/M.2 titles, <=32 TB for HDD or unspecified
+ * desktop/external drives, <=128 TB for sourced enterprise specs); otherwise undefined.
+ */
+export function sanitizeStorageCapacityGb(
+  capacityGb: number | undefined,
+  text = "",
+  formFactor?: unknown,
+  options?: { sourced?: boolean }
+): number | undefined {
+  if (typeof capacityGb !== "number" || !Number.isFinite(capacityGb) || capacityGb <= 0) {
+    return undefined;
+  }
+  const maxGb = options?.sourced
+    ? MAX_SOURCED_STORAGE_CAPACITY_GB
+    : isExplicitSsdStorage(text, formFactor)
+      ? MAX_SSD_CAPACITY_GB
+      : MAX_HDD_CAPACITY_GB;
+  return capacityGb <= maxGb ? capacityGb : undefined;
+}
+
+/**
+ * Returns `capacityGb` when it is finite, positive, and within realistic
+ * desktop/workstation RAM bounds (<=512 GB); otherwise undefined.
+ */
+export function sanitizeRamCapacityGb(capacityGb: number | undefined): number | undefined {
+  if (typeof capacityGb !== "number" || !Number.isFinite(capacityGb) || capacityGb <= 0) {
+    return undefined;
+  }
+  return capacityGb <= MAX_RAM_CAPACITY_GB ? capacityGb : undefined;
+}
+
+export type ParsedRamKit =
+  | { kind: "valid"; modules: number; capacity_gb: number }
+  | { kind: "speed"; capacity_gb: number | undefined }
+  | { kind: "invalid" };
+
+/**
+ * Parses explicit RAM kit notation ("2x16GB", "16GBx2", "2 x 8GB") while separating
+ * memory-speed notation ("3200 x 16GB") from impossible kits ("4 x 256GB").
+ * Shared by title parsing and module-count filtering.
+ */
+export function parseRamKit(text: string): ParsedRamKit | undefined {
+  const countFirst = text.match(/\b(\d+)\s*[x×]\s*(\d+)\s*GB\b/i);
+  if (countFirst) {
+    const rawModules = Number(countFirst[1]);
+    const rawPerModule = Number(countFirst[2]);
+    // Speed x capacity strings (e.g. "3200 x 16GB", "6000 x 32GB") state MT/s, not stick count.
+    if (Number.isInteger(rawModules) && rawModules >= 800) {
+      return { kind: "speed", capacity_gb: sanitizeRamCapacityGb(rawPerModule) };
+    }
+    if (
+      Number.isInteger(rawModules) &&
+      rawModules >= 1 &&
+      rawModules <= MAX_RAM_MODULES &&
+      Number.isInteger(rawPerModule) &&
+      rawPerModule >= 1 &&
+      rawPerModule <= MAX_RAM_MODULE_GB &&
+      rawModules * rawPerModule <= MAX_RAM_CAPACITY_GB
+    ) {
+      return { kind: "valid", modules: rawModules, capacity_gb: rawModules * rawPerModule };
+    }
+    return { kind: "invalid" };
+  }
+
+  const capacityFirst = text.match(/\b(\d+)\s*GB\s*[x×]\s*(\d+)\b/i);
+  if (capacityFirst) {
+    const rawPerModule = Number(capacityFirst[1]);
+    const rawModules = Number(capacityFirst[2]);
+    if (
+      Number.isInteger(rawModules) &&
+      rawModules >= 1 &&
+      rawModules <= MAX_RAM_MODULES &&
+      Number.isInteger(rawPerModule) &&
+      rawPerModule >= 1 &&
+      rawPerModule <= MAX_RAM_MODULE_GB &&
+      rawModules * rawPerModule <= MAX_RAM_CAPACITY_GB
+    ) {
+      return { kind: "valid", modules: rawModules, capacity_gb: rawModules * rawPerModule };
+    }
+    return { kind: "invalid" };
+  }
+
+  return undefined;
+}
+
+/** Extracts the raw numeric capacity in GB explicitly stated in a title (before sanity bounds). */
+export function extractRawTitleCapacityGb(category: string | undefined, title: string): number | undefined {
+  const cat = category?.trim().toLowerCase();
+  if (!title) return undefined;
+  if (cat === "storage") {
+    const match = CAPACITY.exec(title);
+    if (!match) return undefined;
+    const rawGb = Math.round(Number(match[1]) * (match[2].toLowerCase() === "tb" ? 1000 : 1));
+    return Number.isFinite(rawGb) && rawGb > 0 ? rawGb : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * True when a listing title explicitly states a storage or RAM capacity that falls
+ * outside realistic bounds (e.g. "Acer FA100 256TB M.2 NVMe" or "4 x 256GB DDR5"),
+ * unless a sourced spec explicitly confirms that exact storage capacity within
+ * enterprise bounds (<= 128 TB).
+ */
+export function hasImplausibleTitleCapacity(
+  category: string | undefined,
+  title: string,
+  options?: { sourcedSpecCapacityGb?: number }
+): boolean {
+  const cat = category?.trim().toLowerCase();
+  if (!title) return false;
+  if (cat === "storage") {
+    const rawGb = extractRawTitleCapacityGb(cat, title);
+    if (rawGb === undefined) return false;
+    if (
+      options?.sourcedSpecCapacityGb !== undefined &&
+      options.sourcedSpecCapacityGb === rawGb &&
+      sanitizeStorageCapacityGb(rawGb, title, undefined, { sourced: true }) !== undefined
+    ) {
+      return false;
+    }
+    return sanitizeStorageCapacityGb(rawGb, title) === undefined;
+  }
+  if (cat === "ram") {
+    const kit = parseRamKit(title);
+    if (kit?.kind === "invalid") return true;
+    if (kit?.kind === "speed") return kit.capacity_gb === undefined;
+    if (kit?.kind === "valid") return false;
+    const single = title.match(/(\d+)\s*GB\b/i);
+    if (!single) return false;
+    return sanitizeRamCapacityGb(Number(single[1])) === undefined;
+  }
+  return false;
+}
+
+/**
+ * Extracts and validates `spec.capacity_gb` for storage and RAM products so
+ * impossible capacities (whether from title parsing, research cache, or raw
+ * DB JSON) are treated as unknown. Never throws on malformed JSON values.
+ */
+export function sanitizeSpecCapacityGb(
+  category: string | undefined,
+  spec: { capacity_gb?: unknown; capacity?: unknown; form_factor?: unknown; model?: unknown; aliases?: unknown; sources?: unknown } | undefined,
+  productName = "",
+  options?: { sourced?: boolean }
+): number | undefined {
+  if (!spec || typeof spec !== "object") return undefined;
+  const cat = category?.trim().toLowerCase();
+  const num =
+    spec.capacity_gb !== undefined
+      ? parseStrictPositiveNumber(spec.capacity_gb)
+      : parseCapacityTextGb(spec.capacity);
+  const sourced = options?.sourced ?? (Array.isArray(spec.sources) && spec.sources.length > 0);
+  if (
+    (cat === "storage" || cat === "ram") &&
+    productName &&
+    hasImplausibleTitleCapacity(cat, productName, { sourcedSpecCapacityGb: sourced ? num : undefined })
+  ) {
+    return undefined;
+  }
+  if (num === undefined) return undefined;
+  if (cat === "storage") {
+    const text = [
+      productName,
+      typeof spec.model === "string" ? spec.model : "",
+      ...(Array.isArray(spec.aliases) ? spec.aliases.filter((a): a is string => typeof a === "string") : [])
+    ].join(" ");
+    return sanitizeStorageCapacityGb(num, text, spec.form_factor, { sourced });
+  }
+  if (cat === "ram") {
+    return sanitizeRamCapacityGb(num);
+  }
+  return num;
+}
+
+/**
+ * Normalizes both `capacity_gb` and string `capacity` in one place for storage/RAM
+ * specs: populates a clean numeric `capacity_gb` when valid, and removes both fields
+ * when the capacity is malformed, implausible, or contradicted by an implausible title.
+ */
+export function normalizeSpecCapacities<T extends Record<string, unknown>>(
+  category: string | undefined,
+  spec: T | undefined,
+  productName = "",
+  options?: { sourced?: boolean }
+): T | undefined {
+  if (!spec || typeof spec !== "object") return spec;
+  const cat = category?.trim().toLowerCase();
+  if (cat !== "storage" && cat !== "ram") return spec;
+  if (spec.capacity_gb === undefined && spec.capacity === undefined) return spec;
+
+  const validCap = sanitizeSpecCapacityGb(cat, spec, productName, options);
+  const next: Record<string, unknown> = { ...spec };
+  if (validCap === undefined) {
+    delete next.capacity_gb;
+    delete next.capacity;
+    return next as T;
+  }
+
+  next.capacity_gb = validCap;
+  if (typeof next.capacity === "string") {
+    const parsedStr = parseCapacityTextGb(next.capacity);
+    if (parsedStr !== undefined) {
+      const strValid =
+        cat === "storage"
+          ? sanitizeStorageCapacityGb(parsedStr, productName, spec.form_factor, {
+              sourced: options?.sourced ?? (Array.isArray(spec.sources) && spec.sources.length > 0)
+            })
+          : sanitizeRamCapacityGb(parsedStr);
+      if (strValid === undefined) {
+        delete next.capacity;
+      }
+    }
+  }
+  return next as T;
+}
 
 /** Chipset immediately followed by "I" (GIGABYTE B650I AORUS ULTRA, H810I):
  *  a Mini-ITX board. Plain chipset names (B650M, X670E, Z790) never end in I. */
@@ -35,7 +311,7 @@ export const DASHLESS_ITX_CHIPSET = /\b[ABHXZ]\d{3}[EM]?I\b/i;
 
 export function parseStorageSpecs(name: string): RegistrySpec | undefined {
   const capacityMatch = CAPACITY.exec(name);
-  const capacity_gb = capacityMatch
+  const rawCapacityGb = capacityMatch
     ? Math.round(Number(capacityMatch[1]) * (capacityMatch[2].toLowerCase() === "tb" ? 1000 : 1))
     : undefined;
 
@@ -63,6 +339,7 @@ export function parseStorageSpecs(name: string): RegistrySpec | undefined {
           ? "2.5in"
           : undefined;
 
+  const capacity_gb = sanitizeStorageCapacityGb(rawCapacityGb, name, form_factor);
   const pcieMatch = isNvme ? PCIE_GEN.exec(name) : null;
 
   // Nothing readable means nothing derived - do not hand back an empty shell that
@@ -192,19 +469,24 @@ export function parseRamSpecs(name: string): RegistrySpec | undefined {
   const ddrMatch = name.match(/\bDDR([45])\b/i);
   const ddr = ddrMatch ? `DDR${ddrMatch[1]}` : undefined;
 
-  const countFirst = name.match(/\b(\d+)\s*[x×]\s*(\d+)\s*GB\b/i);
-  const capacityFirst = name.match(/\b(\d+)\s*GB\s*[x×]\s*(\d+)\b/i);
-  const modules = countFirst ? Number(countFirst[1]) : capacityFirst ? Number(capacityFirst[2]) : undefined;
-  const perModule = countFirst ? Number(countFirst[2]) : capacityFirst ? Number(capacityFirst[1]) : undefined;
-  const singleMatch = name.match(/(\d+)\s*GB\b/i);
-  const capacity_gb = modules && perModule
-    ? modules * perModule
-    : singleMatch ? Number(singleMatch[1]) : undefined;
+  const kit = parseRamKit(name);
+  const modules = kit?.kind === "valid" ? kit.modules : undefined;
+  const capacity_gb =
+    kit?.kind === "valid"
+      ? kit.capacity_gb
+      : kit?.kind === "speed"
+        ? kit.capacity_gb
+        : kit?.kind === "invalid"
+          ? undefined
+          : (() => {
+              const singleMatch = name.match(/(\d+)\s*GB\b/i);
+              return singleMatch ? sanitizeRamCapacityGb(Number(singleMatch[1])) : undefined;
+            })();
 
   const speedMatch = name.match(/(\d{4})\s*MHz\b/i) || name.match(/DDR[45]-(\d{4})\b/i);
   const speed_mhz = speedMatch ? parseInt(speedMatch[1], 10) : undefined;
 
-  if (!ddr && !capacity_gb) return undefined;
+  if (!ddr && capacity_gb === undefined) return undefined;
 
   // Physical stick type is only recorded when the title states it. Laptop /
   // notebook SO-DIMM sticks do not fit desktop DIMM slots, so carrying this
@@ -217,9 +499,9 @@ export function parseRamSpecs(name: string): RegistrySpec | undefined {
     model: name.trim(),
     aliases: [name.trim()],
     ...(ddr ? { ddr } : {}),
-    ...(capacity_gb ? { capacity_gb } : {}),
+    ...(capacity_gb !== undefined ? { capacity_gb } : {}),
     ...(speed_mhz ? { speed_mhz } : {}),
-    ...(modules && perModule ? { modules } : {}),
+    ...(modules !== undefined ? { modules } : {}),
     ...(isSodimm ? { form_factor: "sodimm" } : isDesktopDimm ? { form_factor: "dimm" } : {})
   };
 }
