@@ -513,3 +513,96 @@ def _create_legacy_database(db, version: int) -> None:
     connection.execute(f"PRAGMA user_version = {version}")
     connection.commit()
     connection.close()
+
+
+def test_reclassified_products_survive_destination_shelf_sweep_and_retire_on_source_shelf(tmp_path) -> None:
+    db = tmp_path / "products.db"
+    aio = ScrapedProduct(
+        id="aio-1",
+        name="Antec Symphony 360 ARGB AIO Liquid Cooler",
+        normalized_name="antec symphony 360 argb aio liquid cooler",
+        registry_key=None,
+        price=7999.0,
+        currency="INR",
+        country_code="IN",
+        retailer="Shop",
+        url="https://example.com/antec-symphony-360",
+        image_url=None,
+        in_stock=True,
+        category="case",
+        first_seen="2026-07-07T00:00:00Z",
+        last_scraped="2026-07-07T00:00:00Z",
+    )
+    ram = ScrapedProduct(
+        id="ram-1",
+        name="Gigabyte AORUS RGB Memory 16GB (2x8GB) 3733MHz DDR4",
+        normalized_name="gigabyte aorus rgb memory 16gb 2x8gb 3733mhz ddr4",
+        registry_key=None,
+        price=5499.0,
+        currency="INR",
+        country_code="IN",
+        retailer="Shop",
+        url="https://example.com/aorus-rgb-16gb",
+        image_url=None,
+        in_stock=True,
+        category="motherboard",
+        first_seen="2026-07-07T00:00:00Z",
+        last_scraped="2026-07-07T00:00:00Z",
+    )
+    other_cooler = _product("cooler-1", category="cooler")
+    other_cooler.last_scraped = "2026-07-08T00:00:00Z"
+    other_ram = _product("ram-native", category="ram")
+    other_ram.last_scraped = "2026-07-08T00:00:00Z"
+
+    with ProductStore(db) as store:
+        store.apply_category_snapshot(
+            [aio],
+            retailer="Shop",
+            category="case",
+            run_started_at="2026-07-07T00:00:00Z",
+            scraped_at="2026-07-07T00:00:00Z",
+        )
+        store.apply_category_snapshot(
+            [ram],
+            retailer="Shop",
+            category="motherboard",
+            run_started_at="2026-07-07T00:00:00Z",
+            scraped_at="2026-07-07T00:00:00Z",
+        )
+        # Destination shelf sweeps must not retire rows that originated on another shelf.
+        store.apply_category_snapshot(
+            [other_cooler],
+            retailer="Shop",
+            category="cooler",
+            run_started_at="2026-07-08T00:00:00Z",
+            scraped_at="2026-07-08T00:00:00Z",
+            force_sweep=True,
+        )
+        store.apply_category_snapshot(
+            [other_ram],
+            retailer="Shop",
+            category="ram",
+            run_started_at="2026-07-08T00:00:00Z",
+            scraped_at="2026-07-08T00:00:00Z",
+            force_sweep=True,
+        )
+        rows = {
+            row["id"]: (row["category"], row["in_stock"])
+            for row in store.conn.execute("SELECT id, category, in_stock FROM products").fetchall()
+        }
+        assert rows["aio-1"] == ("cooler", 1)
+        assert rows["ram-1"] == ("ram", 1)
+
+        # A later source-shelf crawl that no longer lists the AIO DOES retire it.
+        other_case = _product("case-1", category="case")
+        other_case.last_scraped = "2026-07-09T00:00:00Z"
+        store.apply_category_snapshot(
+            [other_case],
+            retailer="Shop",
+            category="case",
+            run_started_at="2026-07-09T00:00:00Z",
+            scraped_at="2026-07-09T00:00:00Z",
+            force_sweep=True,
+        )
+        aio_after = store.conn.execute("SELECT in_stock FROM products WHERE id='aio-1'").fetchone()
+        assert aio_after["in_stock"] == 0

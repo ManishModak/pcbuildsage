@@ -156,13 +156,19 @@ def test_aio_coolers_on_case_shelf_reclassify_while_real_cases_stay() -> None:
         "Antec Vortex 240 ARGB All-in-One Liquid CPU Cooler",
         "Antec Vortex Lum 360 ARGB AIO",
         "Deepcool LE520 240mm AIO Liquid Cooler",
+        "Antec Vortex 360 ARGB 360mm Liquid Cooling with 3 x 120mm PWM Fans",
+        "NZXT Kraken 240 240mm All-in-One Cooler with F120P Fans",
     ):
         assert reclassify_category(title, "case") == "cooler"
         assert classify_subcategory(title, "cooler") is None
 
+    # Standalone fans advertised *for* liquid cooling remain accessories.
+    assert classify_subcategory("Noctua NF-F12 120mm PWM Fan for Liquid Cooling Radiators", "cooler") == "accessory"
+
     # Negative: PC cases mentioning AIO radiator support must remain cases.
     assert reclassify_category("Antec CX700 RGB Elite ATX Mid Tower Cabinet - Supports 360mm AIO Liquid Cooler", "case") == "case"
     assert reclassify_category("Lian Li O11 Vision Compact Supports 360mm AIO Liquid Cooler", "case") == "case"
+    assert reclassify_category("Lian Li O11 Vision Compact compatible with 360mm AIO", "case") == "case"
     assert reclassify_category("Deepcool CG580 4F Mid-Tower Cabinet (360mm AIO Support)", "case") == "case"
     assert reclassify_category("NZXT H7 Flow Mid Tower Case - Support 240mm / 360mm Radiator", "case") == "case"
 
@@ -181,6 +187,9 @@ def test_qnap_and_storage_adapters_are_accessories() -> None:
     assert classify_subcategory("QNAP QXG-10G1T 10GbE PCIe Network Adapter", "storage") == "accessory"
     assert classify_subcategory("QNAP QDA-A2AR Dual 2.5-inch SATA Drive Adapter", "storage") == "accessory"
     assert classify_subcategory("Orico M.2 NVMe to PCIe 3.0 x4 Adapter Card", "storage") == "accessory"
+    assert classify_subcategory('U.2 (SFF-8643) to M.2 PCI Express 4.0 x4 Host Adapter Card for 2.5" U.2 NVMe SSD', "storage") == "accessory"
+    assert classify_subcategory("StarTech 3-Port M.2 SSD (NGFF) Adapter Card", "storage") == "accessory"
+    assert classify_subcategory("Intel Optane 900P Series 2.5 SSD including M.2 Adapter - 280 GB", "storage") == "internal"
     assert classify_subcategory("Samsung 990 PRO 2TB M.2 NVMe Gen4 Internal SSD", "storage") == "internal"
     assert classify_subcategory("Crucial MX500 1TB 2.5-inch SATA SSD", "storage") == "internal"
     assert classify_subcategory("Seagate IronWolf 4TB NAS Internal HDD", "storage") == "internal"
@@ -189,6 +198,8 @@ def test_qnap_and_storage_adapters_are_accessories() -> None:
 def test_usb_flash_and_thumb_drives_without_portable_are_removable() -> None:
     # Case 5: USB flash/thumb drives without "portable" -> removable; portable SSDs stay external, NVMe/SATA stay internal.
     assert classify_subcategory("SanDisk Ultra Flair 64GB USB 3.2", "storage") == "removable"
+    assert classify_subcategory("SanDisk Ultra Flair 64GB USB-A 3.2", "storage") == "removable"
+    assert classify_subcategory("Samsung BAR Plus 128GB USB Type-A", "storage") == "removable"
     assert classify_subcategory("Kingston DataTraveler 64GB USB Drive", "storage") == "removable"
     assert classify_subcategory("Verbatim 128GB USB Drive", "storage") == "removable"
     assert classify_subcategory("SanDisk 64GB Thumb Drive", "storage") == "removable"
@@ -202,15 +213,17 @@ def test_usb_flash_and_thumb_drives_without_portable_are_removable() -> None:
 def test_ddr_ram_kits_on_motherboard_shelf_reclassify_while_boards_stay() -> None:
     # Case 6: AORUS memory kits and DDR RAM kits under motherboards -> ram.
     assert reclassify_category("Gigabyte AORUS RGB Memory 16GB (2x8GB) 3733MHz DDR4", "motherboard") == "ram"
+    assert reclassify_category("Gigabyte AORUS RGB Memory 16GB (2x8GB) 3733MHz DDR4 for AM4", "motherboard") == "ram"
     assert reclassify_category("Gigabyte AORUS RGB Memory 16GB (2x8GB) 3333MHz", "motherboard") == "ram"
     assert reclassify_category("Gigabyte AORUS Memory 32GB (2x16GB) DDR5 6000MT/s", "motherboard") == "ram"
     assert reclassify_category("Corsair Vengeance 32GB (2x16GB) DDR5 6000MHz CL30", "motherboard") == "ram"
     assert reclassify_category("Kingston Fury Beast 16GB DDR5 5200MHz", "motherboard") == "ram"
     assert reclassify_category("G.Skill Ripjaws V 16GB DDR4 Desktop RAM", "motherboard") == "ram"
 
-    # Negative: real motherboards mentioning DDR4/DDR5 must stay motherboard.
+    # Negative: real motherboards mentioning DDR4/DDR5 or memory slots must stay motherboard.
     assert reclassify_category("Gigabyte B650 AORUS Elite DDR5 Motherboard", "motherboard") == "motherboard"
     assert reclassify_category("Gigabyte B650 AORUS Elite AX DDR5", "motherboard") == "motherboard"
+    assert reclassify_category("MSI B840M GAMING PLUS WIFI6E, 4x DDR5 UDIMM, Maximum Memory Capacity 256GB", "motherboard") == "motherboard"
     assert reclassify_category("MSI PRO B760M-A WIFI DDR4", "motherboard") == "motherboard"
     assert reclassify_category("ASUS PRIME H610M-E DDR4 Motherboard", "motherboard") == "motherboard"
     assert reclassify_category("ASUS ROG Strix Z790-E Gaming WiFi DDR5", "motherboard") == "motherboard"

@@ -52,6 +52,16 @@ SCRAPE_JOBS_DDL = """
     )
     """
 
+# Additive side table tracking each row's scraped retailer shelf (`source_category`)
+# so stock sweeps retire unseen rows against the shelf they came from, rather than
+# letting a destination-shelf crawl retire freshly reclassified products.
+PRODUCT_SOURCES_DDL = """
+    CREATE TABLE IF NOT EXISTS product_sources (
+      product_id TEXT PRIMARY KEY,
+      source_category TEXT NOT NULL
+    )
+    """
+
 JOB_STATUSES = frozenset({"complete", "partial", "failed"})
 
 
@@ -145,6 +155,7 @@ class ProductStore:
                 self._run_migrations(current_version)
             self._apply_canonical_schema()
             self.conn.execute(SCRAPE_JOBS_DDL)
+            self.conn.execute(PRODUCT_SOURCES_DDL)
             self.conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     def _run_migrations(self, from_version: int) -> None:
@@ -326,6 +337,15 @@ class ProductStore:
             """,
             rows,
         )
+        self.conn.executemany(
+            """
+                INSERT INTO product_sources (product_id, source_category)
+                VALUES (:id, :source_category)
+                ON CONFLICT(product_id) DO UPDATE SET
+                    source_category = excluded.source_category
+            """,
+            [{"id": product.id, "source_category": product.category} for product in products],
+        )
         return len(rows)
 
     def count_in_stock(self, retailer: str, category: str) -> int:
@@ -341,7 +361,12 @@ class ProductStore:
         row = self.conn.execute(
             """
             SELECT COUNT(*) FROM products
-            WHERE retailer = ? AND category = ? AND in_stock = 1
+            WHERE retailer = ?
+              AND COALESCE(
+                (SELECT ps.source_category FROM product_sources ps WHERE ps.product_id = products.id),
+                products.category
+              ) = ?
+              AND in_stock = 1
             """,
             (retailer, category),
         ).fetchone()
@@ -357,7 +382,10 @@ class ProductStore:
             UPDATE products
             SET in_stock = 0
             WHERE retailer = ?
-              AND category = ?
+              AND COALESCE(
+                (SELECT ps.source_category FROM product_sources ps WHERE ps.product_id = products.id),
+                products.category
+              ) = ?
               AND last_scraped < ?
             """,
             (retailer, category, run_started_at),
@@ -379,14 +407,12 @@ class ProductStore:
         with self.conn:
             previous_in_stock = self._count_in_stock(retailer, category)
             written = self._upsert_products(products, scraped_at) if products else 0
-            # Guard counts unique URLs that still belong to this category
-            # after reclassification: RAM sticks found in the storage aisle
-            # must not inflate the storage sweep baseline.
+            # Guard counts unique URLs scraped on this source shelf, matching
+            # `previous_in_stock` (which also scopes by source_category).
             relevant_urls = {
                 product.url
                 for product in products
-                if product.url
-                and reclassify_category(product.name, product.category) == category
+                if product.url and product.category == category
             }
             skip_reason = sweep_skip_reason(
                 found=len(relevant_urls),
