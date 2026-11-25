@@ -314,7 +314,7 @@ function weakestAllowed(tier: TierPlan, above: number | undefined): string {
 
 const FIXED_CATEGORIES = CATEGORIES.filter((category): category is FixedCategory => category !== "gpu");
 
-async function inStockCandidates(
+export async function inStockCandidates(
   repo: SqliteCatalogRepository,
   scope: CatalogScope,
   category: GuideCategory,
@@ -330,7 +330,11 @@ async function inStockCandidates(
   if (result.results.length === 0 && !NO_FALLBACK_CATEGORIES.includes(category)) {
     // Commodity filters too narrow for this scrape: fall back to cheapest
     // in-stock in the category and let validate_build decide compatibility.
-    result = await search({});
+    // Capacity minimums are not checked by validate_build, so preserve
+    // min_capacity_gb to prevent missing/impossible-capacity drives from slipping in.
+    const fallbackFilters: SearchProductsInput =
+      filters.min_capacity_gb !== undefined ? { min_capacity_gb: filters.min_capacity_gb } : {};
+    result = await search(fallbackFilters);
     fallback = result.results.length > 0;
   }
   return { candidates: result.results.map(toCandidate), fallback };

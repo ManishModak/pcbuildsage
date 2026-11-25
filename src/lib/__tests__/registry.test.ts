@@ -69,6 +69,29 @@ describe("resolveComponent trust model", () => {
     expect(resolved?.spec).toMatchObject({ interface: "nvme", capacity_gb: 1000, pcie_gen: 4 });
   });
 
+  it("drops impossible capacity_gb from stale research rows and typo storage titles", () => {
+    const staleDb = {
+      prepare: () => ({
+        get: () => ({
+          key: "acer-fa100-256tb-m-2-nvme",
+          category: "storage",
+          specs: JSON.stringify({ brand: "Acer", model: "Acer FA100 256TB M.2 NVMe", aliases: [], interface: "nvme", form_factor: "m2-2280", capacity_gb: 256000 }),
+          sources: JSON.stringify(["https://example.com"]),
+          confidence: "medium",
+          researched_at: "2026-03-01T00:00:00.000Z"
+        })
+      })
+    } as unknown as Database.Database;
+
+    const fromResearch = resolveComponent({ name: "Acer FA100 256TB M.2 NVMe", category: "storage" }, { db: staleDb });
+    expect(fromResearch?.spec.interface).toBe("nvme");
+    expect(fromResearch?.spec.capacity_gb).toBeUndefined();
+
+    const fromTitle = resolveComponent({ name: "Acer FA100 256TB M.2 NVMe", category: "storage" }, { db: emptyDb });
+    expect(fromTitle?.spec.interface).toBe("nvme");
+    expect(fromTitle?.spec.capacity_gb).toBeUndefined();
+  });
+
   it("returns nothing for an unknown component in a category with no title parser", () => {
     expect(resolveComponent({ name: "Totally Unknown Widget 9000", category: "cpu" }, { db: emptyDb })).toBeUndefined();
   });

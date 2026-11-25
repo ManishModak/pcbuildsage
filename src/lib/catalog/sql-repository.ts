@@ -13,6 +13,7 @@ import {
   type ResolvedSpec,
   type ComponentCategory
 } from "@/lib/registry";
+import { sanitizeSpecCapacityGb } from "@/lib/spec-parsers";
 import { COMPONENT_CATEGORIES, BUILD_RELEVANT_SQL } from "@/lib/db/catalog-scope";
 import type { Product } from "@/types/db";
 import { toPriceMinor } from "@/types/catalog";
@@ -140,6 +141,37 @@ export class SqlCatalogRepository implements CatalogRepository {
       },
       { skipDbLookup: true }
     );
+  }
+
+  /**
+   * Resolves the effective spec (registry/title-derived or stored JSON) and
+   * strips implausible storage/RAM capacities so impossible values never leak
+   * into filters or results.
+   */
+  protected resolveEffectiveSpec(
+    product: Product,
+    scope?: CatalogScope
+  ): { registry: ResolvedSpec | undefined; spec: RegistrySpec | undefined } {
+    const registry = this.resolveProductSpec(product, scope);
+    let spec = registry?.spec;
+    if (!spec && product.specs) {
+      if (typeof product.specs === "object") {
+        spec = product.specs as RegistrySpec;
+      } else if (typeof product.specs === "string") {
+        try {
+          spec = JSON.parse(product.specs);
+        } catch {}
+      }
+    }
+    if (spec && spec.capacity_gb !== undefined) {
+      const validCap = sanitizeSpecCapacityGb(product.category, spec, product.name);
+      if (validCap === undefined) {
+        const sanitized = { ...spec };
+        delete sanitized.capacity_gb;
+        spec = sanitized;
+      }
+    }
+    return { registry, spec };
   }
 
   /**
@@ -404,17 +436,7 @@ export class SqlCatalogRepository implements CatalogRepository {
       dbOffset += rows.length;
 
       for (const product of rows) {
-        const registry = this.resolveProductSpec(product, effectiveScope);
-        let resolvedSpec = registry?.spec;
-        if (!resolvedSpec && product.specs) {
-          if (typeof product.specs === "object") {
-            resolvedSpec = product.specs as RegistrySpec;
-          } else if (typeof product.specs === "string") {
-            try {
-              resolvedSpec = JSON.parse(product.specs);
-            } catch {}
-          }
-        }
+        const { registry, spec: resolvedSpec } = this.resolveEffectiveSpec(product, effectiveScope);
 
         if (this.matchesRegistryFilters(product, resolvedSpec, input, registry?.key ?? product.registry_key ?? undefined)) {
           if (skipped < requestOffset) {
@@ -485,7 +507,7 @@ export class SqlCatalogRepository implements CatalogRepository {
           in_stock: isInStock,
           inStock: isInStock,
           registry_key: registry?.key ?? product.registry_key ?? null,
-          specs: (registry?.spec ?? resolvedSpec ?? null) as Record<string, unknown> | null,
+          specs: (resolvedSpec ?? null) as Record<string, unknown> | null,
           offers: [offer],
           first_seen: product.first_seen,
           last_scraped: product.last_scraped
@@ -526,17 +548,7 @@ export class SqlCatalogRepository implements CatalogRepository {
         const aboveRows = (await this.driver.all(aboveSql, aboveParams, effectiveScope)).map(rowToProduct);
 
         for (const aboveRow of aboveRows) {
-          const reg = this.resolveProductSpec(aboveRow, effectiveScope);
-          let resSpec = reg?.spec;
-          if (!resSpec && aboveRow.specs) {
-            if (typeof aboveRow.specs === "object") {
-              resSpec = aboveRow.specs as RegistrySpec;
-            } else if (typeof aboveRow.specs === "string") {
-              try {
-                resSpec = JSON.parse(aboveRow.specs);
-              } catch {}
-            }
-          }
+          const { registry: reg, spec: resSpec } = this.resolveEffectiveSpec(aboveRow, effectiveScope);
           if (this.matchesRegistryFilters(aboveRow, resSpec, input, reg?.key ?? aboveRow.registry_key ?? undefined)) {
             nearestAbove = {
               name: aboveRow.name,
@@ -569,17 +581,7 @@ export class SqlCatalogRepository implements CatalogRepository {
         const belowRows = (await this.driver.all(belowSql, belowParams, effectiveScope)).map(rowToProduct);
 
         for (const belowRow of belowRows) {
-          const reg = this.resolveProductSpec(belowRow, effectiveScope);
-          let resSpec = reg?.spec;
-          if (!resSpec && belowRow.specs) {
-            if (typeof belowRow.specs === "object") {
-              resSpec = belowRow.specs as RegistrySpec;
-            } else if (typeof belowRow.specs === "string") {
-              try {
-                resSpec = JSON.parse(belowRow.specs);
-              } catch {}
-            }
-          }
+          const { registry: reg, spec: resSpec } = this.resolveEffectiveSpec(belowRow, effectiveScope);
           if (this.matchesRegistryFilters(belowRow, resSpec, input, reg?.key ?? belowRow.registry_key ?? undefined)) {
             nearestBelow = {
               name: belowRow.name,
@@ -1022,8 +1024,8 @@ export class SqlCatalogRepository implements CatalogRepository {
 
     const allModels = aggregateModels(products, {
       resolveSpec: (product) => {
-        const reg = this.resolveProductSpec(product, effectiveScope);
-        return { spec: reg?.spec, key: reg?.key };
+        const { registry, spec } = this.resolveEffectiveSpec(product, effectiveScope);
+        return { spec, key: registry?.key };
       },
       input
     });
@@ -1099,11 +1101,10 @@ export class SqlCatalogRepository implements CatalogRepository {
         return false;
       }
     }
-    if (
-      input.min_capacity_gb !== undefined &&
-      Number(spec?.capacity_gb ?? -1) < input.min_capacity_gb
-    )
-      return false;
+    if (input.min_capacity_gb !== undefined) {
+      const cap = sanitizeSpecCapacityGb(product.category, spec, product.name);
+      if (cap === undefined || cap < input.min_capacity_gb) return false;
+    }
     if (input.interface && spec?.interface !== input.interface) return false;
     const psuWattage = spec?.wattage ?? spec?.wattage_w;
     if (input.min_wattage !== undefined && spec && hasWattageConflict(spec))

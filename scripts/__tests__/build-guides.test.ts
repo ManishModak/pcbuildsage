@@ -174,6 +174,62 @@ describe("runBuildGuides end to end", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("rejects a 256TB typo NVMe drive for 500GB+ and 1TB+ tiers and never falls back to it", async () => {
+    const fixture = JSON.parse(
+      readFileSync(path.join(process.cwd(), "scripts", "__tests__", "fixtures", "guides-catalog.json"), "utf8")
+    ) as Array<Record<string, unknown>>;
+    const typoDrive = {
+      id: "acer-fa100-256tb-typo",
+      name: "Acer FA100 256TB M.2 NVMe",
+      normalized_name: "acer fa100 256tb m.2 nvme",
+      registry_key: null,
+      price: 5389.0,
+      currency: "INR",
+      country_code: "IN",
+      retailer: "TestRetailer",
+      url: "https://example.com/acer-fa100-256tb",
+      image_url: null,
+      in_stock: 1,
+      category: "storage",
+      subcategory: "internal",
+      specs: null,
+      first_seen: "2026-09-28T08:46:31Z",
+      last_scraped: "2026-09-28T08:46:31Z"
+    };
+
+    // Case 1: cheaper 256TB typo drive sits alongside valid 512GB/1TB NVMe drives.
+    // Guides must still pick the valid 512GB/1TB drives, never the 256TB typo.
+    const withValidDrives = tempCatalog([...fixture, typoDrive]);
+    const outValid = path.join(withValidDrives.dir, "site");
+    try {
+      const result = await runQuietly(["--db", withValidDrives.db, "--out", outValid]);
+      expect(result.exitCode).toBe(0);
+      expect(result.published.length).toBeGreaterThan(0);
+      for (const guide of result.published) {
+        expect(guide.partsSummary).not.toContain("256TB");
+      }
+    } finally {
+      rmSync(withValidDrives.dir, { recursive: true, force: true });
+    }
+
+    // Case 2: only the 256TB typo drive exists in storage (no valid 500GB+/1TB+ drive).
+    // The inStockCandidates fallback must keep min_capacity_gb and skip every tier.
+    const withoutValidDrives = tempCatalog([
+      ...fixture.filter((row) => row.category !== "storage"),
+      typoDrive
+    ]);
+    const outOnlyTypo = path.join(withoutValidDrives.dir, "site");
+    try {
+      const result = await runQuietly(["--db", withoutValidDrives.db, "--out", outOnlyTypo]);
+      expect(result.exitCode).toBe(1);
+      expect(result.published).toHaveLength(0);
+      expect(result.skipped).toHaveLength(BUDGET_TIERS.length);
+      expect(result.skipped.every((reason) => /no in-stock candidates for storage/.test(reason))).toBe(true);
+    } finally {
+      rmSync(withoutValidDrives.dir, { recursive: true, force: true });
+    }
+  }, 60_000);
 });
 
 describe("pickBuildForBudget", () => {

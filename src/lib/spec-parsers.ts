@@ -27,7 +27,80 @@ const EXTERNAL = /\b(external|portable|usb)\b/i;
 const DRIVE_WORD = /\b(drive|ssd|hdd|storage|disk|enclosure)\b/i;
 const M2 = /\bm\.?2\b/i;
 const TWO_FIVE = /\b2\.5\s*(?:inch|in|")?\b/i;
+const THREE_FIVE = /\b3\.5(?:\s*"|[-\s]*(?:inch|in)\b|\b)/i;
 const PCIE_GEN = /\bgen\s*([345])\b/i;
+
+/** Consumer/prosumer SSDs top out around 8-16 TB; desktop HDDs around 24-32 TB.
+ *  Values like 128TB, 256TB, 512TB, 1000TB are retailer GB-as-TB typos. */
+export const MAX_SSD_CAPACITY_GB = 16_000;
+export const MAX_HDD_CAPACITY_GB = 32_000;
+export const MAX_RAM_CAPACITY_GB = 512;
+export const MAX_RAM_MODULES = 8;
+export const MAX_RAM_MODULE_GB = 128;
+
+/** True when a storage title or form factor explicitly describes a spinning HDD. */
+export function isHddStorage(text: string, formFactor?: unknown): boolean {
+  if (typeof formFactor === "string" && formFactor.toLowerCase().replace(/[\s"_-]/g, "") === "3.5in") {
+    return true;
+  }
+  return SPINNING.test(text) || THREE_FIVE.test(text);
+}
+
+/**
+ * Returns `capacityGb` when it is finite, positive, and within realistic consumer
+ * storage bounds (<=16 TB for SSDs/unspecified, <=32 TB for HDDs); otherwise undefined.
+ */
+export function sanitizeStorageCapacityGb(
+  capacityGb: number | undefined,
+  text = "",
+  formFactor?: unknown
+): number | undefined {
+  if (typeof capacityGb !== "number" || !Number.isFinite(capacityGb) || capacityGb <= 0) {
+    return undefined;
+  }
+  const maxGb = isHddStorage(text, formFactor) ? MAX_HDD_CAPACITY_GB : MAX_SSD_CAPACITY_GB;
+  return capacityGb <= maxGb ? capacityGb : undefined;
+}
+
+/**
+ * Returns `capacityGb` when it is finite, positive, and within realistic
+ * desktop/workstation RAM bounds (<=512 GB); otherwise undefined.
+ */
+export function sanitizeRamCapacityGb(capacityGb: number | undefined): number | undefined {
+  if (typeof capacityGb !== "number" || !Number.isFinite(capacityGb) || capacityGb <= 0) {
+    return undefined;
+  }
+  return capacityGb <= MAX_RAM_CAPACITY_GB ? capacityGb : undefined;
+}
+
+/**
+ * Extracts and validates `spec.capacity_gb` for storage and RAM products so
+ * impossible capacities (whether from title parsing, research cache, or raw
+ * DB JSON) are treated as unknown.
+ */
+export function sanitizeSpecCapacityGb(
+  category: string | undefined,
+  spec: { capacity_gb?: unknown; form_factor?: unknown; model?: unknown; aliases?: unknown } | undefined,
+  productName = ""
+): number | undefined {
+  const raw = spec?.capacity_gb;
+  if (raw === undefined || raw === null || raw === "") return undefined;
+  const num = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(num) || num <= 0) return undefined;
+  const cat = category?.trim().toLowerCase();
+  if (cat === "storage") {
+    const text = [
+      productName,
+      typeof spec?.model === "string" ? spec.model : "",
+      ...(Array.isArray(spec?.aliases) ? spec.aliases.filter((a): a is string => typeof a === "string") : [])
+    ].join(" ");
+    return sanitizeStorageCapacityGb(num, text, spec?.form_factor);
+  }
+  if (cat === "ram") {
+    return sanitizeRamCapacityGb(num);
+  }
+  return num;
+}
 
 /** Chipset immediately followed by "I" (GIGABYTE B650I AORUS ULTRA, H810I):
  *  a Mini-ITX board. Plain chipset names (B650M, X670E, Z790) never end in I. */
@@ -35,7 +108,7 @@ export const DASHLESS_ITX_CHIPSET = /\b[ABHXZ]\d{3}[EM]?I\b/i;
 
 export function parseStorageSpecs(name: string): RegistrySpec | undefined {
   const capacityMatch = CAPACITY.exec(name);
-  const capacity_gb = capacityMatch
+  const rawCapacityGb = capacityMatch
     ? Math.round(Number(capacityMatch[1]) * (capacityMatch[2].toLowerCase() === "tb" ? 1000 : 1))
     : undefined;
 
@@ -63,6 +136,7 @@ export function parseStorageSpecs(name: string): RegistrySpec | undefined {
           ? "2.5in"
           : undefined;
 
+  const capacity_gb = sanitizeStorageCapacityGb(rawCapacityGb, name, form_factor);
   const pcieMatch = isNvme ? PCIE_GEN.exec(name) : null;
 
   // Nothing readable means nothing derived - do not hand back an empty shell that
@@ -194,17 +268,29 @@ export function parseRamSpecs(name: string): RegistrySpec | undefined {
 
   const countFirst = name.match(/\b(\d+)\s*[x×]\s*(\d+)\s*GB\b/i);
   const capacityFirst = name.match(/\b(\d+)\s*GB\s*[x×]\s*(\d+)\b/i);
-  const modules = countFirst ? Number(countFirst[1]) : capacityFirst ? Number(capacityFirst[2]) : undefined;
-  const perModule = countFirst ? Number(countFirst[2]) : capacityFirst ? Number(capacityFirst[1]) : undefined;
+  const rawModules = countFirst ? Number(countFirst[1]) : capacityFirst ? Number(capacityFirst[2]) : undefined;
+  const rawPerModule = countFirst ? Number(countFirst[2]) : capacityFirst ? Number(capacityFirst[1]) : undefined;
+  const validKit =
+    rawModules !== undefined &&
+    rawPerModule !== undefined &&
+    Number.isInteger(rawModules) &&
+    rawModules >= 1 &&
+    rawModules <= MAX_RAM_MODULES &&
+    Number.isInteger(rawPerModule) &&
+    rawPerModule >= 1 &&
+    rawPerModule <= MAX_RAM_MODULE_GB &&
+    rawModules * rawPerModule <= MAX_RAM_CAPACITY_GB;
+  const modules = validKit ? rawModules : undefined;
   const singleMatch = name.match(/(\d+)\s*GB\b/i);
-  const capacity_gb = modules && perModule
-    ? modules * perModule
+  const rawCapacity = validKit
+    ? rawModules * rawPerModule
     : singleMatch ? Number(singleMatch[1]) : undefined;
+  const capacity_gb = sanitizeRamCapacityGb(rawCapacity);
 
   const speedMatch = name.match(/(\d{4})\s*MHz\b/i) || name.match(/DDR[45]-(\d{4})\b/i);
   const speed_mhz = speedMatch ? parseInt(speedMatch[1], 10) : undefined;
 
-  if (!ddr && !capacity_gb) return undefined;
+  if (!ddr && capacity_gb === undefined) return undefined;
 
   // Physical stick type is only recorded when the title states it. Laptop /
   // notebook SO-DIMM sticks do not fit desktop DIMM slots, so carrying this
@@ -217,9 +303,9 @@ export function parseRamSpecs(name: string): RegistrySpec | undefined {
     model: name.trim(),
     aliases: [name.trim()],
     ...(ddr ? { ddr } : {}),
-    ...(capacity_gb ? { capacity_gb } : {}),
+    ...(capacity_gb !== undefined ? { capacity_gb } : {}),
     ...(speed_mhz ? { speed_mhz } : {}),
-    ...(modules && perModule ? { modules } : {}),
+    ...(modules !== undefined ? { modules } : {}),
     ...(isSodimm ? { form_factor: "sodimm" } : isDesktopDimm ? { form_factor: "dimm" } : {})
   };
 }

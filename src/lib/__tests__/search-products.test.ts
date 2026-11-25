@@ -366,6 +366,37 @@ describe("searchProducts", () => {
     expect((result as { results: Array<{ id: string }> }).results.map((r) => r.id)).toEqual(["drive-512-nvme", "drive-1000-nvme"]);
   });
 
+  it("rejects storage rows with impossible capacity_gb when min_capacity_gb is requested", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    state.specs.set("drive-256tb-typo", { capacity_gb: 256000, interface: "nvme" });
+    state.specs.set("drive-1000-nvme", { capacity_gb: 1000, interface: "nvme" });
+
+    addProduct({
+      id: "drive-256tb-typo",
+      name: "Acer FA100 256TB M.2 NVMe",
+      price: 5389,
+      category: "storage",
+      registry_key: "drive-256tb-typo",
+      in_stock: 1
+    });
+    addProduct({
+      id: "drive-1000-nvme",
+      name: "WD Blue SN580 1TB M.2 NVMe",
+      price: 6500,
+      category: "storage",
+      registry_key: "drive-1000-nvme",
+      in_stock: 1
+    });
+
+    const result = await searchProducts(
+      { category: "storage", min_capacity_gb: 500, interface: "nvme", sort_by: "price", order: "asc", limit: 10 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+
+    expect((result as { results: Array<{ id: string }> }).results.map((r) => r.id)).toEqual(["drive-1000-nvme"]);
+  });
+
   it("filters PSU by min_wattage", async () => {
     const { searchProducts } = await import("../tools/search-products");
     const dbPath = resetDb();

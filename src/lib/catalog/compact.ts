@@ -141,7 +141,11 @@ export function toCompactProductItem(
   const storedSpecs = (record.specs ?? null) as Record<string, unknown> | null;
   const ramSpecs = record.category === "ram" ? parseRamSpecs(String(record.name ?? "")) : undefined;
   const specs = ramSpecs?.modules
-    ? { ...storedSpecs, modules: ramSpecs.modules, capacity_gb: ramSpecs.capacity_gb }
+    ? {
+        ...storedSpecs,
+        modules: ramSpecs.modules,
+        ...(ramSpecs.capacity_gb !== undefined ? { capacity_gb: ramSpecs.capacity_gb } : {})
+      }
     : storedSpecs;
 
   return {

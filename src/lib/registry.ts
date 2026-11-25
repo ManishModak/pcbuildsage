@@ -5,7 +5,12 @@ import { getDb } from "@/lib/db";
 import type { RegistryResearchEntry } from "@/types";
 import { normalizeTitle, slugifyComponent } from "./normalizer";
 import { canonicalizeFormFactor } from "./spec-canonical";
-import { DASHLESS_ITX_CHIPSET, parseSpecsFromTitle, statesSodimm } from "./spec-parsers";
+import {
+  DASHLESS_ITX_CHIPSET,
+  parseSpecsFromTitle,
+  sanitizeSpecCapacityGb,
+  statesSodimm
+} from "./spec-parsers";
 import { gpuVariant } from "./gpu-variant";
 
 export type ComponentCategory = "cpu" | "gpu" | "motherboard" | "ram" | "storage" | "psu" | "case" | "cooler";
@@ -280,6 +285,17 @@ export function normalizeResolvedSpec(resolved?: ResolvedSpec): ResolvedSpec | u
     const match = spec.capacity.match(/^(\d+)\s*GB$/i);
     if (match) {
       spec.capacity_gb = parseInt(match[1], 10);
+    }
+  }
+
+  if (spec.capacity_gb !== undefined) {
+    if (resolved.category === "storage" || resolved.category === "ram") {
+      const validCap = sanitizeSpecCapacityGb(resolved.category, spec);
+      if (validCap === undefined) {
+        delete spec.capacity_gb;
+      } else {
+        spec.capacity_gb = validCap;
+      }
     }
   }
 
