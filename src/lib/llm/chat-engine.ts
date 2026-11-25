@@ -15,8 +15,8 @@ import {
   hasSuccessfulValidation,
   holdFollowupsUntilPresented,
   pushForNearBudgetPresent,
-  isResearchClosed,
-  researchClosedInstruction,
+  isLateTurnResearchClosed,
+  mustCallValidateFirst,
   stepsLeftAfter,
   stopAfterFollowups
 } from "./turn-policy";
@@ -127,9 +127,9 @@ export function buildSystemPrompt(
     `Active scope: country ${config.countryCode}, currency ${config.currency}. All prices returned by tools are standard major currency values (e.g. standard Rupees or Dollars). Present them exactly as returned by the tools without division or scale adjustment.`,
     catalogBlock,
     ...BRIEF_STRATEGY_LINES,
-    "When useful, call suggest_followups with short, relevant user prompts about unanswered next steps; omit it when none would help.",
+    "For build turns, pass optional `followups` (up to 3 short user prompts) directly inside `present_build` instead of calling `suggest_followups` separately. On non-build turns, call `suggest_followups` with short, relevant user prompts about unanswered next steps when useful; omit both when none would help.",
     personality ? `Personality prompt: ${personality.prompt}` : "",
-    `Turn budget: you get at most ${MAX_STEPS} tool steps per reply. Search independent categories in parallel (several search_products calls in one step), never repeat a search you already ran, and call validate_build once you have a candidate for every part, by about step ${VALIDATE_BY_STEP}, leaving the remaining steps to fix what it rejects.`,
+    `Turn budget: you get at most ${MAX_STEPS} tool steps per reply. Batch independent category searches into one search_products call using \`queries: [...]\` (up to 8 sub-queries), while still allowing targeted follow-up searches. Never repeat a search you already ran, and call validate_build once you have a candidate for every part, by about step ${VALIDATE_BY_STEP}, leaving the remaining steps to fix what it rejects.`,
     "For broad build requests: list_models → search_products. Shortlist a few suitable models before looking through their offers. For an exact product or a straightforward filtered purchase request, skip model discovery when direct search is sufficient.",
     "Search strategy: Respect explicit requirements such as storage capacity, RAM capacity, owned parts, and platform. Prioritize components for the user's workload and rebalance allocations using catalog prices. Search cost-effective supporting parts with `order: 'asc'`; use capacity, interface, wattage, and compatibility filters appropriate to the build.",
     "When searching for cases for a selected GPU and cooler, use `min_gpu_clearance_mm` and `min_cooler_clearance_mm`.",
@@ -255,6 +255,8 @@ export async function streamChat(
   // tool's toModelOutput (the trimmed model view), not the full UI output.
   // Set by prepareStep: steps left while late-turn research is closed, else null.
   let researchClosedStepsLeft: number | null = null;
+  // Set by prepareStep: true when turn policy forces validate_build before further research.
+  let turnValidateFirstForced = false;
   // Set by prepareStep for the research gate's "validate next" note.
   let turnValidated = false;
   let turnValidateCalled = false;
@@ -275,6 +277,7 @@ export async function streamChat(
   const tools = gateResearchTools(registry, () => researchClosedStepsLeft, {
     validated: () => turnValidated,
     validateCalled: () => turnValidateCalled,
+    validateFirstForced: () => turnValidateFirstForced,
     stepsUsed: () => turnStepsUsed
   });
   const capped = capMessages(messages);
@@ -391,16 +394,13 @@ export async function streamChat(
     prepareStep: async ({ steps, stepNumber, messages: currentMessages }) => {
       const currentStep = typeof stepNumber === "number" ? stepNumber : steps.length;
       // A validated turn must end with present_build, never with a text reply.
-      const forced = forcePresentDirectives(steps, currentStep);
+      const directives = forcePresentDirectives(steps, currentStep);
       followupsHeld = buildPending(steps);
-      researchClosedStepsLeft = isResearchClosed(steps, currentStep) ? stepsLeftAfter(currentStep) : null;
+      researchClosedStepsLeft = isLateTurnResearchClosed(steps, currentStep) ? stepsLeftAfter(currentStep) : null;
+      turnValidateFirstForced = mustCallValidateFirst(steps, currentStep);
       turnValidated = hasSuccessfulValidation(steps) || hasPresentedBuild(steps);
       turnValidateCalled = (steps ?? []).some((step) => (step?.toolCalls ?? []).some((call) => call?.toolName === "validate_build"));
       turnStepsUsed = currentStep;
-      // Tell the model research is closed instead of silently narrowing tools.
-      const directives = researchClosedStepsLeft === null
-        ? forced
-        : { ...forced, instructions: systemPrompt + researchClosedInstruction(researchClosedStepsLeft) };
       const currentTokens = calculateStepTokens({
         steps,
         currentMessages,

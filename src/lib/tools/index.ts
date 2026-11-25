@@ -1,13 +1,24 @@
 import type { ToolSet } from "ai";
 import type { AppConfig } from "@/types";
 import type { CatalogRepository } from "@/lib/catalog";
-import { createSearchProductsTool } from "./search-products";
+import { createSearchProductsTool, extractSearchResultEntries } from "./search-products";
 import { createListModelsTool } from "./list-models";
 import { createValidateBuildTool } from "./validate-build";
 import { createPresentBuildTool } from "./present-build";
 import { createSuggestFollowupsTool } from "./suggest-followups";
 import { createConsultTool } from "./consult";
 import { createTurnValidationStore, type TurnValidationStore } from "./turn-state";
+
+function recordFoundRows(
+  found: Map<string, string>,
+  rows: ReadonlyArray<{ id?: unknown; category?: unknown }> | undefined,
+  fallbackCategory?: unknown
+): void {
+  for (const row of rows ?? []) {
+    const category = typeof row?.category === "string" ? row.category : typeof fallbackCategory === "string" ? fallbackCategory : undefined;
+    if (typeof row?.id === "string" && category) found.set(row.id, category);
+  }
+}
 
 /**
  * Builds the tool set for one chat turn or MCP session. Pass `turnStore` to
@@ -35,8 +46,8 @@ export function createToolRegistry(
       ...search,
       execute: async (input, ctx) => {
         const output = await search.execute!(input, ctx);
-        for (const row of (output as { results?: Array<{ id?: unknown; category?: unknown }> }).results ?? []) {
-          if (typeof row?.id === "string" && typeof row.category === "string") found.set(row.id, row.category);
+        for (const entry of extractSearchResultEntries(input, output)) {
+          recordFoundRows(found, entry.results as ReadonlyArray<{ id?: unknown; category?: unknown }>, entry.category);
         }
         return output;
       }

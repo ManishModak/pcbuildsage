@@ -69,4 +69,91 @@ describe("stopAfterFollowups", () => {
   it("does not stop without suggest_followups", () => {
     expect(stopAfterFollowups({ steps: [] })).toBe(false);
   });
+
+  it("does not stop after present_build with followups when assistant text has not been written yet", () => {
+    const steps = [
+      { toolCalls: [{ toolName: "validate_build", toolCallId: "v1" }], toolResults: [validateSuccess("v1")] },
+      {
+        text: "",
+        toolCalls: [{ toolName: "present_build", toolCallId: "p1", input: { builds: [{ label: "Within budget" }], followups: ["Add a GPU later"] } }],
+        toolResults: [{ toolCallId: "p1", toolName: "present_build", output: { presented: true, followups: ["Add a GPU later"] } }]
+      }
+    ];
+    expect(hasFollowupsCall(steps as never)).toBe(true);
+    expect(stopAfterFollowups({ steps: steps as never })).toBe(false);
+  });
+
+  it("stops cleanly when assistant text accompanies a successful present_build with followups", () => {
+    const steps = [
+      { toolCalls: [{ toolName: "validate_build", toolCallId: "v1" }], toolResults: [validateSuccess("v1")] },
+      {
+        text: "Here is your within-budget build.",
+        toolCalls: [{ toolName: "present_build", toolCallId: "p1", input: { builds: [{ label: "Within budget" }], followups: ["Add a GPU later"] } }],
+        toolResults: [{ toolCallId: "p1", toolName: "present_build", output: { presented: true, followups: ["Add a GPU later"] } }]
+      }
+    ];
+    expect(stopAfterFollowups({ steps: steps as never })).toBe(true);
+  });
+
+  it("does not stop when present_build has no followups or was refused", () => {
+    const noFollowups = [
+      { toolCalls: [{ toolName: "validate_build", toolCallId: "v1" }], toolResults: [validateSuccess("v1")] },
+      {
+        text: "Here is your build.",
+        toolCalls: [{ toolName: "present_build", toolCallId: "p1", input: { builds: [{ label: "Within budget" }] } }],
+        toolResults: [{ toolCallId: "p1", toolName: "present_build", output: { presented: true } }]
+      }
+    ];
+    expect(hasFollowupsCall(noFollowups as never)).toBe(false);
+    expect(stopAfterFollowups({ steps: noFollowups as never })).toBe(false);
+
+    const refused = [
+      { toolCalls: [{ toolName: "validate_build", toolCallId: "v1" }], toolResults: [validateSuccess("v1")] },
+      {
+        text: "Here is your build.",
+        toolCalls: [{ toolName: "present_build", toolCallId: "p1", input: { builds: [{ label: "Typo" }], followups: ["Add a GPU later"] } }],
+        toolResults: [{ toolCallId: "p1", toolName: "present_build", output: { presented: false, error: "missing" } }]
+      }
+    ];
+    expect(stopAfterFollowups({ steps: refused as never })).toBe(false);
+  });
+
+  it("does not stop on earlier progress text or when present_build reports partial refusal or renamed labels", () => {
+    const progressOnly = [
+      { text: "I'll check prices first.", toolCalls: [{ toolName: "search_products", toolCallId: "q1" }], toolResults: [] },
+      { toolCalls: [{ toolName: "validate_build", toolCallId: "v1" }], toolResults: [validateSuccess("v1")] },
+      {
+        text: "",
+        toolCalls: [{ toolName: "present_build", toolCallId: "p1", input: { builds: [{ label: "Within budget" }], followups: ["Add a GPU later"] } }],
+        toolResults: [{ toolCallId: "p1", toolName: "present_build", output: { presented: true, followups: ["Add a GPU later"] } }]
+      }
+    ];
+    expect(stopAfterFollowups({ steps: progressOnly as never })).toBe(false);
+
+    const partialRefusal = [
+      { toolCalls: [{ toolName: "validate_build", toolCallId: "v1" }], toolResults: [validateSuccess("v1")] },
+      {
+        text: "Here are both builds.",
+        toolCalls: [{ toolName: "present_build", toolCallId: "p1", input: { builds: [{ label: "Within budget" }, { label: "Bad" }], followups: ["Add a GPU later"] } }],
+        toolResults: [{ toolCallId: "p1", toolName: "present_build", output: { presented: true, followups: ["Add a GPU later"], not_presented: [{ label: "Bad", error: "blocking" }] } }]
+      }
+    ];
+    expect(stopAfterFollowups({ steps: partialRefusal as never })).toBe(false);
+
+    const renamedLabel = [
+      { toolCalls: [{ toolName: "validate_build", toolCallId: "v1" }], toolResults: [validateSuccess("v1")] },
+      {
+        text: "Here is your within-budget build.",
+        toolCalls: [{ toolName: "present_build", toolCallId: "p1", input: { builds: [{ label: "Within budget" }], followups: ["Add a GPU later"] } }],
+        toolResults: [{ toolCallId: "p1", toolName: "present_build", output: { presented: true, followups: ["Add a GPU later"], label_note: "Shown under an honest label" } }]
+      }
+    ];
+    expect(stopAfterFollowups({ steps: renamedLabel as never })).toBe(false);
+
+    const textlessLegacyFollowups = [
+      { text: "Let me check prices first.", toolCalls: [{ toolName: "search_products", toolCallId: "q1" }], toolResults: [] },
+      { text: "", toolCalls: [{ toolName: "suggest_followups", toolCallId: "s1" }], toolResults: [] }
+    ];
+    expect(stopAfterFollowups({ steps: textlessLegacyFollowups as never })).toBe(false);
+  });
 });

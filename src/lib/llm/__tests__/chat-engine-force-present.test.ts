@@ -94,7 +94,6 @@ describe("chat-engine force-present directives", () => {
     expect(((await capturedPrepareStep!({ steps, stepNumber: 9, messages: [] })) as { toolChoice?: unknown }).toolChoice).toBe("required");
     const repeated = [...steps, { toolCalls: [{ ...validateCall("v3"), input: same }], toolResults: [validateSuccess("v3")] }] as never[];
     expect(await capturedPrepareStep!({ steps: repeated, stepNumber: 10, messages: [] })).toEqual({
-      activeTools: ["present_build"],
       toolChoice: { type: "tool", toolName: "present_build" }
     });
     // Far over the budget, a repeat is left to be fixed rather than presented (Lightning r32 office, 72,425 for 35,000).
@@ -142,47 +141,47 @@ describe("chat-engine force-present directives", () => {
     expect(result).toEqual({});
   });
 
-  it("restricts late-turn steps to validation and presentation tools", async () => {
+  it("keeps tool schemas invariant on late-turn validated steps while requiring a tool call", async () => {
     const validated = [
       { toolCalls: [validateCall("v1")], toolResults: [validateSuccess("v1")] }
     ] as never[];
     await expect(
       capturedPrepareStep!({ steps: validated, stepNumber: 20, messages: [] })
     ).resolves.toEqual({
-      activeTools: ["validate_build", "present_build"],
       toolChoice: "required"
     });
   });
 
-  it("closes research and forces validate_build when nothing is validated late in the turn", async () => {
+  it("closes research and forces validate_build late in the turn without mutating tools or system instructions", async () => {
     const result = (await capturedPrepareStep!({ steps: [], stepNumber: 20, messages: [] })) as {
       activeTools?: string[];
       toolChoice?: unknown;
       instructions?: string;
     };
-    // present_build can't succeed unvalidated and search is closed, so validate_build is the one call.
-    expect(result.activeTools).toEqual(["validate_build"]);
+    expect(result.activeTools).toBeUndefined();
+    expect(result.instructions).toBeUndefined();
     expect(result.toolChoice).toEqual({ type: "tool", toolName: "validate_build" });
-    expect(result.instructions).toContain("research is closed (4 steps left)");
-    expect(result.instructions).toContain("validate_build");
   });
 
-  it("allows text only on the final step when nothing was validated, so the turn cannot end empty", async () => {
+  it("allows text only on the final step when nothing was validated, without mutating instructions", async () => {
     const result = (await capturedPrepareStep!({ steps: [], stepNumber: 24, messages: [] })) as {
+      activeTools?: string[];
       toolChoice?: unknown;
       instructions?: string;
     };
+    expect(result.activeTools).toBeUndefined();
+    expect(result.instructions).toBeUndefined();
     expect(result.toolChoice).toBe("none");
-    expect(result.instructions).toContain("Answer now in text");
   });
 
-  it("forces present_build by name on the final step when validation succeeded but nothing is presented", async () => {
+  it("forces present_build by name on step 23 (reserving step 24 for text) and on the final step", async () => {
     const steps = [
       { toolCalls: [validateCall("v1")], toolResults: [validateSuccess("v1")] }
     ] as never[];
-    const result = await capturedPrepareStep!({ steps, stepNumber: 24, messages: [] });
-    expect(result).toEqual({
-      activeTools: ["present_build"],
+    expect(await capturedPrepareStep!({ steps, stepNumber: 23, messages: [] })).toEqual({
+      toolChoice: { type: "tool", toolName: "present_build" }
+    });
+    expect(await capturedPrepareStep!({ steps, stepNumber: 24, messages: [] })).toEqual({
       toolChoice: { type: "tool", toolName: "present_build" }
     });
   });
@@ -251,12 +250,11 @@ describe("pushForNearBudgetPresent", () => {
       { toolCalls: [presentCall("p1")], toolResults: [{ toolCallId: "p1", toolName: "present_build", output: { presented: true, far_over_budget: true } }] }
     ] as never[];
     expect(forcePresentDirectives(steps, 21)).toEqual({
-      activeTools: ["validate_build", "present_build"],
       toolChoice: "required"
     });
     expect(buildPending(steps)).toBe(true);
     // The final step presents, so a cheaper build validated since gets shown.
-    expect(forcePresentDirectives(steps, MAX_STEPS - 1)).toEqual({ activeTools: ["present_build"], toolChoice: { type: "tool", toolName: "present_build" } });
+    expect(forcePresentDirectives(steps, MAX_STEPS - 1)).toEqual({ toolChoice: { type: "tool", toolName: "present_build" } });
     // A build validated only inside present_build still keeps the turn forced.
     const presentedOnly = [steps[1]] as never[];
     expect(forcePresentDirectives(presentedOnly, 6)).toEqual({ toolChoice: "required" });

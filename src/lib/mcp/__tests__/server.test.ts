@@ -19,7 +19,8 @@ describe("PCBuildSage MCP server", () => {
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual(["list_models", "present_build", "search_products", "validate_build"]);
     const search = tools.find((tool) => tool.name === "search_products");
-    expect(search?.inputSchema.properties).toHaveProperty("category");
+    const queriesProp = (search?.inputSchema.properties as Record<string, { items?: { properties?: Record<string, unknown> } }> | undefined)?.queries;
+    expect(queriesProp?.items?.properties).toHaveProperty("category");
   });
 
   it("returns schema errors as tool errors instead of throwing", async () => {

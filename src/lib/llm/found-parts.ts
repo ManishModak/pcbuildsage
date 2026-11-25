@@ -1,13 +1,12 @@
 import type { ToolSet } from "ai";
+import { extractSearchResultEntries } from "@/lib/tools/search-products";
 
 type FoundPart = { id: string; name: string; price?: number };
 
 /** Rows of each category's latest search that a reminder lists. */
 const PARTS_PER_CATEGORY = 3;
 
-function searchRows(output: unknown): FoundPart[] {
-  const results = (output as { results?: unknown } | null)?.results;
-  if (!Array.isArray(results)) return [];
+function toFoundParts(results: ReadonlyArray<Record<string, unknown>>): FoundPart[] {
   return results
     .filter((row): row is { id: string; name: string; price?: unknown } =>
       Boolean(row) && typeof row.id === "string" && typeof row.name === "string")
@@ -15,9 +14,19 @@ function searchRows(output: unknown): FoundPart[] {
     .map((row) => ({ id: row.id.slice(0, 10), name: row.name, ...(typeof row.price === "number" ? { price: row.price } : {}) }));
 }
 
+function unwrapOutput(output: unknown): unknown {
+  if (!output || typeof output !== "object") return output;
+  const obj = output as Record<string, unknown>;
+  if ("value" in obj) return obj.value;
+  if (Array.isArray(obj.content) && obj.structuredContent && typeof obj.structuredContent === "object") {
+    return obj.structuredContent;
+  }
+  return output;
+}
+
 /** Categories a validate_build model output reports as left out of any build. */
 function missingCategories(value: unknown): string[] {
-  const builds = (value as { builds?: unknown } | null)?.builds;
+  const builds = (unwrapOutput(value) as { builds?: unknown } | null)?.builds;
   if (!builds || typeof builds !== "object") return [];
   const missing = new Set<string>();
   for (const entry of Object.values(builds)) {
@@ -70,7 +79,8 @@ export function rememberFoundParts(tools: ToolSet): ToolSet {
   // Every part a validate call this turn has passed, by category, and names of searched rows by 10-char ID.
   const picked = new Map<string, string>();
   const names = new Map<string, string>();
-  const droppedByCall = new Map<string, string[]>();
+  // Freeze per-call reminders at execution time so replaying earlier steps stays byte-identical.
+  const remindersByCall = new Map<string, { dropped?: string[]; reminder: Record<string, FoundPart[]> }>();
   const execute = search.execute;
   const validateExecute = validate.execute;
   const toModelOutput = validate.toModelOutput;
@@ -80,10 +90,28 @@ export function rememberFoundParts(tools: ToolSet): ToolSet {
       ...search,
       execute: (async (input: unknown, options: unknown) => {
         const output = await (execute as (input: unknown, options: unknown) => unknown)(input, options);
-        const category = (input as { category?: unknown } | null)?.category;
-        const rows = searchRows(output);
-        if (typeof category === "string" && rows.length > 0) found.set(category.trim().toLowerCase(), rows);
-        for (const row of searchRows(output)) names.set(row.id, row.name);
+        for (const entry of extractSearchResultEntries(input, output)) {
+          const rows = toFoundParts(entry.results);
+          for (const row of rows) names.set(row.id, row.name);
+          if (entry.category && rows.length > 0) {
+            found.set(entry.category, rows);
+          } else {
+            // Uncategorized search: group rows by their own category if present.
+            const byCategory = new Map<string, Array<Record<string, unknown>>>();
+            for (const row of entry.results) {
+              if (typeof row.category === "string" && row.category.trim()) {
+                const cat = row.category.trim().toLowerCase();
+                const list = byCategory.get(cat) ?? [];
+                list.push(row);
+                byCategory.set(cat, list);
+              }
+            }
+            for (const [cat, catRows] of byCategory) {
+              const foundRows = toFoundParts(catRows);
+              if (foundRows.length > 0) found.set(cat, foundRows);
+            }
+          }
+        }
         return output;
       }) as typeof execute
     } as typeof search,
@@ -94,22 +122,34 @@ export function rememberFoundParts(tools: ToolSet): ToolSet {
             execute: (async (input: unknown, options: unknown) => {
               const dropped = droppedParts(input, picked, names);
               const callId = (options as { toolCallId?: unknown } | null)?.toolCallId;
-              if (dropped.length > 0 && typeof callId === "string") droppedByCall.set(callId, dropped);
               for (const build of (input as BuildsInput | null)?.builds ?? []) {
                 for (const [category, part] of Object.entries(build?.parts ?? {})) {
                   const ref = partRef(part);
                   if (ref) picked.set(category, ref);
                 }
               }
-              return (validateExecute as (input: unknown, options: unknown) => unknown)(input, options);
+              const output = await (validateExecute as (input: unknown, options: unknown) => unknown)(input, options);
+              if (typeof callId === "string") {
+                const reminder = Object.fromEntries(
+                  missingCategories(output).flatMap((c) => (found.has(c) ? [[c, found.get(c)!]] : []))
+                );
+                remindersByCall.set(callId, {
+                  ...(dropped.length > 0 ? { dropped } : {}),
+                  reminder
+                });
+              }
+              return output;
             }) as typeof validateExecute
           }
         : {}),
       toModelOutput: (async (args: { toolCallId?: string }) => {
         const base = (await (toModelOutput as (a: unknown) => unknown)(args)) as { type?: string; value?: unknown } | null;
         if (base?.type !== "json" || !base.value || typeof base.value !== "object") return base;
-        const reminder = Object.fromEntries(missingCategories(base.value).flatMap((c) => (found.has(c) ? [[c, found.get(c)!]] : [])));
-        const dropped = args.toolCallId ? droppedByCall.get(args.toolCallId) : undefined;
+        const frozen = args.toolCallId ? remindersByCall.get(args.toolCallId) : undefined;
+        const reminder = frozen
+          ? frozen.reminder
+          : Object.fromEntries(missingCategories(base.value).flatMap((c) => (found.has(c) ? [[c, found.get(c)!]] : [])));
+        const dropped = frozen?.dropped;
         if (Object.keys(reminder).length === 0 && !dropped) return base;
         return {
           ...base,

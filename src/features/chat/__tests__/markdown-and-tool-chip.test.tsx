@@ -51,6 +51,48 @@ describe("ToolChip status", () => {
     );
     expect(done).not.toContain("rune-spinner");
     expect(done).toContain("2 results");
+
+    const batchDone = renderToStaticMarkup(
+      <ToolChip
+        part={{
+          type: "tool-search_products",
+          state: "output-available",
+          output: {
+            batch: true,
+            searches: [
+              { label: "gpu", category: "gpu", results: [1, 2, 3, 4, 5, 6] },
+              { label: "cpu", category: "cpu", results: [1, 2, 3, 4, 5, 6] },
+              { label: "motherboard", category: "motherboard", results: [1, 2, 3, 4, 5, 6] },
+              { label: "ram", category: "ram", results: [1, 2, 3, 4, 5, 6] },
+              { label: "storage", category: "storage", results: [1, 2, 3, 4, 5] },
+              { label: "psu", category: "psu", results: [1, 2, 3, 4, 5] }
+            ]
+          }
+        }}
+      />
+    );
+    expect(batchDone).toContain("Searched 6 categories · 34 parts");
+    expect(batchDone).not.toContain("0 results");
+
+    // Same category twice reports "queries", ignores failed/closed slots, and deduplicates overlapping IDs.
+    const sameCategoryAndPartial = renderToStaticMarkup(
+      <ToolChip
+        part={{
+          type: "tool-search_products",
+          state: "output-available",
+          output: {
+            batch: true,
+            searches: [
+              { label: "cpu", category: "cpu", results: [{ id: "cpu-1" }, { id: "cpu-2" }] },
+              { label: "cpu: Ryzen", category: "cpu", results: [{ id: "cpu-2" }, { id: "cpu-3" }] },
+              { label: "gpu", category: "gpu", results: [], search_closed: true, message: "Same call as step 1" },
+              { label: "ram", category: "ram", results: [], error: "transient error" }
+            ]
+          }
+        }}
+      />
+    );
+    expect(sameCategoryAndPartial).toContain("Searched 2 queries · 3 parts");
   });
 
   it("marks a failed call with text as well as colour", () => {
