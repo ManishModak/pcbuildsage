@@ -39,9 +39,9 @@ _DDR = re.compile(r"\bddr[345]\b", re.IGNORECASE)
 _RAM_CONFIRM = re.compile(r"\b(ram|dimm|sodimm|udimm)\b|\bcl\d{2}\b", re.IGNORECASE)
 
 _REMOVABLE = re.compile(
-    r"pen\s*drive|pendrive|flash\s+drive|jump\s*drive|data\s*traveler|datatraveler"
+    r"pen\s*drive|pendrive|flash\s+drive|thumb\s*drives?|jump\s*drive|data\s*traveler|datatraveler"
     r"|micro\s*sdxc|micro\s*sdhc|micro\s*sd|sdxc|sdhc|memory\s+card|card\s+reader"
-    r"|cruzer|\botg\b",
+    r"|cruzer|jetflash|transmemory|flash\s+voyager|\botg\b",
     re.IGNORECASE,
 )
 _EXTERNAL = re.compile(
@@ -52,23 +52,61 @@ _INTERNAL = re.compile(
     r"\bnvme\b|\bm\.?2\b|\bsata\b|\bssd\b|\bhdd\b|hard\s+disk|hard\s+drive",
     re.IGNORECASE,
 )
+# USB flash/thumb drives that omit "pen drive" / "portable" (e.g. "SanDisk Ultra
+# 64GB USB-A 3.2", "Samsung BAR Plus 128GB USB Type-A", "Kingston 64GB USB Drive").
+# Checked only after _EXTERNAL, _is_storage_adapter, and _INTERNAL so portable SSDs
+# and internal drives stay put.
+_USB_DRIVE = re.compile(
+    r"\busb\s*(?:drives?|sticks?|flash|[23](?:\.\d)?|type[-\s]?[ac]|-[ac])\b",
+    re.IGNORECASE,
+)
+# QNAP appliances/adapters and PCIe/M.2/network expansion or adapter cards on storage
+# shelves often name M.2/NVMe/SATA/SSD, so check them before _INTERNAL. Bundled
+# adapter clauses ("SSD including M.2 Adapter", "SSD with ... Adapter Cable") are
+# stripped before matching when the leading product is an identified internal drive.
+_STORAGE_ADAPTER = re.compile(
+    r"\bqnap\b"
+    r"|\b(?:expansion|controller|riser|raid|host\s+adapter|adapter)\s+cards?\b"
+    r"|\b(?:pcie|pci-e|pci\s+express|network|ethernet|lan)\s+(?:\S+\s+){0,4}adapter\b"
+    r"|\b(?:m\.?2|nvme|sata|u\.?2)\s+(?:(?:to\s+\S+\s+){1,2})?adapter\b"
+    r"|\b(?:drive|ssd|hdd|storage)\s+adapter\b",
+    re.IGNORECASE,
+)
+_BUNDLE_CLAUSE = re.compile(
+    r"\b(?:with|including|includes|w/|bundled\s+with|comes\s+with)\b.*$",
+    re.IGNORECASE,
+)
 _ACCESSORY = re.compile(r"\bnas\b|rail\s*kit|\bcaddy\b|\bbracket\b", re.IGNORECASE)
 
 # Other shelves hold non-build items too: Vishal Peripherals' cooler collection
-# lists case-fan packs, its PSU shelf lists UPS units, and most stores' RAM
-# shelves include laptop SO-DIMMs. These rows are tagged `accessory` so build
-# searches skip them. A fan needs positive evidence (case/radiator fan, a pack
-# or kit, a size in mm) and no claim of a CPU cooler: "ANT ESPORTS ICE-C200 V2
-# LED FAN" is a CPU cooler, and so is PrimeABGB's "Deepcool AK620 G2 120mm
-# Cabinet FAN" (DeepCool's AK/AG model numbers are air coolers).
+# lists case-fan packs, TPS lists Thermaltake SWAFAN packs, its PSU shelf lists
+# UPS units, GPU shelves can list Jetson dev kits, and most stores' RAM shelves
+# include laptop SO-DIMMs. These rows are tagged `accessory` so build searches
+# skip them. A fan needs positive evidence (case/radiator fan, a pack or kit,
+# a size in mm, or the SWAFAN case-fan line) and no claim of a CPU cooler:
+# "ANT ESPORTS ICE-C200 V2 LED FAN" is a CPU cooler, and so is PrimeABGB's
+# "Deepcool AK620 G2 120mm Cabinet FAN" (DeepCool's AK/AG model numbers are air coolers).
 _FAN = re.compile(r"\bfans?\b", re.IGNORECASE)
+_SWAFAN = re.compile(r"\bswafan\b", re.IGNORECASE)
 _FAN_EVIDENCE = re.compile(
     r"\b(?:case|cabinet|chassis|radiator|system)\s+fans?\b|\bfans?\s+(?:pack|kit)\b"
     r"|\b(?:single|dual|twin|triple|quad|\d)\s*[-\s]?(?:pack|in[-\s]?1)\b|\b\d{2,3}\s*mm\b",
     re.IGNORECASE,
 )
-_CPU_COOLER = re.compile(
-    r"\bcpu\b|\b(?:air|liquid|water)\s+cooler\b|\baio\b|heat\s*sink|\btower\b|\bdeepcool\s+a[gk]\d{3}\b",
+_AIO_COOLER = re.compile(
+    r"\baio\b"
+    r"|\b(?:liquid|water)\s+(?:cpu\s+)?cool(?:er|ing)\b"
+    r"|\bcpu\s+(?:liquid|water)\s+cool(?:er|ing)\b"
+    r"|\ball[-\s]?in[-\s]?one\s+(?:cpu\s+|liquid\s+|water\s+)?cool(?:er|ing)\b",
+    re.IGNORECASE,
+)
+_AIR_CPU_COOLER = re.compile(
+    r"\bcpu\b|\bair\s+cooler\b|heat\s*sink|\btower\b|\bdeepcool\s+a[gk]\d{3}\b",
+    re.IGNORECASE,
+)
+# Standalone fans advertised *for* AIO/liquid-cooling radiators are accessories, not coolers.
+_FOR_COOLING_CLAUSE = re.compile(
+    r"\bfor\s+(?:\S+\s+){0,3}(?:aio|liquid\s+cool(?:er|ing)|water\s+cool(?:er|ing)|radiators?)\b",
     re.IGNORECASE,
 )
 # Thermal paste also sits on cooler shelves (EZPZ, PrimeABGB); a cooler that
@@ -76,6 +114,7 @@ _CPU_COOLER = re.compile(
 _THERMAL_PASTE = re.compile(r"\bthermal\s+(?:grease|paste|compound|pads?|putty)\b", re.IGNORECASE)
 _COOLER_WORD = re.compile(r"\bcoolers?\b", re.IGNORECASE)
 _UPS = re.compile(r"\bups\b|\b\d+\s*va\b", re.IGNORECASE)
+_NON_DESKTOP_GPU = re.compile(r"\bjetson\b", re.IGNORECASE)
 # Mirrors statesSodimm in src/lib/spec-parsers.ts.
 _SODIMM = re.compile(r"\bso[-\s]?dimms?\b", re.IGNORECASE)
 _LAPTOP = re.compile(r"\b(?:laptop|notebook)s?\b", re.IGNORECASE)
@@ -93,20 +132,108 @@ _COOLING_PART = re.compile(
     re.IGNORECASE,
 )
 
+# Guard against PC cases that mention AIO radiator support ("Supports 360mm AIO",
+# "compatible with 360mm AIO", "360mm AIO Support").
+_CASE_INDICATOR = re.compile(
+    r"\b(?:cabinet|chassis|case|mid[-\s]?tower|full[-\s]?tower|mini[-\s]?tower|super[-\s]?tower"
+    r"|e-?atx|m-?atx|micro[-\s]?atx|mini[-\s]?itx|atx)\b"
+    r"|\b(?:supports?|compatible\s+with)\s+(?:\S+\s+){0,4}(?:aio|liquid\s+cool(?:er|ing)|water\s+cool(?:er|ing)|radiator)\b"
+    r"|\b(?:aio|liquid\s+cool(?:er|ing)|water\s+cool(?:er|ing)|radiator)\s+(?:support|ready|compatible)\b",
+    re.IGNORECASE,
+)
+
+# DDR RAM kits (e.g. AORUS memory kits) occasionally land under motherboards.
+# Guard strictly against real motherboard titles that name DDR4/DDR5 support,
+# chipsets (including B840), or board memory slot/max-capacity specs.
+_MOTHERBOARD_CHIPSET = (
+    r"\b[abhxz](?:320|350|370|410|450|460|470|490|510|520|550|560|570|590"
+    r"|610|620|650|660|670|690|760|790|810|840|850|860|870|890)[a-z0-9]*\b"
+    r"|\b(?:trx[45]0|wrx[89]0|x299|x399)\b"
+)
+_MOTHERBOARD_INDICATOR = re.compile(
+    r"\bmotherboard\b|\bmainboard\b|\bmobo\b"
+    r"|\b(?:e-?atx|m-?atx|micro[-\s]?atx|mini[-\s]?itx|atx)\b"
+    r"|\bmax(?:imum)?\s+memory(?:\s+capacity)?\b|\bmemory\s+slots?\b"
+    r"|\b\d+\s*x\s*ddr[345]\s+(?:u?dimm|slots?)\b"
+    rf"|{_MOTHERBOARD_CHIPSET}",
+    re.IGNORECASE,
+)
+_MOTHERBOARD_SOCKET = re.compile(r"\b(?:am[45]|lga\s*\d{4}|strx?4|str5)\b", re.IGNORECASE)
+# Contextual platform compatibility on RAM kits ("for AM4", "for AMD AM5 / Intel LGA1700").
+_FOR_PLATFORM_SOCKET = re.compile(
+    r"\bfor\s+(?:(?:amd|intel|ryzen|core)\s+){0,2}(?:am[45]|lga\s*\d{4}|strx?4|str5)\b",
+    re.IGNORECASE,
+)
+_MEMORY_WORD = re.compile(r"\bmemory\b", re.IGNORECASE)
+_RAM_KIT_EVIDENCE = re.compile(
+    r"\b(?:ram|u?dimm|so[-\s]?dimm)\b|\bcl\d{2}\b|\bmemory\s+kit\b|\bdesktop\s+memory\b"
+    r"|\b\d+\s*x\s*\d+\s*gb\b"
+    r"|\b\d+\s*gb\b(?=.{0,40}\b(?:\d{4}\s*(?:mhz|mt/s)|memory)\b)"
+    r"|\b\d+\s*gb\b.{0,20}\bddr[345][-\s]?\d{4}\b"
+    r"|\bmemory\b(?=.{0,40}\b\d+\s*gb\b)",
+    re.IGNORECASE,
+)
+_RAM_KIT_SPEC = re.compile(
+    r"\b\d+\s*x\s*\d+\s*gb\b|\b\d+\s*gb\b.{0,30}\b\d{4}\s*(?:mhz|mt/s)\b|\bmemory\s+kit\b",
+    re.IGNORECASE,
+)
+
+
+def _is_aio_cooler_product(name: str) -> bool:
+    """True when the title describes an AIO/liquid CPU cooler itself, not a fan for one."""
+    return bool(_AIO_COOLER.search(_FOR_COOLING_CLAUSE.sub(" ", name)))
+
+
+def _is_cpu_cooler_product(name: str) -> bool:
+    """Shared positive cooler predicate across category reclassification and fan filtering."""
+    cleaned = _FOR_COOLING_CLAUSE.sub(" ", name)
+    return bool(_AIO_COOLER.search(cleaned) or _AIR_CPU_COOLER.search(cleaned))
+
+
+def _is_motherboard_title(name: str) -> bool:
+    """True when the title carries motherboard evidence, ignoring 'for AM4/AM5' RAM notes."""
+    if _MOTHERBOARD_INDICATOR.search(name):
+        return True
+    without_for_socket = _FOR_PLATFORM_SOCKET.sub(" ", name)
+    return bool(_MOTHERBOARD_SOCKET.search(without_for_socket))
+
+
+def _is_storage_adapter(name: str) -> bool:
+    """True for adapter/expansion cards, without tripping on SSDs bundled with an adapter."""
+    bundle = _BUNDLE_CLAUSE.search(name)
+    if bundle:
+        lead = name[: bundle.start()]
+        if _INTERNAL.search(lead) and not _STORAGE_ADAPTER.search(lead):
+            return False
+    return bool(_STORAGE_ADAPTER.search(name))
+
 
 def reclassify_category(name: str, category: str) -> str:
     """Correct a retailer's shelf category when the title says otherwise.
 
-    Two misfilings observed in the live catalog are corrected:
+    Misfilings observed in the live catalog are corrected:
     - RAM in storage: made the assistant tell a user "RAM is unavailable" while
       three DDR5 sticks sat in the storage aisle.
+    - RAM in motherboard: memory kits (e.g. AORUS memory kits) sitting under
+      motherboards while real boards naming DDR4/DDR5 stay put.
     - Graphics cards in cooler: MDComputers' cooler path redirected to its
       homepage, whose promo carousels (mostly GPUs) were saved as coolers and
       hidden from GPU searches.
+    - AIO coolers in case: liquid coolers (e.g. Antec AIO) sitting under
+      cabinets while cases mentioning AIO radiator support stay put.
     Rules are deliberately narrow; a missed correction is cheaper than moving a
     real part off its shelf.
     """
     if category == "storage" and _DDR.search(name) and _RAM_CONFIRM.search(name):
+        return "ram"
+    if (
+        category == "motherboard"
+        and not _is_motherboard_title(name)
+        and (
+            (_DDR.search(name) and _RAM_KIT_EVIDENCE.search(name))
+            or (_MEMORY_WORD.search(name) and _RAM_KIT_SPEC.search(name))
+        )
+    ):
         return "ram"
     if (
         category == "cooler"
@@ -115,6 +242,8 @@ def reclassify_category(name: str, category: str) -> str:
         and not _COOLING_PART.search(name)
     ):
         return "gpu"
+    if category == "case" and _is_aio_cooler_product(name) and not _CASE_INDICATOR.search(name):
+        return "cooler"
     return category
 
 
@@ -122,19 +251,23 @@ def classify_subcategory(name: str, category: str) -> str | None:
     """Return the build role of a product, or None when the category has no split.
 
     Order is load-bearing. External must precede internal, or a "Portable SSD"
-    reads as an internal drive; internal must precede accessory, or a "4TB NAS
-    HDD" (a real internal drive) reads as a NAS box. Storage titles that match
-    nothing default to `internal`: hiding a genuine SSD from a build is a worse
-    failure than admitting an unknown, and misclassification here is one UPDATE
-    to undo, whereas exclusion is silent. Outside storage only clear non-build
-    items get a subcategory; every other row stays None.
+    reads as an internal drive; storage adapters must precede internal, or a
+    "QNAP M.2 SSD Expansion Card" reads as an internal drive; internal must
+    precede bare USB drives and generic accessories, or a "4TB NAS HDD" reads as
+    a NAS box and a USB-connected SSD reads as a thumb drive. Storage titles
+    that match nothing default to `internal`: hiding a genuine SSD from a build
+    is a worse failure than admitting an unknown, and misclassification here is
+    one UPDATE to undo, whereas exclusion is silent. Outside storage only clear
+    non-build items get a subcategory; every other row stays None.
     """
     if category == "cooler":
-        if _FAN.search(name) and _FAN_EVIDENCE.search(name) and not _CPU_COOLER.search(name):
+        if (_SWAFAN.search(name) or (_FAN.search(name) and _FAN_EVIDENCE.search(name))) and not _is_cpu_cooler_product(name):
             return "accessory"
         if _THERMAL_PASTE.search(name) and not _COOLER_WORD.search(name):
             return "accessory"
         return None
+    if category == "gpu":
+        return "accessory" if _NON_DESKTOP_GPU.search(name) else None
     if category == "psu":
         return "accessory" if _UPS.search(name) else None
     if category == "ram":
@@ -146,8 +279,12 @@ def classify_subcategory(name: str, category: str) -> str | None:
         return "removable"
     if _EXTERNAL.search(name):
         return "external"
+    if _is_storage_adapter(name):
+        return "accessory"
     if _INTERNAL.search(name):
         return BUILD_SUBCATEGORY
+    if _USB_DRIVE.search(name):
+        return "removable"
     if _ACCESSORY.search(name):
         return "accessory"
     return BUILD_SUBCATEGORY
