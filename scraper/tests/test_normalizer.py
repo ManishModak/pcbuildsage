@@ -139,6 +139,83 @@ def test_reclassify_category_real_coolers_stay() -> None:
     assert reclassify_category("EK Quantum Vector RTX 4090 Water Block for Graphics Card", "cooler") == "cooler"
 
 
+def test_swafan_packs_on_cooler_shelf_are_accessories() -> None:
+    # Case 1: Thermaltake SWAFAN packs on cooler shelves -> accessory; real coolers stay untagged.
+    assert classify_subcategory("Thermaltake SWAFAN EX12 ARGB Sync White (3-Pack)", "cooler") == "accessory"
+    assert classify_subcategory("Thermaltake SWAFAN EX14 ARGB Sync PC Cooling Fan (3-Fan Pack)", "cooler") == "accessory"
+    assert classify_subcategory("Thermaltake SWAFAN 12 RGB Radiator Fan Pack", "cooler") == "accessory"
+    assert classify_subcategory("Thermaltake Toughair 510 CPU Cooler", "cooler") is None
+    assert classify_subcategory("Thermaltake TH360 V2 ARGB Sync AIO Liquid Cooler", "cooler") is None
+    assert classify_subcategory("Thermaltake TH360 V2 ARGB AIO Liquid Cooler with SWAFAN", "cooler") is None
+
+
+def test_aio_coolers_on_case_shelf_reclassify_while_real_cases_stay() -> None:
+    # Case 2: Antec / similar AIOs in case -> cooler, and their subcategory stays build-eligible (None).
+    for title in (
+        "Antec Symphony 360 ARGB AIO Liquid Cooler",
+        "Antec Vortex 240 ARGB All-in-One Liquid CPU Cooler",
+        "Antec Vortex Lum 360 ARGB AIO",
+        "Deepcool LE520 240mm AIO Liquid Cooler",
+    ):
+        assert reclassify_category(title, "case") == "cooler"
+        assert classify_subcategory(title, "cooler") is None
+
+    # Negative: PC cases mentioning AIO radiator support must remain cases.
+    assert reclassify_category("Antec CX700 RGB Elite ATX Mid Tower Cabinet - Supports 360mm AIO Liquid Cooler", "case") == "case"
+    assert reclassify_category("Lian Li O11 Vision Compact Supports 360mm AIO Liquid Cooler", "case") == "case"
+    assert reclassify_category("Deepcool CG580 4F Mid-Tower Cabinet (360mm AIO Support)", "case") == "case"
+    assert reclassify_category("NZXT H7 Flow Mid Tower Case - Support 240mm / 360mm Radiator", "case") == "case"
+
+
+def test_jetson_dev_kits_on_gpu_shelf_are_accessories() -> None:
+    # Case 3: NVIDIA Jetson dev kits under gpu -> accessory; real GPUs stay untagged.
+    assert classify_subcategory("NVIDIA Jetson Orin Nano Super Developer Kit", "gpu") == "accessory"
+    assert classify_subcategory("NVIDIA Jetson Nano 4GB Dev Kit", "gpu") == "accessory"
+    assert classify_subcategory("NVIDIA GeForce RTX 4070 Super 12GB Graphics Card", "gpu") is None
+    assert classify_subcategory("Gigabyte RTX 5070 Ti Windforce OC 16GB", "gpu") is None
+
+
+def test_qnap_and_storage_adapters_are_accessories() -> None:
+    # Case 4: QNAP adapters / expansion cards under storage -> accessory; real internal drives stay internal.
+    assert classify_subcategory("QNAP QM2-2P-384A Dual M.2 PCIe NVMe SSD Expansion Card", "storage") == "accessory"
+    assert classify_subcategory("QNAP QXG-10G1T 10GbE PCIe Network Adapter", "storage") == "accessory"
+    assert classify_subcategory("QNAP QDA-A2AR Dual 2.5-inch SATA Drive Adapter", "storage") == "accessory"
+    assert classify_subcategory("Orico M.2 NVMe to PCIe 3.0 x4 Adapter Card", "storage") == "accessory"
+    assert classify_subcategory("Samsung 990 PRO 2TB M.2 NVMe Gen4 Internal SSD", "storage") == "internal"
+    assert classify_subcategory("Crucial MX500 1TB 2.5-inch SATA SSD", "storage") == "internal"
+    assert classify_subcategory("Seagate IronWolf 4TB NAS Internal HDD", "storage") == "internal"
+
+
+def test_usb_flash_and_thumb_drives_without_portable_are_removable() -> None:
+    # Case 5: USB flash/thumb drives without "portable" -> removable; portable SSDs stay external, NVMe/SATA stay internal.
+    assert classify_subcategory("SanDisk Ultra Flair 64GB USB 3.2", "storage") == "removable"
+    assert classify_subcategory("Kingston DataTraveler 64GB USB Drive", "storage") == "removable"
+    assert classify_subcategory("Verbatim 128GB USB Drive", "storage") == "removable"
+    assert classify_subcategory("SanDisk 64GB Thumb Drive", "storage") == "removable"
+    assert classify_subcategory("Samsung BAR Plus 128GB USB-C", "storage") == "removable"
+    assert classify_subcategory("Samsung T7 1TB Portable SSD USB 3.2 Gen 2", "storage") == "external"
+    assert classify_subcategory("WD My Passport 2TB External HDD USB 3.0", "storage") == "external"
+    assert classify_subcategory("WD Black SN850X 1TB M.2 NVMe SSD", "storage") == "internal"
+    assert classify_subcategory("Kingston A400 480GB 2.5 SATA SSD", "storage") == "internal"
+
+
+def test_ddr_ram_kits_on_motherboard_shelf_reclassify_while_boards_stay() -> None:
+    # Case 6: AORUS memory kits and DDR RAM kits under motherboards -> ram.
+    assert reclassify_category("Gigabyte AORUS RGB Memory 16GB (2x8GB) 3733MHz DDR4", "motherboard") == "ram"
+    assert reclassify_category("Gigabyte AORUS RGB Memory 16GB (2x8GB) 3333MHz", "motherboard") == "ram"
+    assert reclassify_category("Gigabyte AORUS Memory 32GB (2x16GB) DDR5 6000MT/s", "motherboard") == "ram"
+    assert reclassify_category("Corsair Vengeance 32GB (2x16GB) DDR5 6000MHz CL30", "motherboard") == "ram"
+    assert reclassify_category("Kingston Fury Beast 16GB DDR5 5200MHz", "motherboard") == "ram"
+    assert reclassify_category("G.Skill Ripjaws V 16GB DDR4 Desktop RAM", "motherboard") == "ram"
+
+    # Negative: real motherboards mentioning DDR4/DDR5 must stay motherboard.
+    assert reclassify_category("Gigabyte B650 AORUS Elite DDR5 Motherboard", "motherboard") == "motherboard"
+    assert reclassify_category("Gigabyte B650 AORUS Elite AX DDR5", "motherboard") == "motherboard"
+    assert reclassify_category("MSI PRO B760M-A WIFI DDR4", "motherboard") == "motherboard"
+    assert reclassify_category("ASUS PRIME H610M-E DDR4 Motherboard", "motherboard") == "motherboard"
+    assert reclassify_category("ASUS ROG Strix Z790-E Gaming WiFi DDR5", "motherboard") == "motherboard"
+
+
 def test_parse_cpu_package_clues() -> None:
     assert parse_cpu_package("AMD Ryzen 5 5600 with Wraith Stealth Cooler") == {
         "cooler_included": "included",
