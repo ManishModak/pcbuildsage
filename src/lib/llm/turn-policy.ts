@@ -165,20 +165,39 @@ function presentSettled(steps: StepLike[] | undefined | null): boolean {
   return presented.some((res) => (unwrapToolOutput(res.output ?? res.result) as { far_over_budget?: unknown }).far_over_budget !== true);
 }
 
-/** True once suggest_followups has been called in the current turn. */
+function hasNonEmptyFollowups(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const followups = (value as { followups?: unknown }).followups;
+  return Array.isArray(followups) && followups.some((item) => typeof item === "string" && item.trim().length > 0);
+}
+
+function isFollowupsToolCall(call: StepToolCallLike | null | undefined, result?: StepToolResultLike): boolean {
+  if (call?.toolName === "suggest_followups") return true;
+  if (call?.toolName !== "present_build") return false;
+  if (hasNonEmptyFollowups(call.input)) return true;
+  return hasNonEmptyFollowups(unwrapToolOutput(result?.output ?? result?.result));
+}
+
+/** True once suggest_followups or present_build with followups has been called in the current turn. */
 export function hasFollowupsCall(steps: StepLike[] | undefined | null): boolean {
+  const resultsById = new Map<string, StepToolResultLike>();
+  for (const step of steps ?? []) {
+    for (const res of step?.toolResults ?? []) {
+      if (typeof res?.toolCallId === "string") resultsById.set(res.toolCallId, res);
+    }
+  }
   return (steps ?? []).some((step) =>
-    (step?.toolCalls ?? []).some((call) => call?.toolName === "suggest_followups")
+    (step?.toolCalls ?? []).some((call) => isFollowupsToolCall(call, typeof call?.toolCallId === "string" ? resultsById.get(call.toolCallId) : undefined))
   );
 }
 
 /**
- * End the turn after suggest_followups once the text reply is written,
- * without breaking force-present: a validated-but-unpresented turn keeps
- * going so present_build can still be forced.
+ * End the turn after suggest_followups (or present_build with followups) once
+ * the text reply is written, without breaking force-present: a validated-but-
+ * unpresented turn keeps going so present_build can still be forced.
  *
  * Only stops when (a) the turn already has non-empty assistant text, so the
- * user never gets chips without a reply, and (b) suggest_followups is in the
+ * user never gets chips without a reply, and (b) follow-ups are in the
  * latest step and every other call in that step needs no model follow-up
  * (only a successful present_build qualifies): a parallel search_products or
  * a rejected present_build has results the model still has to read.
@@ -189,9 +208,9 @@ export function stopAfterFollowups({ steps }: { steps: StepLike[] }): boolean {
   if (!(steps ?? []).some((step) => typeof step?.text === "string" && step.text.trim().length > 0)) return false;
   const last = steps.at(-1);
   const calls = last?.toolCalls ?? [];
-  if (!calls.some((call) => call?.toolName === "suggest_followups")) return false;
   const names = callNamesById(steps);
   const resultsById = new Map((last?.toolResults ?? []).map((res) => [res?.toolCallId, res]));
+  if (!calls.some((call) => isFollowupsToolCall(call, resultsById.get(call?.toolCallId)))) return false;
   return calls.every((call) => {
     if (call?.toolName === "suggest_followups") return true;
     if (call?.toolName !== "present_build") return false;
@@ -387,14 +406,26 @@ function isBuildingTurn(steps: StepLike[] | undefined | null): boolean {
   return searchedEveryCoreCategory((steps ?? []).flatMap((step) => step?.toolCalls ?? []));
 }
 
-/** True when the calls include a search_products call for every core category. */
+function inputCategories(input: unknown): string[] {
+  if (!input || typeof input !== "object") return [];
+  const obj = input as { category?: unknown; queries?: unknown };
+  const out: string[] = [];
+  if (typeof obj.category === "string") out.push(obj.category.trim().toLowerCase());
+  if (Array.isArray(obj.queries)) {
+    for (const q of obj.queries) {
+      const cat = (q as { category?: unknown } | null)?.category;
+      if (typeof cat === "string") out.push(cat.trim().toLowerCase());
+    }
+  }
+  return out;
+}
+
+/** True when the calls include a search_products call (single or batch) for every core category. */
 function searchedEveryCoreCategory(calls: StepToolCallLike[]): boolean {
   const searched = new Set(
     calls
       .filter((call) => call?.toolName === "search_products")
-      .map((call) => (call?.input as { category?: unknown } | null)?.category)
-      .filter((category): category is string => typeof category === "string")
-      .map((category) => category.trim().toLowerCase())
+      .flatMap((call) => inputCategories(call?.input))
   );
   return CORE_SEARCH_CATEGORIES.every((category) => searched.has(category));
 }
@@ -419,14 +450,15 @@ export function mustCallValidateFirst(steps: StepLike[] | undefined | null, step
 /** Research tools that close late in a turn that has nothing validated yet. */
 const RESEARCH_TOOLS = ["search_products", "list_models", "consult"] as const;
 
-/** True when the turn holds two identical research calls (as researchCallKey sees them). */
+/** True when the turn holds two identical research calls or sub-queries (as researchCallKey sees them). */
 function hasRepeatedResearchCall(calls: StepToolCallLike[]): boolean {
   const seen = new Set<string>();
   for (const call of calls) {
     if (typeof call?.toolName !== "string" || !(RESEARCH_TOOLS as readonly string[]).includes(call.toolName)) continue;
-    const key = researchCallKey(call.toolName, call.input);
-    if (seen.has(key)) return true;
-    seen.add(key);
+    for (const key of researchCallKeys(call.toolName, call.input)) {
+      if (seen.has(key)) return true;
+      seen.add(key);
+    }
   }
   return false;
 }
@@ -536,11 +568,42 @@ function topRows(output: unknown): string[] {
   });
 }
 
-/** Identity of a research call: tool name plus its input with keys sorted, ignoring `limit`. */
+/** Identity of a research call: tool name plus its input with keys sorted, ignoring `limit` and default `in_stock: true`. */
 function researchCallKey(name: string, input: unknown): string {
   if (!input || typeof input !== "object" || Array.isArray(input)) return `${name}:${JSON.stringify(input)}`;
-  const entries = Object.entries(input).filter(([key, value]) => key !== "limit" && value !== undefined);
+  const entries = Object.entries(input)
+    .filter(([key, value]) => {
+      if (key === "limit" || value === undefined) return false;
+      if (name === "search_products" && key === "in_stock" && value === true) return false;
+      return true;
+    })
+    .map(([key, value]): [string, unknown] =>
+      key === "category" && typeof value === "string" ? [key, value.trim().toLowerCase()] : [key, value]
+    );
   return `${name}:${JSON.stringify(entries.sort(([a], [b]) => a.localeCompare(b)))}`;
+}
+
+function researchCallKeys(name: string, input: unknown): string[] {
+  if (name === "search_products" && input && typeof input === "object" && !Array.isArray(input)) {
+    const queries = (input as { queries?: unknown }).queries;
+    if (Array.isArray(queries) && queries.length > 0) {
+      return queries.map((q) => researchCallKey("search_products", q));
+    }
+  }
+  return [researchCallKey(name, input)];
+}
+
+function batchSubLabel(sub: unknown, index: number): string {
+  if (!sub || typeof sub !== "object") return `search_${index + 1}`;
+  const s = sub as { category?: unknown; term?: unknown; query?: unknown; model_id?: unknown };
+  const category = typeof s.category === "string" ? s.category.trim().toLowerCase() : "";
+  const term = typeof s.term === "string" ? s.term.trim() : typeof s.query === "string" ? s.query.trim() : "";
+  const modelId = typeof s.model_id === "string" ? s.model_id.trim() : "";
+  if (category && term) return `${category}: ${term}`;
+  if (category) return category;
+  if (term) return term;
+  if (modelId) return modelId;
+  return `search_${index + 1}`;
 }
 
 /** Where the turn stands, read by the research gate when it runs a tool. */
@@ -604,6 +667,128 @@ export function gateResearchTools(tools: ToolSet, closedStepsLeft: () => number 
         if (mustValidateFirst()) {
           return { results: [], search_closed: true, message: validateFirstMessage(progress!.stepsUsed() + 1) } satisfies ClosedResearchOutput;
         }
+
+        const batchQueries =
+          name === "search_products" && input && typeof input === "object" && !Array.isArray(input)
+            ? (input as { queries?: unknown }).queries
+            : undefined;
+        if (Array.isArray(batchQueries)) {
+          const rawInput = input as Record<string, unknown>;
+          const hasMixed = Object.entries(rawInput).some(
+            ([k, v]) => k !== "queries" && k !== "in_stock" && k !== "limit" && v !== undefined
+          ) || rawInput.in_stock === false;
+          if (batchQueries.length === 0 || hasMixed) {
+            return (execute as (input: unknown, options: unknown) => unknown)(input, options);
+          }
+
+          const capped = batchQueries.slice(0, 8);
+          const slotResults: Array<Record<string, unknown>> = new Array(capped.length);
+          const toRun: Array<{
+            index: number;
+            sub: unknown;
+            key: string;
+            entry: { step: number; rows: string[]; outcome: RepeatOutcome };
+          }> = [];
+
+          for (let i = 0; i < capped.length; i++) {
+            const sub = capped[i];
+            const subKey = researchCallKey("search_products", sub);
+            const earlier = seen.get(subKey);
+            if (earlier !== undefined) {
+              const cat = (sub as { category?: unknown } | null)?.category;
+              slotResults[i] = {
+                label: batchSubLabel(sub, i),
+                ...(typeof cat === "string" ? { category: cat.trim().toLowerCase() } : {}),
+                results: [],
+                search_closed: true,
+                message: repeatedSearchMessage(earlier.step, earlier.rows, earlier.outcome)
+              };
+              continue;
+            }
+            const entry = { step: (progress?.stepsUsed() ?? 0) + 1, rows: [] as string[], outcome: "pending" as RepeatOutcome };
+            seen.set(subKey, entry);
+            toRun.push({ index: i, sub, key: subKey, entry });
+          }
+
+          if (toRun.length === 0) {
+            return {
+              batch: true,
+              searches: slotResults,
+              results: [],
+              search_closed: true,
+              message: slotResults.map((s) => `${String(s.label)}: ${String(s.message)}`).join("\n")
+            };
+          }
+
+          let output: unknown;
+          try {
+            output = await (execute as (input: unknown, options: unknown) => unknown)(
+              { queries: toRun.map((item) => item.sub) },
+              options
+            );
+          } catch (error) {
+            for (const item of toRun) seen.delete(item.key);
+            throw error;
+          }
+
+          if (typeof (output as { error?: unknown } | null)?.error === "string") {
+            for (const item of toRun) seen.delete(item.key);
+            return output;
+          }
+
+          const batchOut = output as { batch?: unknown; searches?: unknown[] } | null;
+          if (batchOut?.batch === true && Array.isArray(batchOut.searches)) {
+            for (let j = 0; j < toRun.length; j++) {
+              const item = toRun[j];
+              const subOut = batchOut.searches[j] as Record<string, unknown> | undefined;
+              if (!subOut || typeof subOut.error === "string") {
+                seen.delete(item.key);
+                if (subOut) slotResults[item.index] = subOut;
+                continue;
+              }
+              const cat =
+                typeof (item.sub as { category?: unknown } | null)?.category === "string"
+                  ? ((item.sub as { category: string }).category)
+                  : typeof subOut.category === "string"
+                    ? subOut.category
+                    : undefined;
+              if (cat) searched.add(cat.trim().toLowerCase());
+              item.entry.rows = topRows(subOut);
+              item.entry.outcome = resultRows(subOut)?.length === 0 ? "empty" : "rows";
+              slotResults[item.index] = subOut;
+            }
+          } else {
+            for (const item of toRun) {
+              const cat = (item.sub as { category?: unknown } | null)?.category;
+              if (typeof cat === "string") searched.add(cat.trim().toLowerCase());
+              item.entry.rows = topRows(output);
+              item.entry.outcome = resultRows(output)?.length === 0 ? "empty" : "rows";
+              slotResults[item.index] = {
+                label: batchSubLabel(item.sub, item.index),
+                ...(typeof cat === "string" ? { category: cat.trim().toLowerCase() } : {}),
+                ...(output && typeof output === "object" ? (output as Record<string, unknown>) : {})
+              };
+            }
+          }
+
+          const merged: Record<string, unknown> = {
+            ...(output && typeof output === "object" && !Array.isArray(output) ? (output as Record<string, unknown>) : {}),
+            batch: true,
+            searches: slotResults
+          };
+          if (batchQueries.length > 8 && typeof merged.note !== "string") {
+            const batchNote = "Ran the first 8 sub-queries—the maximum per batch.";
+            merged.note = batchNote;
+            merged.hint = typeof merged.hint === "string" ? `${merged.hint} ${batchNote}` : batchNote;
+          }
+          if (shouldNudge()) return { ...merged, next_step: validateNextNote(progress!.stepsUsed() + 1) };
+          const left = CORE_SEARCH_CATEGORIES.filter((c) => !searched.has(c));
+          const coreSearched = CORE_SEARCH_CATEGORIES.length - left.length;
+          return progress && !progress.validated() && coreSearched >= 2 && left.length > 0
+            ? { ...merged, next_step: remainingSearchNote(left) }
+            : merged;
+        }
+
         const key = researchCallKey(name, input);
         const earlier = seen.get(key);
         if (earlier !== undefined) {

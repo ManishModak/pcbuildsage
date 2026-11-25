@@ -9,6 +9,17 @@ import { createSuggestFollowupsTool } from "./suggest-followups";
 import { createConsultTool } from "./consult";
 import { createTurnValidationStore, type TurnValidationStore } from "./turn-state";
 
+function recordFoundRows(
+  found: Map<string, string>,
+  rows: ReadonlyArray<{ id?: unknown; category?: unknown }> | undefined,
+  fallbackCategory?: unknown
+): void {
+  for (const row of rows ?? []) {
+    const category = typeof row?.category === "string" ? row.category : typeof fallbackCategory === "string" ? fallbackCategory : undefined;
+    if (typeof row?.id === "string" && category) found.set(row.id, category);
+  }
+}
+
 /**
  * Builds the tool set for one chat turn or MCP session. Pass `turnStore` to
  * read the validate_build snapshots afterwards (the MCP build card does).
@@ -35,8 +46,13 @@ export function createToolRegistry(
       ...search,
       execute: async (input, ctx) => {
         const output = await search.execute!(input, ctx);
-        for (const row of (output as { results?: Array<{ id?: unknown; category?: unknown }> }).results ?? []) {
-          if (typeof row?.id === "string" && typeof row.category === "string") found.set(row.id, row.category);
+        const out = output as {
+          results?: Array<{ id?: unknown; category?: unknown }>;
+          searches?: Array<{ category?: unknown; results?: Array<{ id?: unknown; category?: unknown }> }>;
+        };
+        recordFoundRows(found, out?.results);
+        for (const sub of out?.searches ?? []) {
+          recordFoundRows(found, sub?.results, sub?.category);
         }
         return output;
       }

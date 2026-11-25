@@ -33,7 +33,12 @@ export const presentBuildInputSchema = z.object({
       })
     )
     .min(1)
-    .describe("One or more complete build proposals"))
+    .describe("One or more complete build proposals")),
+  followups: z
+    .array(z.string().trim().min(1))
+    .max(3)
+    .optional()
+    .describe("Optional up to 3 short user follow-up prompts to display below your answer instead of calling suggest_followups separately.")
 });
 
 export type PresentBuildInput = z.infer<typeof presentBuildInputSchema>;
@@ -298,6 +303,12 @@ function fillEmptyCall(turnStore: TurnValidationStore) {
   };
 }
 
+function normalizeFollowups(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const deduped = [...new Set(raw.filter((s): s is string => typeof s === "string").map((s) => s.trim()).filter(Boolean))].slice(0, 3);
+  return deduped.length > 0 ? deduped : undefined;
+}
+
 /**
  * `revalidate` lets a call whose product_ids differ from the label's snapshot
  * still present, when every ID was validated or found by a search this turn
@@ -314,7 +325,7 @@ export function createPresentBuildTool(
   const turnStore = store ?? createTurnValidationStore();
   return tool({
     description:
-      "Present one or more complete, finalized PC builds to the user as an interactive visual card with toggle tabs, retailer buy links, and total price calculation. Call this with labels matching validate_build from this turn; product_ids are optional prefixes (first 10 chars, min 8) and default to the validated snapshot. All pricing, retailer links, and totals come authoritatively from the matching validate_build snapshot. Do NOT repeat a markdown table of parts/prices in your text response.",
+      "Present one or more complete, finalized PC builds to the user as an interactive visual card with toggle tabs, retailer buy links, and total price calculation. Call this with labels matching validate_build from this turn; product_ids are optional prefixes (first 10 chars, min 8) and default to the validated snapshot. All pricing, retailer links, and totals come authoritatively from the matching validate_build snapshot. Optionally pass `followups` (up to 3 short user prompts) here instead of calling `suggest_followups` separately. Do NOT repeat a markdown table of parts/prices in your text response.",
     inputSchema: lenientToolSchema(
       presentBuildInputSchema,
       "present_build",
@@ -322,13 +333,15 @@ export function createPresentBuildTool(
       fillEmptyCall(turnStore)
     ),
     execute: async (input) => {
+      const followups = normalizeFollowups(input.followups);
       // Isolated usage (no turn store): preserve legacy pass-through for
       // saved chats and direct calls. Registry wiring enforces validation.
       if (!hasTurnStore && turnStore.size === 0) {
         return {
           presented: true,
           buildCount: input.builds.length,
-          builds: input.builds
+          builds: input.builds,
+          ...(followups ? { followups } : {})
         };
       }
       const presented: Presented[] = [];
@@ -364,6 +377,7 @@ export function createPresentBuildTool(
         presented: true,
         buildCount: presented.length,
         builds: presented,
+        ...(followups ? { followups } : {}),
         ...(refused.length > 0
           ? { not_presented: refused.map(({ label, failure }) => ({ label, error: failure.error })) }
           : {}),

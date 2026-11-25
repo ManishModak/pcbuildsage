@@ -86,6 +86,18 @@ function summarize(name: string, part: ToolPart): string {
     return `${builds.length} build${builds.length === 1 ? "" : "s"} presented`;
   }
   if (name === "search_products") {
+    if (output.batch === true && Array.isArray(output.searches)) {
+      const searches = output.searches as Array<{ category?: unknown; results?: unknown[] }>;
+      const totalParts = searches.reduce(
+        (sum, entry) => sum + (Array.isArray(entry?.results) ? entry.results.length : 0),
+        0
+      );
+      const hasCategories = searches.some((entry) => typeof entry?.category === "string" && entry.category.length > 0);
+      const unit = hasCategories
+        ? searches.length === 1 ? "category" : "categories"
+        : searches.length === 1 ? "query" : "queries";
+      return `Searched ${searches.length} ${unit} · ${totalParts} part${totalParts === 1 ? "" : "s"}`;
+    }
     const results = Array.isArray(output.results) ? output.results : [];
     return `${results.length} result${results.length === 1 ? "" : "s"}`;
   }

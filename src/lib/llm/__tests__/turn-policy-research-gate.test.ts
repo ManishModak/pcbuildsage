@@ -207,6 +207,110 @@ describe("late-turn research gate", () => {
     await (gated.validate_build.execute as Exec)({}, {});
     expect(validate).toHaveBeenCalledOnce();
   });
+
+  it("tracks all categories and deduplicates repeated sub-queries in batch search_products without blocking new ones", async () => {
+    const batchSearch = vi.fn(async (input: { queries?: Array<{ category?: string; price_max?: number }> }) => ({
+      batch: true,
+      searches: (input.queries ?? []).map((q, i) => ({
+        label: q.category ?? `search_${i + 1}`,
+        ...(q.category ? { category: q.category } : {}),
+        results: [{ id: `${q.category ?? "x"}-1234567890`, name: `${q.category} part`, price: 1000 }]
+      }))
+    }));
+    const tools = {
+      search_products: { inputSchema: {}, execute: batchSearch },
+      validate_build: { inputSchema: {}, execute: vi.fn(async () => ({ valid: true })) }
+    } as unknown as ToolSet;
+
+    let validated = false;
+    let validateCalled = false;
+    let stepsUsed = 0;
+    const gated = gateResearchTools(tools, () => null, {
+      validated: () => validated,
+      validateCalled: () => validateCalled,
+      stepsUsed: () => stepsUsed
+    });
+    const run = (input: unknown) => (gated.search_products.execute as Exec)(input, {});
+
+    // Step 1: 6-category batch immediately covers every core category and triggers validateNextNote.
+    const first = (await run({
+      queries: [
+        { category: "cpu" },
+        { category: "motherboard" },
+        { category: "ram" },
+        { category: "storage" },
+        { category: "psu" },
+        { category: "case" }
+      ]
+    })) as { batch: boolean; searches: Array<{ category?: string }>; next_step?: string };
+    expect(first.batch).toBe(true);
+    expect(first.searches).toHaveLength(6);
+    expect(first.next_step).toBe(validateNextNote(1));
+    expect(batchSearch).toHaveBeenCalledTimes(1);
+
+    // Step 2: a batch mixing a repeated { category: "cpu" } and a new { category: "gpu" } only runs gpu!
+    stepsUsed = 1;
+    const mixed = (await run({
+      queries: [{ category: "cpu", limit: 4 }, { category: "gpu", price_max: 35000 }]
+    })) as { batch: boolean; searches: Array<{ search_closed?: boolean; message?: string; results: Array<{ id: string }> }> };
+    expect(batchSearch).toHaveBeenCalledTimes(2);
+    expect(batchSearch.mock.calls[1][0]).toEqual({ queries: [{ category: "gpu", price_max: 35000 }] });
+    expect(mixed.searches[0].search_closed).toBe(true);
+    expect(mixed.searches[0].message).toContain("Same call as step 1");
+    expect(mixed.searches[1].results[0].id).toBe("gpu-1234567890");
+
+    // Step 3: all-repeat batch skips calling underlying execute altogether.
+    stepsUsed = 2;
+    const allRepeat = (await run({ queries: [{ category: "cpu" }, { category: "gpu", price_max: 35000 }] })) as {
+      search_closed?: boolean;
+      message?: string;
+    };
+    expect(batchSearch).toHaveBeenCalledTimes(2);
+    expect(allRepeat.search_closed).toBe(true);
+    expect(allRepeat.message).toContain("Same call as step 1");
+
+    // Step 12 with nothing validated pauses batch search via mustValidateFirst.
+    stepsUsed = 11;
+    const paused = (await run({ queries: [{ category: "cooler" }] })) as { search_closed?: boolean; message?: string };
+    expect(paused).toEqual({ results: [], search_closed: true, message: validateFirstMessage(12) });
+    expect(batchSearch).toHaveBeenCalledTimes(2);
+
+    // Closed late-turn research blocks batch search identically to single searches.
+    validated = false;
+    validateCalled = true;
+    const closedGated = gateResearchTools(tools, () => 2);
+    expect(await (closedGated.search_products.execute as Exec)({ queries: [{ category: "cooler" }] }, {})).toEqual({
+      results: [],
+      search_closed: true,
+      message: researchClosedMessage(2)
+    });
+  });
+
+  it("recognizes a 6-category batch search in forcePresentDirectives", () => {
+    const batch = {
+      toolCalls: [
+        {
+          toolName: "search_products",
+          toolCallId: "b1",
+          input: {
+            queries: [
+              { category: "cpu" },
+              { category: "motherboard" },
+              { category: "ram" },
+              { category: "storage" },
+              { category: "psu" },
+              { category: "case" }
+            ]
+          }
+        }
+      ]
+    };
+    expect(forcePresentDirectives([batch], 1)).toEqual({ toolChoice: "required" });
+    expect(forcePresentDirectives([batch], 11)).toEqual({
+      activeTools: ["validate_build"],
+      toolChoice: { type: "tool", toolName: "validate_build" }
+    });
+  });
 });
 
 describe("continuationMessageId", () => {

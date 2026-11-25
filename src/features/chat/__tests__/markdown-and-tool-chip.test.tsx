@@ -51,6 +51,28 @@ describe("ToolChip status", () => {
     );
     expect(done).not.toContain("rune-spinner");
     expect(done).toContain("2 results");
+
+    const batchDone = renderToStaticMarkup(
+      <ToolChip
+        part={{
+          type: "tool-search_products",
+          state: "output-available",
+          output: {
+            batch: true,
+            searches: [
+              { label: "gpu", category: "gpu", results: [1, 2, 3, 4, 5, 6] },
+              { label: "cpu", category: "cpu", results: [1, 2, 3, 4, 5, 6] },
+              { label: "motherboard", category: "motherboard", results: [1, 2, 3, 4, 5, 6] },
+              { label: "ram", category: "ram", results: [1, 2, 3, 4, 5, 6] },
+              { label: "storage", category: "storage", results: [1, 2, 3, 4, 5] },
+              { label: "psu", category: "psu", results: [1, 2, 3, 4, 5] }
+            ]
+          }
+        }}
+      />
+    );
+    expect(batchDone).toContain("Searched 6 categories · 34 parts");
+    expect(batchDone).not.toContain("0 results");
   });
 
   it("marks a failed call with text as well as colour", () => {
