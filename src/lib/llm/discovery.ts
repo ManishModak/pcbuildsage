@@ -1,5 +1,6 @@
 import type { LLMChainEntry } from "@/types";
 import { defaultBaseUrl, keyEnv, normalizeBaseUrl, resolveApiKey } from "./client";
+import { isChatCapableGeminiModel } from "./model-capabilities";
 import { isFreePricing } from "./model-recommend";
 
 export const DISCOVERY_TIMEOUT_MS = 10_000;
@@ -28,15 +29,7 @@ export type DiscoveredModel = {
   toolCapable?: boolean;
 };
 
-const NON_CHAT_GEMINI_ID_PATTERN = /(?:^|[-/])(embedding|aqa)(?:$|[-/0-9])/i;
-
-/** True when a Gemini catalog entry supports chat (`generateContent`). */
-export function isChatCapableGeminiModel(model: { id: string; supportedGenerationMethods?: string[] }): boolean {
-  if (Array.isArray(model.supportedGenerationMethods)) {
-    return model.supportedGenerationMethods.includes("generateContent");
-  }
-  return !NON_CHAT_GEMINI_ID_PATTERN.test(model.id);
-}
+export { isChatCapableGeminiModel };
 
 export async function discoverModels(entry: LLMChainEntry, fetchImpl: typeof fetch = fetch): Promise<DiscoveredModel[]> {
   if (entry.provider === "gemini") {

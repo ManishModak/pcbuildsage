@@ -12,9 +12,13 @@ import {
   setByokModel,
   setByokModelReasoningEffort
 } from "@/lib/llm/client-byok-store";
-import { isChatCapableGeminiModel } from "@/lib/llm/discovery";
 import { hostedDefaultModelFor } from "@/lib/llm/hosted-defaults";
-import { getFreeTierWarning, supportsReasoning, type FreeTierWarning } from "@/lib/llm/model-capabilities";
+import {
+  getFreeTierWarning,
+  isChatCapableGeminiModel,
+  supportsReasoning,
+  type FreeTierWarning
+} from "@/lib/llm/model-capabilities";
 import { isFreeModel, isToolCapableModel } from "@/lib/llm/model-recommend";
 import { LLM_PROVIDERS, getProvider, isLocalProvider, providerName, type ProviderInfo } from "@/lib/llm/providers";
 import type { ChainEntry, ClientConfig, CredentialAvailability, DiscoveredModel, KeySource, LLMProvider, ReasoningEffort } from "@/types/client";

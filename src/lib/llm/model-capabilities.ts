@@ -6,6 +6,15 @@ import type { DiscoveredModel } from "@/types/client";
  */
 
 const NON_TEXT_GEMINI_PATTERN = /(image|embedding|tts|live)/;
+const NON_CHAT_GEMINI_ID_PATTERN = /(?:^|[-/])(embedding|aqa)(?:$|[-/0-9])/i;
+
+/** True when a Gemini catalog entry supports chat (`generateContent`). */
+export function isChatCapableGeminiModel(model: { id: string; supportedGenerationMethods?: string[] }): boolean {
+  if (Array.isArray(model.supportedGenerationMethods)) {
+    return model.supportedGenerationMethods.includes("generateContent");
+  }
+  return !NON_CHAT_GEMINI_ID_PATTERN.test(model.id);
+}
 
 /** Normalize a model ID for family matching (lowercase, strip `models/` prefix). */
 function normalizeGeminiId(model: string): string {
