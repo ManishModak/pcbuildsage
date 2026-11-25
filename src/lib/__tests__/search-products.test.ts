@@ -397,6 +397,77 @@ describe("searchProducts", () => {
     expect((result as { results: Array<{ id: string }> }).results.map((r) => r.id)).toEqual(["drive-1000-nvme"]);
   });
 
+  it("handles malformed stored capacity JSON safely without crashing and strips invalid string capacities", async () => {
+    const { searchProducts } = await import("../tools/search-products");
+    const dbPath = resetDb();
+    addProduct({
+      id: "drive-malformed",
+      name: "Generic NVMe Drive",
+      price: 4000,
+      category: "storage",
+      registry_key: null,
+      specs: JSON.stringify({ interface: "nvme", capacity_gb: { toString: null } }),
+      in_stock: 1
+    });
+    addProduct({
+      id: "drive-array-cap",
+      name: "Array Cap NVMe Drive",
+      price: 4500,
+      category: "storage",
+      registry_key: null,
+      specs: JSON.stringify({ interface: "nvme", capacity_gb: [1000] }),
+      in_stock: 1
+    });
+    addProduct({
+      id: "ram-bad-str",
+      name: "Corsair DDR5 Kit",
+      price: 5000,
+      category: "ram",
+      registry_key: null,
+      specs: JSON.stringify({ ddr: "DDR5", capacity: "1600GB" }),
+      in_stock: 1
+    });
+    addProduct({
+      id: "ram-bad-kit",
+      name: "4 x 256GB DDR5",
+      price: 5500,
+      category: "ram",
+      registry_key: null,
+      in_stock: 1
+    });
+
+    // Unfiltered search must not throw on { toString: null } and strips invalid capacity fields.
+    const unfiltered = await searchProducts(
+      { category: "storage", sort_by: "price", order: "asc", limit: 10 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    expect(unfiltered.error).toBeUndefined();
+    expect(unfiltered.results.map((r) => r.id)).toEqual(["drive-malformed", "drive-array-cap"]);
+    expect(unfiltered.results[1]?.specs?.capacity_gb).toBeUndefined();
+
+    // Neither malformed capacity nor [1000] may pass min_capacity_gb.
+    const filteredStorage = await searchProducts(
+      { category: "storage", min_capacity_gb: 500, sort_by: "price", order: "asc", limit: 10 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    expect(filteredStorage.results).toEqual([]);
+
+    // Invalid RAM capacity string is stripped from compact output, and rejected kit "4 x 256GB DDR5" fails both filters.
+    const allRam = await searchProducts(
+      { category: "ram", sort_by: "price", order: "asc", limit: 10 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    const badStrRow = allRam.results.find((r) => r.id === "ram-bad-str");
+    expect(badStrRow?.specs?.capacity).toBeUndefined();
+    expect(badStrRow?.specs?.capacity_gb).toBeUndefined();
+
+    const filteredRam = await searchProducts(
+      { category: "ram", min_capacity_gb: 256, modules: 4, sort_by: "price", order: "asc", limit: 10 },
+      { dbPath, countryCode: "IN", currency: "INR" }
+    );
+    expect(filteredRam.results).toEqual([]);
+  });
+
   it("filters PSU by min_wattage", async () => {
     const { searchProducts } = await import("../tools/search-products");
     const dbPath = resetDb();

@@ -8,7 +8,7 @@
 import type { Product } from "@/types/db";
 import type { RegistrySpec } from "@/lib/registry";
 import { slugifyComponent } from "@/lib/normalizer";
-import { sanitizeSpecCapacityGb } from "@/lib/spec-parsers";
+import { normalizeSpecCapacities, sanitizeSpecCapacityGb } from "@/lib/spec-parsers";
 import { toCompactFunctionalSpecs } from "./compact";
 import type { ComponentModelItem, ListModelsInput } from "./repository";
 import { matchesSocket, matchesFormFactor, matchesDdr, matchesModules } from "./spec-filters";
@@ -204,6 +204,10 @@ export function aggregateModels(
           spec = JSON.parse(product.specs);
         } catch {}
       }
+    }
+
+    if (spec) {
+      spec = normalizeSpecCapacities(product.category, spec, product.name);
     }
 
     // In-memory spec filtering for listModels criteria

@@ -13,7 +13,7 @@ import {
   type ResolvedSpec,
   type ComponentCategory
 } from "@/lib/registry";
-import { sanitizeSpecCapacityGb } from "@/lib/spec-parsers";
+import { normalizeSpecCapacities, sanitizeSpecCapacityGb } from "@/lib/spec-parsers";
 import { COMPONENT_CATEGORIES, BUILD_RELEVANT_SQL } from "@/lib/db/catalog-scope";
 import type { Product } from "@/types/db";
 import { toPriceMinor } from "@/types/catalog";
@@ -163,13 +163,13 @@ export class SqlCatalogRepository implements CatalogRepository {
         } catch {}
       }
     }
-    if (spec && spec.capacity_gb !== undefined) {
-      const validCap = sanitizeSpecCapacityGb(product.category, spec, product.name);
-      if (validCap === undefined) {
-        const sanitized = { ...spec };
-        delete sanitized.capacity_gb;
-        spec = sanitized;
-      }
+    if (spec) {
+      const sourced =
+        registry !== undefined &&
+        registry.source !== "derived" &&
+        Array.isArray(spec.sources) &&
+        spec.sources.length > 0;
+      spec = normalizeSpecCapacities(product.category, spec, product.name, { sourced });
     }
     return { registry, spec };
   }
