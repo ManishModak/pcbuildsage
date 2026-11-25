@@ -508,8 +508,9 @@ class Crawl4AIFetcher:
                 return await self.fetch_http(url, site, retries=retries)
 
 
-def category_page_url(site: SiteConfig, category: CategoryConfig, page: int) -> str:
-    base = urljoin(site.base_url, category.path)
+def category_page_url(site: SiteConfig, category: CategoryConfig, page: int, path: str | None = None) -> str:
+    cat_path = path if path is not None else category.path
+    base = urljoin(site.base_url, cat_path)
     if page <= 1:
         return base
     pattern = (category.pagination_pattern or "?page={page}").format(page=page)
@@ -520,8 +521,9 @@ def category_page_url(site: SiteConfig, category: CategoryConfig, page: int) -> 
 SHOPIFY_PAGE_SIZE = 250
 
 
-def shopify_collection_url(site: SiteConfig, category: CategoryConfig, page: int) -> str:
-    base = urljoin(site.base_url, category.path.strip("/"))
+def shopify_collection_url(site: SiteConfig, category: CategoryConfig, page: int, path: str | None = None) -> str:
+    cat_path = path if path is not None else category.path
+    base = urljoin(site.base_url, cat_path.strip("/"))
     return f"{base}/products.json?limit={SHOPIFY_PAGE_SIZE}&page={page}"
 
 
@@ -840,89 +842,100 @@ class ScraperCrawler:
         products = CrawlProducts()
         fallback_state = ExtractionFallbackState()
         seen_urls: set[str] = set()
-        # True once page 1's pagination links told us the real page count;
-        # reaching an undetected page_limit means pages may remain unseen.
-        limit_confirmed = False
-        page = 1
-        while page <= page_limit:
-            url = category_page_url(site, category, page)
-            try:
-                html, raw_products = await self._fetch_and_extract(url, site, page)
-            except CrawlError as exc:
-                # Page 2+ failure is a partial crawl, not end-of-listing.
-                # Keep good pages and let run_job skip the stale sweep.
-                if page > 1:
-                    products.partial = True
-                    products.partial_error = str(exc)
-                    logger.warning(
-                        "%s/%s page %d failed (%s); keeping %d products as partial",
+        paths = category.all_paths
+        for path_idx, cat_path in enumerate(paths):
+            # True once page 1's pagination links told us the real page count;
+            # reaching an undetected page_limit means pages may remain unseen.
+            limit_confirmed = False
+            path_page_limit = page_limit
+            path_seen_urls: set[str] = set()
+            page = 1
+            while page <= path_page_limit:
+                url = category_page_url(site, category, page, path=cat_path)
+                try:
+                    html, raw_products = await self._fetch_and_extract(url, site, page)
+                except CrawlError as exc:
+                    # Page 2+ failure (or later path failure after earlier rows) is a partial crawl.
+                    if page > 1 or products:
+                        products.partial = True
+                        products.partial_error = str(exc)
+                        logger.warning(
+                            "%s/%s (%s) page %d failed (%s); keeping %d products as partial",
+                            site.site_name,
+                            category.name,
+                            cat_path,
+                            page,
+                            exc,
+                            len(products),
+                            extra={"component": "scraper"},
+                        )
+                        break
+                    raise
+
+                if not raw_products:
+                    break
+
+                # Pagination duplicate-signature guard (avoid infinite loops on repeating catalogs)
+                page_urls = {p.url for p in raw_products if p.url}
+                if page > 1 and page_urls and page_urls.issubset(path_seen_urls):
+                    logger.info(
+                        "Pagination duplicate signature detected for %s/%s on page %d (all %d URLs already seen). Stopping pagination.",
                         site.site_name,
                         category.name,
                         page,
-                        exc,
-                        len(products),
+                        len(page_urls),
                         extra={"component": "scraper"},
                     )
                     break
-                raise
+                path_seen_urls.update(page_urls)
 
-            if not raw_products:
-                break
+                # Detect actual page count from page 1 dynamically
+                if page == 1 and category.pagination_pattern:
+                    detected_pages = detect_max_pages(html, category.pagination_pattern)
+                    if detected_pages and detected_pages <= path_page_limit:
+                        path_page_limit = detected_pages
+                        limit_confirmed = True
 
-            # Pagination duplicate-signature guard (avoid infinite loops on repeating catalogs)
-            page_urls = {p.url for p in raw_products if p.url}
-            if page > 1 and page_urls and page_urls.issubset(seen_urls):
-                logger.info(
-                    "Pagination duplicate signature detected for %s/%s on page %d (all %d URLs already seen). Stopping pagination.",
-                    site.site_name,
-                    category.name,
-                    page,
-                    len(page_urls),
-                    extra={"component": "scraper"},
-                )
-                break
-            seen_urls.update(page_urls)
-
-            # Detect actual page count from page 1 dynamically
-            if page == 1 and category.pagination_pattern:
-                detected_pages = detect_max_pages(html, category.pagination_pattern)
-                if detected_pages and detected_pages <= page_limit:
-                    page_limit = detected_pages
-                    limit_confirmed = True
-
-            try:
-                raw_products, fallback_state = await self._apply_extraction_fallback(site, raw_products, fallback_state)
-            except CrawlError as exc:
-                # Failed LLM fallback keeps good pages already scraped.
-                # The current page had no usable products, so discard it and
-                # keep previous pages as partial (never extend with broken).
-                if products:
+                try:
+                    raw_products, fallback_state = await self._apply_extraction_fallback(site, raw_products, fallback_state)
+                except CrawlError as exc:
+                    # Failed LLM fallback keeps good pages already scraped.
+                    if products:
+                        products.partial = True
+                        products.partial_error = str(exc)
+                        logger.warning(
+                            "%s/%s LLM fallback failed on page %d (%s); keeping %d products as partial",
+                            site.site_name,
+                            category.name,
+                            page,
+                            exc,
+                            len(products),
+                            extra={"component": "scraper"},
+                        )
+                        break
+                    raise
+                deduped_products: list[RawProduct] = []
+                for product in raw_products:
+                    if product.url and product.url in seen_urls:
+                        continue
+                    if product.url:
+                        seen_urls.add(product.url)
+                    deduped_products.append(product)
+                products.extend(deduped_products)
+                if on_page:
+                    on_page(page, deduped_products, html)
+                if self.delay_ms > 0 and page < path_page_limit:
+                    await asyncio.sleep(self.delay_ms / 1000)
+                page += 1
+            else:
+                # Loop ran out of pages rather than hitting end-of-listing. Unless
+                # pagination confirmed the count, later pages were never seen, so
+                # this snapshot must not retire rows (partial, not complete).
+                if products and not limit_confirmed and not products.partial:
                     products.partial = True
-                    products.partial_error = str(exc)
-                    logger.warning(
-                        "%s/%s LLM fallback failed on page %d (%s); keeping %d products as partial",
-                        site.site_name,
-                        category.name,
-                        page,
-                        exc,
-                        len(products),
-                        extra={"component": "scraper"},
-                    )
-                    break
-                raise
-            products.extend(raw_products)
-            if on_page:
-                on_page(page, raw_products, html)
-            if self.delay_ms > 0 and page < page_limit:
+                    products.partial_error = f"stopped at page limit {path_page_limit} before end of listing"
+            if path_idx + 1 < len(paths) and self.delay_ms > 0:
                 await asyncio.sleep(self.delay_ms / 1000)
-            page += 1
-        else:
-            # Loop ran out of pages rather than hitting end-of-listing. Unless
-            # pagination confirmed the count, later pages were never seen, so
-            # this snapshot must not retire rows (partial, not complete).
-            if products and not limit_confirmed and not products.partial:
-                products.partial = True
-                products.partial_error = f"stopped at page limit {page_limit} before end of listing"
         return products
 
     async def crawl_search(
@@ -1020,56 +1033,70 @@ class ScraperCrawler:
         page_limit: int,
         on_page: Callable[[int, list[RawProduct], str], None] | None = None,
     ) -> CrawlProducts:
-        """Fetch a Shopify collection's products.json until a page comes back empty.
+        """Fetch every configured Shopify collection's products.json until empty.
 
         Uses the fetcher's plain HTTP path (same user agent, retries and
-        politeness delay as HTML crawls). A page-2+ failure, a page that repeats
-        earlier results, or reaching page_limit before an empty page marks the
-        crawl partial so the stale sweep never retires unseen rows.
+        politeness delay as HTML crawls). Overlapping products across page
+        boundaries or multi-collection shelves are deduplicated instead of
+        aborting; an entire page repeating earlier results, a page-2+ failure,
+        or reaching page_limit before an empty page marks the crawl partial so
+        the stale sweep never retires unseen rows.
         """
         products = CrawlProducts()
         seen_urls: set[str] = set()
-        page = 1
-        while page <= page_limit:
-            url = shopify_collection_url(site, category, page)
-            try:
-                body, items = await self._fetch_shopify_page(url, site)
-            except CrawlError as exc:
-                if page > 1:
-                    products.partial = True
-                    products.partial_error = str(exc)
-                    logger.warning(
-                        "%s/%s page %d failed (%s); keeping %d products as partial",
-                        site.site_name,
-                        category.name,
-                        page,
-                        exc,
-                        len(products),
-                        extra={"component": "scraper"},
-                    )
+        paths = category.all_paths
+        for path_idx, cat_path in enumerate(paths):
+            path_seen_urls: set[str] = set()
+            page = 1
+            while page <= page_limit:
+                url = shopify_collection_url(site, category, page, path=cat_path)
+                try:
+                    body, items = await self._fetch_shopify_page(url, site)
+                except CrawlError as exc:
+                    if page > 1 or products:
+                        products.partial = True
+                        products.partial_error = str(exc)
+                        logger.warning(
+                            "%s/%s (%s) page %d failed (%s); keeping %d products as partial",
+                            site.site_name,
+                            category.name,
+                            cat_path,
+                            page,
+                            exc,
+                            len(products),
+                            extra={"component": "scraper"},
+                        )
+                        break
+                    raise
+                if not items:
                     break
-                raise
-            if not items:
-                break
-            raw_products = raw_from_shopify_products(items, site.base_url)
-            page_urls = {p.url for p in raw_products if p.url}
-            if page > 1 and page_urls & seen_urls:
-                # The store ignored ?page=, or the collection shifted mid-crawl and
-                # listings may have been skipped: either way this is not complete.
-                products.partial = True
-                products.partial_error = f"page {page} repeated earlier results"
-                break
-            seen_urls.update(page_urls)
-            products.extend(raw_products)
-            if on_page:
-                on_page(page, raw_products, body)
-            if page == page_limit:
-                products.partial = True
-                products.partial_error = f"stopped at page limit {page_limit} before end of listing"
-                break
-            if self.delay_ms > 0:
+                raw_products = raw_from_shopify_products(items, site.base_url)
+                page_urls = {p.url for p in raw_products if p.url}
+                if page > 1 and page_urls and page_urls.issubset(path_seen_urls):
+                    # Entire page repeated earlier results: store ignored ?page=.
+                    products.partial = True
+                    products.partial_error = f"page {page} repeated earlier results"
+                    break
+                path_seen_urls.update(page_urls)
+                new_products: list[RawProduct] = []
+                for product in raw_products:
+                    if product.url and product.url in seen_urls:
+                        continue
+                    if product.url:
+                        seen_urls.add(product.url)
+                    new_products.append(product)
+                products.extend(new_products)
+                if on_page:
+                    on_page(page, new_products, body)
+                if page == page_limit:
+                    products.partial = True
+                    products.partial_error = f"stopped at page limit {page_limit} before end of listing"
+                    break
+                if self.delay_ms > 0:
+                    await asyncio.sleep(self.delay_ms / 1000)
+                page += 1
+            if path_idx + 1 < len(paths) and self.delay_ms > 0:
                 await asyncio.sleep(self.delay_ms / 1000)
-            page += 1
         return products
 
     async def _fetch_shopify_page(self, url: str, site: SiteConfig, attempts: int = 3) -> tuple[str, list[Any]]:

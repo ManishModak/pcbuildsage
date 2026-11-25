@@ -144,6 +144,17 @@ def attr_or_text(node: Node | None, attr_names: tuple[str, ...] = ()) -> str | N
     return text or None
 
 
+def _matches_self_or_descendant(node: Node, selector: str | None) -> Node | None:
+    """Match a selector against `node` itself (single simple token) or any descendant."""
+    if not selector:
+        return None
+    for part in selector.split(","):
+        tokens = _selector_tokens(part.strip())
+        if len(tokens) == 1 and _matches_simple(node, tokens[0]):
+            return node
+    return select_one(node, selector)
+
+
 def extract_products(html: str, selectors: dict[str, str], base_url: str) -> list[RawProduct]:
     root = parse_html(html)
     containers = select(root, selectors.get("product_container"))
@@ -153,7 +164,7 @@ def extract_products(html: str, selectors: dict[str, str], base_url: str) -> lis
         price_node = select_one(container, selectors.get("price"))
         url_node = select_one(container, selectors.get("url"))
         image_node = select_one(container, selectors.get("image"))
-        stock_node = select_one(container, selectors.get("out_of_stock"))
+        stock_node = _matches_self_or_descendant(container, selectors.get("out_of_stock"))
         url = attr_or_text(url_node, ("href",))
         image = attr_or_text(image_node, ("data-src", "data-lazy-src", "src"))
         products.append(
@@ -178,7 +189,8 @@ def selector_hit_rates(html: str, selectors: dict[str, str]) -> dict[str, tuple[
         selector = selectors.get(key)
         if not selector:
             continue
-        hits = sum(1 for container in containers if select_one(container, selector) is not None)
+        matcher = _matches_self_or_descendant if key == "out_of_stock" else select_one
+        hits = sum(1 for container in containers if matcher(container, selector) is not None)
         rates[key] = (hits, total)
     return rates
 

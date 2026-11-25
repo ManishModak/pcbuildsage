@@ -31,7 +31,18 @@
                 "type": "object",
                 "additionalProperties": {
                   "type": "object",
-                  "properties": { "path": { "type": "string", "pattern": "^collections/[A-Za-z0-9][A-Za-z0-9_-]*$" } }
+                  "properties": {
+                    "path": {
+                      "oneOf": [
+                        { "type": "string", "pattern": "^collections/[A-Za-z0-9][A-Za-z0-9_-]*$" },
+                        {
+                          "type": "array",
+                          "minItems": 1,
+                          "items": { "type": "string", "pattern": "^collections/[A-Za-z0-9][A-Za-z0-9_-]*$" }
+                        }
+                      ]
+                    }
+                  }
                 }
               }
             }
@@ -44,7 +55,18 @@
                   "type": "object",
                   "additionalProperties": {
                     "type": "object",
-                    "properties": { "path": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } }
+                    "properties": {
+                      "path": {
+                        "oneOf": [
+                          { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+                          {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+                          }
+                        ]
+                      }
+                    }
                   }
                 }
               }
@@ -86,7 +108,12 @@
       "additionalProperties": false,
       "required": ["path", "max_pages"],
       "properties": {
-        "path": { "type": "string" },
+        "path": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+          ]
+        },
         "pagination_pattern": { "type": "string", "pattern": ".*\\{page\\}.*" },
         "search_pattern": { "type": "string", "pattern": ".*\\{query\\}.*" },
         "max_pages": { "type": "integer", "minimum": 1 }

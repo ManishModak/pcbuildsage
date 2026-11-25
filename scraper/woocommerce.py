@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 from decimal import Decimal
 from html import unescape
@@ -13,12 +14,15 @@ from urllib.parse import urlencode, urljoin, urlparse
 from .crawler import BotProtectionError, CrawlError, CrawlProducts, HttpStatusError, ScraperCrawler, WAF_MARKERS
 from .models import CategoryConfig, RawProduct, SiteConfig
 
+logger = logging.getLogger(__name__)
+
 PAGE_SIZE = 100
 
 
-def woocommerce_category_url(site: SiteConfig, category: CategoryConfig, page: int) -> str:
+def woocommerce_category_url(site: SiteConfig, category: CategoryConfig, page: int, path: str | None = None) -> str:
     """Use category slugs and stable ID ordering, including sold-out products."""
-    query = urlencode({"category": category.path, "per_page": PAGE_SIZE,
+    slug = path if path is not None else category.path
+    query = urlencode({"category": slug, "per_page": PAGE_SIZE,
                        "page": page, "orderby": "id", "order": "asc"})
     return urljoin(site.base_url, "wp-json/wc/store/v1/products") + "?" + query
 
@@ -49,23 +53,20 @@ def raw_from_woocommerce_product(item: dict, site: SiteConfig) -> RawProduct:
     )
 
 
-async def crawl_woocommerce_category(
-    crawler: ScraperCrawler, site: SiteConfig, category: CategoryConfig, page_limit: int,
+async def _crawl_woocommerce_slug(
+    crawler: ScraperCrawler,
+    site: SiteConfig,
+    category: CategoryConfig,
+    slug: str,
+    page_limit: int,
+    seen_ids: set[int],
+    seen_urls: set[str],
+    products: CrawlProducts,
     on_page: Callable[[int, list[RawProduct], str], None] | None = None,
-) -> CrawlProducts:
-    """Require every advertised row before permitting the normal stale-stock sweep.
-
-    Every fetch/parse failure on later pages keeps earlier rows as partial.
-    Cancellation propagates; no alternate engine or LLM is invoked.
-    """
-    if site.site_name in crawler.blocked_sites:
-        raise CrawlError(f"{site.site_name}: remaining categories stopped after bot protection or HTTP 403")
-    products = CrawlProducts()
-    seen_ids: set[int] = set()
-    seen_urls: set[str] = set()
-    totals: tuple[int, int] | None = None
+) -> None:
+    """Crawl one WooCommerce category slug, deduplicating overlaps and skipping bad items."""
     for page in range(1, page_limit + 1):
-        url = woocommerce_category_url(site, category, page)
+        url = woocommerce_category_url(site, category, page, path=slug)
         try:
             body, headers = await crawler.fetcher.fetch_http_response(url, site)
             if any(marker in body.lower() for marker in WAF_MARKERS):
@@ -75,39 +76,87 @@ async def crawl_woocommerce_category(
             if not isinstance(items, list):
                 raise ValueError("expected a product list")
             total, pages = int(headers["x-wp-total"]), int(headers["x-wp-totalpages"])
-            if total < 0 or pages != (total + PAGE_SIZE - 1) // PAGE_SIZE:
+            if total < 0 or pages < 0 or (total > 0 and pages < 1):
                 raise ValueError("invalid pagination totals")
-            if totals is not None and totals != (total, pages):
-                raise ValueError("listing totals changed during pagination")
-            totals = total, pages
-            expected = min(PAGE_SIZE, max(0, total - (page - 1) * PAGE_SIZE))
-            if len(items) != expected:
-                raise ValueError(f"page {page}: expected {expected} rows, got {len(items)}")
+            if total > 0 and page <= pages and not items:
+                raise ValueError(f"page {page}: expected rows for total={total}, got empty list")
             raws: list[RawProduct] = []
+            valid_on_page = 0
+            skipped_malformed = 0
             for item in items:
                 if not isinstance(item, dict) or type(item.get("id")) is not int or item["id"] <= 0:
-                    raise ValueError("invalid product ID")
-                raw = raw_from_woocommerce_product(item, site)
+                    skipped_malformed += 1
+                    continue
+                try:
+                    raw = raw_from_woocommerce_product(item, site)
+                except ValueError as item_err:
+                    skipped_malformed += 1
+                    logger.warning(
+                        "%s/%s (%s) page %d skipped malformed item id=%s: %s",
+                        site.site_name,
+                        category.name,
+                        slug,
+                        page,
+                        item.get("id"),
+                        item_err,
+                        extra={"component": "scraper"},
+                    )
+                    continue
+                valid_on_page += 1
                 if item["id"] in seen_ids or raw.url in seen_urls:
-                    raise ValueError(f"page {page} repeated an earlier product")
+                    continue
                 seen_ids.add(item["id"])
                 seen_urls.add(raw.url)
                 raws.append(raw)
+            if items and valid_on_page == 0:
+                raise ValueError(f"page {page}: all {skipped_malformed} item(s) were malformed")
+            if page > 1 and valid_on_page > 0 and not raws:
+                # Entire page repeated earlier items: stop rather than looping forever.
+                raise ValueError(f"page {page} repeated earlier products")
         except (CrawlError, ValueError, KeyError, TypeError) as exc:
             if isinstance(exc, BotProtectionError) or (isinstance(exc, HttpStatusError) and exc.status == 403):
                 crawler.blocked_sites.add(site.site_name)
-            if page == 1:
+            if page == 1 and not products:
                 raise CrawlError(f"{site.site_name}/{category.name}: {exc}") from exc
             products.partial = True
             products.partial_error = str(exc)
-            return products
+            return
         products.extend(raws)
         if on_page:
             on_page(page, raws, body)
-        if page >= pages:
-            return products
+        if page >= pages or not items:
+            return
         if page < page_limit and crawler.delay_ms > 0:
             await asyncio.sleep(crawler.delay_ms / 1000)
     products.partial = True
     products.partial_error = f"stopped at page limit {page_limit} before all advertised rows"
+
+
+async def crawl_woocommerce_category(
+    crawler: ScraperCrawler, site: SiteConfig, category: CategoryConfig, page_limit: int,
+    on_page: Callable[[int, list[RawProduct], str], None] | None = None,
+) -> CrawlProducts:
+    """Crawl every configured slug for a WooCommerce category, deduplicating across pages/paths.
+
+    Individual malformed rows are skipped and overlapping rows across pages or
+    multi-path shelves are deduplicated instead of aborting the whole category.
+    Hard fetch/parse failures on later pages or paths keep earlier rows as
+    partial so the stale sweep is skipped. Cancellation propagates.
+    """
+    if site.site_name in crawler.blocked_sites:
+        raise CrawlError(f"{site.site_name}: remaining categories stopped after bot protection or HTTP 403")
+    products = CrawlProducts()
+    seen_ids: set[int] = set()
+    seen_urls: set[str] = set()
+    slugs = category.all_paths
+    for idx, slug in enumerate(slugs):
+        if site.site_name in crawler.blocked_sites:
+            products.partial = True
+            products.partial_error = f"{site.site_name}: stopped after bot protection or HTTP 403"
+            return products
+        await _crawl_woocommerce_slug(
+            crawler, site, category, slug, page_limit, seen_ids, seen_urls, products, on_page=on_page
+        )
+        if idx + 1 < len(slugs) and crawler.delay_ms > 0 and site.site_name not in crawler.blocked_sites:
+            await asyncio.sleep(crawler.delay_ms / 1000)
     return products

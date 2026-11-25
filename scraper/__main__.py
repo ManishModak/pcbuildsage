@@ -216,7 +216,8 @@ def make_product(raw: RawProduct, site: SiteConfig, category: str, matcher: Regi
     normalized = normalize_title(raw.title)
     url = raw.url
     if site.strip_listing_context and category in site.categories:
-        url = strip_listing_context(url, site.categories[category].path)
+        for cat_path in site.categories[category].all_paths:
+            url = strip_listing_context(url, cat_path)
     return ScrapedProduct(
         id=product_id(url),
         name=raw.title,
@@ -364,21 +365,23 @@ async def run_test_profile(args: argparse.Namespace, emitter: EventEmitter) -> i
                 else:
                     print(line)
                 continue
-            url = category_page_url(site, category, 1)
-            emitter.logger.info("Testing %s/%s %s", site.site_name, category.name, url)
-            html = await crawler.fetcher.fetch(url, site)
-            rates = selector_hit_rates(html, site.selectors)
-            parts = []
-            for key in ("title", "price", "url", "image", "out_of_stock"):
-                if key in rates:
-                    hits, total = rates[key]
-                    status = "OK" if total and hits == total else "WARN"
-                    parts.append(f"{key}: {hits}/{total} {status}")
-            line = f"{site.site_name} {category.name}: " + " ".join(parts)
-            if args.json_stdout:
-                emitter.logger.info(line)
-            else:
-                print(line)
+            for cat_path in category.all_paths:
+                url = category_page_url(site, category, 1, path=cat_path)
+                emitter.logger.info("Testing %s/%s %s", site.site_name, category.name, url)
+                html = await crawler.fetcher.fetch(url, site)
+                rates = selector_hit_rates(html, site.selectors)
+                parts = []
+                for key in ("title", "price", "url", "image", "out_of_stock"):
+                    if key in rates:
+                        hits, total = rates[key]
+                        status = "OK" if total and hits == total else "WARN"
+                        parts.append(f"{key}: {hits}/{total} {status}")
+                suffix = f" ({cat_path})" if len(category.all_paths) > 1 else ""
+                line = f"{site.site_name} {category.name}{suffix}: " + " ".join(parts)
+                if args.json_stdout:
+                    emitter.logger.info(line)
+                else:
+                    print(line)
     return 1 if failed else 0
 
 

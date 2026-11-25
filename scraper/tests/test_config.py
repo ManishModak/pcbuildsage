@@ -38,7 +38,24 @@ def test_profile_loader_rejects_malformed_profile(tmp_path) -> None:
 def test_profile_loader_accepts_existing_india_profile() -> None:
     profile = load_profile("india")
     assert profile.country_code == "IN"
-    assert profile.sites
+    assert len(profile.sites) >= 15
+    prime = next(s for s in profile.sites if s.site_name == "PrimeABGB")
+    assert prime.categories["storage"].all_paths == ("ssd", "internal-hard-drive")
+
+
+def test_profile_loader_rejects_empty_or_invalid_multi_path(tmp_path) -> None:
+    profile = json.loads(open("data/profiles/india.json").read())
+    prime = next(s for s in profile["sites"] if s["site_name"] == "PrimeABGB")
+    prime["categories"]["storage"]["path"] = []
+    target = tmp_path / "empty_paths.json"
+    target.write_text(json.dumps(profile), encoding="utf-8")
+    with pytest.raises(ProfileError, match="non-empty list"):
+        load_profile(target)
+
+    prime["categories"]["storage"]["path"] = ["ssd", "bad/slug"]
+    target.write_text(json.dumps(profile), encoding="utf-8")
+    with pytest.raises(ProfileError, match="category slug"):
+        load_profile(target)
 
 
 def test_filter_sites_excludes_named_sites_and_rejects_unknown_names() -> None:
