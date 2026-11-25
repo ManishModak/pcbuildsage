@@ -55,18 +55,18 @@ describe("batch search_products", () => {
     await repo.close();
   });
 
-  it("executes all sub-queries concurrently and defaults sub-query limit to 6 (max 12)", async () => {
+  it("executes sub-queries with bounded concurrency (<=4) and defaults sub-query limit to 12", async () => {
     let active = 0;
     let peakActive = 0;
     const fakeRepo = {
       searchProducts: vi.fn(async (input: { category?: string; limit?: number }) => {
         active++;
         peakActive = Math.max(peakActive, active);
-        await new Promise((r) => setTimeout(r, 10));
+        await new Promise((r) => setTimeout(r, 15));
         active--;
         return {
           results: [{ id: `${input.category}-1234567890abcdef`, name: `${input.category} part`, category: input.category ?? "cpu", price: 1000, currency: "INR", country_code: "IN", retailer: "Shop", url: "https://example.com", in_stock: true }],
-          total_matching: input.limit ?? 6,
+          total_matching: input.limit ?? 12,
           scope: { country_code: "IN", currency: "INR" }
         };
       })
@@ -77,36 +77,96 @@ describe("batch search_products", () => {
         queries: [
           { category: "gpu", price_max: 35000 },
           { category: "cpu", socket: "AM5" },
-          { category: "motherboard", limit: 20 }
+          { category: "motherboard", limit: 20 },
+          { category: "ram" },
+          { category: "storage" },
+          { category: "psu" }
         ]
       },
       scope,
       fakeRepo
     );
 
-    expect(peakActive).toBe(3);
+    expect(peakActive).toBeGreaterThan(1);
+    expect(peakActive).toBeLessThanOrEqual(4);
     expect(out.batch).toBe(true);
-    expect(out.searches).toHaveLength(3);
+    expect(out.searches).toHaveLength(6);
     expect(out.searches[0]).toMatchObject({ label: "gpu", category: "gpu" });
     expect(out.searches[1]).toMatchObject({ label: "cpu", category: "cpu" });
     expect(out.searches[2].note).toContain("maximum per search");
-    expect(vi.mocked(fakeRepo.searchProducts).mock.calls[0][0].limit).toBe(6);
-    expect(vi.mocked(fakeRepo.searchProducts).mock.calls[1][0].limit).toBe(6);
+    expect(vi.mocked(fakeRepo.searchProducts).mock.calls[0][0].limit).toBe(12);
+    expect(vi.mocked(fakeRepo.searchProducts).mock.calls[1][0].limit).toBe(12);
     expect(vi.mocked(fakeRepo.searchProducts).mock.calls[2][0].limit).toBe(12);
   });
 
-  it("handles empty queries, mixed single+batch filters, and >8 sub-queries cleanly", async () => {
+  it("handles empty queries, mixed single+batch filters (including top-level limit/in_stock), and >8 sub-queries cleanly", async () => {
     const empty = await searchProducts({ queries: [] }, scope, repo);
     expect(empty.error).toContain("1 to 8");
 
-    const mixed = await searchProducts({ queries: [{ category: "gpu" }], category: "cpu" } as never, scope, repo);
-    expect(mixed.error).toContain("Cannot combine 'queries'");
+    const mixedCategory = await searchProducts({ queries: [{ category: "gpu" }], category: "cpu" } as never, scope, repo);
+    expect(mixedCategory.error).toContain("Cannot combine 'queries'");
 
+    // Explicit top-level limit or in_stock mixed with queries must be rejected (not obscured by defaults).
+    const tool = createSearchProductsTool(scope, repo);
+    const schema = tool.inputSchema as unknown as {
+      validate: (v: unknown) => { success: boolean; value?: Record<string, unknown>; error?: Error };
+      toJSONSchema: () => Record<string, unknown>;
+    };
+    const parsedMixedLimit = schema.validate({ queries: [{ category: "gpu" }], limit: 2 });
+    expect(parsedMixedLimit.success).toBe(true);
+    const mixedLimitOut = (await tool.execute!(parsedMixedLimit.value as never, ctx)) as { error?: string };
+    expect(mixedLimitOut.error).toContain("Cannot combine 'queries'");
+    expect(mixedLimitOut.error).toContain("limit");
+
+    const parsedMixedInStock = schema.validate({ queries: [{ category: "gpu" }], in_stock: true });
+    expect(parsedMixedInStock.success).toBe(true);
+    const mixedInStockOut = (await tool.execute!(parsedMixedInStock.value as never, ctx)) as { error?: string };
+    expect(mixedInStockOut.error).toContain("Cannot combine 'queries'");
+    expect(mixedInStockOut.error).toContain("in_stock");
+
+    // Oversized queries array is rejected at schema validation before per-item coercion/validation.
+    const oversized = schema.validate({ queries: Array.from({ length: 100 }, () => ({ category: "cpu", price_max: "bad" })) });
+    expect(oversized.success).toBe(false);
+    expect(oversized.error?.message).toContain("queries");
+
+    // Direct searchProducts still safely caps to 8 with a note.
     const many = Array.from({ length: 10 }, (_, i) => ({ category: "cpu" as const, price_max: (i + 1) * 5000 }));
     const capped = await searchProducts({ queries: many }, scope, repo);
     expect(capped.batch).toBe(true);
     expect(capped.searches).toHaveLength(8);
     expect(capped.note).toContain("first 8 sub-queries");
+
+    // Canonical provider JSON schema exposes queries with minItems/maxItems and zero duplicated top-level filters.
+    const jsonSchema = schema.toJSONSchema() as {
+      properties: Record<string, { minItems?: number; maxItems?: number; items?: { properties?: Record<string, unknown> } }>;
+    };
+    expect(Object.keys(jsonSchema.properties)).toEqual(["queries"]);
+    expect(jsonSchema.properties.queries.minItems).toBe(1);
+    expect(jsonSchema.properties.queries.maxItems).toBe(8);
+    expect(jsonSchema.properties.queries.items?.properties).toHaveProperty("category");
+    expect(JSON.stringify(jsonSchema).length).toBeLessThan(5500);
+  });
+
+  it("retains successful sibling slots when one sub-query throws a transient repository error", async () => {
+    const flakyRepo = {
+      searchProducts: vi.fn(async (input: { category?: string }) => {
+        if (input.category === "gpu") throw new Error("SQLITE_BUSY: database is locked");
+        return {
+          results: [{ id: "ram-000000000000000000000000000000000001", name: "16GB DDR5 Kit", category: "ram", price: 5000, currency: "INR", country_code: "IN", retailer: "Shop", url: "https://example.com", in_stock: true }],
+          total_matching: 1,
+          scope: { country_code: "IN", currency: "INR" }
+        };
+      })
+    } as unknown as CatalogRepository;
+
+    const out = await searchProducts({ queries: [{ category: "ram" }, { category: "gpu" }] }, scope, flakyRepo);
+    expect(out.batch).toBe(true);
+    expect(out.error).toBeUndefined();
+    expect(out.searches).toHaveLength(2);
+    expect(out.searches[0].results).toHaveLength(1);
+    expect(out.searches[0].error).toBeUndefined();
+    expect(out.searches[1].results).toEqual([]);
+    expect(out.searches[1].error).toContain("SQLITE_BUSY");
   });
 
   it("coerces stringified queries and scalar sub-query values in lenientToolSchema", async () => {

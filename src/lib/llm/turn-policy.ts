@@ -2,6 +2,7 @@ import type { ToolSet } from "ai";
 import { FAR_OVER_BUDGET } from "@/lib/tools/validate-build";
 import { formatPrice } from "@/lib/tools/lenient-input";
 import { presentRefusal } from "@/lib/tools/present-build";
+import { MAX_BATCH_QUERIES, normalizeSearchCallQueries } from "@/lib/tools/search-products";
 
 // The chat turn's rules, step by step: when research closes, when validate_build
 // and present_build are forced, which repeated calls are refused, and when
@@ -191,22 +192,34 @@ export function hasFollowupsCall(steps: StepLike[] | undefined | null): boolean 
   );
 }
 
+function isCleanPresentedResult(res: StepToolResultLike | null | undefined): boolean {
+  if (!isPresentedResult(res)) return false;
+  const out = unwrapToolOutput(res?.output ?? res?.result);
+  if (!out || typeof out !== "object") return false;
+  const record = out as { far_over_budget?: unknown; not_presented?: unknown; label_note?: unknown };
+  if (record.far_over_budget === true) return false;
+  if (Array.isArray(record.not_presented) && record.not_presented.length > 0) return false;
+  if (typeof record.label_note === "string" && record.label_note.trim().length > 0) return false;
+  return true;
+}
+
 /**
  * End the turn after suggest_followups (or present_build with followups) once
  * the text reply is written, without breaking force-present: a validated-but-
  * unpresented turn keeps going so present_build can still be forced.
  *
- * Only stops when (a) the turn already has non-empty assistant text, so the
- * user never gets chips without a reply, and (b) follow-ups are in the
- * latest step and every other call in that step needs no model follow-up
- * (only a successful present_build qualifies): a parallel search_products or
- * a rejected present_build has results the model still has to read.
+ * Only stops when (a) the latest step itself wrote non-empty assistant text (so
+ * an earlier pre-search progress line like "I'll check prices first" never
+ * substitutes for a final explanation), and (b) follow-ups are in the latest
+ * step and every other call in that step needs no model follow-up (only a clean
+ * present_build with no partial refusals, label corrections, or far-over-budget
+ * warnings qualifies).
  */
 export function stopAfterFollowups({ steps }: { steps: StepLike[] }): boolean {
   if (!hasFollowupsCall(steps)) return false;
   if (buildPending(steps)) return false;
-  if (!(steps ?? []).some((step) => typeof step?.text === "string" && step.text.trim().length > 0)) return false;
   const last = steps.at(-1);
+  if (typeof last?.text !== "string" || last.text.trim().length === 0) return false;
   const calls = last?.toolCalls ?? [];
   const names = callNamesById(steps);
   const resultsById = new Map((last?.toolResults ?? []).map((res) => [res?.toolCallId, res]));
@@ -215,26 +228,21 @@ export function stopAfterFollowups({ steps }: { steps: StepLike[] }): boolean {
     if (call?.toolName === "suggest_followups") return true;
     if (call?.toolName !== "present_build") return false;
     const res = resultsById.get(call.toolCallId);
-    return isPresentResult(res, names) && isPresentedResult(res);
+    return isPresentResult(res, names) && isCleanPresentedResult(res);
   });
 }
 
 /**
  * Per-step tool forcing so a validated turn can't end on a text reply:
  * after validate_build returns a presentable build the model must call another tool
- * (toolChoice "required"), late-turn steps are restricted to validate_build
- * and present_build, and the final step, or the step after a validate_build
- * call repeating an earlier one (repeatedValidation), forces present_build by name.
+ * (toolChoice "required"), and near the step limit (reserving FINAL_STEP for the
+ * final explanation) or after a repeated validate_build call, forces present_build
+ * by name.
  *
- * When nothing is validated by PRESENT_FORCE_START_STEP, research closes
- * (see isResearchClosed / gateResearchTools) and each step is forced to
- * validate_build with what the model has; the final step allows text only so
- * the turn never ends empty.
- *
- * Before that, a turn that searched every core category by VALIDATE_FIRST_STEP
- * without calling validate_build is forced to call it (mustCallValidateFirst),
- * and a turn that is building (isBuildingTurn) must call a tool each step, so
- * it can't stop on a text plan before presenting.
+ * Advertised tool schemas (`activeTools`) and system instructions are NEVER mutated
+ * mid-turn so prompt/KV caches stay valid across every step; late-turn and
+ * validate-first transitions are enforced in tool execution (`gateResearchTools`
+ * and `holdFollowupsUntilPresented`).
  *
  * Returns {} (auto) otherwise when nothing is validated yet or after
  * presenting, so the model can ask, research freely and explain afterwards.
@@ -242,26 +250,27 @@ export function stopAfterFollowups({ steps }: { steps: StepLike[] }): boolean {
 export function forcePresentDirectives(
   steps: StepLike[] | undefined | null,
   stepNumber: number
-): { activeTools?: string[]; toolChoice?: "required" | "none" | { type: "tool"; toolName: string } } {
+): { toolChoice?: "required" | "none" | { type: "tool"; toolName: string } } {
   if (presentSettled(steps)) return {};
   // A presentation not yet settled (far over budget) counts as validated: its
   // build may have been validated only inside present_build.
   const validated = hasSuccessfulValidation(steps) || hasPresentedBuild(steps);
-  if (validated && (stepNumber >= FINAL_STEP || repeatedValidation(steps))) {
-    return { activeTools: ["present_build"], toolChoice: { type: "tool", toolName: "present_build" } };
+  // Force present_build at FINAL_STEP - 1 so FINAL_STEP stays free for a text explanation,
+  // and keep forcing at FINAL_STEP if somehow still unpresented.
+  if (validated && (stepNumber >= FINAL_STEP - 1 || repeatedValidation(steps))) {
+    return { toolChoice: { type: "tool", toolName: "present_build" } };
   }
   if (stepNumber >= PRESENT_FORCE_START_STEP) {
-    if (validated) return { activeTools: ["validate_build", "present_build"], toolChoice: "required" };
+    if (validated) return { toolChoice: "required" };
     // Research is closed and present_build needs a validation, so validate_build
-    // is the one useful call (Lightning r20 1440p called present_build twice unvalidated).
-    return stepNumber >= FINAL_STEP ? { toolChoice: "none" } : { activeTools: ["validate_build"], toolChoice: { type: "tool", toolName: "validate_build" } };
+    // is the one useful call; FINAL_STEP allows text only so the turn never ends empty.
+    return stepNumber >= FINAL_STEP ? { toolChoice: "none" } : { toolChoice: { type: "tool", toolName: "validate_build" } };
   }
   if (validated) {
     return { toolChoice: "required" };
   }
   if (mustCallValidateFirst(steps, stepNumber)) {
-    // activeTools too: llama.cpp ignores a named tool choice (LFM3, r16 office).
-    return { activeTools: ["validate_build"], toolChoice: { type: "tool", toolName: "validate_build" } };
+    return { toolChoice: { type: "tool", toolName: "validate_build" } };
   }
   if (isBuildingTurn(steps)) return { toolChoice: "required" };
   return {};
@@ -403,31 +412,135 @@ export function buildPending(steps: StepLike[] | undefined | null): boolean {
 }
 
 function isBuildingTurn(steps: StepLike[] | undefined | null): boolean {
-  return searchedEveryCoreCategory((steps ?? []).flatMap((step) => step?.toolCalls ?? []));
+  return searchedEveryCoreCategory(steps);
 }
 
-function inputCategories(input: unknown): string[] {
-  if (!input || typeof input !== "object") return [];
-  const obj = input as { category?: unknown; queries?: unknown };
-  const out: string[] = [];
-  if (typeof obj.category === "string") out.push(obj.category.trim().toLowerCase());
-  if (Array.isArray(obj.queries)) {
-    for (const q of obj.queries) {
-      const cat = (q as { category?: unknown } | null)?.category;
-      if (typeof cat === "string") out.push(cat.trim().toLowerCase());
+const DEFAULT_SEARCH_LIMIT = 12;
+
+/** Normalized effective result limit for a search_products query (1..12, default 12). */
+function effectiveSearchLimit(input: unknown): number {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return DEFAULT_SEARCH_LIMIT;
+  const raw = (input as { limit?: unknown }).limit;
+  if (raw === undefined || raw === null) return DEFAULT_SEARCH_LIMIT;
+  const n = typeof raw === "string" ? Number(raw.trim()) : Number(raw);
+  if (!Number.isFinite(n)) return DEFAULT_SEARCH_LIMIT;
+  return Math.min(DEFAULT_SEARCH_LIMIT, Math.max(1, Math.round(n)));
+}
+
+function isRepeatedSlot(slot: Record<string, unknown>): boolean {
+  if (slot.repeated === true) return true;
+  return slot.search_closed === true && typeof slot.message === "string" && slot.message.startsWith("Same call as ");
+}
+
+/**
+ * Extracts executed search categories and research call records from turn steps,
+ * preferring actual tool results over requested inputs so rejected, failed, or
+ * truncated calls never count as searched or repeated.
+ */
+function inspectExecutedResearch(steps: StepLike[] | undefined | null): {
+  searchedCategories: Set<string>;
+  repeated: boolean;
+} {
+  const searchedCategories = new Set<string>();
+  const seenLimit = new Map<string, number>();
+  let repeated = false;
+
+  const recordKey = (key: string, limit: number) => {
+    const earlier = seenLimit.get(key);
+    if (earlier !== undefined && limit <= earlier) {
+      repeated = true;
+    }
+    if (earlier === undefined || limit > earlier) {
+      seenLimit.set(key, limit);
+    }
+  };
+
+  for (const step of steps ?? []) {
+    const resultsById = new Map<string, StepToolResultLike>();
+    for (const res of step?.toolResults ?? []) {
+      if (typeof res?.toolCallId === "string") resultsById.set(res.toolCallId, res);
+    }
+    for (const call of step?.toolCalls ?? []) {
+      if (typeof call?.toolName !== "string" || !(RESEARCH_TOOLS as readonly string[]).includes(call.toolName)) continue;
+      const res = typeof call.toolCallId === "string" ? resultsById.get(call.toolCallId) : undefined;
+      if (res) {
+        if (res.error != null) continue;
+        const out = unwrapToolOutput(res.output ?? res.result);
+        if (!out || typeof out !== "object") continue;
+        const outObj = out as Record<string, unknown>;
+        if (typeof outObj.error === "string") continue;
+        if (outObj.search_closed === true) {
+          if (isRepeatedSlot(outObj)) repeated = true;
+          continue;
+        }
+        if (call.toolName === "search_products" && outObj.batch === true && Array.isArray(outObj.searches)) {
+          const normalized = normalizeSearchCallQueries(call.input);
+          const subInputs = normalized.kind === "batch" ? normalized.queries : [];
+          const slots = outObj.searches.slice(0, MAX_BATCH_QUERIES);
+          for (let i = 0; i < slots.length; i++) {
+            const slot = slots[i];
+            if (!slot || typeof slot !== "object") continue;
+            const slotObj = slot as Record<string, unknown>;
+            if (typeof slotObj.error === "string") continue;
+            if (slotObj.search_closed === true) {
+              if (isRepeatedSlot(slotObj)) repeated = true;
+              continue;
+            }
+            const subInput = subInputs[i];
+            const cat =
+              typeof slotObj.category === "string"
+                ? slotObj.category
+                : typeof (subInput as { category?: unknown } | null)?.category === "string"
+                  ? (subInput as { category: string }).category
+                  : undefined;
+            if (cat && cat.trim()) searchedCategories.add(cat.trim().toLowerCase());
+            if (subInput !== undefined) {
+              recordKey(researchCallKey("search_products", subInput), effectiveSearchLimit(subInput));
+            }
+          }
+          continue;
+        }
+        if (call.toolName === "search_products") {
+          const normalized = normalizeSearchCallQueries(call.input);
+          if (normalized.kind === "single") {
+            const cat = normalized.query.category;
+            if (typeof cat === "string" && cat.trim()) searchedCategories.add(cat.trim().toLowerCase());
+            recordKey(researchCallKey("search_products", normalized.query), effectiveSearchLimit(normalized.query));
+          }
+          continue;
+        }
+        recordKey(researchCallKey(call.toolName, call.input), DEFAULT_SEARCH_LIMIT);
+        continue;
+      }
+
+      // No toolResult on this step (e.g. unit-test fixture with toolCalls only): normalize input once.
+      if (call.toolName === "search_products") {
+        const normalized = normalizeSearchCallQueries(call.input);
+        if (normalized.kind === "invalid") continue;
+        if (normalized.kind === "batch") {
+          for (const sub of normalized.queries) {
+            const cat = (sub as { category?: unknown } | null)?.category;
+            if (typeof cat === "string" && cat.trim()) searchedCategories.add(cat.trim().toLowerCase());
+            recordKey(researchCallKey("search_products", sub), effectiveSearchLimit(sub));
+          }
+        } else {
+          const cat = normalized.query.category;
+          if (typeof cat === "string" && cat.trim()) searchedCategories.add(cat.trim().toLowerCase());
+          recordKey(researchCallKey("search_products", normalized.query), effectiveSearchLimit(normalized.query));
+        }
+      } else {
+        recordKey(researchCallKey(call.toolName, call.input), DEFAULT_SEARCH_LIMIT);
+      }
     }
   }
-  return out;
+
+  return { searchedCategories, repeated };
 }
 
-/** True when the calls include a search_products call (single or batch) for every core category. */
-function searchedEveryCoreCategory(calls: StepToolCallLike[]): boolean {
-  const searched = new Set(
-    calls
-      .filter((call) => call?.toolName === "search_products")
-      .flatMap((call) => inputCategories(call?.input))
-  );
-  return CORE_SEARCH_CATEGORIES.every((category) => searched.has(category));
+/** True when executed search_products calls (single or batch) cover every core category. */
+function searchedEveryCoreCategory(steps: StepLike[] | undefined | null): boolean {
+  const { searchedCategories } = inspectExecutedResearch(steps);
+  return CORE_SEARCH_CATEGORIES.every((category) => searchedCategories.has(category));
 }
 
 /**
@@ -439,37 +552,35 @@ function searchedEveryCoreCategory(calls: StepToolCallLike[]): boolean {
  */
 export function mustCallValidateFirst(steps: StepLike[] | undefined | null, stepNumber: number): boolean {
   const calls = (steps ?? []).flatMap((step) => step?.toolCalls ?? []);
-  // stepNumber is 0-indexed: step VALIDATE_FIRST_STEP is stepNumber VALIDATE_FIRST_STEP - 1, as in the search pause.
-  if (stepNumber + 1 < VALIDATE_FIRST_STEP && !hasRepeatedResearchCall(calls)) return false;
   // Forced once: forcing again after a call that left out a part trapped the
   // model in repeat calls with no way to search (Lightning, r7 esports).
   if (calls.some((call) => call?.toolName === "validate_build")) return false;
-  return searchedEveryCoreCategory(calls);
+  const { searchedCategories, repeated } = inspectExecutedResearch(steps);
+  // stepNumber is 0-indexed: step VALIDATE_FIRST_STEP is stepNumber VALIDATE_FIRST_STEP - 1, as in the search pause.
+  if (stepNumber + 1 < VALIDATE_FIRST_STEP && !repeated) return false;
+  return CORE_SEARCH_CATEGORIES.every((category) => searchedCategories.has(category));
 }
 
 /** Research tools that close late in a turn that has nothing validated yet. */
 const RESEARCH_TOOLS = ["search_products", "list_models", "consult"] as const;
 
-/** True when the turn holds two identical research calls or sub-queries (as researchCallKey sees them). */
-function hasRepeatedResearchCall(calls: StepToolCallLike[]): boolean {
-  const seen = new Set<string>();
-  for (const call of calls) {
-    if (typeof call?.toolName !== "string" || !(RESEARCH_TOOLS as readonly string[]).includes(call.toolName)) continue;
-    for (const key of researchCallKeys(call.toolName, call.input)) {
-      if (seen.has(key)) return true;
-      seen.add(key);
-    }
-  }
-  return false;
-}
-
 /**
- * True when late-turn research is closed: nothing validated or presented yet
- * and the turn has reached PRESENT_FORCE_START_STEP.
+ * True when late-turn research is closed because nothing is validated or
+ * presented yet and the turn has reached PRESENT_FORCE_START_STEP.
  */
 export function isResearchClosed(steps: StepLike[] | undefined | null, stepNumber: number): boolean {
   if (stepNumber < PRESENT_FORCE_START_STEP) return false;
   return !hasSuccessfulValidation(steps) && !hasPresentedBuild(steps);
+}
+
+/**
+ * True when late-turn research should be blocked in tool execution (any unsettled
+ * turn from PRESENT_FORCE_START_STEP onward, including validated turns waiting
+ * for present_build, so activeTools never needs to change mid-turn).
+ */
+export function isLateTurnResearchClosed(steps: StepLike[] | undefined | null, stepNumber: number): boolean {
+  if (stepNumber < PRESENT_FORCE_START_STEP) return false;
+  return !presentSettled(steps);
 }
 
 /** Steps the model still has after the current one (0-indexed stepNumber). */
@@ -478,7 +589,10 @@ export function stepsLeftAfter(stepNumber: number): number {
 }
 
 /** Tool result a closed research tool returns in place of running. */
-export function researchClosedMessage(stepsLeft: number): string {
+export function researchClosedMessage(stepsLeft: number, validated = false): string {
+  if (validated) {
+    return `Search is closed for this turn (${stepsLeft} step${stepsLeft === 1 ? "" : "s"} left). Call present_build now with your validated build (or validate_build to adjust it).`;
+  }
   return `Search is closed for this turn (${stepsLeft} step${stepsLeft === 1 ? "" : "s"} left). Call validate_build now with the best parts you've already found, then present_build a valid build.`;
 }
 
@@ -489,10 +603,20 @@ export function researchClosedInstruction(stepsLeft: number): string {
     : "\n\nTurn budget: no tool steps left. Answer now in text with the best build you can assemble from the parts already found, and say it was not validated.";
 }
 
-type ClosedResearchOutput = { results: []; search_closed: true; message: string };
+type ClosedResearchOutput = { results: []; search_closed: true; repeated?: true; message: string };
 
 function isClosedResearchOutput(output: unknown): output is ClosedResearchOutput {
   return Boolean(output && typeof output === "object" && (output as { search_closed?: unknown }).search_closed === true);
+}
+
+/** Wraps an updated domain object back into an MCP CallToolResult envelope when the raw output used one. */
+function wrapIfMcp(rawOutput: unknown, domain: Record<string, unknown>): unknown {
+  if (!isCallToolResultShape(rawOutput)) return domain;
+  return {
+    ...(rawOutput as Record<string, unknown>),
+    content: [{ type: "text", text: JSON.stringify(domain) }],
+    structuredContent: domain
+  };
 }
 
 /** Categories every whole build needs; once all are searched the model has enough to validate. */
@@ -583,16 +707,6 @@ function researchCallKey(name: string, input: unknown): string {
   return `${name}:${JSON.stringify(entries.sort(([a], [b]) => a.localeCompare(b)))}`;
 }
 
-function researchCallKeys(name: string, input: unknown): string[] {
-  if (name === "search_products" && input && typeof input === "object" && !Array.isArray(input)) {
-    const queries = (input as { queries?: unknown }).queries;
-    if (Array.isArray(queries) && queries.length > 0) {
-      return queries.map((q) => researchCallKey("search_products", q));
-    }
-  }
-  return [researchCallKey(name, input)];
-}
-
 function batchSubLabel(sub: unknown, index: number): string {
   if (!sub || typeof sub !== "object") return `search_${index + 1}`;
   const s = sub as { category?: unknown; term?: unknown; query?: unknown; model_id?: unknown };
@@ -612,6 +726,8 @@ export interface ResearchProgress {
   validated: () => boolean;
   /** True once validate_build was called this turn, whatever it returned. */
   validateCalled?: () => boolean;
+  /** True when step policy is forcing validate_build before further research. */
+  validateFirstForced?: () => boolean;
   /** Steps finished so far this turn. */
   stepsUsed: () => number;
 }
@@ -624,6 +740,19 @@ function withNote(modelOutput: unknown, note: string): unknown {
   }
   if (out?.type === "text" && typeof out.value === "string") return { ...out, value: `${out.value}\n\n${note}` };
   return { type: "json", value: { result: out?.value ?? modelOutput, next_step: note } };
+}
+
+type SeenResearchEntry = {
+  step: number;
+  rows: string[];
+  outcome: RepeatOutcome;
+  limit: number;
+};
+
+/** True when an earlier search already covers this request's effective result limit. */
+function isCoveredByEarlier(earlier: SeenResearchEntry, limit: number): boolean {
+  if (earlier.outcome === "pending" || earlier.outcome === "empty") return true;
+  return limit <= earlier.limit;
 }
 
 /**
@@ -639,15 +768,16 @@ function withNote(modelOutput: unknown, note: string): unknown {
 export function gateResearchTools(tools: ToolSet, closedStepsLeft: () => number | null, progress?: ResearchProgress): ToolSet {
   const gated: ToolSet = { ...tools };
   const searched = new Set<string>();
-  // First step of each distinct research call; Lightning re-ran identical searches up to 4 times (r12 aaa).
-  const seen = new Map<string, { step: number; rows: string[]; outcome: RepeatOutcome }>();
+  // First step and widest effective limit of each distinct research call.
+  const seen = new Map<string, SeenResearchEntry>();
   const allCoreSearched = () => CORE_SEARCH_CATEGORIES.every((category) => searched.has(category));
   const mustValidateFirst = () =>
-    Boolean(progress?.validateCalled) &&
-    !progress!.validated() &&
-    !progress!.validateCalled!() &&
-    allCoreSearched() &&
-    progress!.stepsUsed() + 1 >= VALIDATE_FIRST_STEP;
+    Boolean(progress?.validateFirstForced?.()) ||
+    (Boolean(progress?.validateCalled) &&
+      !progress!.validated() &&
+      !progress!.validateCalled!() &&
+      allCoreSearched() &&
+      progress!.stepsUsed() + 1 >= VALIDATE_FIRST_STEP);
   const shouldNudge = () =>
     Boolean(progress) &&
     !progress!.validated() &&
@@ -662,52 +792,62 @@ export function gateResearchTools(tools: ToolSet, closedStepsLeft: () => number 
       execute: (async (input: unknown, options: unknown) => {
         const stepsLeft = closedStepsLeft();
         if (stepsLeft !== null) {
-          return { results: [], search_closed: true, message: researchClosedMessage(stepsLeft) } satisfies ClosedResearchOutput;
+          return {
+            results: [],
+            search_closed: true,
+            message: researchClosedMessage(stepsLeft, Boolean(progress?.validated()))
+          } satisfies ClosedResearchOutput;
         }
         if (mustValidateFirst()) {
-          return { results: [], search_closed: true, message: validateFirstMessage(progress!.stepsUsed() + 1) } satisfies ClosedResearchOutput;
+          return {
+            results: [],
+            search_closed: true,
+            message: validateFirstMessage(progress!.stepsUsed() + 1)
+          } satisfies ClosedResearchOutput;
         }
 
-        const batchQueries =
-          name === "search_products" && input && typeof input === "object" && !Array.isArray(input)
-            ? (input as { queries?: unknown }).queries
-            : undefined;
-        if (Array.isArray(batchQueries)) {
-          const rawInput = input as Record<string, unknown>;
-          const hasMixed = Object.entries(rawInput).some(
-            ([k, v]) => k !== "queries" && k !== "in_stock" && k !== "limit" && v !== undefined
-          ) || rawInput.in_stock === false;
-          if (batchQueries.length === 0 || hasMixed) {
+        if (name === "search_products" && input && typeof input === "object" && !Array.isArray(input) && "queries" in input && (input as { queries?: unknown }).queries !== undefined) {
+          const normalized = normalizeSearchCallQueries(input);
+          if (normalized.kind !== "batch") {
             return (execute as (input: unknown, options: unknown) => unknown)(input, options);
           }
 
-          const capped = batchQueries.slice(0, 8);
+          const capped = normalized.queries;
           const slotResults: Array<Record<string, unknown>> = new Array(capped.length);
           const toRun: Array<{
             index: number;
             sub: unknown;
             key: string;
-            entry: { step: number; rows: string[]; outcome: RepeatOutcome };
+            limit: number;
+            entry: SeenResearchEntry;
+            previous: SeenResearchEntry | undefined;
           }> = [];
 
           for (let i = 0; i < capped.length; i++) {
             const sub = capped[i];
             const subKey = researchCallKey("search_products", sub);
+            const subLimit = effectiveSearchLimit(sub);
             const earlier = seen.get(subKey);
-            if (earlier !== undefined) {
+            if (earlier !== undefined && isCoveredByEarlier(earlier, subLimit)) {
               const cat = (sub as { category?: unknown } | null)?.category;
               slotResults[i] = {
                 label: batchSubLabel(sub, i),
                 ...(typeof cat === "string" ? { category: cat.trim().toLowerCase() } : {}),
                 results: [],
                 search_closed: true,
+                repeated: true,
                 message: repeatedSearchMessage(earlier.step, earlier.rows, earlier.outcome)
               };
               continue;
             }
-            const entry = { step: (progress?.stepsUsed() ?? 0) + 1, rows: [] as string[], outcome: "pending" as RepeatOutcome };
+            const entry: SeenResearchEntry = {
+              step: (progress?.stepsUsed() ?? 0) + 1,
+              rows: [],
+              outcome: "pending",
+              limit: subLimit
+            };
             seen.set(subKey, entry);
-            toRun.push({ index: i, sub, key: subKey, entry });
+            toRun.push({ index: i, sub, key: subKey, limit: subLimit, entry, previous: earlier });
           }
 
           if (toRun.length === 0) {
@@ -716,114 +856,147 @@ export function gateResearchTools(tools: ToolSet, closedStepsLeft: () => number 
               searches: slotResults,
               results: [],
               search_closed: true,
+              repeated: true,
               message: slotResults.map((s) => `${String(s.label)}: ${String(s.message)}`).join("\n")
             };
           }
 
-          let output: unknown;
+          const restoreEntry = (item: { key: string; previous: SeenResearchEntry | undefined }) => {
+            if (item.previous) seen.set(item.key, item.previous);
+            else seen.delete(item.key);
+          };
+
+          const rawRecord = input as Record<string, unknown>;
+          const ignoredExtras = Object.fromEntries(normalized.ignored.map((k) => [k, rawRecord[k]]));
+          let rawOutput: unknown;
           try {
-            output = await (execute as (input: unknown, options: unknown) => unknown)(
-              { queries: toRun.map((item) => item.sub) },
+            rawOutput = await (execute as (input: unknown, options: unknown) => unknown)(
+              { ...ignoredExtras, queries: toRun.map((item) => item.sub) },
               options
             );
           } catch (error) {
-            for (const item of toRun) seen.delete(item.key);
+            for (const item of toRun) restoreEntry(item);
             throw error;
           }
 
-          if (typeof (output as { error?: unknown } | null)?.error === "string") {
-            for (const item of toRun) seen.delete(item.key);
-            return output;
+          const domain = unwrapToolOutput(rawOutput);
+          if (typeof (domain as { error?: unknown } | null)?.error === "string") {
+            for (const item of toRun) restoreEntry(item);
+            return rawOutput;
           }
 
-          const batchOut = output as { batch?: unknown; searches?: unknown[] } | null;
+          const batchOut = domain as { batch?: unknown; searches?: unknown[] } | null;
           if (batchOut?.batch === true && Array.isArray(batchOut.searches)) {
             for (let j = 0; j < toRun.length; j++) {
               const item = toRun[j];
               const subOut = batchOut.searches[j] as Record<string, unknown> | undefined;
               if (!subOut || typeof subOut.error === "string") {
-                seen.delete(item.key);
+                restoreEntry(item);
                 if (subOut) slotResults[item.index] = subOut;
                 continue;
               }
               const cat =
                 typeof (item.sub as { category?: unknown } | null)?.category === "string"
-                  ? ((item.sub as { category: string }).category)
+                  ? (item.sub as { category: string }).category
                   : typeof subOut.category === "string"
                     ? subOut.category
                     : undefined;
               if (cat) searched.add(cat.trim().toLowerCase());
               item.entry.rows = topRows(subOut);
               item.entry.outcome = resultRows(subOut)?.length === 0 ? "empty" : "rows";
+              item.entry.limit = Math.max(item.previous?.limit ?? 0, item.limit);
               slotResults[item.index] = subOut;
             }
           } else {
             for (const item of toRun) {
               const cat = (item.sub as { category?: unknown } | null)?.category;
               if (typeof cat === "string") searched.add(cat.trim().toLowerCase());
-              item.entry.rows = topRows(output);
-              item.entry.outcome = resultRows(output)?.length === 0 ? "empty" : "rows";
+              item.entry.rows = topRows(domain);
+              item.entry.outcome = resultRows(domain)?.length === 0 ? "empty" : "rows";
+              item.entry.limit = Math.max(item.previous?.limit ?? 0, item.limit);
               slotResults[item.index] = {
                 label: batchSubLabel(item.sub, item.index),
                 ...(typeof cat === "string" ? { category: cat.trim().toLowerCase() } : {}),
-                ...(output && typeof output === "object" ? (output as Record<string, unknown>) : {})
+                ...(domain && typeof domain === "object" ? (domain as Record<string, unknown>) : {})
               };
             }
           }
 
           const merged: Record<string, unknown> = {
-            ...(output && typeof output === "object" && !Array.isArray(output) ? (output as Record<string, unknown>) : {}),
+            ...(domain && typeof domain === "object" && !Array.isArray(domain) ? (domain as Record<string, unknown>) : {}),
             batch: true,
             searches: slotResults
           };
-          if (batchQueries.length > 8 && typeof merged.note !== "string") {
-            const batchNote = "Ran the first 8 sub-queries—the maximum per batch.";
+          if (normalized.truncated && typeof merged.note !== "string") {
+            const batchNote = `Ran the first ${MAX_BATCH_QUERIES} sub-queries—the maximum per batch.`;
             merged.note = batchNote;
             merged.hint = typeof merged.hint === "string" ? `${merged.hint} ${batchNote}` : batchNote;
           }
-          if (shouldNudge()) return { ...merged, next_step: validateNextNote(progress!.stepsUsed() + 1) };
+          if (shouldNudge()) {
+            return wrapIfMcp(rawOutput, { ...merged, next_step: validateNextNote(progress!.stepsUsed() + 1) });
+          }
           const left = CORE_SEARCH_CATEGORIES.filter((c) => !searched.has(c));
           const coreSearched = CORE_SEARCH_CATEGORIES.length - left.length;
-          return progress && !progress.validated() && coreSearched >= 2 && left.length > 0
-            ? { ...merged, next_step: remainingSearchNote(left) }
-            : merged;
+          const nextDomain =
+            progress && !progress.validated() && coreSearched >= 2 && left.length > 0
+              ? { ...merged, next_step: remainingSearchNote(left) }
+              : merged;
+          return wrapIfMcp(rawOutput, nextDomain);
         }
 
         const key = researchCallKey(name, input);
+        const callLimit = name === "search_products" ? effectiveSearchLimit(input) : DEFAULT_SEARCH_LIMIT;
         const earlier = seen.get(key);
-        if (earlier !== undefined) {
-          return { results: [], search_closed: true, message: repeatedSearchMessage(earlier.step, earlier.rows, earlier.outcome) } satisfies ClosedResearchOutput;
+        if (earlier !== undefined && isCoveredByEarlier(earlier, callLimit)) {
+          return {
+            results: [],
+            search_closed: true,
+            repeated: true,
+            message: repeatedSearchMessage(earlier.step, earlier.rows, earlier.outcome)
+          } satisfies ClosedResearchOutput;
         }
         // Recorded before the await so a parallel identical call in the same step is caught;
-        // a failed call is forgotten so its retry runs.
-        const entry = { step: (progress?.stepsUsed() ?? 0) + 1, rows: [] as string[], outcome: "pending" as RepeatOutcome };
+        // a failed call restores the prior seen state so its retry runs.
+        const entry: SeenResearchEntry = {
+          step: (progress?.stepsUsed() ?? 0) + 1,
+          rows: [],
+          outcome: "pending",
+          limit: callLimit
+        };
         seen.set(key, entry);
-        let output: unknown;
+        let rawOutput: unknown;
         try {
-          output = await (execute as (input: unknown, options: unknown) => unknown)(input, options);
+          rawOutput = await (execute as (input: unknown, options: unknown) => unknown)(input, options);
         } catch (error) {
-          seen.delete(key);
+          if (earlier) seen.set(key, earlier);
+          else seen.delete(key);
           throw error;
         }
-        if (typeof (output as { error?: unknown } | null)?.error === "string") {
-          seen.delete(key);
-          return output;
+        const domain = unwrapToolOutput(rawOutput);
+        if (typeof (domain as { error?: unknown } | null)?.error === "string") {
+          if (earlier) seen.set(key, earlier);
+          else seen.delete(key);
+          return rawOutput;
         }
         const category = (input as { category?: unknown } | null)?.category;
         if (typeof category === "string") searched.add(category.trim().toLowerCase());
-        entry.rows = topRows(output);
-        entry.outcome = resultRows(output)?.length === 0 ? "empty" : "rows";
-        if (!output || typeof output !== "object" || Array.isArray(output)) return output;
-        if (shouldNudge()) return { ...output, next_step: validateNextNote(progress!.stepsUsed() + 1) };
+        entry.rows = topRows(domain);
+        entry.outcome = resultRows(domain)?.length === 0 ? "empty" : "rows";
+        entry.limit = Math.max(earlier?.limit ?? 0, callLimit);
+        if (!domain || typeof domain !== "object" || Array.isArray(domain)) return rawOutput;
+        if (shouldNudge()) {
+          return wrapIfMcp(rawOutput, { ...(domain as Record<string, unknown>), next_step: validateNextNote(progress!.stepsUsed() + 1) });
+        }
         const left = CORE_SEARCH_CATEGORIES.filter((c) => !searched.has(c));
         const coreSearched = CORE_SEARCH_CATEGORIES.length - left.length;
         return progress && !progress.validated() && coreSearched >= 2 && left.length > 0
-          ? { ...output, next_step: remainingSearchNote(left) }
-          : output;
+          ? wrapIfMcp(rawOutput, { ...(domain as Record<string, unknown>), next_step: remainingSearchNote(left) })
+          : rawOutput;
       }) as typeof execute,
       toModelOutput: (async (args: { output: unknown }) => {
-        if (isClosedResearchOutput(args.output)) return { type: "text", value: args.output.message };
-        const note = (args.output as { next_step?: unknown } | null)?.next_step;
+        const domain = unwrapToolOutput(args.output);
+        if (isClosedResearchOutput(domain)) return { type: "text", value: domain.message };
+        const note = (domain as { next_step?: unknown } | null)?.next_step;
         // Without the tool's own toModelOutput, mirror the SDK default (strings as text, the rest as JSON).
         const base = toModelOutput
           ? await (toModelOutput as (a: unknown) => unknown)(args)

@@ -93,7 +93,7 @@ describe("late-turn research gate", () => {
   it("forces a validate_build call at step 12 once every core category is searched, until it is called", () => {
     const search = (category: string) => ({ toolCalls: [{ toolName: "search_products", toolCallId: category, input: { category } }] });
     const core = ["cpu", "motherboard", "ram", "storage", "psu", "case"].map(search);
-    const forced = { activeTools: ["validate_build"], toolChoice: { type: "tool", toolName: "validate_build" } };
+    const forced = { toolChoice: { type: "tool", toolName: "validate_build" } };
     const required = { toolChoice: "required" };
     expect(forcePresentDirectives(core, 10)).toEqual(required);
     expect(forcePresentDirectives(core, 11)).toEqual(forced);
@@ -112,13 +112,16 @@ describe("late-turn research gate", () => {
     expect(forcePresentDirectives([call("search_products", { category: "ram" })], 1)).toEqual({});
   });
 
-  it("forces validate_build before step 12 once every core category is searched and a search repeats", () => {
+  it("forces validate_build before step 12 on a repeat with equal/smaller limit, while allowing a wider limit", () => {
     const search = (category: string) => ({ toolCalls: [{ toolName: "search_products", toolCallId: category, input: { category, limit: 5 } }] });
     const core = ["cpu", "motherboard", "ram", "storage", "psu", "case"].map(search);
     expect(forcePresentDirectives(core, 2)).toEqual({ toolChoice: "required" });
-    const forced = { activeTools: ["validate_build"], toolChoice: { type: "tool", toolName: "validate_build" } };
-    // The same cpu search again (limit aside) is a repeat.
-    const repeat = { toolCalls: [{ toolName: "search_products", toolCallId: "again", input: { limit: 12, category: "cpu" } }] };
+    const forced = { toolChoice: { type: "tool", toolName: "validate_build" } };
+    // Widening limit (5 -> 12) fetches more candidates and is NOT a repeat.
+    const widened = { toolCalls: [{ toolName: "search_products", toolCallId: "wider", input: { limit: 12, category: "cpu" } }] };
+    expect(forcePresentDirectives([...core, widened], 2)).toEqual({ toolChoice: "required" });
+    // Same-or-smaller limit (5 -> 5 or 5 -> 3) IS a repeat and forces validate_build without changing activeTools.
+    const repeat = { toolCalls: [{ toolName: "search_products", toolCallId: "again", input: { limit: 3, category: "cpu" } }] };
     expect(forcePresentDirectives([...core, repeat], 2)).toEqual(forced);
     // A repeat before every core category is searched doesn't force.
     expect(forcePresentDirectives([...core.slice(1), search("ram"), search("ram")], 3)).toEqual({});
@@ -143,7 +146,7 @@ describe("late-turn research gate", () => {
     stepsUsed = 6;
     // Same filters in another key order and limit: a repeat of step 4.
     const repeat = await run({ limit: 5, term: "Ryzen 5 5600", category: "cpu" });
-    expect(repeat).toEqual({ results: [], search_closed: true, message: repeatedSearchMessage(4) });
+    expect(repeat).toEqual({ results: [], search_closed: true, repeated: true, message: repeatedSearchMessage(4) });
     expect(repeatedSearchMessage(6, ["acb6ac64b6 AMD Ryzen 5 5600 9800"])).toBe(
       "Same call as step 6. Its top results: acb6ac64b6 AMD Ryzen 5 5600 9800. Pick from these or the rest of its results earlier in this turn, or change the filters."
     );
@@ -286,7 +289,7 @@ describe("late-turn research gate", () => {
     });
   });
 
-  it("recognizes a 6-category batch search in forcePresentDirectives", () => {
+  it("recognizes a 6-category batch search in forcePresentDirectives without mutating activeTools", () => {
     const batch = {
       toolCalls: [
         {
@@ -307,9 +310,156 @@ describe("late-turn research gate", () => {
     };
     expect(forcePresentDirectives([batch], 1)).toEqual({ toolChoice: "required" });
     expect(forcePresentDirectives([batch], 11)).toEqual({
-      activeTools: ["validate_build"],
       toolChoice: { type: "tool", toolName: "validate_build" }
     });
+  });
+
+  it("does not count truncated (9th) or rejected mixed batch queries toward core category coverage", () => {
+    const truncated = {
+      toolCalls: [
+        {
+          toolName: "search_products",
+          toolCallId: "b-trunc",
+          input: {
+            queries: [
+              { category: "cpu" },
+              { category: "cpu" },
+              { category: "motherboard" },
+              { category: "ram" },
+              { category: "storage" },
+              { category: "psu" },
+              { category: "gpu" },
+              { category: "cooler" },
+              { category: "case" }
+            ]
+          }
+        }
+      ]
+    };
+    // `case` was 9th (never executed), so only 5 core categories ran and validate_build must NOT be forced.
+    expect(forcePresentDirectives([truncated], 2)).toEqual({});
+
+    const rejectedMixed = {
+      toolCalls: [
+        {
+          toolName: "search_products",
+          toolCallId: "b-mixed",
+          input: {
+            category: "cpu",
+            queries: [
+              { category: "cpu" },
+              { category: "motherboard" },
+              { category: "ram" },
+              { category: "storage" },
+              { category: "psu" },
+              { category: "case" }
+            ]
+          }
+        }
+      ],
+      toolResults: [
+        { toolCallId: "b-mixed", toolName: "search_products", output: { batch: true, searches: [], error: "Cannot combine" } }
+      ]
+    };
+    expect(forcePresentDirectives([rejectedMixed], 2)).toEqual({});
+  });
+
+  it("deduplicates batch calls even with a harmless unknown top-level field, and allows widening limit after a narrower search", async () => {
+    const batchSearch = vi.fn(async (input: { queries?: Array<{ category?: string; limit?: number }> }) => ({
+      batch: true,
+      searches: (input.queries ?? []).map((q, i) => ({
+        label: q.category ?? `search_${i + 1}`,
+        ...(q.category ? { category: q.category } : {}),
+        results: [{ id: `${q.category ?? "x"}-${q.limit ?? 12}-1234567890`, name: `${q.category} part`, price: 1000 }]
+      }))
+    }));
+    const tools = {
+      search_products: { inputSchema: {}, execute: batchSearch },
+      validate_build: { inputSchema: {}, execute: vi.fn(async () => ({ valid: true })) }
+    } as unknown as ToolSet;
+    const gated = gateResearchTools(tools, () => null, { validated: () => false, stepsUsed: () => 0 });
+    const run = (input: unknown) => (gated.search_products.execute as Exec)(input, {});
+
+    // Unknown top-level field must NOT bypass dedupe.
+    await run({ queries: [{ category: "cpu", limit: 6 }, { category: "gpu", limit: 6 }], harmless_extra: "ignored" });
+    const dup = (await run({ queries: [{ category: "cpu", limit: 6 }, { category: "gpu", limit: 6 }], harmless_extra: "ignored" })) as {
+      search_closed?: boolean;
+    };
+    expect(dup.search_closed).toBe(true);
+    expect(batchSearch).toHaveBeenCalledTimes(1);
+
+    // Widening CPU search from limit 6 to limit 12 MUST run rather than being blocked as a repeat.
+    const widened = (await run({ queries: [{ category: "cpu", limit: 12 }] })) as {
+      batch: boolean;
+      searches: Array<{ search_closed?: boolean; results: Array<{ id: string }> }>;
+    };
+    expect(batchSearch).toHaveBeenCalledTimes(2);
+    expect(widened.searches[0].search_closed).toBeUndefined();
+    expect(widened.searches[0].results[0].id).toContain("cpu-12");
+  });
+
+  it("unwraps and preserves MCP CallToolResult envelopes in gateResearchTools for partly repeated batches", async () => {
+    const { mcpModelOutput } = await import("@/lib/alexa/mcp-tools");
+    const mcpSearch = vi.fn(async (input: { queries?: Array<{ category?: string }> }) => {
+      const domain = {
+        batch: true,
+        searches: (input.queries ?? []).map((q, i) => ({
+          label: q.category ?? `search_${i + 1}`,
+          ...(q.category ? { category: q.category } : {}),
+          results: [
+            {
+              id: `${q.category ?? "x"}_0123456789abcdefghijklmnopqrstuvwxyz`,
+              name: `${q.category} part`,
+              category: q.category ?? "cpu",
+              price: 5000,
+              currency: "INR",
+              country_code: "IN",
+              retailer: "Shop",
+              url: "https://example.com/long-url",
+              in_stock: true
+            }
+          ]
+        }))
+      };
+      return {
+        content: [{ type: "text", text: JSON.stringify(domain) }],
+        structuredContent: domain
+      };
+    });
+    const tools = {
+      search_products: {
+        inputSchema: {},
+        execute: mcpSearch,
+        toModelOutput: ({ input, output }: { input: unknown; output: unknown }) =>
+          mcpModelOutput("search_products", input, output as never)
+      }
+    } as unknown as ToolSet;
+
+    const gated = gateResearchTools(tools, () => null, { validated: () => false, stepsUsed: () => 0 });
+    const run = (input: unknown) => (gated.search_products.execute as Exec)(input, {});
+    const toModel = (output: unknown) => (gated.search_products.toModelOutput as ToModel)({ input: {}, output });
+
+    await run({ queries: [{ category: "cpu" }] });
+    const second = (await run({ queries: [{ category: "cpu" }, { category: "gpu" }] })) as {
+      content: Array<{ type: string; text: string }>;
+      structuredContent: { batch: boolean; searches: Array<{ search_closed?: boolean; message?: string; results: Array<{ id: string }> }> };
+    };
+    // Preserves one valid CallToolResult envelope with merged per-slot repeat notice.
+    expect(Array.isArray(second.content)).toBe(true);
+    expect(second.structuredContent.batch).toBe(true);
+    expect(second.structuredContent.searches[0].search_closed).toBe(true);
+    expect(second.structuredContent.searches[0].message).toContain("Same call as step 1");
+    expect(second.structuredContent.searches[1].results[0].id).toHaveLength(40);
+
+    // Model view trims batch rows to 10-char IDs and drops URLs while keeping per-slot repeat notices.
+    const modelOut = (await toModel(second)) as {
+      type: string;
+      value: { batch: boolean; searches: Array<{ search_closed?: boolean; message?: string; results: Array<Record<string, unknown>> }> };
+    };
+    expect(modelOut.value.batch).toBe(true);
+    expect(modelOut.value.searches[0].search_closed).toBe(true);
+    expect(modelOut.value.searches[1].results[0].id).toHaveLength(10);
+    expect(modelOut.value.searches[1].results[0]).not.toHaveProperty("url");
   });
 });
 

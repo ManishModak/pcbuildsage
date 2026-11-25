@@ -87,16 +87,43 @@ function summarize(name: string, part: ToolPart): string {
   }
   if (name === "search_products") {
     if (output.batch === true && Array.isArray(output.searches)) {
-      const searches = output.searches as Array<{ category?: unknown; results?: unknown[] }>;
-      const totalParts = searches.reduce(
-        (sum, entry) => sum + (Array.isArray(entry?.results) ? entry.results.length : 0),
-        0
+      const searches = output.searches as Array<{
+        category?: unknown;
+        results?: unknown[];
+        error?: unknown;
+        search_closed?: unknown;
+      }>;
+      const completed = searches.filter(
+        (entry) => entry && typeof entry.error !== "string" && entry.search_closed !== true
       );
-      const hasCategories = searches.some((entry) => typeof entry?.category === "string" && entry.category.length > 0);
-      const unit = hasCategories
-        ? searches.length === 1 ? "category" : "categories"
-        : searches.length === 1 ? "query" : "queries";
-      return `Searched ${searches.length} ${unit} · ${totalParts} part${totalParts === 1 ? "" : "s"}`;
+      if (completed.length === 0) {
+        return typeof output.error === "string" ? "error" : "0 results";
+      }
+      const seenIds = new Set<string>();
+      let anonRows = 0;
+      const categories = new Set<string>();
+      let allCategorized = true;
+      for (const entry of completed) {
+        const cat = typeof entry.category === "string" ? entry.category.trim().toLowerCase() : "";
+        if (cat) categories.add(cat);
+        else allCategorized = false;
+        if (Array.isArray(entry.results)) {
+          for (const row of entry.results) {
+            const id =
+              row && typeof row === "object" && typeof (row as { id?: unknown }).id === "string"
+                ? (row as { id: string }).id
+                : null;
+            if (id) seenIds.add(id);
+            else anonRows += 1;
+          }
+        }
+      }
+      const totalParts = seenIds.size + anonRows;
+      const distinctCategories = allCategorized && categories.size === completed.length;
+      const unit = distinctCategories
+        ? completed.length === 1 ? "category" : "categories"
+        : completed.length === 1 ? "query" : "queries";
+      return `Searched ${completed.length} ${unit} · ${totalParts} part${totalParts === 1 ? "" : "s"}`;
     }
     const results = Array.isArray(output.results) ? output.results : [];
     return `${results.length} result${results.length === 1 ? "" : "s"}`;

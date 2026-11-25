@@ -60,4 +60,51 @@ describe("rememberFoundParts", () => {
     expect(out.value.builds).toEqual(value.builds);
     expect(execute).toHaveBeenCalledTimes(2);
   });
+
+  it("remembers candidates from batch searches and freezes per-call reminders for stable replay", async () => {
+    const validateOutput = { builds: { A: { valid: true, missing_parts: ["cpu", "ram"] } } };
+    const searchExecute = vi
+      .fn()
+      .mockResolvedValueOnce({
+        batch: true,
+        searches: [
+          { label: "cpu", category: "cpu", results: cpuRows },
+          { label: "gpu", category: "gpu", results: [{ id: "g111111111aaaa", name: "RTX 4070", price: 55000 }] }
+        ]
+      })
+      .mockResolvedValueOnce({
+        batch: true,
+        searches: [{ label: "ram", category: "ram", results: [{ id: "r111111111aaaa", name: "16GB DDR5", price: 5000 }] }]
+      });
+    const tools = rememberFoundParts({
+      search_products: { inputSchema: {}, execute: searchExecute },
+      validate_build: {
+        inputSchema: {},
+        execute: vi.fn(async () => validateOutput),
+        toModelOutput: async () => ({ type: "json", value: validateOutput })
+      }
+    } as unknown as ToolSet);
+
+    await (tools.search_products.execute as Exec)({ queries: [{ category: "cpu" }, { category: "gpu" }] }, {});
+    await (tools.validate_build.execute as Exec)({ builds: [{ label: "A", parts: {} }] }, { toolCallId: "v-batch" });
+    const firstView = await (tools.validate_build.toModelOutput as unknown as (a: { toolCallId: string; output: unknown }) => Promise<{ value: Record<string, unknown> }>)({
+      toolCallId: "v-batch",
+      output: validateOutput
+    });
+    expect(firstView.value.found_earlier).toEqual({
+      cpu: [
+        { id: "9df61d0c3d", name: "AMD Ryzen 5 5600G", price: 14090 },
+        { id: "7325298fc2", name: "AMD Ryzen 3 3200G", price: 6500 },
+        { id: "93fee6d861", name: "AMD Athlon 3000G", price: 4000 }
+      ]
+    });
+
+    // A later RAM search must NOT mutate the earlier v-batch tool result on replay.
+    await (tools.search_products.execute as Exec)({ queries: [{ category: "ram" }] }, {});
+    const replayedView = await (tools.validate_build.toModelOutput as unknown as (a: { toolCallId: string; output: unknown }) => Promise<{ value: Record<string, unknown> }>)({
+      toolCallId: "v-batch",
+      output: validateOutput
+    });
+    expect(replayedView.value).toEqual(firstView.value);
+  });
 });

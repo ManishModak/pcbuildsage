@@ -15,8 +15,8 @@ import {
   hasSuccessfulValidation,
   holdFollowupsUntilPresented,
   pushForNearBudgetPresent,
-  isResearchClosed,
-  researchClosedInstruction,
+  isLateTurnResearchClosed,
+  mustCallValidateFirst,
   stepsLeftAfter,
   stopAfterFollowups
 } from "./turn-policy";
@@ -255,6 +255,8 @@ export async function streamChat(
   // tool's toModelOutput (the trimmed model view), not the full UI output.
   // Set by prepareStep: steps left while late-turn research is closed, else null.
   let researchClosedStepsLeft: number | null = null;
+  // Set by prepareStep: true when turn policy forces validate_build before further research.
+  let turnValidateFirstForced = false;
   // Set by prepareStep for the research gate's "validate next" note.
   let turnValidated = false;
   let turnValidateCalled = false;
@@ -275,6 +277,7 @@ export async function streamChat(
   const tools = gateResearchTools(registry, () => researchClosedStepsLeft, {
     validated: () => turnValidated,
     validateCalled: () => turnValidateCalled,
+    validateFirstForced: () => turnValidateFirstForced,
     stepsUsed: () => turnStepsUsed
   });
   const capped = capMessages(messages);
@@ -391,16 +394,13 @@ export async function streamChat(
     prepareStep: async ({ steps, stepNumber, messages: currentMessages }) => {
       const currentStep = typeof stepNumber === "number" ? stepNumber : steps.length;
       // A validated turn must end with present_build, never with a text reply.
-      const forced = forcePresentDirectives(steps, currentStep);
+      const directives = forcePresentDirectives(steps, currentStep);
       followupsHeld = buildPending(steps);
-      researchClosedStepsLeft = isResearchClosed(steps, currentStep) ? stepsLeftAfter(currentStep) : null;
+      researchClosedStepsLeft = isLateTurnResearchClosed(steps, currentStep) ? stepsLeftAfter(currentStep) : null;
+      turnValidateFirstForced = mustCallValidateFirst(steps, currentStep);
       turnValidated = hasSuccessfulValidation(steps) || hasPresentedBuild(steps);
       turnValidateCalled = (steps ?? []).some((step) => (step?.toolCalls ?? []).some((call) => call?.toolName === "validate_build"));
       turnStepsUsed = currentStep;
-      // Tell the model research is closed instead of silently narrowing tools.
-      const directives = researchClosedStepsLeft === null
-        ? forced
-        : { ...forced, instructions: systemPrompt + researchClosedInstruction(researchClosedStepsLeft) };
       const currentTokens = calculateStepTokens({
         steps,
         currentMessages,

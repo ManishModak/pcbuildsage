@@ -229,4 +229,63 @@ describe("prompt prefix across a turn", () => {
       await repo.close();
     }
   });
+
+  it("keeps tools, system, and message prefix invariant even across repeated sub-queries that force validate_build", async () => {
+    const repo = seedCatalog();
+    try {
+      const chain = [{ provider: "openai-compatible" as const, model: "m", baseUrl: "http://127.0.0.1:1/v1", keySource: "none" as const, contextLimit: 131072 }];
+      const config = {
+        ...resolveConfig({ llmChain: chain, chatLlmChain: chain, subagentLlmChain: chain, dbPath: ":memory:", countryCode: "IN", currency: "INR", searchProvider: "none" }),
+        dbPath: ""
+      };
+      const realTools = createToolRegistry(config, { repository: repo, requireCatalogParts: false });
+
+      state.script = [
+        [
+          call("b1", "search_products", {
+            queries: [
+              { category: "cpu" },
+              { category: "motherboard" },
+              { category: "ram" },
+              { category: "storage" },
+              { category: "psu" },
+              { category: "case" }
+            ]
+          })
+        ],
+        // Repeat CPU sub-query triggers mustCallValidateFirst -> forced validate_build on step 3.
+        [call("b2", "search_products", { queries: [{ category: "cpu" }, { category: "gpu" }] })],
+        [
+          call("v1", "validate_build", {
+            budget: 35000,
+            builds: [
+              {
+                label: "Within budget",
+                parts: {
+                  cpu: { product_id: "1111111111" },
+                  motherboard: { product_id: "2222222222" },
+                  ram: { product_id: "3333333333" },
+                  storage: { product_id: "4444444444" },
+                  psu: { product_id: "5555555555" },
+                  case: { product_id: "6666666666" }
+                }
+              }
+            ]
+          })
+        ],
+        [
+          ...text("Here is your office build under ₹35,000."),
+          call("p1", "present_build", { builds: [{ label: "Within budget" }], followups: ["Add a GPU later"] })
+        ]
+      ];
+
+      const result = await streamChat(config, [{ role: "user", content: "Office PC under ₹35,000" }], undefined, undefined, null, undefined, { tools: realTools });
+      for await (const part of result.fullStream) void part;
+
+      expect(state.requests).toHaveLength(4);
+      expectStrictAppendOnlyPrompts(state.requests);
+    } finally {
+      await repo.close();
+    }
+  });
 });

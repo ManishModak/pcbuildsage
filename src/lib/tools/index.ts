@@ -1,7 +1,7 @@
 import type { ToolSet } from "ai";
 import type { AppConfig } from "@/types";
 import type { CatalogRepository } from "@/lib/catalog";
-import { createSearchProductsTool } from "./search-products";
+import { createSearchProductsTool, extractSearchResultEntries } from "./search-products";
 import { createListModelsTool } from "./list-models";
 import { createValidateBuildTool } from "./validate-build";
 import { createPresentBuildTool } from "./present-build";
@@ -46,13 +46,8 @@ export function createToolRegistry(
       ...search,
       execute: async (input, ctx) => {
         const output = await search.execute!(input, ctx);
-        const out = output as {
-          results?: Array<{ id?: unknown; category?: unknown }>;
-          searches?: Array<{ category?: unknown; results?: Array<{ id?: unknown; category?: unknown }> }>;
-        };
-        recordFoundRows(found, out?.results);
-        for (const sub of out?.searches ?? []) {
-          recordFoundRows(found, sub?.results, sub?.category);
+        for (const entry of extractSearchResultEntries(input, output)) {
+          recordFoundRows(found, entry.results as ReadonlyArray<{ id?: unknown; category?: unknown }>, entry.category);
         }
         return output;
       }

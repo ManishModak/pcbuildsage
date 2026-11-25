@@ -23,9 +23,12 @@ export const sortFieldSchema = z.enum(["price", "name", "retailer", "last_scrape
 
 export const MAX_BATCH_QUERIES = 8;
 const SINGLE_DEFAULT_LIMIT = 12;
-const BATCH_DEFAULT_LIMIT = 6;
+const BATCH_DEFAULT_LIMIT = 12;
+const BATCH_CONCURRENCY = 4;
 
-function buildSearchFilterShape(compact = false) {
+function buildSearchFilterShape(options?: { withDefaults?: boolean; compact?: boolean }) {
+  const withDefaults = options?.withDefaults ?? true;
+  const compact = options?.compact ?? false;
   const d = <T extends z.ZodType>(schema: T, desc: string): T => (compact ? schema : schema.describe(desc));
   return {
     term: d(
@@ -63,7 +66,7 @@ function buildSearchFilterShape(compact = false) {
     ),
     retailer: d(z.string().optional(), "Retailer name to match exactly or partially."),
     in_stock: d(
-      z.boolean().default(true),
+      withDefaults ? z.boolean().default(true) : z.boolean().optional(),
       "Defaults to true: only products currently marked in stock, which is what a build should be assembled from. Pass false only to inspect rows a re-scrape retired, for example when the user asks what happened to a part they were looking at."
     ),
     socket: d(
@@ -123,36 +126,43 @@ function buildSearchFilterShape(compact = false) {
       z.union([z.enum(["asc", "desc"]), sortFieldSchema]).optional(),
       "Sort direction. Omit it for a price search to get results spread across the whole matching price range, cheapest to priciest: the usual choice. 'asc' shows only the cheapest matches, 'desc' only the priciest. A sort field passed here (e.g. 'price') is treated as sort_by when sort_by isn't set. Price order describes price only, not performance ranking."
     ),
-    limit: compact
-      ? z.number().int().positive().default(BATCH_DEFAULT_LIMIT).describe("Max results (default 6, max 12).")
-      : z
-          .number()
-          .int()
-          .positive()
-          .default(SINGLE_DEFAULT_LIMIT)
-          .describe("Maximum result count. Defaults to 12 (showing up to 12 results—the maximum per search).")
+    limit: d(
+      withDefaults ? z.number().int().positive().default(SINGLE_DEFAULT_LIMIT) : z.number().int().positive().optional(),
+      "Maximum result count. Defaults to 12 (showing up to 12 results—the maximum per search)."
+    )
   };
 }
 
-const singleSearchShape = buildSearchFilterShape(false);
-// Allow unknown fields inside sub-queries during schema validation so searchProducts can drop & report them per sub-query.
-export const batchSubQuerySchema = z.object(buildSearchFilterShape(true)).passthrough();
+const singleSearchShape = buildSearchFilterShape({ withDefaults: true, compact: false });
+const optionalSingleSearchShape = buildSearchFilterShape({ withDefaults: false, compact: false });
 
-export const searchProductsInputSchema = z
+// Allow unknown fields inside sub-queries during schema validation so searchProducts can drop & report them per sub-query.
+export const batchSubQuerySchema = z.object(buildSearchFilterShape({ withDefaults: true, compact: false })).passthrough();
+
+/** Public flat single-query schema (kept with defaults for direct callers and schema contract tests). */
+export const searchProductsInputSchema = z.object(singleSearchShape).strict();
+
+/**
+ * Tool validation schema: accepts canonical `{ queries: [...] }` as well as legacy flat single-query
+ * objects, without applying top-level `limit`/`in_stock` defaults that would hide mixed-input errors.
+ */
+const toolSearchInputSchema = z
   .object({
-    ...singleSearchShape,
+    ...optionalSingleSearchShape,
     queries: z
       .array(batchSubQuerySchema)
+      .min(1)
+      .max(MAX_BATCH_QUERIES)
       .optional()
       .describe(
-        "Optional batch of 1-8 independent sub-queries to run in parallel (each accepts the same filter fields, default limit 6). Do not combine with top-level filters."
+        "1 to 8 independent catalog searches to run in one call (use a 1-item array for a single search). Do not combine with top-level filters."
       )
   })
   .strict();
 
-export type SingleSearchProductsInput = z.input<z.ZodObject<typeof singleSearchShape>>;
+export type SingleSearchProductsInput = z.input<typeof searchProductsInputSchema>;
 export type BatchSubQueryInput = z.input<typeof batchSubQuerySchema>;
-export type SearchProductsInput = z.input<typeof searchProductsInputSchema>;
+export type SearchProductsInput = SingleSearchProductsInput & { queries?: BatchSubQueryInput[] };
 export type BatchSearchProductsInput = { queries: BatchSubQueryInput[] } & Record<string, unknown>;
 
 /** Cheapest in-stock listing for the same filters once the price bounds are dropped. */
@@ -200,10 +210,93 @@ export type SearchProductsScope = CatalogScope & {
 };
 
 export const validFilters = Object.keys(singleSearchShape);
-const validTopLevelKeys = Object.keys(searchProductsInputSchema.shape);
-const nonDefaultFilterKeys = validFilters.filter((key) => key !== "in_stock" && key !== "limit");
+const validTopLevelKeys = Object.keys(toolSearchInputSchema.shape);
 
-/** Coerce stringified `queries` arrays and sub-query scalar fields before Zod validation. */
+export type NormalizedSearchCall =
+  | { kind: "batch"; queries: unknown[]; truncated: boolean; ignored: string[] }
+  | { kind: "single"; query: SingleSearchProductsInput; ignored: string[] }
+  | { kind: "invalid"; error: string; ignored: string[] };
+
+/**
+ * Normalizes raw `search_products` input once so execution, dedupe, and turn
+ * policy agree on mixed top-level filters, unknown fields, and the 8-query cap.
+ */
+export function normalizeSearchCallQueries(rawInput: unknown): NormalizedSearchCall {
+  if (!rawInput || typeof rawInput !== "object" || Array.isArray(rawInput)) {
+    return { kind: "invalid", error: "Invalid search_products input: expected a JSON object.", ignored: [] };
+  }
+  const { known, ignored } = splitUnknownFields(rawInput as Record<string, unknown>, validTopLevelKeys);
+  if (known.queries !== undefined) {
+    // Any explicit known filter key at the top level (including limit or in_stock) is invalid alongside `queries`.
+    const mixed = validFilters.filter((key) => known[key] !== undefined);
+    if (mixed.length > 0) {
+      return {
+        kind: "invalid",
+        error: `Cannot combine 'queries' with top-level filter field(s): ${mixed.join(", ")}. Put each search's filters inside its object in 'queries'.`,
+        ignored
+      };
+    }
+    if (!Array.isArray(known.queries) || known.queries.length === 0) {
+      return {
+        kind: "invalid",
+        error: `queries must contain 1 to ${MAX_BATCH_QUERIES} sub-queries.`,
+        ignored
+      };
+    }
+    return {
+      kind: "batch",
+      queries: known.queries.slice(0, MAX_BATCH_QUERIES),
+      truncated: known.queries.length > MAX_BATCH_QUERIES,
+      ignored
+    };
+  }
+  return { kind: "single", query: known as SingleSearchProductsInput, ignored };
+}
+
+/** Shared search-result entry traversal for single, batch, and MCP CallToolResult outputs. */
+export function extractSearchResultEntries(
+  input: unknown,
+  output: unknown
+): Array<{ category?: string; results: Array<Record<string, unknown>> }> {
+  let domain = output;
+  if (domain && typeof domain === "object") {
+    const obj = domain as Record<string, unknown>;
+    if ("value" in obj) domain = obj.value;
+    else if (Array.isArray(obj.content) && obj.structuredContent && typeof obj.structuredContent === "object") {
+      domain = obj.structuredContent;
+    }
+  }
+  if (!domain || typeof domain !== "object") return [];
+  const obj = domain as Record<string, unknown>;
+  if (obj.batch === true && Array.isArray(obj.searches)) {
+    const entries: Array<{ category?: string; results: Array<Record<string, unknown>> }> = [];
+    for (const sub of obj.searches) {
+      if (!sub || typeof sub !== "object") continue;
+      const entry = sub as Record<string, unknown>;
+      if (typeof entry.error === "string" || entry.search_closed === true) continue;
+      if (!Array.isArray(entry.results)) continue;
+      const category = typeof entry.category === "string" && entry.category.trim() ? entry.category.trim().toLowerCase() : undefined;
+      entries.push({
+        ...(category ? { category } : {}),
+        results: entry.results.filter((r): r is Record<string, unknown> => Boolean(r) && typeof r === "object")
+      });
+    }
+    return entries;
+  }
+  if (typeof obj.error === "string" || obj.search_closed === true || !Array.isArray(obj.results)) return [];
+  const inputCategory =
+    input && typeof input === "object" && typeof (input as { category?: unknown }).category === "string"
+      ? (input as { category: string }).category.trim().toLowerCase()
+      : undefined;
+  return [
+    {
+      ...(inputCategory ? { category: inputCategory } : {}),
+      results: obj.results.filter((r): r is Record<string, unknown> => Boolean(r) && typeof r === "object")
+    }
+  ];
+}
+
+/** Coerce stringified `queries` arrays and bounded sub-query scalar fields before Zod validation. */
 function prepareBatchInput(raw: Record<string, unknown>): Record<string, unknown> {
   if (raw.queries === undefined) return raw;
   let queries: unknown = raw.queries;
@@ -216,6 +309,10 @@ function prepareBatchInput(raw: Record<string, unknown>): Record<string, unknown
     }
   }
   if (!Array.isArray(queries)) return { ...raw, queries };
+  // Enforce the array bound BEFORE per-item coercion/validation so huge arrays fail in O(1).
+  if (queries.length > MAX_BATCH_QUERIES) {
+    return { ...raw, queries: Array.from({ length: MAX_BATCH_QUERIES + 1 }, () => ({})) };
+  }
   return {
     ...raw,
     queries: queries.map((item) =>
@@ -226,22 +323,49 @@ function prepareBatchInput(raw: Record<string, unknown>): Record<string, unknown
   };
 }
 
-/** Keep `additionalProperties: false` on `queries.items` in the JSON schema sent to providers. */
-function setStrictBatchItemSchema(schema: Record<string, unknown>): Record<string, unknown> {
+/**
+ * Emit one canonical `{ queries: [...] }` JSON Schema for providers so the 25 filter
+ * descriptions are never duplicated, while keeping flat single-query inputs valid at
+ * the compatibility boundary.
+ */
+function buildCanonicalBatchProviderSchema(schema: Record<string, unknown>): Record<string, unknown> {
   const props = schema.properties as Record<string, Record<string, unknown>> | undefined;
   const queriesProp = props?.queries;
   const items = queriesProp?.items as Record<string, unknown> | undefined;
-  if (!items || typeof items !== "object") return schema;
+  if (!queriesProp || !items || typeof items !== "object") return schema;
+  const rest = { ...schema };
+  delete rest.required;
   return {
-    ...schema,
+    ...rest,
+    type: "object",
     properties: {
-      ...props,
       queries: {
         ...queriesProp,
+        minItems: 1,
+        maxItems: MAX_BATCH_QUERIES,
         items: { ...items, additionalProperties: false }
       }
+    },
+    additionalProperties: false
+  };
+}
+
+/** Run async work over `items` with bounded concurrency, preserving index order. */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const runWorker = async () => {
+    while (nextIndex < items.length) {
+      const idx = nextIndex++;
+      results[idx] = await worker(items[idx], idx);
     }
   };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, runWorker));
+  return results;
 }
 
 /** Trim a single search result to the model-facing view with 10-char ID prefixes. */
@@ -281,15 +405,15 @@ export function createSearchProductsTool(
 ) {
   return tool({
     description:
-      "Use search_products to find purchasable PC parts from the local catalog. Use it for component candidates and price comparisons; do not use it for compatibility verdicts or web research. Results are in-stock only unless you pass in_stock: false. Pass `queries: [...]` (up to 8) to search multiple categories in one call, or top-level filters for a single search. Example: {\"category\":\"case\",\"min_gpu_clearance_mm\":320}.",
-    inputSchema: lenientToolSchema(searchProductsInputSchema, "search_products", undefined, prepareBatchInput, setStrictBatchItemSchema),
+      "Use search_products to find purchasable PC parts from the local catalog. Use it for component candidates and price comparisons; do not use it for compatibility verdicts or web research. Results are in-stock only unless you pass in_stock: false. Pass `queries: [...]` (1 to 8 sub-queries) to search one or multiple categories in one call. Example: {\"queries\":[{\"category\":\"cpu\",\"socket\":\"AM5\"},{\"category\":\"case\",\"min_gpu_clearance_mm\":320}]}.",
+    inputSchema: lenientToolSchema(toolSearchInputSchema, "search_products", undefined, prepareBatchInput, buildCanonicalBatchProviderSchema),
     toModelOutput: async ({ input, output }) => {
       if (output && typeof output === "object" && (output as { batch?: unknown }).batch === true && Array.isArray((output as { searches?: unknown }).searches)) {
         return { type: "json", value: toModelBatchSearchResult(output as BatchSearchProductsToolResult) } as never;
       }
       return { type: "json", value: toModelSingleOutput(output as SearchProductsToolResult, (input as { category?: string } | undefined)?.category) } as never;
     },
-    execute: async (input) => searchProducts(input, scope, repository ?? scope.repository)
+    execute: async (input) => searchProducts(input as SearchProductsInput, scope, repository ?? scope.repository)
   });
 }
 
@@ -334,57 +458,51 @@ export async function searchProducts(
   scope: SearchProductsScope,
   repository?: CatalogRepository
 ): Promise<SearchProductsOutput> {
-  const { known: input, ignored } = splitUnknownFields(rawInput, validTopLevelKeys);
-  if (input.queries !== undefined) {
-    const result = await runBatchSearch(input, scope, repository);
-    if (ignored.length > 0) {
-      const note = ignoredFieldsNote(ignored, validFilters);
-      result.ignored_fields = ignored;
+  const normalized = normalizeSearchCallQueries(rawInput);
+  if (normalized.kind === "invalid") {
+    const out: BatchSearchProductsToolResult = {
+      batch: true,
+      searches: [],
+      results: [],
+      error: normalized.error
+    };
+    if (normalized.ignored.length > 0) {
+      const note = ignoredFieldsNote(normalized.ignored, validFilters);
+      out.ignored_fields = normalized.ignored;
+      out.hint = note;
+    }
+    return out;
+  }
+
+  if (normalized.kind === "batch") {
+    const result = await runBatchSearch(normalized.queries, normalized.truncated, scope, repository);
+    if (normalized.ignored.length > 0) {
+      const note = ignoredFieldsNote(normalized.ignored, validFilters);
+      result.ignored_fields = normalized.ignored;
       result.hint = result.hint ? `${note} ${result.hint}` : note;
     }
     return result;
   }
 
-  const result: SearchProductsToolResult = await runSearch(input, scope, repository);
-  if (ignored.length > 0) {
-    const note = ignoredFieldsNote(ignored, validFilters);
-    result.ignored_fields = ignored;
+  const result: SearchProductsToolResult = await runSearch(normalized.query, scope, repository);
+  if (normalized.ignored.length > 0) {
+    const note = ignoredFieldsNote(normalized.ignored, validFilters);
+    result.ignored_fields = normalized.ignored;
     result.hint = result.hint ? `${note} ${result.hint}` : note;
   }
   return result;
 }
 
 async function runBatchSearch(
-  input: SearchProductsInput,
+  capped: unknown[],
+  wasOverBatchLimit: boolean,
   scope: SearchProductsScope,
   repository?: CatalogRepository
 ): Promise<BatchSearchProductsToolResult> {
-  const rawRecord = input as Record<string, unknown>;
-  const mixed = nonDefaultFilterKeys.filter((key) => rawRecord[key] !== undefined);
-  if (rawRecord.in_stock === false) mixed.push("in_stock");
-  if (mixed.length > 0) {
-    return {
-      batch: true,
-      searches: [],
-      results: [],
-      error: `Cannot combine 'queries' with top-level filter field(s): ${mixed.join(", ")}. Put each search's filters inside its object in 'queries'.`
-    };
-  }
-
-  if (!Array.isArray(input.queries) || input.queries.length === 0) {
-    return {
-      batch: true,
-      searches: [],
-      results: [],
-      error: `queries must contain 1 to ${MAX_BATCH_QUERIES} sub-queries.`
-    };
-  }
-
-  const wasOverBatchLimit = input.queries.length > MAX_BATCH_QUERIES;
-  const capped = input.queries.slice(0, MAX_BATCH_QUERIES);
-
-  const searches = await Promise.all(
-    capped.map(async (rawSub, index): Promise<BatchSearchEntry> => {
+  const searches = await mapWithConcurrency(
+    capped,
+    BATCH_CONCURRENCY,
+    async (rawSub, index): Promise<BatchSearchEntry> => {
       if (!rawSub || typeof rawSub !== "object" || Array.isArray(rawSub)) {
         return {
           label: `search_${index + 1}`,
@@ -393,20 +511,32 @@ async function runBatchSearch(
           valid_filters: validFilters
         };
       }
-      const { known: sub, ignored: subIgnored } = splitUnknownFields(rawSub, validFilters);
-      const subResult = await runSearch(sub, scope, repository, BATCH_DEFAULT_LIMIT);
+      const { known: sub, ignored: subIgnored } = splitUnknownFields(rawSub as Record<string, unknown>, validFilters);
+      const typedSub = sub as BatchSubQueryInput;
+      const category = typeof typedSub.category === "string" ? typedSub.category.trim().toLowerCase() : undefined;
+      const label = batchEntryLabel(typedSub, index);
+      let subResult: SearchProductsToolResult;
+      try {
+        subResult = await runSearch(typedSub, scope, repository, BATCH_DEFAULT_LIMIT);
+      } catch (error) {
+        return {
+          label,
+          ...(category ? { category } : {}),
+          results: [],
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
       if (subIgnored.length > 0) {
         const note = ignoredFieldsNote(subIgnored, validFilters);
         subResult.ignored_fields = subIgnored;
         subResult.hint = subResult.hint ? `${note} ${subResult.hint}` : note;
       }
-      const category = typeof sub.category === "string" ? sub.category.trim().toLowerCase() : undefined;
       return {
-        label: batchEntryLabel(sub, index),
+        label,
         ...(category ? { category } : {}),
         ...subResult
       };
-    })
+    }
   );
 
   const out: BatchSearchProductsToolResult = {

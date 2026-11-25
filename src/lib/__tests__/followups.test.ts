@@ -28,4 +28,25 @@ describe("follow-up suggestions", () => {
     expect(getFollowups({ role: "assistant", parts }, "ready")).toEqual(["New"]);
     expect(getFollowups({ role: "assistant", parts: [...parts, suggestion([])] }, "ready")).toEqual([]);
   });
+
+  it("lets a later successful present_build without followups clear chips from an earlier presentation", () => {
+    const firstPresent = {
+      type: "tool-present_build",
+      state: "output-available",
+      output: { presented: true, followups: ["Upgrade this CPU"] }
+    };
+    const revisedPresent = {
+      type: "tool-present_build",
+      state: "output-available",
+      output: { presented: true }
+    };
+    const refusedPresent = {
+      type: "tool-present_build",
+      state: "output-available",
+      output: { presented: false, error: "not validated" }
+    };
+    expect(getFollowups({ role: "assistant", parts: [firstPresent, revisedPresent] }, "ready")).toEqual([]);
+    // A refused presentation does not wipe out the earlier valid presentation's chips.
+    expect(getFollowups({ role: "assistant", parts: [firstPresent, refusedPresent] }, "ready")).toEqual(["Upgrade this CPU"]);
+  });
 });

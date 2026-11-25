@@ -27,6 +27,7 @@ import {
 import { dynamicTool, jsonSchema, type ToolSet } from "ai";
 import { toModelValidateOutput } from "@/lib/tools/validate-build-model-view";
 import { toModelSearchResult } from "@/lib/catalog/compact";
+import { toModelBatchSearchResult, type BatchSearchProductsToolResult } from "@/lib/tools/search-products";
 
 /** Fixed env name per CONTRACT section 4. Read at request time. */
 export const MCP_URL_ENV = "PCBUILDSAGE_MCP_URL";
@@ -190,6 +191,14 @@ export function mcpModelOutput(toolName: string, input: unknown, output: CallToo
     return { type: "json", value: toModelValidateOutput(domain) };
   }
   if (toolName === "search_products") {
+    if (
+      domain &&
+      typeof domain === "object" &&
+      (domain as { batch?: unknown }).batch === true &&
+      Array.isArray((domain as { searches?: unknown }).searches)
+    ) {
+      return { type: "json", value: toModelBatchSearchResult(domain as BatchSearchProductsToolResult) };
+    }
     const value = toModelSearchResult(
       domain as Parameters<typeof toModelSearchResult>[0],
       input as { category?: string }

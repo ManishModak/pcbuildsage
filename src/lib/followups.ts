@@ -5,9 +5,9 @@ export const followupsSchema = z.object({
   prompts: z.array(z.string().trim().min(1)).max(3).describe("Short user prompts for useful, unanswered next steps")
 });
 
-const presentBuildFollowupsSchema = z.object({
+const presentBuildOutputSchema = z.object({
   presented: z.literal(true),
-  followups: z.array(z.string().trim().min(1)).min(1)
+  followups: z.array(z.string().trim().min(1)).optional()
 });
 
 export function isFollowupsPart(part: unknown): boolean {
@@ -27,8 +27,8 @@ export function getFollowups(message: { role: string; parts?: readonly unknown[]
       const result = followupsSchema.safeParse(part.output);
       if (result.success) return [...new Set(result.data.prompts)].slice(0, 3);
     } else if (isPresentBuildPart(part)) {
-      const result = presentBuildFollowupsSchema.safeParse(part.output);
-      if (result.success) return [...new Set(result.data.followups)].slice(0, 3);
+      const result = presentBuildOutputSchema.safeParse(part.output);
+      if (result.success) return result.data.followups ? [...new Set(result.data.followups)].slice(0, 3) : [];
     }
   }
   return [];

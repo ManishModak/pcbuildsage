@@ -100,7 +100,6 @@ describe("present_build outcome across panel, engine and resume state", () => {
     ];
     expect(hasPresentedBuild(steps)).toBe(false);
     expect(forcePresentDirectives(steps, 24)).toEqual({
-      activeTools: ["present_build"],
       toolChoice: { type: "tool", toolName: "present_build" }
     });
     expect(stopAfterFollowups({ steps })).toBe(false);
